@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/*
+  Forgotten Letters — "The War Room at Night"
+  Committed dark, tactical. Steel-blue instrument glow + oxblood counter-voice
+  on a near-black tinted field. Tokens resolved from DESIGN.md.
+  All colors OKLCH. Contrast: ink >=7:1, muted >=4.5:1 vs --color-bg.
+*/
+
+@theme {
+  /* --- Surface (the tactical field carries the mood) --- */
+  --color-bg: oklch(0.16 0.012 250);
+  --color-surface: oklch(0.2 0.014 250);
+  --color-elevated: oklch(0.24 0.016 250);
+  --color-border: oklch(0.32 0.014 250);
+  --color-border-strong: oklch(0.42 0.016 250);
+
+  /* --- Ink --- */
+  --color-ink: oklch(0.95 0.006 250);
+  --color-muted: oklch(0.72 0.014 250);
+  --color-faint: oklch(0.56 0.014 250);
+
+  /* --- Primary: instrument steel-blue --- */
+  --color-primary: oklch(0.65 0.16 250);
+  --color-primary-hover: oklch(0.58 0.15 250);
+  --color-primary-active: oklch(0.52 0.14 250);
+  --color-primary-ink: oklch(0.99 0.005 250);
+  --color-primary-soft: oklch(0.3 0.06 250);
+
+  /* --- Accent: oxblood rust (the rare counter-voice) --- */
+  --color-accent: oklch(0.52 0.14 32);
+  --color-accent-hover: oklch(0.46 0.13 32);
+  --color-accent-ink: oklch(0.98 0.01 60);
+  --color-accent-soft: oklch(0.3 0.07 32);
+
+  /* --- Status --- */
+  --color-success: oklch(0.62 0.13 155);
+  --color-warning: oklch(0.72 0.14 75);
+  --color-danger: oklch(0.55 0.18 25);
+
+  /* --- Radius (restrained; tactical, not soft) --- */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  /* --- Fonts --- */
+  --font-display: var(--font-oswald), "Arial Narrow", sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* --- Motion (responsive, exponential ease-out) --- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle field texture: a faint tactical grid, not decoration you'd notice */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(oklch(0.24 0.016 250 / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.24 0.016 250 / 0.4) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 120% 80% at 50% 0%, black 5%, transparent 70%);
+  }
+
+  ::selection {
+    background-color: var(--color-primary-soft);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

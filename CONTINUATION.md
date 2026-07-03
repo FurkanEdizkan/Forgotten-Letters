@@ -91,10 +91,12 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 - `src/app/(public)/scenarios/page.tsx` — browse: sticky filter rail (search, game-system, player-count, tag pills), sort control, and a responsive grid of `ScenarioCard`s. + `src/app/(public)/scenarios/loading.tsx` skeleton.
 - `src/app/(public)/scenarios/[slug]/page.tsx` — scenario **detail** (SSG via `generateStaticParams` over the mock): tactical map (P1 steel / P2 oxblood zones), briefing prose, section cards, a **mono event table** (the "data is mono" doctrine), and an Intel sidebar. `generateMetadata` per scenario.
 - `src/app/(public)/official/page.tsx` — official content grid (Sanity later). `src/app/(public)/rules/page.tsx` — rules list. Both use mock records.
+- `src/app/(protected)/scenarios/new/page.tsx` — **scenario creation form** (client): tabbed (Basic / Story / Sections / Event Tables / Publish), with live tag chips and add/remove sections. Presentational — wire to Zod + `createScenario` server action in Phase 4. Story tab is a `Textarea` placeholder for the Tiptap editor.
+- `src/app/(protected)/settings/{layout,page,profile}.tsx` — settings shell with sidebar nav (Profile/Account/Storage); `/settings` redirects to `/settings/profile`; Profile page is a working form shell. Account + Storage pages still to build.
 - `src/app/not-found.tsx` — on-theme global 404 ("Sector 404 / Off the map").
 
 ### More primitives / components
-- `src/components/ui/Skeleton.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Avatar.tsx` (initials-based; swap to `next/image` when `avatar_url` exists).
+- `src/components/ui/Skeleton.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Avatar.tsx` (initials-based; swap to `next/image` when `avatar_url` exists), `src/components/ui/Tabs.tsx` (client, context-based).
 - `src/components/social/ScenarioCard.tsx` — tactical dossier tile (map-grid preview, mono stat counts) + its `ScenarioSummary` type.
 - `src/lib/mock/scenarios.ts` — placeholder scenario data + `GAME_SYSTEMS` / `ALL_TAGS`. **Delete once Supabase queries are wired.**
 
@@ -111,10 +113,11 @@ Rendered in headless Chrome and eyeballed — landing, `/scenarios`, and `/login
 **Not yet started (UI shells to build on the token system):**
 - Route-group `error.tsx` files + more `loading.tsx` skeletons (only `/scenarios/loading.tsx` exists).
 - Official + Rules **detail** shells `(public)/official/[slug]`, `(public)/rules/[slug]` (list pages exist; detail pages 404 currently). Campaigns list/detail `(public)/campaigns`.
-- Settings shell `(protected)/settings/*` (sidebar nav: Profile/Account/Storage).
-- Scenario/campaign **form** UI `src/components/scenario-form/*` (tabs — presentational first) and the `(protected)/scenarios/new` + `campaigns/new` pages (nav/CTAs already link to `/scenarios/new`).
-- Public user profile `(public)/user/[username]`.
-- Additional primitives likely needed (`Textarea` + `Skeleton` already exist): `Select`, `Tabs`, `Dialog`, `Toast`, `Avatar`, `DropdownMenu`, `Tooltip`. Build them hand-rolled on the same tokens (or add Radix primitives dep and style them) — **do not** pull in shadcn's default theme. (The browse page currently uses a plain native `<select>` for sort — replace with a styled `Select` when built.)
+- Settings `account` + `storage` pages (the `/settings` layout + `profile` page exist; the other two nav links 404).
+- `(protected)/campaigns/new` + campaign form UI (scenario form exists as the pattern to copy). Extract the scenario-form tabs into `src/components/scenario-form/*` if you want them reusable — currently they live inline in the `/scenarios/new` page.
+- Public user profile `(public)/user/[username]`; campaigns list/detail `(public)/campaigns`.
+- **Auth/route protection:** `(protected)/*` routes are currently public (no `middleware.ts` yet) — Phase 1.5 adds Supabase middleware to gate them.
+- Additional primitives likely needed (`Textarea`, `Skeleton`, `Avatar`, `Tabs` already exist): `Select`, `Dialog`, `Toast`, `DropdownMenu`, `Tooltip`, `Checkbox`. Build them hand-rolled on the same tokens (or add Radix primitives dep and style them) — **do not** pull in shadcn's default theme. (Browse sort + the form selects currently use plain native `<select>` — replace with a styled `Select` when built.)
 
 Design guardrails for all of the above (from `DESIGN.md` §6): no cream/sand surfaces, no gradient text, no `border-left`>1px stripes, no glassmorphism, no identical icon-heading-text card grids, structured/numeric data in the **mono** font, verify contrast on the dark palette, honor `prefers-reduced-motion`.
 

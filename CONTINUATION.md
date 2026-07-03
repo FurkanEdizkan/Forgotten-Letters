@@ -92,8 +92,8 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 - `src/app/(public)/scenarios/[slug]/page.tsx` — scenario **detail** (SSG via `generateStaticParams` over the mock): tactical map (P1 steel / P2 oxblood zones), briefing prose, section cards, a **mono event table** (the "data is mono" doctrine), and an Intel sidebar. `generateMetadata` per scenario.
 - `src/app/(public)/official/page.tsx` — official content grid (Sanity later). `src/app/(public)/rules/page.tsx` — rules list. Both use mock records.
 - `src/app/(protected)/scenarios/new/page.tsx` — **scenario creation form** (client): tabbed (Basic / Story / Sections / Event Tables / Publish), with live tag chips and add/remove sections. Presentational — wire to Zod + `createScenario` server action in Phase 4. Story tab is a `Textarea` placeholder for the Tiptap editor.
-- `src/app/(protected)/settings/{layout,page,profile}.tsx` — settings shell with sidebar nav (Profile/Account/Storage); `/settings` redirects to `/settings/profile`; Profile page is a working form shell. Account + Storage pages still to build.
-- `src/app/not-found.tsx` — on-theme global 404 ("Sector 404 / Off the map").
+- `src/app/(protected)/settings/*` — full settings shell: sidebar-nav `layout`, `/settings`→`/settings/profile` redirect, and **Profile / Account / Storage** pages. Account has a full-border "danger zone" (never a side-stripe). Storage has a steel-blue usage meter + mono file list.
+- `src/app/not-found.tsx` — on-theme global 404 ("Sector 404"). `src/app/error.tsx` — global error boundary (client; wire to Sentry in Phase 8).
 
 ### More primitives / components
 - `src/components/ui/Skeleton.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Avatar.tsx` (initials-based; swap to `next/image` when `avatar_url` exists), `src/components/ui/Tabs.tsx` (client, context-based).
@@ -113,7 +113,7 @@ Rendered in headless Chrome and eyeballed — landing, `/scenarios`, and `/login
 **Not yet started (UI shells to build on the token system):**
 - Route-group `error.tsx` files + more `loading.tsx` skeletons (only `/scenarios/loading.tsx` exists).
 - Official + Rules **detail** shells `(public)/official/[slug]`, `(public)/rules/[slug]` (list pages exist; detail pages 404 currently). Campaigns list/detail `(public)/campaigns`.
-- Settings `account` + `storage` pages (the `/settings` layout + `profile` page exist; the other two nav links 404).
+- Route-group `error.tsx` files are optional now that a global `src/app/error.tsx` exists; add scoped ones only where a nicer local recovery matters.
 - `(protected)/campaigns/new` + campaign form UI (scenario form exists as the pattern to copy). Extract the scenario-form tabs into `src/components/scenario-form/*` if you want them reusable — currently they live inline in the `/scenarios/new` page.
 - Public user profile `(public)/user/[username]`; campaigns list/detail `(public)/campaigns`.
 - **Auth/route protection:** `(protected)/*` routes are currently public (no `middleware.ts` yet) — Phase 1.5 adds Supabase middleware to gate them.

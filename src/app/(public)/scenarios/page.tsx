@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { ScenarioCard } from "@/components/social/ScenarioCard";
 import { Input } from "@/components/ui/Input";
@@ -31,7 +32,7 @@ export default function ScenariosPage() {
           </p>
         </div>
         <Button asChild>
-          <a href="/scenarios/new">Forge a scenario</a>
+          <Link href="/scenarios/new">Forge a scenario</Link>
         </Button>
       </header>
 

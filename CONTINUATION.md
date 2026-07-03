@@ -87,25 +87,32 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 
 ### Pages
 - `src/app/(public)/page.tsx` — landing: war-room hero with a signature "map editor readout" panel (not a stat template), capabilities grid, ordered 01/02/03 build-flow (numbers earned — it's a real sequence), CTA.
+- `src/app/(auth)/{login,register,forgot-password}/page.tsx` — auth UI on a shared `AuthShell` (presentational; wire to Supabase later). Uses `GoogleButton` + `Divider` in `src/components/auth/`.
+- `src/app/(public)/scenarios/page.tsx` — browse: sticky filter rail (search, game-system, player-count, tag pills), sort control, and a responsive grid of `ScenarioCard`s. + `src/app/(public)/scenarios/loading.tsx` skeleton.
+- `src/app/not-found.tsx` — on-theme global 404 ("Sector 404 / Off the map").
+
+### More primitives / components
+- `src/components/ui/Skeleton.tsx`, `src/components/ui/Textarea.tsx`.
+- `src/components/social/ScenarioCard.tsx` — tactical dossier tile (map-grid preview, mono stat counts) + its `ScenarioSummary` type.
+- `src/lib/mock/scenarios.ts` — placeholder scenario data + `GAME_SYSTEMS` / `ALL_TAGS`. **Delete once Supabase queries are wired.**
 
 ### Utility
 - `src/lib/utils/cn.ts` — `clsx` + `tailwind-merge`.
+
+### Visual verification (this session)
+Rendered in headless Chrome and eyeballed — landing, `/scenarios`, and `/login` all render on-brand (dark tactical field, Oswald condensed display, steel-blue primary, oxblood accent, mono data). Reference screenshots saved to `docs/design-preview/{landing,scenarios,login}.png`.
 
 ---
 
 ## 5. Remaining UI (finish these next — still "design parts")
 
-**In progress this session (check whether present before rebuilding):**
-- `src/app/(auth)/login/page.tsx`, `register/page.tsx`, `forgot-password/page.tsx` + a shared `AuthShell` — visual only (no Supabase wiring; forms should be presentational / client with local state, wired to server actions later).
-
 **Not yet started (UI shells to build on the token system):**
-- `not-found.tsx` (global 404) + route-group `error.tsx` / `loading.tsx` skeletons.
-- Browse/search page `src/app/(public)/scenarios/page.tsx` — filter rail, scenario cards, sort. Use `Card interactive`.
+- Route-group `error.tsx` files + more `loading.tsx` skeletons (only `/scenarios/loading.tsx` exists).
 - Scenario detail view shell `scenarios/[slug]/page.tsx` (map area, story, sections, event tables rendered as mono data).
 - Official + Rules list/detail shells `(public)/official`, `(public)/rules`.
 - Settings shell `(protected)/settings/*` (sidebar nav: Profile/Account/Storage).
 - Scenario/campaign **form** UI `src/components/scenario-form/*` (tabs — presentational first).
-- Additional primitives likely needed: `Textarea`, `Select`, `Tabs`, `Dialog`, `Toast`, `Avatar`, `DropdownMenu`, `Skeleton`, `Tooltip`. Build them hand-rolled on the same tokens (or add Radix primitives dep and style them) — **do not** pull in shadcn's default theme.
+- Additional primitives likely needed (`Textarea` + `Skeleton` already exist): `Select`, `Tabs`, `Dialog`, `Toast`, `Avatar`, `DropdownMenu`, `Tooltip`. Build them hand-rolled on the same tokens (or add Radix primitives dep and style them) — **do not** pull in shadcn's default theme. (The browse page currently uses a plain native `<select>` for sort — replace with a styled `Select` when built.)
 
 Design guardrails for all of the above (from `DESIGN.md` §6): no cream/sand surfaces, no gradient text, no `border-left`>1px stripes, no glassmorphism, no identical icon-heading-text card grids, structured/numeric data in the **mono** font, verify contrast on the dark palette, honor `prefers-reduced-motion`.
 

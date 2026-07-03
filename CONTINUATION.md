@@ -1,8 +1,14 @@
 # Continuation Handoff — Forgotten Letters (for Codex)
 
-> **Status:** Design system + frontend UI shell in progress on branch `feat/design-system-ui-shell`.
+> **Status:** Design system + frontend UI shell **substantially built and production-verified** on branch `feat/design-system-ui-shell` (6 feature commits on top of the initial commit). The app installs, typechecks, and builds clean — **26 routes**, all rendering on-brand (verified in headless Chrome; reference screenshots in `docs/design-preview/`). Everything is **presentational** — no backend is wired yet. That's the boundary: the design/UI layer is done to a shippable visual standard; the data layer (Supabase/Sanity/server actions/map editor) is untouched and is your job.
 > This document is the handoff. Read it top to bottom before writing code.
 > Authoritative context files: `PRODUCT.md` (strategy), `DESIGN.md` (visual system), `TODO.md` (full build plan), `README.md` (structure/tech), `docs/Techstack.md`.
+
+## Routes built (all render, all presentational)
+
+`/` · `/login` · `/register` · `/forgot-password` · `/scenarios` · `/scenarios/[slug]` · `/scenarios/new` · `/official` · `/rules` · `/campaigns` · `/user/[username]` · `/settings` → `/settings/{profile,account,storage}` · `not-found` · `error`
+
+**Design system:** OKLCH token set (Tailwind v4 `@theme`) + 9 primitives (Button, Card, Input, Label, Badge, Skeleton, Textarea, Avatar, Tabs) + layout shell (Navbar/Footer/AuthShell) + ScenarioCard + auth helpers.
 
 ---
 

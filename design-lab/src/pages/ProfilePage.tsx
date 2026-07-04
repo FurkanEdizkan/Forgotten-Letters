@@ -1,4 +1,8 @@
+import { useEffect } from "react";
 import { FL } from "../tokens/colors";
+import { reveal, countUp, barFill, splitReveal } from "../lib/motion";
+import { prefersReducedMotion } from "../lib/useInView";
+import { HeroBackdrop } from "../components/art/HeroBackdrop";
 import { Pill } from "../components/primitives/Pill";
 import { BadgeChip } from "../components/primitives/BadgeChip";
 import { Section } from "../components/primitives/Section";
@@ -51,6 +55,34 @@ function AvatarCrest() {
 }
 
 export function ProfilePage() {
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    // Count-up figures (followers, win rate).
+    document.querySelectorAll<HTMLElement>("[data-count]").forEach((el) => {
+      const to = Number(el.dataset.count);
+      if (!Number.isFinite(to)) return;
+      countUp(el, to, el.dataset.countSuffix ?? "");
+    });
+    // Hero name split-text reveal.
+    const name = document.querySelector<HTMLElement>("[data-hero-name]");
+    if (name) splitReveal(name);
+    // Reveal each column's children + fill its bars when scrolled into view.
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const el = e.target as HTMLElement;
+          reveal(el.children);
+          barFill(el);
+          io.unobserve(el);
+        }
+      },
+      { threshold: 0.08 },
+    );
+    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((b) => io.observe(b));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="fl" style={{ background: FL.bg }}>
       {/* HERO */}
@@ -62,13 +94,7 @@ export function ProfilePage() {
           overflow: "hidden",
         }}
       >
-        <div className="fl-grain" />
-        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.06 }} viewBox="0 0 1440 360" preserveAspectRatio="xMidYMid slice">
-          <path
-            d="M0 200 L120 200 L160 240 L300 240 L340 200 L500 200 L540 240 L700 240 L740 200 L900 200 L940 240 L1100 240 L1140 200 L1300 200 L1340 240 L1440 240 L1440 360 L0 360 Z"
-            fill={FL.gold}
-          />
-        </svg>
+        <HeroBackdrop />
 
         <div style={{ position: "relative", padding: "36px 32px 28px", display: "grid", gridTemplateColumns: "140px 1fr auto", gap: 28, alignItems: "center", maxWidth: 1440, margin: "0 auto" }}>
           <div style={{ position: "relative", width: 140, height: 140 }}>
@@ -149,7 +175,7 @@ export function ProfilePage() {
       {/* BODY */}
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 320px", maxWidth: 1440, margin: "0 auto" }}>
         {/* LEFT */}
-        <aside style={{ borderRight: `1px solid ${FL.border}`, padding: 24 }}>
+        <aside data-reveal style={{ borderRight: `1px solid ${FL.border}`, padding: 24 }}>
           <section style={{ ...card, borderTop: `3px solid ${FL.gold}`, marginBottom: 18 }}>
             <div className="fl-mono" style={kicker}>CAREER · RANKED MATCHES</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
@@ -244,7 +270,7 @@ export function ProfilePage() {
         </aside>
 
         {/* CENTER */}
-        <main style={{ padding: 28, minWidth: 0 }}>
+        <main data-reveal style={{ padding: 28, minWidth: 0 }}>
           <Section title="Created warbands" kicker="4 ACTIVE" cta="See all →">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {warbands.map((w) => (
@@ -303,7 +329,7 @@ export function ProfilePage() {
         </main>
 
         {/* RIGHT */}
-        <aside style={{ borderLeft: `1px solid ${FL.border}`, padding: 24 }}>
+        <aside data-reveal style={{ borderLeft: `1px solid ${FL.border}`, padding: 24 }}>
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div className="fl-mono" style={{ fontSize: 10, color: FL.gold, letterSpacing: "0.25em" }}>RECENT ACTIVITY</div>

@@ -1,0 +1,31 @@
+{
+  "projectId": "45904dbc-e353-4628-839d-14ceb561ed2d",
+  "shape": "package",
+  "pkg": "forgotten-letters",
+  "globalName": "ForgottenLetters",
+  "srcDir": "src/components/ui",
+  "buildCmd": "bash .design-sync/compile-css.sh",
+  "cssEntry": "compiled.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "componentSrcMap": {
+    "CardHeader": null,
+    "CardTitle": null,
+    "CardDescription": null,
+    "CardContent": null,
+    "CardFooter": null,
+    "TabsList": null,
+    "TabsTrigger": null,
+    "TabsContent": null
+  },
+  "dtsPropsFor": {
+    "Button": "/** Visual style. @default \"primary\" */\n  variant?: \"primary\" | \"danger\" | \"secondary\" | \"outline\" | \"ghost\" | \"link\";\n  /** Height / padding. @default \"md\" */\n  size?: \"sm\" | \"md\" | \"lg\" | \"icon\";\n  /** Render as the single child element (Radix Slot) instead of a <button>. @default false */\n  asChild?: boolean;\n  className?: string;\n  children?: React.ReactNode;\n  disabled?: boolean;\n  type?: \"button\" | \"submit\" | \"reset\";\n  onClick?: React.MouseEventHandler<HTMLButtonElement>;",
+    "Card": "/** Adds hover lift + border/shadow transition for clickable cards. @default false */\n  interactive?: boolean;\n  className?: string;\n  /** Compose with CardHeader, CardTitle, CardDescription, CardContent, CardFooter (all exported). */\n  children?: React.ReactNode;\n  onClick?: React.MouseEventHandler<HTMLDivElement>;",
+    "Badge": "/** @default \"default\" */\n  variant?: \"default\" | \"neutral\" | \"accent\" | \"success\" | \"warning\";\n  className?: string;\n  children?: React.ReactNode;",
+    "Input": "type?: React.HTMLInputTypeAttribute;\n  value?: string | number;\n  defaultValue?: string | number;\n  placeholder?: string;\n  disabled?: boolean;\n  required?: boolean;\n  name?: string;\n  id?: string;\n  className?: string;\n  /** Set true to show the invalid/danger border. */\n  \"aria-invalid\"?: boolean;\n  onChange?: React.ChangeEventHandler<HTMLInputElement>;",
+    "Textarea": "value?: string;\n  defaultValue?: string;\n  placeholder?: string;\n  rows?: number;\n  disabled?: boolean;\n  required?: boolean;\n  name?: string;\n  id?: string;\n  className?: string;\n  /** Set true to show the invalid/danger border. */\n  \"aria-invalid\"?: boolean;\n  onChange?: React.ChangeEventHandler<HTMLTextAreaElement>;",
+    "Label": "/** Associates the label with a form control's id. */\n  htmlFor?: string;\n  className?: string;\n  children?: React.ReactNode;",
+    "Skeleton": "/** Size / shape via utility classes, e.g. \"h-4 w-32 rounded-full\". */\n  className?: string;\n  style?: React.CSSProperties;",
+    "Avatar": "/** Full name; the first two alphanumeric chars are shown as initials. */\n  name: string;\n  /** @default \"md\" */\n  size?: \"sm\" | \"md\" | \"lg\";\n  className?: string;",
+    "Tabs": "/** Value of the tab selected on mount (uncontrolled). */\n  defaultValue: string;\n  /** Compose TabsList + TabsTrigger + TabsContent (all exported) inside. */\n  children: React.ReactNode;\n  className?: string;"
+  }
+}

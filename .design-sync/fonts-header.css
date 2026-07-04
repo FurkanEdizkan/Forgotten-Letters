@@ -1,0 +1,9 @@
+/* Brand fonts — normally injected by Next via next/font; defined here so the
+   compiled DS stylesheet is self-contained for Claude Design previews.
+   Families are all SIL OFL (Inter, Oswald, JetBrains Mono). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --font-inter: 'Inter';
+  --font-oswald: 'Oswald';
+  --font-jetbrains-mono: 'JetBrains Mono';
+}

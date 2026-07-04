@@ -1,0 +1,114 @@
+:root {
+  --fl-bg: #0c0c0e;
+  --fl-surface: #1a1a1f;
+  --fl-elevated: #252529;
+  --fl-border: #2e2e35;
+  --fl-border-hi: #3a3a42;
+  --fl-text: #e8e2d6;
+  --fl-text2: #9b9484;
+  --fl-text-muted: #5c574e;
+  --fl-blood: #8b1a1a;
+  --fl-crimson: #a52222;
+  --fl-gold: #b8923f;
+  --fl-brass: #8a6d2f;
+  --fl-success: #2d6b4f;
+  --fl-warn: #b8860b;
+  --fl-danger: #c0392b;
+  --fl-info: #4a6fa5;
+  --fl-display: "Cinzel", Georgia, serif;
+  --fl-body: "Inter", -apple-system, sans-serif;
+  --fl-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--fl-bg);
+}
+
+.fl,
+.fl * {
+  box-sizing: border-box;
+}
+.fl {
+  font-family: var(--fl-body);
+  color: var(--fl-text);
+  background: var(--fl-bg);
+  -webkit-font-smoothing: antialiased;
+}
+.fl-display {
+  font-family: var(--fl-display);
+  letter-spacing: 0.02em;
+}
+.fl-mono {
+  font-family: var(--fl-mono);
+}
+.fl input,
+.fl button,
+.fl textarea {
+  font-family: inherit;
+}
+.fl button {
+  cursor: pointer;
+}
+.fl ::selection {
+  background: var(--fl-blood);
+  color: var(--fl-text);
+}
+
+.fl-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.fl-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fl-scroll::-webkit-scrollbar-track {
+  background: var(--fl-bg);
+}
+.fl-scroll::-webkit-scrollbar-thumb {
+  background: var(--fl-border);
+  border-radius: 4px;
+}
+.fl-focus:focus-visible {
+  outline: 2px solid var(--fl-blood);
+  outline-offset: 2px;
+}
+
+@keyframes fl-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes fl-flicker {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

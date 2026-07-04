@@ -67,3 +67,18 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# ── Agent tooling (kept local, not committed) ───────────────
+.agents/
+agent/
+.codex/
+.claude/
+graphify-out/
+skills-lock.json
+.github/skills/
+
+# Installed skills: ignore all except the three committed keepers
+skills/*
+!skills/graphify/
+!skills/impeccable/
+!skills/design-sync/

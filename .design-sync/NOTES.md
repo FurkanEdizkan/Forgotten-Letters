@@ -31,7 +31,7 @@ The script (re-run automatically each sync) does three things:
 - **Preview-only sizing uses inline styles, never new Tailwind classes** — the compiled CSS
   only contains classes actually used in the app's `src/`, so a novel utility class in a
   preview would not be styled.
-- Brand fonts (Inter/Oswald/JetBrains Mono) are injected by Next at runtime in the real app.
+- Brand fonts (Inter/Cinzel/JetBrains Mono) are injected by Next at runtime in the real app.
   For the DS they're defined in `.design-sync/fonts-header.css` via a Google Fonts remote
   `@import` → validate reports `[FONT_REMOTE]` (non-blocking, expected). If the remote is
   blocked at render time, text falls back to Arial Narrow / system-ui / ui-monospace.
@@ -53,4 +53,6 @@ The script (re-run automatically each sync) does three things:
   by `buildCmd`; harmless as long as `npm install` has populated `node_modules` first.
 
 ## Known render warns
-- `[FONT_REMOTE]` for "Inter", "Oswald", "JetBrains Mono", "Arial Narrow" — expected (see above).
+- `[FONT_REMOTE]` for "Inter", "Cinzel", "JetBrains Mono" — expected (see above).
+- Palette is grimdark (blood primary #8B1A1A, tarnished gold accent #B8923F, Cinzel display).
+  Button `danger` variant uses `--color-danger` (flare red), not `--color-accent` (gold).

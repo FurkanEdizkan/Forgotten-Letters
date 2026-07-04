@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Oswald, JetBrains_Mono } from "next/font/google";
+import { Inter, Cinzel, JetBrains_Mono } from "next/font/google";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
@@ -10,10 +10,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const oswald = Oswald({
+const cinzel = Cinzel({
   subsets: ["latin"],
-  variable: "--font-oswald",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-cinzel",
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -38,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${oswald.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${cinzel.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-dvh flex flex-col">
         <Navbar />

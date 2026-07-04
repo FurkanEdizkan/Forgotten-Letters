@@ -8,12 +8,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Steel-blue instrument primary. White ink on saturated fill.
+        // Blood-red instrument primary. Bone ink on saturated fill.
         primary:
           "bg-primary text-primary-ink hover:bg-primary-hover active:bg-primary-active",
-        // Oxblood — reserved for destructive intent.
+        // Flare red — reserved for destructive intent.
         danger:
-          "bg-accent text-accent-ink hover:bg-accent-hover active:bg-accent-hover",
+          "bg-danger text-ink hover:bg-danger/90 active:bg-danger/80",
         // Flat-field tonal step, not a shadow.
         secondary:
           "bg-elevated text-ink border border-border-strong hover:bg-border hover:border-primary/60",

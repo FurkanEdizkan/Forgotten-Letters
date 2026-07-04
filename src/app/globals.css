@@ -1,42 +1,43 @@
 @import "tailwindcss";
 
 /*
-  Forgotten Letters — "The War Room at Night"
-  Committed dark, tactical. Steel-blue instrument glow + oxblood counter-voice
-  on a near-black tinted field. Tokens resolved from DESIGN.md.
-  All colors OKLCH. Contrast: ink >=7:1, muted >=4.5:1 vs --color-bg.
+  Forgotten Letters — "The War Room at Night" (grimdark)
+  Charcoal trench field, blood-red instrument primary, tarnished-gold counter-voice.
+  Ported from the Design Lab grimdark direction. Token NAMES are stable so
+  src/components/ui/* pick up the new look without edits.
+  Contrast: ink >=7:1, muted >=4.5:1 vs --color-bg.
 */
 
 @theme {
-  /* --- Surface (the tactical field carries the mood) --- */
-  --color-bg: oklch(0.16 0.012 250);
-  --color-surface: oklch(0.2 0.014 250);
-  --color-elevated: oklch(0.24 0.016 250);
-  --color-border: oklch(0.32 0.014 250);
-  --color-border-strong: oklch(0.42 0.016 250);
+  /* --- Surface (grimdark charcoal field) --- */
+  --color-bg: #0c0c0e;
+  --color-surface: #1a1a1f;
+  --color-elevated: #252529;
+  --color-border: #2e2e35;
+  --color-border-strong: #3a3a42;
 
-  /* --- Ink --- */
-  --color-ink: oklch(0.95 0.006 250);
-  --color-muted: oklch(0.72 0.014 250);
-  --color-faint: oklch(0.56 0.014 250);
+  /* --- Ink (bone white / dust / iron) --- */
+  --color-ink: #e8e2d6;
+  --color-muted: #9b9484;
+  --color-faint: #5c574e;
 
-  /* --- Primary: instrument steel-blue --- */
-  --color-primary: oklch(0.65 0.16 250);
-  --color-primary-hover: oklch(0.58 0.15 250);
-  --color-primary-active: oklch(0.52 0.14 250);
-  --color-primary-ink: oklch(0.99 0.005 250);
-  --color-primary-soft: oklch(0.3 0.06 250);
+  /* --- Primary: blood red --- */
+  --color-primary: #8b1a1a;
+  --color-primary-hover: #a52222;
+  --color-primary-active: #6e1414;
+  --color-primary-ink: #f3e7e5;
+  --color-primary-soft: #3a1518;
 
-  /* --- Accent: oxblood rust (the rare counter-voice) --- */
-  --color-accent: oklch(0.52 0.14 32);
-  --color-accent-hover: oklch(0.46 0.13 32);
-  --color-accent-ink: oklch(0.98 0.01 60);
-  --color-accent-soft: oklch(0.3 0.07 32);
+  /* --- Accent: tarnished gold (the rare counter-voice) --- */
+  --color-accent: #b8923f;
+  --color-accent-hover: #c9a24e;
+  --color-accent-ink: #17130a;
+  --color-accent-soft: #2a2416;
 
   /* --- Status --- */
-  --color-success: oklch(0.62 0.13 155);
-  --color-warning: oklch(0.72 0.14 75);
-  --color-danger: oklch(0.55 0.18 25);
+  --color-success: #2d6b4f;
+  --color-warning: #b8860b;
+  --color-danger: #c0392b;
 
   /* --- Radius (restrained; tactical, not soft) --- */
   --radius-sm: 3px;
@@ -44,7 +45,7 @@
   --radius-lg: 8px;
 
   /* --- Fonts --- */
-  --font-display: var(--font-oswald), "Arial Narrow", sans-serif;
+  --font-display: var(--font-cinzel), Georgia, serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
@@ -70,7 +71,7 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Subtle field texture: a faint tactical grid, not decoration you'd notice */
+  /* Subtle field texture: a faint tarnished-gold trench grid, barely there */
   body::before {
     content: "";
     position: fixed;
@@ -78,8 +79,8 @@
     z-index: -1;
     pointer-events: none;
     background-image:
-      linear-gradient(oklch(0.24 0.016 250 / 0.4) 1px, transparent 1px),
-      linear-gradient(90deg, oklch(0.24 0.016 250 / 0.4) 1px, transparent 1px);
+      linear-gradient(rgb(184 146 63 / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(184 146 63 / 0.04) 1px, transparent 1px);
     background-size: 44px 44px;
     mask-image: radial-gradient(ellipse 120% 80% at 50% 0%, black 5%, transparent 70%);
   }
@@ -97,7 +98,7 @@
   h1, h2, h3 {
     font-family: var(--font-display);
     text-wrap: balance;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.02em;
   }
 
   p {

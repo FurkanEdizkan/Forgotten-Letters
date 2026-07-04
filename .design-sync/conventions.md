@@ -1,8 +1,8 @@
 # Forgotten Letters — Design System conventions
 
-**"The War Room at Night."** This is a **dark-only** design system: a near-black tinted
-field, steel-blue instrument primary, and a rare oxblood-rust accent for destructive
-intent. Every component assumes it sits on the dark field.
+**"The War Room at Night."** This is a **dark-only, grimdark** design system: a charcoal
+trench field, blood-red instrument primary, and a rare tarnished-gold accent for
+highlights and featured content. Every component assumes it sits on the dark field.
 
 ## Setup — render on the dark field (required)
 
@@ -39,22 +39,22 @@ layout glue, prefer these **token-backed utilities** (they keep you on-brand):
 | Surfaces (darkest → lightest) | `bg-bg`, `bg-surface`, `bg-elevated` |
 | Ink | `text-ink` (primary), `text-muted` (secondary), `text-faint` (tertiary) |
 | Borders | `border-border`, `border-border-strong` |
-| Primary (steel-blue) | `bg-primary`, `text-primary`, `text-primary-ink`, `bg-primary-soft` |
-| Accent (oxblood — destructive only) | `bg-accent`, `text-accent`, `bg-accent-soft` |
-| Status | `text-success`, `text-warning`, `text-danger` |
+| Primary (blood red) | `bg-primary`, `text-primary`, `text-primary-ink`, `bg-primary-soft` |
+| Accent (tarnished gold — highlights/featured) | `bg-accent`, `text-accent`, `bg-accent-soft` |
+| Status | `text-success`, `text-warning`, `text-danger` (destructive = flare red) |
 | Radius | `rounded-[var(--radius-sm)]` (3px), `rounded-[var(--radius-md)]` (5px), `rounded-[var(--radius-lg)]` (8px) |
-| Fonts | `font-display` (Oswald — headings), `font-mono` (JetBrains Mono — labels/badges). Body text (Inter) is the default — no class needed, or use `var(--font-body)` |
+| Fonts | `font-display` (Cinzel — headings), `font-mono` (JetBrains Mono — labels/badges). Body text (Inter) is the default — no class needed, or use `var(--font-body)` |
 
 The same values are available as CSS variables for arbitrary styles:
 `var(--color-bg | --color-surface | --color-elevated | --color-ink | --color-muted |
 --color-primary | --color-accent | --color-border-strong)`, `var(--radius-md)`,
 `var(--font-display | --font-body | --font-mono)`. Never hardcode hex — the palette is
-OKLCH and tuned for contrast on the dark field.
+tuned for contrast on the dark field.
 
 ## Component notes
 
-- **Button** — `variant`: `primary` (default) · `secondary` · `outline` · `ghost` ·
-  `link` · `danger` (oxblood, reserve for destructive actions). `size`: `sm|md|lg|icon`.
+- **Button** — `variant`: `primary` (default, blood) · `secondary` · `outline` · `ghost` ·
+  `link` · `danger` (flare red, reserve for destructive actions). `size`: `sm|md|lg|icon`.
   Text is uppercase by design. Pass `asChild` to render a link as a button.
 - **Card** — flat-field surface (tonal step + border, **no drop shadow**). Set
   `interactive` for hover-lift. Compose with the exported sub-parts **CardHeader,

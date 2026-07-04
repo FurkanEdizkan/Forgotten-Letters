@@ -17,7 +17,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [x] Design System showcase page (`/design-system`)
 - [x] Faithful grimdark Profile page port (`/profile`)
 - [x] anime.js motion layer + animated hero backdrop (reduced-motion safe)
-- [ ] Follow-up: port grimdark tokens/components into `src/components/ui` + re-sync Claude Design
+- [x] Follow-up: port grimdark tokens/components into `src/components/ui` + re-sync Claude Design
 
 ---
 

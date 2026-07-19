@@ -1,3 +1,16 @@
+/**
+ * Browse skeleton.
+ *
+ * Lives inside the (browse) route group deliberately. A loading.tsx
+ * applies to its segment AND every nested route, so at
+ * src/app/(public)/scenarios/ it also wrapped
+ * /scenarios/[username]/[slug]. That starts streaming, which flushes a
+ * 200 before notFound() runs — turning every missing or draft scenario
+ * into a soft 404 that search engines index and monitoring cannot see.
+ *
+ * The route group scopes this skeleton to /scenarios alone without
+ * changing the URL.
+ */
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ScenariosLoading() {

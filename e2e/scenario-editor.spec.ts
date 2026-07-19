@@ -52,7 +52,9 @@ test("create a scenario, then edit and publish it", async ({ page }) => {
   await page.getByRole("button", { name: /^save$/i }).click();
 
   // Creating redirects into the edit route for the new scenario.
-  await page.waitForURL(/\/scenarios\/the-sunken-chapel\/edit/, { timeout: 15_000 });
+  await page.waitForURL(/\/scenarios\/[^/]+\/the-sunken-chapel\/edit/, {
+    timeout: 15_000,
+  });
   await expect(page.getByText(/^draft$/i)).toBeVisible();
 
   // Reload proves it persisted rather than living in component state.
@@ -109,16 +111,15 @@ test("one author cannot open another's edit page", async ({ page }) => {
   await page.goto("/scenarios/new");
   await page.fill("#title", "Private Draft Scenario");
   await page.getByRole("button", { name: /^save$/i }).click();
-  await page.waitForURL(/\/scenarios\/private-draft-scenario\/edit/, {
-    timeout: 15_000,
-  });
+  await page.waitForURL(/\/edit$/, { timeout: 15_000 });
+  const ownerEditUrl = page.url();
 
   // Sign out and register a different account.
   await page.context().clearCookies();
   await registerAndLogin(page, freshUser());
 
   // 404, not 403 — a 403 would confirm the scenario exists.
-  const res = await page.goto("/scenarios/private-draft-scenario/edit");
+  const res = await page.goto(ownerEditUrl);
   expect(res?.status()).toBe(404);
 });
 

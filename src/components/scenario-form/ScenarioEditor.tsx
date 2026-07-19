@@ -77,9 +77,12 @@ const SECTION_LABELS: Record<(typeof SECTION_TYPES)[number], string> = {
 
 export function ScenarioEditor({
   systems,
+  username,
   scenario,
 }: {
   systems: GameSystemOption[];
+  /** Author's username — scenario URLs are /scenarios/<username>/<slug>. */
+  username: string;
   scenario?: EditorScenario;
 }) {
   const router = useRouter();
@@ -177,7 +180,7 @@ export function ScenarioEditor({
         setNotice("Saved.");
         router.refresh();
       } else {
-        router.push(`/scenarios/${result.data.slug}/edit`);
+        router.push(`/scenarios/${username}/${result.data.slug}/edit`);
         router.refresh();
       }
     });

@@ -9,25 +9,41 @@ import {
 } from "@/components/scenario-form/ScenarioEditor";
 import { requireUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db/client";
-import { eventTables, gameSystems, scenarios, scenarioSections } from "@/lib/db/schema";
+import {
+  eventTables,
+  gameSystems,
+  profiles,
+  scenarios,
+  scenarioSections,
+} from "@/lib/db/schema";
 
 export const metadata: Metadata = { title: "Edit scenario" };
 
 export default async function EditScenarioPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ username: string; slug: string }>;
 }) {
   const user = await requireUser();
-  const { slug } = await params;
+  const { username, slug } = await params;
 
-  // Scoped to the author: another user's scenario is a 404, not a 403,
-  // so the URL does not confirm that it exists.
+  // Scoped to the signed-in author. Another user's scenario is a 404,
+  // not a 403 — a 403 confirms it exists. The username in the URL must
+  // also match, so /scenarios/alice/x/edit is not reachable by bob even
+  // if bob happens to own a scenario with slug "x".
   const [scenario] = await db
     .select()
     .from(scenarios)
-    .where(and(eq(scenarios.slug, slug), eq(scenarios.authorId, user.id)))
-    .limit(1);
+    .innerJoin(profiles, eq(profiles.userId, scenarios.authorId))
+    .where(
+      and(
+        eq(scenarios.slug, slug),
+        eq(scenarios.authorId, user.id),
+        eq(profiles.username, username),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows.map((r) => r.scenarios));
 
   if (!scenario) notFound();
 
@@ -51,6 +67,7 @@ export default async function EditScenarioPage({
   return (
     <ScenarioEditor
       systems={systems}
+      username={username}
       scenario={{
         id: scenario.id,
         title: scenario.title,

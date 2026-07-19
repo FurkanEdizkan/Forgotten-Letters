@@ -1,65 +1,50 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ChevronRight, ScrollText } from "lucide-react";
+
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { listOfficial } from "@/lib/content";
 
 export const metadata: Metadata = {
-  title: "Official Content",
-  description: "Official, CMS-managed scenarios and campaigns for Trench Crusade.",
+  title: "Official scenarios",
+  description: "Curated scenarios maintained in the repository.",
 };
 
-// Placeholder — real records come from Sanity (Phase 3).
-const OFFICIAL = [
-  {
-    slug: "the-first-crusade",
-    title: "The First Crusade",
-    blurb: "The canonical opening campaign — four linked scenarios.",
-  },
-  {
-    slug: "siege-of-the-cathedral",
-    title: "Siege of the Cathedral",
-    blurb: "A large-scale multiplayer siege with official rules.",
-  },
-  {
-    slug: "the-broken-armistice",
-    title: "The Broken Armistice",
-    blurb: "An introductory duel scenario for new warbands.",
-  },
-];
+export default async function OfficialPage() {
+  const scenarios = await listOfficial();
 
-export default function OfficialPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-      <header className="flex items-center gap-3 border-b border-border pb-8">
-        <span className="grid size-11 place-items-center rounded-[var(--radius-md)] border border-primary/30 bg-primary-soft text-primary">
-          <ShieldCheck className="size-5" />
-        </span>
-        <div>
-          <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-ink">
-            Official Content
-          </h1>
-          <p className="mt-1 text-muted">
-            Canonical campaigns and scenarios, curated and CMS-managed.
-          </p>
-        </div>
-      </header>
+    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+      <p className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-accent">
+        Curated
+      </p>
+      <h1 className="mt-2 font-display text-3xl text-ink">Official scenarios</h1>
+      <p className="mt-2 max-w-prose text-sm text-muted">
+        Scenarios maintained in the repository and reviewed before publication. Edits
+        arrive by pull request.
+      </p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {OFFICIAL.map((item) => (
-          <Card key={item.slug} interactive className="relative p-5">
-            <Badge variant="accent">Official</Badge>
-            <h2 className="mt-3 font-display text-lg font-semibold text-ink">
-              <Link
-                href={`/official/${item.slug}`}
-                className="after:absolute after:inset-0"
-              >
-                {item.title}
-              </Link>
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">{item.blurb}</p>
-          </Card>
+      <div className="mt-8 flex flex-col gap-3">
+        {scenarios.map((s) => (
+          <Link key={s.slug} href={`/official/${s.slug}`}>
+            <Card className="flex items-center justify-between gap-4 p-5 transition-colors hover:border-border-strong">
+              <div className="flex items-start gap-3">
+                <ScrollText className="mt-0.5 size-5 shrink-0 text-accent" />
+                <div>
+                  <h2 className="font-display text-lg text-ink">{s.title}</h2>
+                  {s.description && (
+                    <p className="mt-1 text-sm text-muted">{s.description}</p>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-faint" />
+            </Card>
+          </Link>
         ))}
+
+        {scenarios.length === 0 && (
+          <p className="text-sm text-muted">No official scenarios yet.</p>
+        )}
       </div>
     </div>
   );

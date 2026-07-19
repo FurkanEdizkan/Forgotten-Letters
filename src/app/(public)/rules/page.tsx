@@ -1,72 +1,74 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { BookOpen, ChevronRight } from "lucide-react";
+
 import { Card } from "@/components/ui/Card";
+import { EditionSelector } from "@/components/content/EditionSelector";
+import { getLatestEdition, listRules, listRulesEditions } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Rules",
-  description: "Official rules and reference for Trench Crusade.",
+  description: "Authoring reference for Trench Crusade scenarios.",
 };
 
-// Placeholder — real records come from Sanity (Phase 3).
-const RULES = [
-  {
-    slug: "core-rules",
-    title: "Core Rules",
-    detail: "Movement, actions, combat, and the sequence of play.",
-  },
-  {
-    slug: "warband-creation",
-    title: "Warband Creation",
-    detail: "Build and equip your warband within the roster limits.",
-  },
-  {
-    slug: "injuries-and-recovery",
-    title: "Injuries & Recovery",
-    detail: "Post-battle rolls, scars, and the campaign economy.",
-  },
-  {
-    slug: "terrain-and-cover",
-    title: "Terrain & Cover",
-    detail: "How the battlefield shapes line of sight and protection.",
-  },
-];
+export default async function RulesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edition?: string }>;
+}) {
+  const { edition: requested } = await searchParams;
+  const editions = await listRulesEditions();
+  const latest = await getLatestEdition();
 
-export default function RulesPage() {
+  // An unknown ?edition= is a 404 rather than a silent fallback, so a
+  // stale link does not quietly show different rules than it names.
+  const edition = requested ?? latest;
+  if (!edition || !editions.includes(edition)) {
+    if (requested) notFound();
+    return null;
+  }
+
+  const rules = await listRules(edition);
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <header className="flex items-center gap-3 border-b border-border pb-8">
-        <span className="grid size-11 place-items-center rounded-[var(--radius-md)] border border-primary/30 bg-primary-soft text-primary">
-          <BookOpen className="size-5" />
-        </span>
+    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-ink">
-            Rules
-          </h1>
-          <p className="mt-1 text-muted">Reference for playing Trench Crusade.</p>
+          <p className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-accent">
+            Reference
+          </p>
+          <h1 className="mt-2 font-display text-3xl text-ink">Rules</h1>
+          <p className="mt-2 max-w-prose text-sm text-muted">
+            Authoring context for scenario writers. This is a community archive — it
+            contains no official rules text. Buy the rules from the publisher.
+          </p>
         </div>
-      </header>
+        <EditionSelector editions={editions} current={edition} />
+      </div>
 
-      <ul className="mt-8 flex flex-col gap-2">
-        {RULES.map((rule) => (
-          <li key={rule.slug}>
-            <Card interactive className="relative">
-              <Link
-                href={`/rules/${rule.slug}`}
-                className="flex items-center justify-between gap-4 p-5 after:absolute after:inset-0"
-              >
+      <div className="flex flex-col gap-3">
+        {rules.map((rule) => (
+          <Link key={rule.slug} href={`/rules/${edition}/${rule.slug}`}>
+            <Card className="flex items-center justify-between gap-4 p-5 transition-colors hover:border-border-strong">
+              <div className="flex items-start gap-3">
+                <BookOpen className="mt-0.5 size-5 shrink-0 text-accent" />
                 <div>
-                  <h2 className="font-display text-lg font-semibold text-ink">
-                    {rule.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">{rule.detail}</p>
+                  <h2 className="font-display text-lg text-ink">{rule.title}</h2>
+                  {rule.description && (
+                    <p className="mt-1 text-sm text-muted">{rule.description}</p>
+                  )}
                 </div>
-                <ChevronRight className="size-5 shrink-0 text-faint" />
-              </Link>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-faint" />
             </Card>
-          </li>
+          </Link>
         ))}
-      </ul>
+
+        {rules.length === 0 && (
+          <p className="text-sm text-muted">No rules pages in this edition yet.</p>
+        )}
+      </div>
     </div>
   );
 }

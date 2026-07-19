@@ -195,14 +195,22 @@ Done in Phase 0b / A3.
 
 ---
 
-## Phase 3: Official content (MDX, replaces Sanity)
+## Phase 3: Official content (MDX, replaces Sanity) ✅
 
-- [ ] `npm install next-mdx-remote` (or `@next/mdx`); content under `src/content/`
-- [ ] `src/content/rules/<edition>/*.mdx`, `legal/*.mdx`, `faq.mdx`, `official/*.mdx`
-- [ ] `/rules`, `/rules/[slug]`, `/rules/compendium/[slug]` (per `Rules.jsx`,
-      `Compendium.jsx`) with **rules-version selector** driven by edition folders
-- [ ] `/official`, `/official/[slug]`; `/legal`, `/faq` (per `Marketing.jsx`)
-- [ ] Verify version switching renders the right edition; content edits land via PR
+- [x] `next-mdx-remote` + `gray-matter` + `remark-gfm` + `rehype-sanitize`/`rehype-slug`
+- [x] `src/content/rules/<edition>/*.mdx`, `legal/*.mdx`, `faq.mdx`, `official/*.mdx`
+- [x] `/rules`, `/rules/[edition]/[slug]` with an **edition selector driven by the
+      directory listing** — adding an edition is a `mkdir`, not a code change
+- [x] `/official`, `/official/[slug]`; `/legal/[slug]`; `/faq`
+- [x] Version switching verified: v1 and v2 serve genuinely different content for the
+      same slug; an unknown edition 404s rather than silently falling back
+- [x] Path-traversal guard on every URL-supplied segment (tested)
+- [x] MDX sanitized on render, so a careless paste cannot become stored XSS
+- [ ] `/rules/compendium/[slug]` — the Compendium surface is not built yet
+
+> **IP note:** content is deliberately community-authored _authoring context_, not
+> reproduced publisher rules text. The FAQ and legal pages state the project is
+> unaffiliated, and a test asserts that disclaimer is present.
 
 ---
 

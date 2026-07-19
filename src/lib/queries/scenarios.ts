@@ -31,6 +31,11 @@ export type ScenarioCard = {
   author: { username: string; displayName: string | null } | null;
   gameSystem: { slug: string; name: string } | null;
   votes: number;
+  /**
+   * Always true in public listings (they filter on it). Meaningful only
+   * in listScenariosByAuthor, where the owner also sees their drafts.
+   */
+  isPublished: boolean;
 };
 
 export type BrowseFilters = {
@@ -123,6 +128,7 @@ export async function browseScenarios(filters: BrowseFilters = {}): Promise<{
         ? { slug: r.systemSlug, name: r.systemName ?? r.systemSlug }
         : null,
       votes: voteCounts.get(r.id) ?? 0,
+      isPublished: true,
     })),
     total: Number(total),
     page,
@@ -256,6 +262,7 @@ export async function listScenariosByAuthor(
       estimatedMinutes: scenarios.estimatedMinutes,
       tags: scenarios.tags,
       createdAt: scenarios.createdAt,
+      isPublished: scenarios.isPublished,
       systemSlug: gameSystems.slug,
       systemName: gameSystems.name,
     })

@@ -274,7 +274,20 @@ Done in Phase 0b / A3.
 
 ---
 
-## Phase 7: Social, profiles & play loop
+## Phase 7: Social, profiles & play loop — partial
+
+- [x] Votes and favorites: actions + idempotent, batched counting
+- [x] Threaded comments on scenarios — post, reply (one level), soft-delete with
+      tombstone so replies keep their position; sanitized on write and covered by an
+      e2e test that posts a live XSS payload
+- [x] Public profiles at `/user/[username]` with published counts; the owner sees
+      their own drafts, visitors do not
+- [x] Browse + search with filters in the URL (shareable), pagination
+- [ ] Battle tracker + post-battle report
+- [ ] Notifications
+- [ ] News
+
+### Original scope
 
 - [ ] Voting, favorites, comments (threaded), share + OG tags — `components/social/`
 - [ ] Public profile (per `Profile.jsx`): career, match history, campaigns, activity

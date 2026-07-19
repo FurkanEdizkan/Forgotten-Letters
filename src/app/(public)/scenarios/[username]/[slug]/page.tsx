@@ -6,8 +6,11 @@ import { ArrowUp, Clock, Dice5, Pencil, Users } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CommentThread } from "@/components/social/CommentThread";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getScenarioBySlug } from "@/lib/queries/scenarios";
+import { listComments } from "@/lib/queries/social";
+import { getUsernameForUser } from "@/lib/queries/profile";
 
 type Params = { username: string; slug: string };
 
@@ -50,6 +53,11 @@ export default async function ScenarioDetailPage({
   if (!scenario) notFound();
 
   const isOwner = viewer?.id === scenario.authorId;
+
+  const [comments, viewerUsername] = await Promise.all([
+    listComments("scenario", scenario.id),
+    viewer ? getUsernameForUser(viewer.id) : Promise.resolve(null),
+  ]);
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -166,6 +174,13 @@ export default async function ScenarioDetailPage({
       {scenario.sections.length === 0 && scenario.eventTables.length === 0 && (
         <p className="mt-8 text-sm text-muted">This scenario has no content yet.</p>
       )}
+
+      <CommentThread
+        targetType="scenario"
+        targetId={scenario.id}
+        comments={comments}
+        currentUsername={viewerUsername}
+      />
     </article>
   );
 }

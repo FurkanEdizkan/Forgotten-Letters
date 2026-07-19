@@ -148,15 +148,27 @@ export async function createCommentAction(input: {
 
   // A reply must attach to a real comment on the same target, or threads
   // could be grafted across unrelated scenarios.
-  if (parsed.data.parentId) {
+  let parentId = parsed.data.parentId ?? null;
+  if (parentId) {
     const [parent] = await db
-      .select({ id: comments.id, targetId: comments.targetId })
+      .select({
+        id: comments.id,
+        targetId: comments.targetId,
+        parentId: comments.parentId,
+      })
       .from(comments)
-      .where(eq(comments.id, parsed.data.parentId))
+      .where(eq(comments.id, parentId))
       .limit(1);
+
     if (!parent || parent.targetId !== parsed.data.targetId) {
       return { ok: false, error: "Not found." };
     }
+
+    // Nesting is capped at one level. The UI only offers Reply on
+    // top-level comments, but a crafted request could otherwise build
+    // arbitrarily deep threads that no layout renders sensibly — so
+    // a reply to a reply re-parents onto its top-level ancestor.
+    if (parent.parentId) parentId = parent.parentId;
   }
 
   // Sanitize on write — this is rendered as HTML to every reader.
@@ -172,7 +184,7 @@ export async function createCommentAction(input: {
       authorId: user.id,
       targetType: parsed.data.targetType,
       targetId: parsed.data.targetId,
-      parentId: parsed.data.parentId ?? null,
+      parentId,
       body,
     })
     .returning();

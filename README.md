@@ -7,17 +7,17 @@ starting with **Trench Crusade**, designed to expand to other game systems.
 modest infrastructure; it sustains itself through unobtrusive ads and optional supporter
 tiers, never paywalls on community content.
 
-> **Status:** UI shell built, backend not wired. The Next.js app is scaffolded with the
-> public/auth/protected route groups and a themed `src/components/ui` design system, but
-> every page is still rendering static mock data — there is no database, auth, or storage
-> behind it yet. See [`TODO.md`](TODO.md) for the roadmap and [`docs/`](docs/) for
-> architecture, deployment, cost, and monetization plans.
+> **Status:** Phase 0 complete — local foundation is built and green. The full local
+> stack (Postgres + MinIO + Mailpit) runs in Docker, the database/storage/mail layers
+> are wired and health-checked, and CI enforces lint, typecheck, unit, e2e, audit, and
+> secret-scan gates.
+>
+> The ~20 UI pages still render **static mock data** — replacing those with real queries
+> is feature work that begins in Phase 1 (auth). See [`TODO.md`](TODO.md) for the roadmap
+> and [`docs/BuildPlan.md`](docs/BuildPlan.md) for the execution plan.
 >
 > Alongside it, [`design-lab/`](design-lab/) is a standalone Vite sandbox used to prototype
 > the grimdark visual language before changes are ported into the main app.
->
-> **Note:** the `supabase/` and `sanity/` directories are leftovers from the previous
-> managed-SaaS plan and are slated for removal — see Phase 1 of [`TODO.md`](TODO.md).
 
 ## Features (planned)
 
@@ -71,22 +71,50 @@ Sanity) toward a fully open-source, self-hostable stack. See
 
 ## Getting started
 
-> The app is not bootstrapped yet. The full local stack (Postgres + MinIO + Mailpit via the
-> compose-based devcontainer) is specified in [`docs/BuildPlan.md`](docs/BuildPlan.md).
-> Once Phase 1 of [`TODO.md`](TODO.md) lands, the basic flow will be:
+The local stack runs every cloud service as a container, so nothing external is
+needed to develop: **Postgres**, **MinIO** (stands in for Cloudflare R2), and
+**Mailpit** (stands in for Amazon SES). `.env.example` ships working local
+defaults — the copy below runs as-is.
 
 ```bash
-cp .env.example .env.local        # fill in real values (see docs/Deployment.md)
-docker compose up -d db           # local Postgres
+cp .env.example .env.local                              # defaults target the local stack
+docker compose -f .devcontainer/docker-compose.yml up -d db minio minio-init mailpit
 npm install
-npm run db:migrate                # apply Drizzle migrations
-npm run dev                       # http://localhost:3000
+npm run db:migrate                                      # apply Drizzle migrations
+npm run dev                                             # http://localhost:3000
 ```
+
+Then check <http://localhost:3000/api/health> — it reports `database`, `storage`,
+and `mail` reachability, and is the fastest way to tell a broken app from a
+container that failed to start.
+
+In VS Code, **Dev Containers: Reopen in Container** starts all of the above
+automatically.
+
+| Service       | URL                                                    |
+| ------------- | ------------------------------------------------------ |
+| App           | <http://localhost:3000>                                |
+| Health check  | <http://localhost:3000/api/health>                     |
+| Mailpit inbox | <http://localhost:8025> — read verification email here |
+| MinIO console | <http://localhost:9001> — `minioadmin`/`minioadmin`    |
 
 ### Prerequisites
 
 - Node.js 22+, npm
-- Docker + Docker Compose (local Postgres, container builds)
+- Docker + Docker Compose
+
+### Common tasks
+
+```bash
+npm test              # unit tests (Vitest)
+npm run test:e2e      # end-to-end smoke tests (Playwright)
+npm run lint          # ESLint
+npm run typecheck     # tsc --noEmit
+npm run format        # Prettier
+npm run db:generate   # generate a migration after editing src/lib/db/schema.ts
+npm run db:studio     # browse the database
+docker compose up --build   # build and run the production image locally
+```
 
 ## Project structure (planned)
 

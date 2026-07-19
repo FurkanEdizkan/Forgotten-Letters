@@ -36,21 +36,51 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 
 ---
 
-## Phase 1: Bootstrap, theme & auth
+## Phase 0b: Local dev foundation ✅
 
-### 1.1 — Reconcile the existing scaffold
+Implemented per [`docs/BuildPlan.md`](docs/BuildPlan.md) Part A.
 
-> The Next.js app is already scaffolded (route groups, pages, `src/components/ui`) from the
-> design-system branch; it predates the stack change, so this step is cleanup, not `create-next-app`.
+**A1 — local services + devcontainer**
 
-- [ ] Delete `supabase/`, `sanity/`, `src/lib/supabase/`, `src/lib/sanity/` — empty `.gitkeep`
-      placeholders only, superseded by `db/` (Drizzle) and `src/content/` (MDX); nothing imports them
-- [ ] Set `output: 'standalone'` in `next.config.ts`; verify `npm run dev` on :3000
-- [ ] Add the new stack's deps (drizzle-orm, next-auth@5, @aws-sdk/client-s3, nodemailer, zod) —
-      `package.json` currently carries none of them
-- [ ] Migrate off deprecated `next lint` (gone in Next.js 16):
-      `npx @next/codemod@canary next-lint-to-eslint-cli .`
+- [x] `.devcontainer/docker-compose.yml`: dev box + Postgres 16 + MinIO + Mailpit + bucket init
+- [x] Rewrite `devcontainer.json` onto the compose stack
+- [x] Root `Dockerfile` (multi-stage, standalone, non-root) + `.dockerignore`
+- [x] Root `docker-compose.yml` (prod-shaped app + db)
+
+**A2 — reconcile the scaffold**
+
+- [x] Delete `supabase/`, `sanity/`, `src/lib/supabase/`, `src/lib/sanity/`
+- [x] Set `output: 'standalone'` in `next.config.ts`
+- [x] Add stack deps (drizzle-orm, pg, next-auth@5, @aws-sdk/client-s3, nodemailer, zod)
+- [x] Migrate `next lint` → ESLint CLI
 - [x] Exclude `design-lab/` from the root typecheck (separate Vite app, own deps)
+- [x] Pin nodemailer ^9 via override — next-auth v5 peers a 7.x with unpatched
+      SMTP-injection advisories (rationale in `package.json`)
+
+**A3 — typed config + parity layer**
+
+- [x] `src/lib/env.ts` (Zod-validated, fails fast, prod-only guardrails)
+- [x] `src/lib/db/` client + minimal Auth.js schema; migrations → `db/migrations/`
+- [x] `src/lib/storage/r2.ts` (presigned PUT/GET, path-style aware)
+- [x] `src/lib/mail/` (SMTP: Mailpit local, SES prod)
+- [x] `.env.example` ships working local defaults
+
+**A4 — quality + security gates**
+
+- [x] `/api/health` (db + storage + mail; 503 when degraded, never cached)
+- [x] Vitest + unit tests; Playwright + e2e smoke suite
+- [x] Prettier, Husky + lint-staged pre-commit
+- [x] `ci.yml` (verify against real services / audit + gitleaks / prod image build)
+- [x] `.gitleaks.toml`, `dependabot.yml`
+
+> **Phase 0 gate met:** migrations apply, `/api/health` returns 200 with all three
+> checks true, 10 unit + 5 e2e tests pass, and build/typecheck/lint/format/audit and
+> the production `docker build` are green. Remaining: confirm CI is green on GitHub
+> (the workflow has not run yet).
+
+---
+
+## Phase 1: Theme reconciliation & auth
 
 ### 1.2 — Design system
 
@@ -62,17 +92,24 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [ ] Load Cinzel / Inter / JetBrains Mono; add `.fl-grain` utility
 - [ ] Port the icon set + brand mark (`FLMark`) from the design bundle
 
-### 1.3 — Database (Postgres + Drizzle)
+### 1.3 — Database (Postgres + Drizzle) ✅
 
-- [ ] `docker compose up -d db`; `npm install drizzle-orm pg && npm install -D drizzle-kit`
-- [ ] Create `src/lib/db/client.ts` and `src/lib/db/schema.ts`
-- [ ] Configure `drizzle.config.ts`; wire `npm run db:generate` / `db:migrate`
+Done in Phase 0b / A3.
+
+- [x] Compose Postgres; drizzle-orm + pg + drizzle-kit installed
+- [x] `src/lib/db/client.ts` and `src/lib/db/schema.ts`
+- [x] `drizzle.config.ts`; `db:generate` / `db:migrate` / `db:push` / `db:studio` wired
 
 ### 1.4 — Auth.js (NextAuth v5)
 
-- [ ] `npm install next-auth@beta @auth/drizzle-adapter`
+> Deps are already installed and the four adapter tables already exist in the schema
+> and are migrated (A3). Note next-auth v5 is still **beta** (`5.0.0-beta.31`).
+
+- [x] `next-auth@beta` + `@auth/drizzle-adapter` installed
+- [x] Auth.js core tables in Drizzle schema (`users`, `accounts`, `sessions`,
+      `verificationToken`), migration applied
 - [ ] `src/lib/auth/` — Auth.js config, Drizzle adapter, Credentials + Google + GitHub
-- [ ] Auth.js core tables in Drizzle schema; session = database strategy
+- [ ] Session = database strategy
 - [ ] `src/middleware.ts` — protect `/settings/*`, `/scenarios/new`, `/scenarios/*/edit`,
       `/campaigns/new`, `/campaigns/*/edit`, `/warbands/new`, `/warbands/*/edit`, `/forge`
 - [ ] On user create, insert a `profiles` row (adapter hook or trigger)

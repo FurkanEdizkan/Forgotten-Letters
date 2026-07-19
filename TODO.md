@@ -298,7 +298,20 @@ Done in Phase 0b / A3.
 
 ---
 
-## Phase 8: Account, settings & AI Forge
+## Phase 8: Account, settings & AI Forge — partial
+
+- [x] Profile settings: username / display name / bio, with username collision
+      handling and markup stripped from bios
+- [x] Account settings: email display, account deletion behind a typed-email
+      confirmation, cascading to every owned row and clearing the session
+- [x] Storage dashboard: real quota and usage from `entitlements` + `profiles`,
+      file listing, colour-coded usage bar
+- [ ] Avatar upload (the upload action and quota accounting exist; the UI does not)
+- [ ] 2FA
+- [ ] Notification preferences
+- [ ] **AI Forge** — blocked: no provider contract defined and no API key available
+
+### Original scope
 
 - [ ] Settings (per `Settings.jsx`): Profile, Account (email/password/2FA/delete),
       Notifications, Storage dashboard, Privacy

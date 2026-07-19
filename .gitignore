@@ -51,6 +51,12 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
+# ── Playwright artifacts ─────────────────────────────────────
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
 # ── TypeScript ───────────────────────────────────────────────
 *.tsbuildinfo
 next-env.d.ts

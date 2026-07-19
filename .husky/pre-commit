@@ -1,0 +1,4 @@
+# Format and lint only what is staged, then typecheck the project.
+# typecheck is whole-project because a change in one file routinely
+# breaks types in another that is not staged.
+npx lint-staged && npm run typecheck

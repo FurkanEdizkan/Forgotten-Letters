@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch rather than paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+
+    # The integration and e2e suites talk to real services, matching
+    # .devcontainer/docker-compose.yml. Mocks would not exercise the
+    # drivers (docs/BuildPlan.md, Testing strategy).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: forgotten
+          POSTGRES_PASSWORD: forgotten
+          POSTGRES_DB: forgotten_letters
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U forgotten -d forgotten_letters"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_DEFAULT_BUCKETS: forgotten-letters-assets:download,forgotten-letters-avatars
+        ports: ["9000:9000"]
+        options: >-
+          --health-cmd "mc ready local"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      mailpit:
+        image: axllent/mailpit:latest
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: 1
+          MP_SMTP_AUTH_ALLOW_INSECURE: 1
+        ports: ["1025:1025", "8025:8025"]
+
+    env:
+      DATABASE_URL: postgresql://forgotten:forgotten@localhost:5432/forgotten_letters
+      R2_ENDPOINT: http://localhost:9000
+      R2_ACCESS_KEY_ID: minioadmin
+      R2_SECRET_ACCESS_KEY: minioadmin
+      R2_REGION: auto
+      R2_FORCE_PATH_STYLE: "true"
+      R2_BUCKET_ASSETS: forgotten-letters-assets
+      R2_BUCKET_AVATARS: forgotten-letters-avatars
+      STORAGE_QUOTA_FREE_BYTES: "52428800"
+      SES_SMTP_HOST: localhost
+      SES_SMTP_PORT: "1025"
+      SES_SMTP_SECURE: "false"
+      EMAIL_FROM: Forgotten Letters <no-reply@example.com>
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_ASSET_BASE_URL: http://localhost:9000/forgotten-letters-assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Apply migrations
+        run: npm run db:migrate
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  security:
+    name: Audit and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans history, which needs more than the default
+          # single-commit checkout.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fails on high/critical only. Moderate advisories currently exist
+      # in postcss via next with no non-breaking fix available.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Production image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Validates the standalone build early; the deploy job that pushes
+      # this image is added in Phase 10.
+      - name: Build image
+        run: docker build -t forgotten-letters:ci .

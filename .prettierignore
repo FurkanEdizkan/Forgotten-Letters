@@ -1,0 +1,22 @@
+# Build output and deps
+node_modules
+.next
+out
+build
+dist
+package-lock.json
+
+# Generated SQL and drizzle metadata — rewritten by drizzle-kit
+db/migrations
+
+# Standalone Vite app with its own conventions
+design-lab
+
+# Repo tooling, not application code
+skills
+.design-sync
+graphify-out
+
+# Playwright artifacts
+playwright-report
+test-results

@@ -1,0 +1,29 @@
+# Gitleaks configuration — secret scanning in CI.
+#
+# Extends the upstream default ruleset rather than replacing it, so new
+# provider rules arrive with tool updates.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Non-secrets that match secret-shaped patterns"
+
+paths = [
+  # Placeholder values only — the real file is .env.local (gitignored).
+  '''\.env\.example$''',
+  # Documents credential shapes and where to obtain them.
+  '''docs/Deployment\.md$''',
+  '''docs/Architecture\.md$''',
+  # Lockfiles carry integrity hashes that look like high-entropy strings.
+  '''package-lock\.json$''',
+  '''design-lab/package-lock\.json$''',
+]
+
+regexes = [
+  # The local MinIO/Postgres development credentials. These are the
+  # documented defaults baked into docker-compose.yml; they grant access
+  # to nothing outside a developer's machine.
+  '''minioadmin''',
+  '''postgresql://forgotten:forgotten@''',
+]

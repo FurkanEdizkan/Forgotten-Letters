@@ -103,7 +103,15 @@ function loadServerEnv() {
   }
 
   // Guardrails that only apply once real traffic is involved.
-  if (parsed.data.NODE_ENV === "production") {
+  //
+  // `next build` runs with NODE_ENV=production, so these must be skipped
+  // during the build — otherwise building an image on a laptop (or in CI)
+  // with local MinIO settings fails on rules meant for a deployed server.
+  // Building for production is not the same as running in production.
+  const isBuildPhase =
+    process.env.NEXT_PHASE === "phase-production-build";
+
+  if (parsed.data.NODE_ENV === "production" && !isBuildPhase) {
     if (!parsed.data.AUTH_SECRET) {
       throw new Error(
         "AUTH_SECRET is required in production. Generate one with: openssl rand -base64 32",

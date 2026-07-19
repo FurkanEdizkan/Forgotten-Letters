@@ -46,6 +46,14 @@ export const users = pgTable("users", {
   // the Credentials provider must treat null as "cannot log in this way"
   // rather than comparing against it.
   passwordHash: text("passwordHash"),
+  // TOTP shared secret, base32. Present but unconfirmed means enrolment
+  // was started and never verified, so 2FA is NOT yet enforced —
+  // otherwise a half-finished setup would lock the user out.
+  totpSecret: text("totpSecret"),
+  totpConfirmedAt: timestamp("totpConfirmedAt", { withTimezone: true }),
+  // Single-use recovery codes, stored as bcrypt hashes. The only way
+  // back in if the authenticator device is lost.
+  totpRecoveryCodes: text("totpRecoveryCodes").array(),
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { profiles } from "@/lib/db/schema";
+import { getUnreadCount } from "@/lib/queries/notifications";
 import type { NavUser } from "@/components/layout/UserMenu";
 
 export async function getNavUser(): Promise<NavUser | null> {
@@ -23,5 +24,7 @@ export async function getNavUser(): Promise<NavUser | null> {
 
   // A session without a profile means the row was deleted mid-session;
   // treat it as signed out rather than rendering a broken menu.
-  return profile ?? null;
+  if (!profile) return null;
+
+  return { ...profile, unreadCount: await getUnreadCount(session.user.id) };
 }

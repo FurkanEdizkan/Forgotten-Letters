@@ -497,3 +497,51 @@ export type Comment = typeof comments.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
 export type ForgeJob = typeof forgeJobs.$inferSelect;
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase 7 — notifications
+   ══════════════════════════════════════════════════════════════════ */
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "comment_on_scenario",
+  "reply_to_comment",
+  "scenario_voted",
+]);
+
+/**
+ * In-app notifications.
+ *
+ * `actorId` is the person who caused it; `userId` is the recipient.
+ * Both cascade from users, so deleting an account removes both the
+ * notifications it received and the ones it caused — otherwise a
+ * deleted user's name would linger in other people's feeds.
+ *
+ * The target is stored as type + id rather than a foreign key because
+ * it is polymorphic, the same as votes and comments. `url` is
+ * denormalized at write time so rendering the feed needs no per-row
+ * lookup to build a link.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorId: text("actorId").references(() => users.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    isRead: boolean("isRead").notNull().default(false),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The unread badge queries this on every page load.
+    index("notifications_user_unread_idx").on(t.userId, t.isRead),
+    index("notifications_user_created_idx").on(t.userId, t.createdAt),
+  ],
+);
+
+export type Notification = typeof notifications.$inferSelect;

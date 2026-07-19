@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronDown, LogOut, Settings, User } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings, User } from "lucide-react";
 
 import { signOutAction } from "@/lib/actions/session";
 import { cn } from "@/lib/utils/cn";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils/cn";
 export type NavUser = {
   username: string;
   displayName: string | null;
+  unreadCount: number;
 };
 
 /** Signed-in account menu. Rendered only when a session exists. */
@@ -60,6 +61,14 @@ export function UserMenu({ user, className }: { user: NavUser; className?: strin
       >
         <User className="size-4" />
         <span className="max-w-[12ch] truncate">{label}</span>
+        {user.unreadCount > 0 && (
+          <span
+            aria-label={`${user.unreadCount} unread notifications`}
+            className="grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.5625rem] leading-4 text-primary-ink"
+          >
+            {user.unreadCount > 9 ? "9+" : user.unreadCount}
+          </span>
+        )}
         <ChevronDown
           className={cn("size-3 transition-transform", open && "rotate-180")}
         />
@@ -77,6 +86,19 @@ export function UserMenu({ user, className }: { user: NavUser; className?: strin
             className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted hover:bg-surface hover:text-ink"
           >
             <User className="size-4" /> Profile
+          </Link>
+          <Link
+            role="menuitem"
+            href="/notifications"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted hover:bg-surface hover:text-ink"
+          >
+            <Bell className="size-4" /> Notifications
+            {user.unreadCount > 0 && (
+              <span className="ml-auto font-mono text-[0.625rem] text-primary">
+                {user.unreadCount}
+              </span>
+            )}
           </Link>
           <Link
             role="menuitem"

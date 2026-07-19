@@ -151,7 +151,7 @@ export function CommentThread({
                     onClick={() => submit(replyBody, comment.id)}
                     disabled={pending || !replyBody.trim()}
                   >
-                    Reply
+                    Post reply
                   </Button>
                 </div>
               </div>

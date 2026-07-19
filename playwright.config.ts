@@ -13,11 +13,18 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // Every spec shares one database and creates, mutates, and deletes
+  // real users. Running files in parallel interleaves those fixtures —
+  // account deletion in one spec races another spec's session, and
+  // notification assertions see rows from a concurrent test. Serial is
+  // slower but is the only honest way to run these against a single
+  // database. vitest.config.ts sets fileParallelism:false for the same
+  // reason.
+  fullyParallel: false,
   // A .only left in a spec silently narrows CI to one test; fail instead.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI ? "github" : "list",
 
   use: {

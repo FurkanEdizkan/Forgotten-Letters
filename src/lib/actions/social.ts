@@ -15,6 +15,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db/client";
 import { comments, favorites, profiles, scenarios } from "@/lib/db/schema";
+import { notify } from "@/lib/notify";
 import { castVote, clearVote, type TargetType } from "@/lib/db/votes";
 import { sanitizeComment, stripHtml } from "@/lib/sanitize";
 
@@ -66,6 +67,71 @@ async function targetExists(
     // paths; until then treat them as absent rather than assuming valid.
     default:
       return false;
+  }
+}
+
+/**
+ * Notify the people a new comment concerns.
+ *
+ * The scenario author always hears about it; a reply also pings the
+ * parent comment's author. Both go through notify(), which skips
+ * self-notification, so one person can receive at most one of these.
+ */
+async function notifyForComment(input: {
+  actorId: string;
+  targetType: TargetType;
+  targetId: string;
+  parentId: string | null;
+}): Promise<void> {
+  if (input.targetType !== "scenario") return;
+
+  const [scenario] = await db
+    .select({
+      authorId: scenarios.authorId,
+      slug: scenarios.slug,
+      title: scenarios.title,
+    })
+    .from(scenarios)
+    .where(eq(scenarios.id, input.targetId))
+    .limit(1);
+
+  if (!scenario) return;
+
+  const [authorProfile] = await db
+    .select({ username: profiles.username })
+    .from(profiles)
+    .where(eq(profiles.userId, scenario.authorId))
+    .limit(1);
+
+  if (!authorProfile) return;
+  const url = `/scenarios/${authorProfile.username}/${scenario.slug}`;
+
+  await notify({
+    userId: scenario.authorId,
+    actorId: input.actorId,
+    type: "comment_on_scenario",
+    title: `New comment on “${scenario.title}”`,
+    url,
+  });
+
+  if (input.parentId) {
+    const [parent] = await db
+      .select({ authorId: comments.authorId })
+      .from(comments)
+      .where(eq(comments.id, input.parentId))
+      .limit(1);
+
+    // Skip if the parent author is the scenario author — they already
+    // got the comment notification above.
+    if (parent && parent.authorId !== scenario.authorId) {
+      await notify({
+        userId: parent.authorId,
+        actorId: input.actorId,
+        type: "reply_to_comment",
+        title: `Someone replied to you on “${scenario.title}”`,
+        url,
+      });
+    }
   }
 }
 
@@ -188,6 +254,15 @@ export async function createCommentAction(input: {
       body,
     })
     .returning();
+
+  // Notify after the comment has committed. notify() never throws, so a
+  // failure here cannot roll back the comment.
+  await notifyForComment({
+    actorId: user.id,
+    targetType: parsed.data.targetType,
+    targetId: parsed.data.targetId,
+    parentId,
+  });
 
   return { ok: true, data: { id: created.id } };
 }

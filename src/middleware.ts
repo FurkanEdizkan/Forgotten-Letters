@@ -20,6 +20,7 @@ const { auth } = NextAuth(edgeAuthConfig);
 
 const PROTECTED_PREFIXES = [
   "/settings",
+  "/notifications",
   "/scenarios/new",
   "/campaigns/new",
   "/warbands/new",

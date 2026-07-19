@@ -8,10 +8,26 @@
 ## Context
 
 The repo has full design/architecture docs ([docs/](.)) and a feature roadmap
-([TODO.md](../TODO.md)), but **no app exists yet** — `src/` is empty `.gitkeep` placeholders,
-there is no `package.json`, and the `docker-compose.yml` referenced in
-[Deployment.md](./Deployment.md) is only a snippet. The current devcontainer is
-single-container and brings up only the dev box, not the backing services.
+([TODO.md](../TODO.md)). **A Next.js UI shell already exists** — merged in from the design-system
+branch — but **nothing is wired to a backend**.
+
+What exists today:
+- `package.json` + `next.config.ts` + `tsconfig.json`; `npm run build`, `lint`, and `typecheck`
+  all pass on a clean install (verified).
+- ~20 pages across `(auth)` / `(public)` / `(protected)` route groups, all rendering **static
+  mock data** from `src/lib/mock/`.
+- `src/components/ui/` primitives themed with the **grimdark** tokens already present in
+  `src/app/globals.css`.
+- `design-lab/` — a standalone Vite sandbox for design exploration, excluded from the root build.
+
+What does **not** exist: any database, auth, storage, or email wiring; `docker-compose.yml`;
+root `Dockerfile`; `drizzle.config.ts`; `/api/health`; and any test tooling (`.github/workflows/`
+is an empty directory). Deps for the new stack are absent from `package.json`. Leftovers from the
+abandoned managed-SaaS plan still sit in `supabase/`, `sanity/`, `src/lib/supabase/`, and
+`src/lib/sanity/` — all empty `.gitkeep` placeholders that nothing imports.
+
+The current devcontainer is single-container and brings up only the dev box, not the backing
+services.
 
 Goal: a complete local dev environment where every framework/implementation can be **built,
 run, tested, and security-checked locally** before any hosting. Hosting (AWS) comes last.
@@ -32,8 +48,9 @@ each feature phase.
 ## Part A — "Required parts for starting development" (Phase 0)
 
 Concrete artifacts to create first. After this phase, `docker compose up` + `npm run dev`
-yields a running app wired to local Postgres/MinIO/Mailpit, with tests, lint, typecheck, and
-CI all green on an otherwise-empty app.
+yields the existing UI shell wired to local Postgres/MinIO/Mailpit, with tests, lint, typecheck,
+and CI all green. Pages still render mock data at the end of Phase 0 — swapping mocks for real
+queries is feature work, and belongs to Phases 1+.
 
 ### A1. Local services + devcontainer (full parity)
 - **`.devcontainer/docker-compose.yml`** — services:
@@ -52,12 +69,24 @@ CI all green on an otherwise-empty app.
 - **Root `Dockerfile`** — standalone multi-stage build (reference in
   [Deployment.md §1](./Deployment.md)); lets us validate the prod image builds early.
 
-### A2. Next.js app bootstrap
-- `create-next-app` (TS, Tailwind, ESLint, App Router, `src/`, alias `@/*`) → `package.json`,
-  `next.config.ts` (set `output: 'standalone'`), `tsconfig.json`, base `src/app/`.
-- Strip boilerplate; add the **FL design tokens** to `globals.css` from
-  [DesignSystem.md](./DesignSystem.md) (CSS vars + Tailwind v4 `@theme`); fonts + `.fl-grain`.
-  `npx shadcn init` (dark, zinc) re-themed to FL tokens.
+### A2. Reconcile the existing app scaffold
+> **Not a bootstrap.** The app was scaffolded on the design-system branch before the stack
+> change, so this is cleanup and dependency work — do **not** run `create-next-app`, it would
+> overwrite ~20 working pages.
+
+- Delete the abandoned-stack placeholders: `supabase/`, `sanity/`, `src/lib/supabase/`,
+  `src/lib/sanity/` (all empty `.gitkeep`, nothing imports them).
+- Set `output: 'standalone'` in `next.config.ts` (required by the root `Dockerfile` in A1).
+- Add the new stack's runtime deps, absent today: `drizzle-orm` + `pg`, `@auth/core` +
+  `next-auth@5` + `@auth/drizzle-adapter`, `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`,
+  `nodemailer`, `zod`.
+- Migrate off the deprecated `next lint` (removed in Next.js 16) to the ESLint CLI:
+  `npx @next/codemod@canary next-lint-to-eslint-cli .`
+- **Theme:** `globals.css` already carries the **grimdark** tokens ported from `design-lab/`,
+  under stable token names that `src/components/ui/*` consume. This *competes* with the FL
+  16-color palette in [DesignSystem.md](./DesignSystem.md) — the two have not been reconciled.
+  Phase 0 does **not** need this resolved; pick a canonical system before Phase 1's theme work
+  and align the loser to it. Fonts + `.fl-grain` land with that decision.
 
 ### A3. Typed config + cloud clients (parity layer)
 - **`src/lib/env.ts`** — Zod-validated env (fail fast at boot; no missing secrets). Add
@@ -75,7 +104,8 @@ CI all green on an otherwise-empty app.
 ### A4. Quality + security tooling (the gates)
 - **Vitest** config + a sample unit test; `npm test`.
 - **Playwright** config + an `e2e/` smoke test (home page renders); `npm run test:e2e`.
-- **ESLint + Prettier** configs; `npm run lint`, `npm run typecheck`.
+- **Prettier** config + add `npm run format`. ESLint (`eslint.config.mjs`) and the `lint` /
+  `typecheck` scripts already exist and pass — extend rather than recreate them.
 - **Husky + lint-staged** pre-commit: format + lint + typecheck on staged files.
 - **`/api/health`** route — DB ping + R2 reachability (also the container healthcheck later).
 - **`.github/workflows/ci.yml`** — install → lint → typecheck → unit tests → `next build` →
@@ -124,7 +154,8 @@ succeed; CI is green.
 Each phase = the [TODO.md](../TODO.md) work **plus** a Test gate and Security gate. Phases ship
 and are verified entirely on the local compose stack; nothing requires the cloud until Phase 10.
 
-- **Phase 1 — Bootstrap, theme & auth.** Next.js shell + FL theme + **Auth.js v5** (Credentials
+- **Phase 1 — Theme reconciliation & auth.** The Next.js shell already exists (see A2); this
+  phase settles grimdark-vs-FL tokens, then adds **Auth.js v5** (Credentials
   + Google + GitHub, Drizzle adapter, DB sessions), auth pages, SES/Mailpit email,
   middleware-protected routes, layout shell.
   *Test:* register→verify(via Mailpit)→login; OAuth; protected-route redirects.
@@ -174,8 +205,9 @@ sanitization final pass, **full security review + OWASP pass**, SEO, error track
 ## Critical files this plan creates/changes (representative)
 - Infra: `.devcontainer/docker-compose.yml`, `.devcontainer/devcontainer.json` (rewrite), root
   `docker-compose.yml`, root `Dockerfile`, `.env.example` (add `R2_ENDPOINT` etc.).
-- App config: `package.json`, `next.config.ts`, `tsconfig.json`, `drizzle.config.ts`,
-  `vitest.config.ts`, `playwright.config.ts`, ESLint/Prettier configs.
+- App config: `package.json` (add stack deps + scripts) and `next.config.ts` (add `standalone`)
+  — both **already exist**; newly created: `drizzle.config.ts`, `vitest.config.ts`,
+  `playwright.config.ts`, Prettier config.
 - Parity/libs: `src/lib/env.ts`, `src/lib/db/{client,schema}.ts`, `src/lib/storage/r2.ts`,
   `src/lib/mail/*`, `src/app/api/health/route.ts`.
 - CI/security: `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.gitleaks.toml`,

@@ -42,11 +42,14 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 > The Next.js app is already scaffolded (route groups, pages, `src/components/ui`) from the
 > design-system branch; it predates the stack change, so this step is cleanup, not `create-next-app`.
 
-- [ ] Delete the `supabase/` and `sanity/` directories — empty `.gitkeep` placeholders only,
-      superseded by `db/` (Drizzle) and `src/content/` (MDX); nothing imports them
+- [ ] Delete `supabase/`, `sanity/`, `src/lib/supabase/`, `src/lib/sanity/` — empty `.gitkeep`
+      placeholders only, superseded by `db/` (Drizzle) and `src/content/` (MDX); nothing imports them
 - [ ] Set `output: 'standalone'` in `next.config.ts`; verify `npm run dev` on :3000
-- [ ] Add the new stack's deps (drizzle-orm, @auth/core, @aws-sdk/client-s3, …) —
+- [ ] Add the new stack's deps (drizzle-orm, next-auth@5, @aws-sdk/client-s3, nodemailer, zod) —
       `package.json` currently carries none of them
+- [ ] Migrate off deprecated `next lint` (gone in Next.js 16):
+      `npx @next/codemod@canary next-lint-to-eslint-cli .`
+- [x] Exclude `design-lab/` from the root typecheck (separate Vite app, own deps)
 
 ### 1.2 — Design system
 > Partly done: `src/components/ui` already carries the grimdark retoken from the design lab.

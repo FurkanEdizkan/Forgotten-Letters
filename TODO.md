@@ -227,9 +227,15 @@ Done in Phase 0b / A3.
 - [x] Verified: create → persist → reload → publish; per-field validation errors;
       event tables round-trip; author-only edit returns 404 for others; anonymous
       users redirected
-- [ ] Campaign server actions and pages (`/campaigns/new`, `/campaigns/[slug]`,
-      `/campaigns/[slug]/edit`)
-- [ ] **Campaign graph editor** — node/edge canvas
+- [x] Campaign server actions: create / update / delete / publish, graph save, and
+      scenario attach-detach — each ownership-guarded
+- [x] Campaign pages: `/campaigns`, `/campaigns/[username]/[slug]`,
+      `/campaigns/new`, `/campaigns/[username]/[slug]/edit`
+- [x] Campaign graph **data layer**: validated (dangling edges, self-loops, duplicate
+      ids, and multiple start nodes all rejected), persisted, and rendered read-only
+      as an outline on the detail page
+- [ ] **Campaign graph editor canvas** — drag-and-drop node/edge editing. Blocked on
+      the missing design bundle; the data layer beneath it is done and tested
 - [ ] Tiptap rich-text story editing (sections are plain textareas today; the
       sanitizer is already in place for when Tiptap lands)
 

@@ -95,15 +95,7 @@ export const scenarioSchema = z.object({
   eventTables: z.array(eventTableSchema).max(10).default([]),
 });
 
-export const campaignSchema = z.object({
-  title: titleSchema,
-  slug: slugSchema,
-  summary: summarySchema,
-  gameSystemId: z.string().min(1, "Pick a game system"),
-});
-
 export type ScenarioInput = z.infer<typeof scenarioSchema>;
-export type CampaignInput = z.infer<typeof campaignSchema>;
 export type ScenarioSectionInput = z.infer<typeof scenarioSectionSchema>;
 export type EventTableInput = z.infer<typeof eventTableSchema>;
 

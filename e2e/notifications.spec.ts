@@ -56,7 +56,7 @@ async function publishScenario(page: Page, title: string) {
 // which pass consistently. Left as fixme so the gap stays visible
 // instead of being hidden by deletion or by a retry that would train
 // everyone to ignore red.
-test.fixme("a comment notifies the scenario author", async ({ page }) => {
+test("a comment notifies the scenario author", async ({ page }) => {
   const author = freshUser();
   await registerAndLogin(page, author);
   const url = await publishScenario(page, "Notify Me Scenario");
@@ -77,6 +77,13 @@ test.fixme("a comment notifies the scenario author", async ({ page }) => {
   await page.fill("#password", author.password);
   await page.click('button[type="submit"]');
   await page.waitForURL("/", { timeout: 15_000 });
+
+  // waitForURL only proves the redirect fired, not that the session
+  // cookie is the author's. Assert the identity before reading a
+  // per-user feed, or a raced login silently reads someone else's.
+  await expect(
+    page.getByRole("button", { name: new RegExp(author.username, "i") }),
+  ).toBeVisible({ timeout: 15_000 });
 
   // Poll with reloads: the notification is written inside the comment
   // action, but the feed is a separate request and the first render

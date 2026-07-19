@@ -286,8 +286,7 @@ Done in Phase 0b / A3.
 - [ ] Battle tracker + post-battle report
 - [x] Notifications — in-app feed, unread badge, mark-all-read; comment and reply
       notifications, with self-notification suppressed
-      **Known flake:** one e2e case is quarantined (`test.fixme`) — see
-      `e2e/notifications.spec.ts`. Root cause not identified.
+
 - [ ] News
 
 ### Original scope
@@ -298,8 +297,7 @@ Done in Phase 0b / A3.
 - [ ] **Play loop** (design gap): Battle Tracker, Post-battle Report, Warband resolution
 - [x] Notifications — in-app feed, unread badge, mark-all-read; comment and reply
       notifications, with self-notification suppressed
-      **Known flake:** one e2e case is quarantined (`test.fixme`) — see
-      `e2e/notifications.spec.ts`. Root cause not identified. inbox; News/Dispatches feed
+      inbox; News/Dispatches feed
 - [ ] Verify votes/favorites/comments persist; profiles + browse return correct results
 
 ---

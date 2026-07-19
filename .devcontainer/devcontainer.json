@@ -7,12 +7,10 @@
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
 
-  "forwardPorts": [3000, 3333, 54321, 54322],
+  "forwardPorts": [3000, 5432],
   "portsAttributes": {
     "3000": { "label": "Next.js Dev Server", "onAutoForward": "notify" },
-    "3333": { "label": "Sanity Studio", "onAutoForward": "notify" },
-    "54321": { "label": "Supabase API (local)", "onAutoForward": "silent" },
-    "54322": { "label": "Supabase Studio (local)", "onAutoForward": "silent" }
+    "5432": { "label": "PostgreSQL (local)", "onAutoForward": "silent" }
   },
 
   "containerEnv": {

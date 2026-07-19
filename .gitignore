@@ -19,13 +19,12 @@ dist/
 .env.test.local
 .env.production.local
 
-# ── Supabase local ──────────────────────────────────────────
-supabase/.temp/
-supabase/.branches/
+# ── Database (Drizzle / Postgres) ────────────────────────────
+drizzle/
+*.sqlite
 
-# ── Sanity ───────────────────────────────────────────────────
-sanity/dist/
-sanity/node_modules/
+# ── Docker local volumes ─────────────────────────────────────
+pgdata/
 
 # ── IDE / Editor ─────────────────────────────────────────────
 .vscode/*
@@ -56,11 +55,9 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-# ── Vercel ───────────────────────────────────────────────────
-.vercel/
-
 # ── Misc ─────────────────────────────────────────────────────
 *.pem
+
 # design-sync (staged scripts + regenerated build output + machine state)
 .ds-sync/
 ds-bundle/

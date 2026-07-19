@@ -46,15 +46,15 @@ WORKDIR /home/${USERNAME}
 COPY --chmod=755 --chown=${USER_UID}:${USER_GID} setup-user.sh /tmp/setup-user.sh
 RUN /tmp/setup-user.sh
 
-# ── Supabase CLI ─────────────────────────────────────────────
-RUN curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh -s -- -b /home/${USERNAME}/.local/bin
+# ── Project CLIs ─────────────────────────────────────────────
+# Drizzle Kit (migrations) ships as a project dependency — run via `npx drizzle-kit`.
+# Postgres client (`psql`) is installed in install_common_tools.sh.
+# Local user bin on PATH for any npx/global shims.
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
-
-# ── Sanity CLI (installed globally via npm) ──────────────────
-RUN sudo npm install -g sanity@latest
-
-# ── Vercel CLI ───────────────────────────────────────────────
-RUN sudo npm install -g vercel@latest
+# Optional: uncomment to add Cloudflare R2 / AWS tooling to the image.
+# RUN sudo npm install -g wrangler@latest
+# RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscli.zip \
+#   && unzip -q /tmp/awscli.zip -d /tmp && sudo /tmp/aws/install && rm -rf /tmp/awscli.zip /tmp/aws
 
 # ── Working directory ────────────────────────────────────────
 WORKDIR /workspace

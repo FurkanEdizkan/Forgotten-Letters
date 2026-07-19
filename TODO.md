@@ -1,7 +1,11 @@
 # Forgotten Letters — TODO
 
-> Checklist for building the wargame scenario platform. Work through phases in order.
-> Tick boxes as you complete each step. Each phase has verification steps at the end.
+> Build roadmap for the wargame scenario platform, on the **open-source / self-hostable**
+> stack: Next.js 15 + PostgreSQL (Drizzle) + Auth.js + Cloudflare R2 + MDX, deployed on
+> AWS, funded by ads + supporter tiers. Work through phases in order; tick boxes as you go.
+> See [`docs/`](docs/) for architecture, deployment, cost, monetization, and design specs.
+> For the **local-first execution strategy** (devcontainer + docker, test/security gates per
+> phase, then hosting), see [`docs/BuildPlan.md`](docs/BuildPlan.md).
 
 ---
 
@@ -17,480 +21,226 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [x] Design System showcase page (`/design-system`)
 - [x] Faithful grimdark Profile page port (`/profile`)
 - [x] anime.js motion layer + animated hero backdrop (reduced-motion safe)
-- [x] Follow-up: port grimdark tokens/components into `src/components/ui` + re-sync Claude Design
+- [x] Port grimdark tokens/components into `src/components/ui` + re-sync Claude Design
+- [ ] Reconcile the grimdark palette with the `FL` tokens in [`docs/DesignSystem.md`](docs/DesignSystem.md)
 
 ---
 
-## Phase 0: Dev Environment ✅
+## Phase 0: Planning & docs ✅
 
-- [x] Create `.devcontainer` (Dockerfile, devcontainer.json, entrypoint, setup scripts)
-- [x] Configure Node 22 LTS, TypeScript, Supabase CLI, Sanity CLI, Vercel CLI
-- [x] Set up `.gitignore`, `.env.example`, `.gitmessage`
-- [x] Create project folder structure with `.gitkeep` files
-- [x] Update `README.md` and `docs/Techstack.md`
-- [x] Push initial scaffold to GitHub
-
----
-
-## Phase 1: Project Bootstrap & Auth
-
-### 1.1 — Initialize Next.js project
-
-- [ ] Inside container: `npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"` (run in `/workspace`)
-- [ ] Verify `npm run dev` starts on port 3000
-- [ ] Remove boilerplate content from `src/app/page.tsx` and `src/app/layout.tsx`
-
-### 1.2 — Configure shadcn/ui
-
-- [ ] `npx shadcn@latest init` — choose dark theme, zinc palette
-- [ ] Install base components: `npx shadcn@latest add button input label card form toast separator avatar dropdown-menu sheet tabs`
-- [ ] Verify components appear in `src/components/ui/`
-
-### 1.3 — Set up Supabase project
-
-- [ ] Create Supabase project at supabase.com (org: Forgotten-Letters)
-- [ ] Copy project URL and anon key to `.env.local`
-- [ ] `npm install @supabase/supabase-js @supabase/ssr`
-- [ ] Link local CLI: `supabase link --project-ref <ref>`
-
-### 1.4 — Configure Supabase Auth
-
-- [ ] Enable Email/Password provider in Supabase dashboard → Auth → Providers
-- [ ] Enable Google OAuth provider (create Google Cloud OAuth credentials first)
-- [ ] Set redirect URLs in Supabase dashboard (localhost:3000 + production URL)
-
-### 1.5 — Supabase client helpers
-
-- [ ] Create `src/lib/supabase/client.ts` — browser client (`createBrowserClient`)
-- [ ] Create `src/lib/supabase/server.ts` — server client (`createServerClient` with cookies)
-- [ ] Create `src/lib/supabase/middleware.ts` — middleware client (refresh session)
-- [ ] Create `src/middleware.ts` — Next.js middleware (protect `/settings/*`, `/campaigns/*/edit`, `/scenarios/*/edit`, `/scenarios/new`, `/campaigns/new`)
-
-### 1.6 — Auth pages
-
-- [ ] Create `src/app/(auth)/login/page.tsx` — email/password form + Google OAuth button
-- [ ] Create `src/app/(auth)/register/page.tsx` — email/password registration form
-- [ ] Create `src/app/(auth)/forgot-password/page.tsx` — password reset request form
-- [ ] Create `src/app/(auth)/auth/callback/route.ts` — OAuth callback handler
-- [ ] Create `src/app/(auth)/auth/confirm/route.ts` — email confirmation handler
-- [ ] Add Zod validation schemas for login/register forms in `src/lib/validations/auth.ts`
-
-### 1.7 — Layout shell
-
-- [ ] Create `src/components/layout/Navbar.tsx` — logo, nav links (Browse, Official, Rules), auth dropdown (login/register or avatar+menu)
-- [ ] Create `src/components/layout/Footer.tsx` — links, copyright
-- [ ] Update `src/app/layout.tsx` — wrap with Navbar, Footer, Toaster
-- [ ] Create `src/app/(public)/page.tsx` — landing/home page (hero, featured scenarios placeholder)
-
-### 1.8 — Deploy to Vercel
-
-- [ ] Connect GitHub repo to Vercel
-- [ ] Set environment variables on Vercel (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SITE_URL)
-- [ ] Verify deploy succeeds and auth flow works in production
-
-### 1.9 — Verify Phase 1
-
-- [ ] Register with email → confirm email → login works
-- [ ] Login with Google OAuth works
-- [ ] Forgot password sends reset email
-- [ ] Navbar shows authenticated state (avatar/dropdown) after login
-- [ ] Protected routes redirect to `/login` when unauthenticated
-- [ ] Logout works and clears session
+- [x] Re-architect off managed SaaS (Vercel/Supabase/Sanity) → open-source AWS stack
+- [x] Write `docs/Architecture.md`, `Deployment.md`, `Costs.md`, `Monetization.md`
+- [x] Port design tokens → `docs/DesignSystem.md`; catalog surfaces → `docs/UI-Surfaces.md`
+- [x] Author the Claude Design redesign prompt → `docs/ClaudeDesign-Prompt.md`
+- [x] Update `README.md` and `.env.example` for the new stack
 
 ---
 
-## Phase 2: Database Schema & Supabase Setup
+## Phase 1: Bootstrap, theme & auth
 
-### 2.1 — SQL migration
+### 1.1 — Reconcile the existing scaffold
+> The Next.js app is already scaffolded (route groups, pages, `src/components/ui`) from the
+> design-system branch; it predates the stack change, so this step is cleanup, not `create-next-app`.
 
-- [ ] Create `supabase/migrations/001_initial_schema.sql` with:
-  - [ ] Enums: `section_type`, `target_type`
-  - [ ] Table: `profiles` (id FK auth.users, username UNIQUE, display_name, avatar_url, bio, total_storage_used_bytes DEFAULT 0, is_premium DEFAULT false, created_at, updated_at)
-  - [ ] Table: `game_systems` (id, name, slug UNIQUE, description, icon_url, created_at)
-  - [ ] Table: `campaigns` (id, author_id FK profiles, game_system_id FK, title, slug UNIQUE, description, cover_image_url, is_published DEFAULT false, is_official DEFAULT false, created_at, updated_at)
-  - [ ] Table: `scenarios` (id, campaign_id FK campaigns NULLABLE, author_id FK profiles, game_system_id FK, title, slug UNIQUE, description, story_text, map_data JSONB, player_count_min, player_count_max, tags text[], sort_order, is_published DEFAULT false, created_at, updated_at)
-  - [ ] Table: `scenario_sections` (id, scenario_id FK, section_type enum, title, content JSONB, sort_order)
-  - [ ] Table: `event_tables` (id, scenario_id FK, title, description, entries JSONB)
-  - [ ] Table: `uploaded_files` (id, user_id FK profiles, scenario_id FK NULLABLE, storage_path, file_name, file_size_bytes, mime_type, is_temporary DEFAULT true, created_at)
-  - [ ] Table: `votes` (id, user_id FK, target_type enum, target_id UUID, value SMALLINT CHECK -1/+1, UNIQUE(user_id, target_type, target_id))
-  - [ ] Table: `favorites` (id, user_id FK, target_type enum, target_id UUID, created_at, UNIQUE(user_id, target_type, target_id))
-  - [ ] Table: `comments` (id, user_id FK, target_type enum, target_id UUID, parent_id FK comments NULLABLE, body TEXT, created_at, updated_at)
-  - [ ] Indexes on: slugs, author_id, campaign_id, scenario_id, target_type+target_id, is_published, created_at
+- [ ] Delete the `supabase/` and `sanity/` directories (superseded by Postgres/Drizzle + MDX)
+- [ ] Remove Supabase/Sanity/Vercel deps from `package.json`; reinstall and confirm a clean build
+- [ ] Audit `src/` for imports of `@supabase/*` or `next-sanity` and stub them out
+- [ ] Set `output: 'standalone'` in `next.config.ts`; verify `npm run dev` on :3000
 
-### 2.2 — Triggers & functions
+### 1.2 — Design system
+> Partly done: `src/components/ui` already carries the grimdark retoken from the design lab.
 
-- [ ] Create `handle_new_user()` trigger → auto-insert into `profiles` on `auth.users` INSERT
-- [ ] Create `check_user_storage_quota(user_id UUID, new_file_size BIGINT)` function → returns boolean
-- [ ] Create `update_storage_used()` trigger → update `profiles.total_storage_used_bytes` on uploaded_files INSERT/DELETE
-- [ ] Create `get_vote_count(target_type, target_id)` function → returns net vote count
+- [x] Port grimdark tokens + `src/components/ui` primitives from `design-lab/`
+- [ ] Reconcile the grimdark palette against the `FL` tokens in `docs/DesignSystem.md`
+      (decide which is canonical, then align `globals.css` CSS vars + Tailwind v4 `@theme`)
+- [ ] Load Cinzel / Inter / JetBrains Mono; add `.fl-grain` utility
+- [ ] Port the icon set + brand mark (`FLMark`) from the design bundle
 
-### 2.3 — RLS policies
+### 1.3 — Database (Postgres + Drizzle)
+- [ ] `docker compose up -d db`; `npm install drizzle-orm pg && npm install -D drizzle-kit`
+- [ ] Create `src/lib/db/client.ts` and `src/lib/db/schema.ts`
+- [ ] Configure `drizzle.config.ts`; wire `npm run db:generate` / `db:migrate`
 
-- [ ] `profiles`: anyone can read; user can update own row
-- [ ] `game_systems`: anyone can read; only service_role can write
-- [ ] `campaigns`: anyone can read where `is_published = true`; author can CRUD own; service_role can set `is_official`
-- [ ] `scenarios`: anyone can read where `is_published = true`; author can CRUD own
-- [ ] `scenario_sections`: follow parent scenario's permissions
-- [ ] `event_tables`: follow parent scenario's permissions
-- [ ] `uploaded_files`: user can read/delete own; insert with quota check
-- [ ] `votes`: auth'd users can insert/delete own; anyone can read
-- [ ] `favorites`: auth'd users can insert/delete own; user can read own
-- [ ] `comments`: anyone can read; auth'd users can insert; user can update/delete own
+### 1.4 — Auth.js (NextAuth v5)
+- [ ] `npm install next-auth@beta @auth/drizzle-adapter`
+- [ ] `src/lib/auth/` — Auth.js config, Drizzle adapter, Credentials + Google + GitHub
+- [ ] Auth.js core tables in Drizzle schema; session = database strategy
+- [ ] `src/middleware.ts` — protect `/settings/*`, `/scenarios/new`, `/scenarios/*/edit`,
+      `/campaigns/new`, `/campaigns/*/edit`, `/warbands/new`, `/warbands/*/edit`, `/forge`
+- [ ] On user create, insert a `profiles` row (adapter hook or trigger)
 
-### 2.4 — Storage buckets
+### 1.5 — Auth pages & email
+- [ ] `/(auth)/login`, `/register`, `/forgot-password` (per `Auth.jsx`)
+- [ ] Email verification + **reset-with-token** pages (design gap — see UI-Surfaces)
+- [ ] Wire Amazon SES SMTP for verification / reset mail
+- [ ] Zod schemas in `src/lib/validations/auth.ts`
 
-- [ ] Create `scenario-assets` bucket (public read, authenticated write, 5MB file size limit)
-- [ ] Create `avatars` bucket (public read, authenticated write, 2MB file size limit)
-- [ ] Write bucket policies matching RLS rules
+### 1.6 — Layout shell
+- [ ] `components/layout/Navbar.tsx` + `Footer.tsx` (per `Chrome.jsx`, 4 navbar variants)
+- [ ] `components/layout/QuickDrawer.tsx` (per `QuickDrawer.jsx`)
+- [ ] `app/(public)/page.tsx` — Landing (per `Landing.jsx`, desktop + mobile)
 
-### 2.5 — Seed data
-
-- [ ] Create `supabase/seed/001_game_systems.sql` — insert "Trench Crusade" game system
-- [ ] Run migration: `supabase db push` (or `supabase migration up` locally)
-
-### 2.6 — Type generation
-
-- [ ] Run `supabase gen types typescript --linked > src/lib/supabase/database.types.ts`
-- [ ] Create typed Supabase client wrapper using generated types
-
-### 2.7 — Verify Phase 2
-
-- [ ] Register a new user → verify `profiles` row auto-created
-- [ ] Insert seed game system → verify readable without auth
-- [ ] Create scenario as user A → verify user B cannot edit it
-- [ ] Unpublished scenarios not visible to anonymous users
-- [ ] Upload file → verify storage quota updated
-- [ ] Upload past 50MB quota → verify rejection
+### 1.7 — Verify
+- [ ] Register → verify email → login; Google + GitHub OAuth; forgot/reset works
+- [ ] Protected routes redirect when unauthenticated; logout clears session
 
 ---
 
-## Phase 3: Sanity CMS for Official Content
+## Phase 2: Database schema & storage
 
-### 3.1 — Initialize Sanity
+### 2.1 — Schema (Drizzle + SQL migrations)
+- [ ] Enums: `section_type`, `target_type`, `subscription_tier`
+- [ ] Core tables (carried from original plan): `profiles`, `game_systems`, `campaigns`,
+      `scenarios`, `scenario_sections`, `event_tables`, `uploaded_files`, `votes`,
+      `favorites`, `comments`
+- [ ] Monetization tables: `subscriptions`, `entitlements`, `forge_jobs`
+- [ ] Indexes: slugs, author_id, campaign_id, scenario_id, (target_type,target_id),
+      is_published, created_at
 
-- [ ] `cd sanity && sanity init` — project name: forgotten-letters, dataset: production
-- [ ] Add Sanity project ID and dataset to `.env.local`
-- [ ] `npm install next-sanity @sanity/image-url @portabletext/react`
+### 2.2 — Logic (functions/triggers, replacing Supabase RLS/triggers)
+- [ ] `handle_new_user` equivalent (profiles row on signup)
+- [ ] `check_user_storage_quota(user_id, size)` using `entitlements.storage_quota_bytes`
+- [ ] `update_storage_used` on uploaded_files insert/delete
+- [ ] `get_vote_count(target_type, target_id)`
+- [ ] **App-layer authorization** helpers in `src/lib/auth/guards.ts` (ownership/role
+      checks replace RLS in every server action)
 
-### 3.2 — Sanity schemas
+### 2.3 — Object storage (Cloudflare R2)
+- [ ] `npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner`
+- [ ] `src/lib/storage/r2.ts` — client, presigned PUT/GET, key helpers
+- [ ] Buckets: `assets` (5 MB image cap), `avatars` (2 MB cap); enforce MIME + quota
+      in the upload server action
+- [ ] Cloudflare custom domain → `NEXT_PUBLIC_ASSET_BASE_URL` (zero-egress reads)
 
-- [ ] Create `sanity/schemas/gameSystem.ts` — name, slug, description, icon
-- [ ] Create `sanity/schemas/officialScenario.ts` — title, slug, gameSystem ref, story (portable text), map image, sections, player count, tags
-- [ ] Create `sanity/schemas/rulesPage.ts` — title, slug, gameSystem ref, body (portable text), sort order
-- [ ] Create `sanity/schemas/newsPost.ts` — title, slug, body, author string, publishedAt datetime
-- [ ] Register all schemas in `sanity/schemas/index.ts`
-
-### 3.3 — Sanity client in Next.js
-
-- [ ] Create `src/lib/sanity/client.ts` — configured Sanity client
-- [ ] Create `src/lib/sanity/queries.ts` — GROQ queries for rules, official scenarios, news
-- [ ] Create `src/lib/sanity/image.ts` — image URL builder helper
-
-### 3.4 — Public pages
-
-- [ ] Create `src/app/(public)/rules/page.tsx` — list rules pages by game system
-- [ ] Create `src/app/(public)/rules/[slug]/page.tsx` — single rules page with portable text
-- [ ] Create `src/app/(public)/official/page.tsx` — list official scenarios
-- [ ] Create `src/app/(public)/official/[slug]/page.tsx` — single official scenario view
-
-### 3.5 — Revalidation
-
-- [ ] Create `src/app/api/sanity/revalidate/route.ts` — webhook handler for on-demand ISR
-- [ ] Configure webhook in Sanity dashboard → Vercel API route URL
-
-### 3.6 — Verify Phase 3
-
-- [ ] Run Sanity Studio locally (`cd sanity && sanity dev`) on port 3333
-- [ ] Create a rules page in Studio → verify it appears on site
-- [ ] Create an official scenario in Studio → verify it appears on `/official`
-- [ ] Edit content in Studio → trigger webhook → verify updated on site
+### 2.4 — Seed & verify
+- [ ] Seed "Trench Crusade" game system
+- [ ] New user → profiles + entitlements (Conscript defaults) created
+- [ ] User A's unpublished scenario invisible to user B / anon; B cannot edit it
+- [ ] Upload updates storage counter; over-quota upload rejected
 
 ---
 
-## Phase 4: Campaign & Scenario CRUD
+## Phase 3: Official content (MDX, replaces Sanity)
 
-### 4.1 — Validation schemas
-
-- [ ] Create `src/lib/validations/campaign.ts` — Zod schema for campaign create/edit
-- [ ] Create `src/lib/validations/scenario.ts` — Zod schema for scenario create/edit (basic info, sections, event tables)
-
-### 4.2 — Server actions
-
-- [ ] Create `src/lib/actions/campaigns.ts` — createCampaign, updateCampaign, deleteCampaign, duplicateCampaign
-- [ ] Create `src/lib/actions/scenarios.ts` — createScenario, updateScenario, deleteScenario, duplicateScenario, publishScenario
-
-### 4.3 — Campaign pages
-
-- [ ] Create `src/app/(protected)/campaigns/new/page.tsx` — campaign creation form
-- [ ] Create `src/app/(public)/campaigns/[slug]/page.tsx` — public campaign view (header + list of scenarios)
-- [ ] Create `src/app/(protected)/campaigns/[slug]/edit/page.tsx` — edit campaign (author-only)
-
-### 4.4 — Scenario pages
-
-- [ ] Create `src/app/(protected)/scenarios/new/page.tsx` — tabbed/multi-step creation form
-- [ ] Create `src/app/(public)/scenarios/[slug]/page.tsx` — public scenario view (map, story, sections, event tables)
-- [ ] Create `src/app/(protected)/scenarios/[slug]/edit/page.tsx` — edit scenario (author-only)
-
-### 4.5 — Scenario form components
-
-- [ ] Create `src/components/scenario-form/BasicInfoTab.tsx` — title, description, game system picker, player count range, tags input
-- [ ] Create `src/components/scenario-form/StoryTab.tsx` — Tiptap rich text editor (`npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-placeholder`)
-- [ ] Create `src/components/scenario-form/SectionsTab.tsx` — dynamic add/remove section cards (type selector, title, content editor)
-- [ ] Create `src/components/scenario-form/EventTablesTab.tsx` — dynamic table builder (add/remove rows: roll range, effect, description)
-- [ ] Create `src/components/scenario-form/PublishTab.tsx` — preview toggle, publish button
-
-### 4.6 — Duplicate scenario
-
-- [ ] Add "Duplicate" button on scenario view page
-- [ ] Implement deep-copy server action (scenario + sections + event tables, new author, unpublished)
-
-### 4.7 — Verify Phase 4
-
-- [ ] Create a campaign with multiple scenarios → verify all saved
-- [ ] Edit a scenario → verify changes persist
-- [ ] Duplicate a scenario → verify deep copy with new slug
-- [ ] Delete a scenario → verify cascade (sections, event tables removed)
-- [ ] View published scenario as unauthenticated user → renders correctly
-- [ ] Attempt to edit another user's scenario → redirected/blocked
+- [ ] `npm install next-mdx-remote` (or `@next/mdx`); content under `src/content/`
+- [ ] `src/content/rules/<edition>/*.mdx`, `legal/*.mdx`, `faq.mdx`, `official/*.mdx`
+- [ ] `/rules`, `/rules/[slug]`, `/rules/compendium/[slug]` (per `Rules.jsx`,
+      `Compendium.jsx`) with **rules-version selector** driven by edition folders
+- [ ] `/official`, `/official/[slug]`; `/legal`, `/faq` (per `Marketing.jsx`)
+- [ ] Verify version switching renders the right edition; content edits land via PR
 
 ---
 
-## Phase 5: 2D Map Editor
+## Phase 4: Campaign & scenario CRUD
 
-### 5.1 — Setup
-
-- [ ] `npm install react-konva konva`
-- [ ] Create `src/app/(protected)/scenarios/[slug]/edit/map/page.tsx` — map editor page wrapper
-
-### 5.2 — Core editor
-
-- [ ] Create `src/components/map-editor/MapEditor.tsx` — main component (Stage, Layer, grid overlay)
-- [ ] Create `src/components/map-editor/hooks/useMapEditor.ts` — state management (shapes, selected item, tool mode)
-- [ ] Create `src/components/map-editor/hooks/useUndoRedo.ts` — undo/redo stack for map state
-- [ ] Implement pan (drag canvas) and zoom (scroll wheel) with clamp limits
-
-### 5.3 — Shape tools
-
-- [ ] Create `src/components/map-editor/Toolbar.tsx` — tool buttons (select, rectangle, circle, line, polygon, text, image, deployment zone, eraser)
-- [ ] Create `src/components/map-editor/ShapeLibrary.tsx` — sidebar palette of predefined terrain shapes (buildings, ruins, trenches, forests, hills, rivers, roads)
-- [ ] Implement drag-from-palette-to-canvas for predefined shapes
-- [ ] Implement color/fill picker for selected shapes
-- [ ] Create `src/components/map-editor/PropertiesPanel.tsx` — edit selected shape properties (position, size, rotation, color, label)
-
-### 5.4 — Image import
-
-- [ ] Create `src/lib/actions/upload.ts` — file upload server action with:
-  - [ ] File size validation (max 5MB)
-  - [ ] MIME type validation (image/png, image/jpeg, image/webp, image/svg+xml)
-  - [ ] Storage quota check before upload
-  - [ ] Upload to `scenario-assets` bucket
-  - [ ] Insert record in `uploaded_files` with `is_temporary = true`
-  - [ ] Update `profiles.total_storage_used_bytes`
-- [ ] Image upload button in toolbar → upload → place on canvas at center → resize/rotate handles
-
-### 5.5 — Layers
-
-- [ ] Create `src/components/map-editor/LayersPanel.tsx` — list layers, drag to reorder, toggle visibility, lock/unlock, rename
-
-### 5.6 — Deployment zones
-
-- [ ] Implement colored rectangular overlays per player (Player 1: blue, Player 2: red, etc.)
-- [ ] Label each zone with player number
-
-### 5.7 — Save / Load / Export
-
-- [ ] Save: serialize Konva stage → JSON → update `scenarios.map_data` via server action
-- [ ] Load: on page mount, read `scenarios.map_data` → restore Konva stage from JSON
-- [ ] Mark all `is_temporary` uploaded images as permanent on save
-- [ ] Export: "Download PNG" button using `stage.toDataURL()`
-
-### 5.8 — Temp file cleanup
-
-- [ ] Create `src/app/api/cron/cleanup-temp-files/route.ts` — deletes `uploaded_files` where `is_temporary = true` AND `created_at < now() - 24h`
-- [ ] Also deletes corresponding files from Supabase Storage
-- [ ] Updates `profiles.total_storage_used_bytes` accordingly
-- [ ] Add cron schedule to `vercel.json`: `"crons": [{ "path": "/api/cron/cleanup-temp-files", "schedule": "0 3 * * *" }]`
-
-### 5.9 — Verify Phase 5
-
-- [ ] Place shapes → save → reload → shapes persist at same positions
-- [ ] Upload image → place on map → save → reload → image displays
-- [ ] Undo/redo works for all operations
-- [ ] Zoom and pan work smoothly
-- [ ] Layers panel: reorder, hide, lock all functional
-- [ ] Export PNG matches canvas view
-- [ ] Upload file exceeding 5MB → rejected with error message
-- [ ] Upload past 50MB total quota → rejected with error message
-- [ ] Abandon session without saving → temp files cleaned up after 24h
+- [ ] Zod schemas: `campaign.ts`, `scenario.ts`
+- [ ] Server actions: campaigns (create/update/delete/duplicate),
+      scenarios (create/update/delete/duplicate/publish) — each with authz guard
+- [ ] Campaign pages: `/campaigns/new` (wizard), `/campaigns/[slug]` (lobby per
+      `Campaign.jsx`), `/campaigns/[slug]/edit`
+- [ ] **Campaign graph editor** (per `Campaigns.jsx`) — nodes (Start/Scenario/Finale),
+      branching edges with Victory/Defeat labels, reward nodes, inspector
+- [ ] Scenario editor (per `ScenarioEditor.jsx`) — tabbed inspector (Map/Scenario/Story/
+      Campaign/Rules), Tiptap story, event tables, rewards
+- [ ] Duplicate = deep copy (scenario + sections + event tables, new author, unpublished)
+- [ ] Verify CRUD, duplicate, cascade delete, author-only edit
 
 ---
 
-## Phase 6: Social Features
+## Phase 5: 2D map editor
 
-### 6.1 — Voting
-
-- [ ] Create `src/components/social/VoteButtons.tsx` — upvote/downvote with optimistic UI
-- [ ] Create server action `toggleVote(target_type, target_id, value)` in `src/lib/actions/social.ts`
-- [ ] Display net vote count on scenario and campaign cards/pages
-
-### 6.2 — Favorites
-
-- [ ] Create `src/components/social/FavoriteButton.tsx` — bookmark toggle with optimistic UI
-- [ ] Create server actions `toggleFavorite`, `getFavorites` in `src/lib/actions/social.ts`
-- [ ] Create `src/app/(protected)/profile/favorites/page.tsx` — list user's favorited items
-
-### 6.3 — Comments
-
-- [ ] Create `src/components/social/CommentThread.tsx` — threaded comments (top-level + replies)
-- [ ] Create `src/components/social/CommentForm.tsx` — markdown textarea + submit
-- [ ] Create server actions `createComment`, `deleteComment`, `getComments` in `src/lib/actions/social.ts`
-- [ ] Render comments on scenario and campaign view pages
-
-### 6.4 — Share
-
-- [ ] Create `src/components/social/ShareButton.tsx` — "Copy link" button (clipboard API)
-- [ ] Add Open Graph meta tags to scenario/campaign pages (`generateMetadata`)
-- [ ] Verify link previews work on Discord, Twitter, etc.
-
-### 6.5 — Public profiles
-
-- [ ] Create `src/app/(public)/user/[username]/page.tsx` — display name, bio, avatar, join date
-- [ ] List authored campaigns and scenarios (published only)
-- [ ] Show total votes received and scenario count
-
-### 6.6 — Browse & search
-
-- [ ] Create `src/app/(public)/scenarios/page.tsx` — browse all published scenarios
-- [ ] Filters: game system dropdown, player count range, tags multi-select
-- [ ] Sort: newest, top-voted, most favorited
-- [ ] Search: text input filtering by title/description (Supabase `ilike` or full-text search)
-- [ ] Pagination (cursor-based or offset)
-- [ ] Create `src/app/(public)/campaigns/page.tsx` — browse all published campaigns (similar filters)
-
-### 6.7 — Verify Phase 6
-
-- [ ] Upvote a scenario → refresh → vote persists and count is correct
-- [ ] Switch vote from up to down → count updates
-- [ ] Favorite a scenario → appears in `/profile/favorites`
-- [ ] Unfavorite → removed from list
-- [ ] Post a comment → appears immediately
-- [ ] Reply to a comment → threaded correctly
-- [ ] Delete own comment → removed
-- [ ] Cannot delete another user's comment
-- [ ] Share link → copied to clipboard → paste shows correct URL
-- [ ] Link preview on Discord/Twitter shows title, description, and thumbnail
-- [ ] Public profile shows correct user info and scenarios
-- [ ] Browse page: filters, sort, and search all return correct results
+- [ ] `npm install react-konva konva`; editor at `/scenarios/[slug]/edit` (map tab)
+- [ ] `components/map-editor/` — Stage/Layer/grid, `useMapEditor`, `useUndoRedo`, pan/zoom
+- [ ] Toolbar + shape library (trench/building/crater/wire/cover), properties panel
+- [ ] **Shape export** + image import (presigned R2 upload, 5 MB cap, quota check,
+      `is_temporary=true`)
+- [ ] Layers panel; deployment zones; save/load `scenarios.map_data` JSON; PNG export
+- [ ] Temp-file cleanup task (24h) — deletes abandoned uploads from DB + R2
+- [ ] Verify persistence, undo/redo, export, quota rejection, temp cleanup
 
 ---
 
-## Phase 7: Account Management & Settings
+## Phase 6: Warbands
 
-### 7.1 — Profile settings
-
-- [ ] Create `src/app/(protected)/settings/layout.tsx` — settings sidebar nav (Profile, Account, Storage)
-- [ ] Create `src/app/(protected)/settings/profile/page.tsx` — edit display name, username, bio
-- [ ] Avatar upload component → upload to `avatars` bucket → update `profiles.avatar_url`
-
-### 7.2 — Account settings
-
-- [ ] Create `src/app/(protected)/settings/account/page.tsx`
-- [ ] Change email (Supabase `updateUser({ email })`)
-- [ ] Change password (Supabase `updateUser({ password })`)
-- [ ] Delete account (confirmation dialog → delete profile + cascaded data → sign out)
-
-### 7.3 — Storage dashboard
-
-- [ ] Create `src/app/(protected)/settings/storage/page.tsx`
-- [ ] Show usage bar: `total_storage_used_bytes / 50MB` with percentage
-- [ ] List uploaded files (name, size, date, linked scenario) with delete button
-- [ ] Delete file → remove from storage bucket → update quota → remove DB record
-
-### 7.4 — Verify Phase 7
-
-- [ ] Update profile → changes reflected on public profile page
-- [ ] Upload new avatar → appears in navbar and profile
-- [ ] Change email → confirmation email sent → new email works
-- [ ] Change password → can log in with new password
-- [ ] Storage bar shows correct usage after uploads/deletes
-- [ ] Delete file from storage dashboard → quota freed → file gone from bucket
-- [ ] Delete account → all user data removed → redirected to home
+- [ ] Faction picker + builder (per `WarbandV2.jsx`): left rail (Ducats/Glory/faction +
+      sub-faction rules), roster cards with TC stat blocks, recruit modal with
+      portrait/sigil + full profile
+- [ ] Warbands browser (per `WarbandsBrowser.jsx`): faction cards, **leaderboard per rules
+      version**, your warbands, archive with favorite/copy
+- [ ] Warband public detail + fighter detail panel
+- [ ] Server actions: create/update/delete/favorite/copy warband; campaign submit + approval
+- [ ] Verify build, save/load, leaderboard, favorite/copy, submit-to-campaign + approval
 
 ---
 
-## Phase 8: Polish & Launch Prep
+## Phase 7: Social, profiles & play loop
 
-### 8.1 — Error handling & UX
-
-- [ ] Add loading skeletons for all data-fetching pages
-- [ ] Add `error.tsx` boundary files for each route group
-- [ ] Add `not-found.tsx` for scenarios, campaigns, users that don't exist
-- [ ] Create `src/app/not-found.tsx` — global 404 page
-- [ ] Add toast notifications for all mutations (save, delete, vote, etc.)
-- [ ] Add confirmation dialogs for destructive actions (delete scenario, delete account)
-
-### 8.2 — Responsive design
-
-- [ ] Navbar: hamburger menu on mobile
-- [ ] Browse/search pages: stack filters vertically on mobile
-- [ ] Scenario view: readable on mobile
-- [ ] Map editor: show "desktop recommended" banner on small screens
-- [ ] Settings pages: collapsible sidebar on mobile
-
-### 8.3 — SEO
-
-- [ ] Add `generateMetadata()` to all public pages (title, description, OG image)
-- [ ] Create `src/app/sitemap.ts` — dynamic sitemap for published scenarios/campaigns
-- [ ] Create `src/app/robots.ts` — allow all crawlers
-- [ ] Add structured data (JSON-LD) for scenarios (name, description, author)
-
-### 8.4 — Security & rate limiting
-
-- [ ] `npm install @upstash/ratelimit @upstash/redis` (or use Vercel KV)
-- [ ] Add rate limiting to: auth endpoints, comment creation, vote toggling, file uploads
-- [ ] Sanitize user-submitted markdown/HTML in comments and stories (prevent XSS)
-- [ ] Verify all RLS policies are tight (re-test with different user roles)
-- [ ] Add CSRF protection headers
-
-### 8.5 — Moderation (basic)
-
-- [ ] Add "Report" button on scenarios, campaigns, and comments
-- [ ] Create `reports` table (id, reporter_id, target_type, target_id, reason, created_at)
-- [ ] Admin page or Supabase dashboard query to review reports
-
-### 8.6 — Analytics & monitoring
-
-- [ ] `npm install @vercel/analytics @vercel/speed-insights`
-- [ ] Add analytics components to root layout
-- [ ] Set up Vercel error tracking (or Sentry free tier)
-
-### 8.7 — Final documentation
-
-- [ ] Update `README.md` with final setup instructions
-- [ ] Document all env vars in `.env.example` with comments
-- [ ] Update `docs/Techstack.md` with final dependencies
-- [ ] Write `CONTRIBUTING.md` if accepting contributions
-
-### 8.8 — Verify Phase 8
-
-- [ ] All pages load without console errors
-- [ ] Lighthouse scores: Performance > 80, Accessibility > 90, SEO > 90
-- [ ] Mobile testing on phone/tablet — no broken layouts
-- [ ] Rate limiting triggers after spam attempts
-- [ ] XSS payloads in comments/stories are sanitized
-- [ ] 404 pages render correctly for invalid URLs
-- [ ] Analytics events appearing in Vercel dashboard
-- [ ] Production deploy stable on Vercel
+- [ ] Voting, favorites, comments (threaded), share + OG tags — `components/social/`
+- [ ] Public profile (per `Profile.jsx`): career, match history, campaigns, activity
+- [ ] Browse/search for scenarios, campaigns, warbands (filters, sort, pagination, search)
+- [ ] **Play loop** (design gap): Battle Tracker, Post-battle Report, Warband resolution
+- [ ] Notifications inbox; News/Dispatches feed
+- [ ] Verify votes/favorites/comments persist; profiles + browse return correct results
 
 ---
 
-## Post-Launch (v2 Backlog)
+## Phase 8: Account, settings & AI Forge
 
-- [ ] Premium tier with Stripe (increased storage, priority features)
-- [ ] Real-time collaboration on map editor (Supabase Realtime)
-- [ ] Scenario versioning / edit history
-- [ ] Notifications (new comments, votes on your scenarios)
-- [ ] Admin dashboard (manage users, official content flags, moderation queue)
+- [ ] Settings (per `Settings.jsx`): Profile, Account (email/password/2FA/delete),
+      Notifications, Storage dashboard, Privacy
+- [ ] **2FA** setup + challenge; delete-account flow (design gaps)
+- [ ] AI Forge (per `Forge.jsx`): part selector, prompt, provider calls (server-only),
+      variant compare, STL re-mesh, `forge_jobs` + credit debit from entitlements
+- [ ] Verify settings round-trip, avatar upload, storage delete frees quota, Forge debits
+      credits and stores outputs in R2
+
+---
+
+## Phase 9: Monetization & ads
+
+> Spec: [`docs/Monetization.md`](docs/Monetization.md)
+
+- [ ] `components/monetization/`: `AdSlot`, `CookieConsent`, `UpsellDialog`, `SupporterBadge`
+- [ ] EthicalAds/Carbon primary; AdSense fallback gated behind consent
+- [ ] `AdSlot` renders nothing when `entitlements.ads_disabled`; placements restricted to
+      browse rails / list pages (never editor/builder/tracker/forge)
+- [ ] Stripe: `lib/billing/` (client, entitlement computation, feature gates), Checkout,
+      `/api/webhooks/stripe`, Customer Portal entry (Billing management page)
+- [ ] Pricing page wired to tiers (Conscript/Veteran/Cartographer); Support page with
+      GitHub Sponsors + Ko-fi; optional `/api/webhooks/kofi` → supporter badge
+- [ ] Feature gates enforce quotas (storage, warbands, scenarios, private campaigns,
+      Forge credits) in server actions
+- [ ] Verify: supporter sees no ads; consent gates AdSense; checkout → webhook →
+      entitlements update; quota boundary shows upsell; cancel → downgrade at period end
+
+---
+
+## Phase 10: Self-host on AWS & launch
+
+> Spec: [`docs/Deployment.md`](docs/Deployment.md)
+
+- [ ] `Dockerfile` (standalone) + `docker-compose.yml` (app + Postgres)
+- [ ] Deploy to **Lightsail Containers**; Postgres co-located or RDS micro
+- [ ] Cloudflare DNS/TLS/CDN + R2 custom domain + cache rules
+- [ ] Amazon SES domain verification + production access
+- [ ] GitHub Actions: lint/typecheck/test → build image → migrate → deploy
+- [ ] `/api/health`; Postgres nightly `pg_dump` → R2; R2 versioning + temp lifecycle
+- [ ] Moderation queue + user admin + audit log (admin completeness)
+- [ ] SEO: `generateMetadata`, `sitemap.ts`, `robots.ts`, JSON-LD
+- [ ] Rate limiting (`rate-limiter-flexible`, Postgres) on auth/comments/votes/uploads
+- [ ] Sanitize user markdown/HTML; security pass on all authz guards
+- [ ] Error tracking (free-tier / self-hosted) + Cloudflare Web Analytics
+- [ ] Verify: production deploy stable; Lighthouse Perf>80 / A11y>90 / SEO>90; cost floor
+      ~$10–20/mo confirmed; restore-from-backup tested
+
+---
+
+## Post-launch (v2 backlog)
+
+- [ ] Onboarding flow + empty states for every index
+- [ ] Real-time collaboration on map editor / battle tracker
+- [ ] Scenario versioning / edit history; notifications expansion
 - [ ] Additional game systems beyond Trench Crusade
-- [ ] Scenario PDF export
-- [ ] Campaign play tracker (session log)
+- [ ] Scenario / warband PDF export; tabletop QR "share at the table"
+- [ ] Payload CMS (if non-technical editing of news/official content is needed)
+- [ ] API docs / Changelog / Status / About pages

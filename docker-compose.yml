@@ -19,19 +19,37 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    # Real secrets come from the host env in prod; this file is only
-    # for local prod-image validation and single-box deploys.
-    # required:false so `docker compose up` works before a developer
-    # has copied .env.example — the file is gitignored and absent on
-    # a fresh clone.
-    env_file:
-      - path: .env.local
-        required: false
+    # Deliberately does NOT read .env.local. That file holds LOCAL values
+    # (MinIO endpoint, path-style addressing, Mailpit) which are invalid
+    # under NODE_ENV=production — the app's env guardrails reject them on
+    # purpose. On a real deploy these come from the host environment or a
+    # secrets manager; see docs/Deployment.md.
     environment:
       NODE_ENV: production
-      # Override the .env.local host: inside compose the DB is `db`,
-      # not localhost.
+      # Inside compose the database is `db`, not localhost.
       DATABASE_URL: postgresql://forgotten:forgotten@db:5432/forgotten_letters
+      # Placeholders so the image can boot and be smoke-tested. This
+      # stack has no MinIO or Mailpit, so /api/health will report
+      # storage and mail as false — that is expected here. Use the
+      # devcontainer stack for a fully wired environment.
+      R2_ENDPOINT: ${R2_ENDPOINT:-https://placeholder.r2.cloudflarestorage.com}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-placeholder}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-placeholder}
+      R2_REGION: ${R2_REGION:-auto}
+      # Must be false in production; the guardrail enforces it.
+      R2_FORCE_PATH_STYLE: "false"
+      R2_BUCKET_ASSETS: ${R2_BUCKET_ASSETS:-forgotten-letters-assets}
+      R2_BUCKET_AVATARS: ${R2_BUCKET_AVATARS:-forgotten-letters-avatars}
+      STORAGE_QUOTA_FREE_BYTES: ${STORAGE_QUOTA_FREE_BYTES:-52428800}
+      SES_SMTP_HOST: ${SES_SMTP_HOST:-email-smtp.eu-west-1.amazonaws.com}
+      SES_SMTP_PORT: ${SES_SMTP_PORT:-587}
+      SES_SMTP_SECURE: ${SES_SMTP_SECURE:-true}
+      EMAIL_FROM: ${EMAIL_FROM:-Forgotten Letters <no-reply@example.com>}
+      # Generated per-run if absent so the image boots; a real deploy
+      # must supply a stable secret or every restart invalidates sessions.
+      AUTH_SECRET: ${AUTH_SECRET:-placeholder-secret-at-least-32-characters}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_ASSET_BASE_URL: ${NEXT_PUBLIC_ASSET_BASE_URL:-https://assets.example.com}
     depends_on:
       db:
         condition: service_healthy

@@ -85,16 +85,23 @@ function format(error: z.ZodError): string {
   return `Invalid environment configuration:\n${lines.join("\n")}\n\nCheck .env.local against .env.example.`;
 }
 
-const clientParsed = clientSchema.safeParse({
+const clientRaw = {
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_ASSET_BASE_URL: process.env.NEXT_PUBLIC_ASSET_BASE_URL,
-});
+};
 
-if (!clientParsed.success) {
+const clientParsed = clientSchema.safeParse(clientRaw);
+
+// Same build-phase carve-out as the server values: NEXT_PUBLIC_* are
+// inlined from the build environment, which the production image does
+// not have. Supply them at build time to bake real values in.
+if (!clientParsed.success && process.env.NEXT_PHASE !== "phase-production-build") {
   throw new Error(format(clientParsed.error));
 }
 
-export const clientEnv = clientParsed.data;
+export const clientEnv = (
+  clientParsed.success ? clientParsed.data : clientRaw
+) as z.infer<typeof clientSchema>;
 
 /**
  * Server-only configuration.
@@ -105,20 +112,27 @@ export const clientEnv = clientParsed.data;
  * server value in the browser throws a targeted error instead.
  */
 function loadServerEnv() {
+  // `next build` statically analyzes every route, which imports this
+  // module — but configuration is a runtime concern, and the production
+  // image deliberately carries no .env (see .dockerignore). Validating
+  // during the build would make `docker build` fail on values that are
+  // only ever supplied when the container actually runs.
+  //
+  // So the build gets a permissive parse. The real check still happens on
+  // first access at runtime, where the values exist and matter.
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+  if (isBuildPhase) {
+    return serverSchema.partial().parse(process.env) as ServerEnv;
+  }
+
   const parsed = serverSchema.safeParse(process.env);
   if (!parsed.success) {
     throw new Error(format(parsed.error));
   }
 
   // Guardrails that only apply once real traffic is involved.
-  //
-  // `next build` runs with NODE_ENV=production, so these must be skipped
-  // during the build — otherwise building an image on a laptop (or in CI)
-  // with local MinIO settings fails on rules meant for a deployed server.
-  // Building for production is not the same as running in production.
-  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
-
-  if (parsed.data.NODE_ENV === "production" && !isBuildPhase) {
+  if (parsed.data.NODE_ENV === "production") {
     if (!parsed.data.AUTH_SECRET) {
       throw new Error(
         "AUTH_SECRET is required in production. Generate one with: openssl rand -base64 32",

@@ -76,6 +76,21 @@ export function LoginForm() {
         />
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="totp">Authentication code</Label>
+        <Input
+          id="totp"
+          name="totp"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="Only if two-factor is enabled"
+        />
+        <p className="text-xs text-faint">
+          Leave blank unless you have two-factor authentication turned on. A recovery
+          code also works here.
+        </p>
+      </div>
+
       <Button type="submit" size="lg" className="mt-2 w-full" disabled={pending}>
         {pending ? "Signing in…" : "Log in"}
       </Button>

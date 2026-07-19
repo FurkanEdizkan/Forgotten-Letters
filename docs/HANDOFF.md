@@ -67,13 +67,13 @@ All of the below is verified against the running stack, not just written.
 | 3 — MDX content           | Complete    | rules with directory-driven versioning, official, legal, FAQ                                    |
 | 4 — scenarios & campaigns | Mostly      | CRUD, editors, browse, detail. **Graph canvas not built**                                       |
 | 7 — social                | Mostly      | votes, favorites, comments, profiles, notifications. **Battle tracker not built**               |
-| 8 — account               | Partly      | settings, storage dashboard, avatars, 2FA primitives. **2FA UI, Forge not built**               |
+| 8 — account               | Mostly      | settings, storage, avatars, full 2FA. **AI Forge not built** (needs a provider contract + key)  |
 | 5 — map editor            | Not started | blocked, see §3                                                                                 |
 | 6 — warbands              | Not started | blocked, see §3                                                                                 |
 | 9 — monetization          | Not started | blocked, see §3                                                                                 |
 | 10 — hosting              | Not started | blocked, see §3                                                                                 |
 
-Test suite: **116 unit/integration + 69 e2e**, all passing.
+Test suite: **116 unit/integration + 74 e2e**, all passing.
 Run with `npm test` and `npm run test:e2e` (both need the stack up).
 
 ---
@@ -82,7 +82,13 @@ Run with `npm test` and `npm run test:e2e` (both need the stack up).
 
 Each of these is unblocked and can be picked up immediately.
 
-### 2.1 Finish 2FA (Phase 8) — ~half a day
+### 2.1 ~~Finish 2FA~~ — DONE
+
+Completed after this document was first written. Enrolment, login
+challenge, recovery codes, and disable are all built and covered by 5
+e2e tests. Left here only so the numbering below still matches.
+
+<details><summary>Original plan (superseded)</summary>
 
 The crypto layer is built and tested (`src/lib/auth/totp.ts`, 15 tests).
 The schema columns exist. What remains:
@@ -102,6 +108,8 @@ The schema columns exist. What remains:
 3. **Disable flow**: require a current code or a recovery code.
 4. Tests: enrolment round-trip, login blocked without a code, recovery
    code works once.
+
+</details>
 
 ### 2.2 Battle tracker (Phase 7) — ~1 day
 

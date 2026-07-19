@@ -117,10 +117,13 @@ export async function loginAction(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Enter your email and password." };
   }
 
+  const totp = String(formData.get("totp") ?? "");
+
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      totp,
       redirect: false,
     });
   } catch (error) {

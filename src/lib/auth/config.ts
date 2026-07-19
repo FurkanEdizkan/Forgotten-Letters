@@ -19,6 +19,7 @@ import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { loginSchema } from "@/lib/validations/auth";
+import { verifyLoginChallenge } from "./challenge";
 import { edgeAuthConfig } from "./config.edge";
 
 /**
@@ -61,6 +62,8 @@ export const authConfig = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Sent on the second submit when the account has 2FA enabled.
+        totp: { label: "Authentication code", type: "text" },
       },
       async authorize(raw) {
         const parsed = loginSchema.safeParse(raw);
@@ -80,6 +83,13 @@ export const authConfig = {
         // A user without a passwordHash registered via OAuth. Refuse
         // rather than letting a password be set on someone else's email.
         if (!ok || !user || !user.passwordHash) return null;
+
+        // Second factor. Returns true when the account has no confirmed
+        // enrolment, so accounts without 2FA are unaffected. Checked
+        // only after the password is verified, so this cannot be used
+        // to probe codes without credentials.
+        const totp = typeof raw?.totp === "string" ? raw.totp : "";
+        if (!(await verifyLoginChallenge(user.id, totp))) return null;
 
         return {
           id: user.id,

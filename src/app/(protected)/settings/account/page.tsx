@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 
 import { DeleteAccountForm } from "@/components/settings/DeleteAccountForm";
+import { TwoFactorPanel } from "@/components/settings/TwoFactorPanel";
 import { requireUser } from "@/lib/auth/guards";
+import { isTotpEnabled } from "@/lib/auth/challenge";
 
 export const metadata: Metadata = { title: "Account settings" };
 
 export default async function AccountSettingsPage() {
   const user = await requireUser();
+  const totpEnabled = await isTotpEnabled(user.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -25,6 +28,8 @@ export default async function AccountSettingsPage() {
           round-trip to the new address before the change can take effect.
         </p>
       </div>
+
+      <TwoFactorPanel enabled={totpEnabled} />
 
       <DeleteAccountForm email={user.email} />
     </div>

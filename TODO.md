@@ -313,7 +313,8 @@ Done in Phase 0b / A3.
 - [x] Avatar upload — presigned PUT straight to storage, quota-counted, replacing
       an avatar frees the previous one; verified by fetching the uploaded object
       back over HTTP
-- [ ] 2FA
+- [x] 2FA (TOTP) — enrolment with QR, login challenge, single-use recovery codes,
+      code-protected disable
 - [ ] Notification preferences
 - [ ] **AI Forge** — blocked: no provider contract defined and no API key available
 

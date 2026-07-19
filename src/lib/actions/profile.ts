@@ -14,7 +14,9 @@ import { z } from "zod";
 import { signOut } from "@/lib/auth";
 import { requireUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db/client";
-import { profiles, users } from "@/lib/db/schema";
+import { profiles, uploadedFiles, users } from "@/lib/db/schema";
+import { deleteUpload } from "@/lib/db/storage-quota";
+import { deleteObject } from "@/lib/storage/r2";
 import { stripHtml } from "@/lib/sanitize";
 import { usernameSchema } from "@/lib/validations/auth";
 
@@ -130,5 +132,72 @@ export async function deleteAccountAction(confirmation: string): Promise<ActionR
   await signOut({ redirect: false });
 
   revalidatePath("/", "layout");
+  return { ok: true, data: undefined };
+}
+
+const avatarSchema = z.object({
+  bucket: z.string().min(1),
+  objectKey: z.string().min(1).max(200),
+});
+
+/**
+ * Point the profile at a freshly uploaded avatar.
+ *
+ * Called after confirmUploadAction has recorded the file, so the object
+ * already exists and is counted against quota. The previous avatar's
+ * row is removed here so replacing an avatar does not silently consume
+ * quota forever.
+ */
+export async function setAvatarAction(input: {
+  bucket: string;
+  objectKey: string;
+}): Promise<ActionResult> {
+  const user = await requireUser();
+
+  const parsed = avatarSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid avatar." };
+
+  // The key is server-generated as `${userId}/…`; anything else is a
+  // client claiming an object it was never issued.
+  if (!parsed.data.objectKey.startsWith(`${user.id}/`)) {
+    return { ok: false, error: "Invalid avatar." };
+  }
+
+  const [profile] = await db
+    .select({ previous: profiles.avatarKey })
+    .from(profiles)
+    .where(eq(profiles.userId, user.id))
+    .limit(1);
+
+  await db
+    .update(profiles)
+    .set({ avatarKey: parsed.data.objectKey })
+    .where(eq(profiles.userId, user.id));
+
+  // Free the old one. Looked up by key rather than trusting a client
+  // id, and still scoped by user.
+  if (profile?.previous && profile.previous !== parsed.data.objectKey) {
+    const [old] = await db
+      .select({ id: uploadedFiles.id })
+      .from(uploadedFiles)
+      .where(
+        and(
+          eq(uploadedFiles.userId, user.id),
+          eq(uploadedFiles.objectKey, profile.previous),
+        ),
+      )
+      .limit(1);
+
+    if (old) {
+      const removed = await deleteUpload(user.id, old.id);
+      if (removed) {
+        // Best-effort: the quota is already freed, and a failure here
+        // leaves a harmless orphan for the cleanup task.
+        await deleteObject(removed.bucket, removed.objectKey).catch(() => {});
+      }
+    }
+  }
+
+  revalidatePath("/settings/profile");
   return { ok: true, data: undefined };
 }

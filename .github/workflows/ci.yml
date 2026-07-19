@@ -37,7 +37,7 @@ jobs:
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: forgotten-letters-assets:download,forgotten-letters-avatars
+          MINIO_DEFAULT_BUCKETS: forgotten-letters-assets:download,forgotten-letters-avatars:download
         ports: ["9000:9000"]
         options: >-
           --health-cmd "mc ready local"
@@ -68,6 +68,7 @@ jobs:
       EMAIL_FROM: Forgotten Letters <no-reply@example.com>
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_PUBLIC_ASSET_BASE_URL: http://localhost:9000/forgotten-letters-assets
+      NEXT_PUBLIC_AVATAR_BASE_URL: http://localhost:9000/forgotten-letters-avatars
 
     steps:
       - uses: actions/checkout@v4

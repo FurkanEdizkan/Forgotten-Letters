@@ -306,7 +306,9 @@ Done in Phase 0b / A3.
       confirmation, cascading to every owned row and clearing the session
 - [x] Storage dashboard: real quota and usage from `entitlements` + `profiles`,
       file listing, colour-coded usage bar
-- [ ] Avatar upload (the upload action and quota accounting exist; the UI does not)
+- [x] Avatar upload — presigned PUT straight to storage, quota-counted, replacing
+      an avatar frees the previous one; verified by fetching the uploaded object
+      back over HTTP
 - [ ] 2FA
 - [ ] Notification preferences
 - [ ] **AI Forge** — blocked: no provider contract defined and no API key available

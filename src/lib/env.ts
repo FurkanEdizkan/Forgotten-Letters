@@ -76,6 +76,7 @@ const serverSchema = z.object({
 const clientSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   NEXT_PUBLIC_ASSET_BASE_URL: z.string().url(),
+  NEXT_PUBLIC_AVATAR_BASE_URL: z.string().url(),
 });
 
 function format(error: z.ZodError): string {
@@ -88,6 +89,7 @@ function format(error: z.ZodError): string {
 const clientRaw = {
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_ASSET_BASE_URL: process.env.NEXT_PUBLIC_ASSET_BASE_URL,
+  NEXT_PUBLIC_AVATAR_BASE_URL: process.env.NEXT_PUBLIC_AVATAR_BASE_URL,
 };
 
 const clientParsed = clientSchema.safeParse(clientRaw);

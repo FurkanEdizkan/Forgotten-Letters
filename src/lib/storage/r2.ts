@@ -87,6 +87,18 @@ export function getPublicAssetUrl(key: string): string {
   return `${base}/${key.replace(/^\//, "")}`;
 }
 
+/**
+ * Public URL for an avatar.
+ *
+ * Avatars are public-read, not presigned: they render on public profile
+ * pages for anonymous visitors, where a short-lived signed URL would
+ * break on any cached page and could not be served from the CDN.
+ */
+export function getAvatarUrl(key: string): string {
+  const base = process.env.NEXT_PUBLIC_AVATAR_BASE_URL!.replace(/\/$/, "");
+  return `${base}/${key.replace(/^\//, "")}`;
+}
+
 /** Remove an object. Used to undo an upload whose row failed to write. */
 export async function deleteObject(bucket: string, key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));

@@ -4,6 +4,8 @@
 > stack: Next.js 15 + PostgreSQL (Drizzle) + Auth.js + Cloudflare R2 + MDX, deployed on
 > AWS, funded by ads + supporter tiers. Work through phases in order; tick boxes as you go.
 > See [`docs/`](docs/) for architecture, deployment, cost, monetization, and design specs.
+> For the **local-first execution strategy** (devcontainer + docker, test/security gates per
+> phase, then hosting), see [`docs/BuildPlan.md`](docs/BuildPlan.md).
 
 ---
 

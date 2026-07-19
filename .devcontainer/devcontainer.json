@@ -1,0 +1,52 @@
+{
+  "name": "Forgotten Letters",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+
+  "forwardPorts": [3000, 5432],
+  "portsAttributes": {
+    "3000": { "label": "Next.js Dev Server", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL (local)", "onAutoForward": "silent" }
+  },
+
+  "containerEnv": {
+    "NODE_ENV": "development"
+  },
+
+  "remoteUser": "developer",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "files.eol": "\n"
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "mhutchie.git-graph",
+        "bierner.github-markdown-preview",
+        "yzhang.markdown-all-in-one"
+      ]
+    }
+  },
+
+  "postCreateCommand": "echo '✅ Dev container ready. Run: cd /workspace && npm install'",
+  "postStartCommand": "git config --global --add safe.directory /workspace"
+}

@@ -52,6 +52,7 @@ Sanity) toward a fully open-source, self-hostable stack. See
 
 | Doc | What it covers |
 |---|---|
+| [`docs/BuildPlan.md`](docs/BuildPlan.md) | Local-first execution plan: devcontainer + docker, per-phase test/security gates, then hosting |
 | [`docs/Architecture.md`](docs/Architecture.md) | System design, data layer, auth, storage, AI Forge, old→new mapping |
 | [`docs/Deployment.md`](docs/Deployment.md) | AWS Lightsail/Fargate + Docker + Cloudflare + SES + CI/CD |
 | [`docs/Costs.md`](docs/Costs.md) | Managed vs self-hosted cost tables + break-even math |
@@ -62,8 +63,9 @@ Sanity) toward a fully open-source, self-hostable stack. See
 
 ## Getting started
 
-> The app is not bootstrapped yet. Once Phase 1 of [`TODO.md`](TODO.md) lands, the flow
-> will be:
+> The app is not bootstrapped yet. The full local stack (Postgres + MinIO + Mailpit via the
+> compose-based devcontainer) is specified in [`docs/BuildPlan.md`](docs/BuildPlan.md).
+> Once Phase 1 of [`TODO.md`](TODO.md) lands, the basic flow will be:
 
 ```bash
 cp .env.example .env.local        # fill in real values (see docs/Deployment.md)

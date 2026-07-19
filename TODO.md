@@ -42,10 +42,11 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 > The Next.js app is already scaffolded (route groups, pages, `src/components/ui`) from the
 > design-system branch; it predates the stack change, so this step is cleanup, not `create-next-app`.
 
-- [ ] Delete the `supabase/` and `sanity/` directories (superseded by Postgres/Drizzle + MDX)
-- [ ] Remove Supabase/Sanity/Vercel deps from `package.json`; reinstall and confirm a clean build
-- [ ] Audit `src/` for imports of `@supabase/*` or `next-sanity` and stub them out
+- [ ] Delete the `supabase/` and `sanity/` directories — empty `.gitkeep` placeholders only,
+      superseded by `db/` (Drizzle) and `src/content/` (MDX); nothing imports them
 - [ ] Set `output: 'standalone'` in `next.config.ts`; verify `npm run dev` on :3000
+- [ ] Add the new stack's deps (drizzle-orm, @auth/core, @aws-sdk/client-s3, …) —
+      `package.json` currently carries none of them
 
 ### 1.2 — Design system
 > Partly done: `src/components/ui` already carries the grimdark retoken from the design lab.

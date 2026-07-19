@@ -86,11 +86,11 @@ queries is feature work, and belongs to Phases 1+.
   `nodemailer`, `zod`.
 - Migrate off the deprecated `next lint` (removed in Next.js 16) to the ESLint CLI:
   `npx @next/codemod@canary next-lint-to-eslint-cli .`
-- **Theme:** `globals.css` already carries the **grimdark** tokens ported from `design-lab/`,
-  under stable token names that `src/components/ui/*` consume. This _competes_ with the FL
-  16-color palette in [DesignSystem.md](./DesignSystem.md) — the two have not been reconciled.
-  Phase 0 does **not** need this resolved; pick a canonical system before Phase 1's theme work
-  and align the loser to it. Fonts + `.fl-grain` land with that decision.
+- **Theme:** resolved in Phase 1 — there was never a conflict. The "grimdark" tokens in
+  `globals.css` and the FL 16-token palette in [DesignSystem.md](./DesignSystem.md) are the
+  **same colors** under different names (semantic `--color-bg` vs numbered `FL 01`); every
+  hex matches. Phase 1 filled the only real gaps: FL 10 Aged Brass (`--color-accent-dim`),
+  FL 16 Steel Blue (`--color-info`), and the `.fl-grain` overlay. Fonts were already loaded.
 
 ### A3. Typed config + cloud clients (parity layer)
 

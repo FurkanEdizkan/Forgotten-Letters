@@ -22,7 +22,8 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [x] Faithful grimdark Profile page port (`/profile`)
 - [x] anime.js motion layer + animated hero backdrop (reduced-motion safe)
 - [x] Port grimdark tokens/components into `src/components/ui` + re-sync Claude Design
-- [ ] Reconcile the grimdark palette with the `FL` tokens in [`docs/DesignSystem.md`](docs/DesignSystem.md)
+- [x] Reconcile the grimdark palette with the `FL` tokens — they were already the
+      same colors; see Phase 1.2
 
 ---
 
@@ -82,14 +83,16 @@ Implemented per [`docs/BuildPlan.md`](docs/BuildPlan.md) Part A.
 
 ## Phase 1: Theme reconciliation & auth
 
-### 1.2 — Design system
+### 1.2 — Design system ✅
 
-> Partly done: `src/components/ui` already carries the grimdark retoken from the design lab.
+> The "grimdark vs FL" conflict was a misreading: both are the **same palette**, one using
+> semantic names (`--color-bg`) and one numbered tokens (`FL 01`). Every hex matches.
 
 - [x] Port grimdark tokens + `src/components/ui` primitives from `design-lab/`
-- [ ] Reconcile the grimdark palette against the `FL` tokens in `docs/DesignSystem.md`
-      (decide which is canonical, then align `globals.css` CSS vars + Tailwind v4 `@theme`)
-- [ ] Load Cinzel / Inter / JetBrains Mono; add `.fl-grain` utility
+- [x] Verify `globals.css` against the 16 FL tokens — all matched
+- [x] Add the two missing tokens: FL 10 Aged Brass (`--color-accent-dim`),
+      FL 16 Steel Blue (`--color-info`)
+- [x] Cinzel / Inter / JetBrains Mono (already loaded in `layout.tsx`); `.fl-grain` added
 - [ ] Port the icon set + brand mark (`FLMark`) from the design bundle
 
 ### 1.3 — Database (Postgres + Drizzle) ✅
@@ -108,29 +111,37 @@ Done in Phase 0b / A3.
 - [x] `next-auth@beta` + `@auth/drizzle-adapter` installed
 - [x] Auth.js core tables in Drizzle schema (`users`, `accounts`, `sessions`,
       `verificationToken`), migration applied
-- [ ] `src/lib/auth/` — Auth.js config, Drizzle adapter, Credentials + Google + GitHub
-- [ ] Session = database strategy
-- [ ] `src/middleware.ts` — protect `/settings/*`, `/scenarios/new`, `/scenarios/*/edit`,
-      `/campaigns/new`, `/campaigns/*/edit`, `/warbands/new`, `/warbands/*/edit`, `/forge`
-- [ ] On user create, insert a `profiles` row (adapter hook or trigger)
+- [x] `src/lib/auth/` — Auth.js config, Drizzle adapter, Credentials + Google + GitHub
+- [x] Session strategy: **JWT, not database** — Auth.js cannot persist a session row for
+      Credentials sign-ins, so `strategy: "database"` renders every request signed out
+- [x] `src/lib/auth/guards.ts` — requireUser / requireAdmin / assertOwner (replaces RLS)
+- [x] `src/middleware.ts` — protects /settings, /scenarios/new, /campaigns/new,
+      /warbands/new, /forge, and `*/edit`; preserves callbackUrl
+- [x] On user create, insert a `profiles` row (same transaction as the user insert)
 
 ### 1.5 — Auth pages & email
 
-- [ ] `/(auth)/login`, `/register`, `/forgot-password` (per `Auth.jsx`)
-- [ ] Email verification + **reset-with-token** pages (design gap — see UI-Surfaces)
-- [ ] Wire Amazon SES SMTP for verification / reset mail
-- [ ] Zod schemas in `src/lib/validations/auth.ts`
+- [x] `/(auth)/login` and `/register` wired to real server actions
+- [x] SMTP wired (Mailpit locally, SES in prod) — welcome + enumeration-safe mail sends
+- [x] Zod schemas in `src/lib/validations/auth.ts`
+- [ ] `/forgot-password` + reset-with-token flow (page exists but is not wired)
+- [ ] Email verification flow (`emailVerified` column exists; nothing sets it yet)
 
 ### 1.6 — Layout shell
 
-- [ ] `components/layout/Navbar.tsx` + `Footer.tsx` (per `Chrome.jsx`, 4 navbar variants)
+- [x] `Navbar.tsx` + `Footer.tsx` exist; navbar is now **session-aware** (UserMenu with
+      profile / settings / sign-out, resolved server-side so there is no signed-out flash)
 - [ ] `components/layout/QuickDrawer.tsx` (per `QuickDrawer.jsx`)
-- [ ] `app/(public)/page.tsx` — Landing (per `Landing.jsx`, desktop + mobile)
+- [ ] Landing page still renders mock data
 
 ### 1.7 — Verify
 
-- [ ] Register → verify email → login; Google + GitHub OAuth; forgot/reset works
-- [ ] Protected routes redirect when unauthenticated; logout clears session
+- [x] Register → login → protected page (8 e2e journeys against the live stack)
+- [x] Protected routes redirect when unauthenticated; sign-out clears the session
+- [x] Enumeration safety: unknown email and wrong password are indistinguishable
+- [ ] Google + GitHub OAuth — code paths exist but are **untested**: verifying them
+      needs real OAuth apps and credentials
+- [ ] Email verification and forgot/reset journeys (not yet built)
 
 ---
 

@@ -130,3 +130,36 @@ test("short password is rejected", async ({ page }) => {
     /at least 12 characters/i,
   );
 });
+
+test("navbar reflects session state and sign-out works", async ({ page }) => {
+  const user = freshUser();
+
+  await page.goto("/register");
+  await page.fill("#username", user.username);
+  await page.fill("#email", user.email);
+  await page.fill("#password", user.password);
+  await page.click('button[type="submit"]');
+  await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 15_000 });
+
+  // Signed out: auth links present, no user menu.
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /log in/i }).first()).toBeVisible();
+
+  await page.goto("/login");
+  await page.fill("#email", user.email);
+  await page.fill("#password", user.password);
+  await page.click('button[type="submit"]');
+  await page.waitForURL("/", { timeout: 15_000 });
+
+  // Signed in: the menu shows the username, login link is gone.
+  const menu = page.getByRole("button", { name: new RegExp(user.username, "i") });
+  await expect(menu).toBeVisible({ timeout: 10_000 });
+
+  await menu.click();
+  await expect(page.getByRole("menuitem", { name: /profile/i })).toBeVisible();
+
+  await page.getByRole("menuitem", { name: /sign out/i }).click();
+  await expect(page.getByRole("link", { name: /log in/i }).first()).toBeVisible({
+    timeout: 10_000,
+  });
+});

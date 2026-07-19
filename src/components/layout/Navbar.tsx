@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { UserMenu, type NavUser } from "@/components/layout/UserMenu";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Crosshair } from "lucide-react";
@@ -13,7 +14,7 @@ const NAV_LINKS = [
   { href: "/rules", label: "Rules" },
 ];
 
-export function Navbar() {
+export function Navbar({ user }: { user: NavUser | null }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
 
@@ -60,12 +61,18 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Log in</Link>
-          </Button>
-          <Button variant="primary" size="sm" asChild>
-            <Link href="/register">Enlist</Link>
-          </Button>
+          {user ? (
+            <UserMenu user={user} />
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button variant="primary" size="sm" asChild>
+                <Link href="/register">Enlist</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -92,12 +99,18 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-2 flex gap-2 border-t border-border pt-3">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button variant="primary" size="sm" className="flex-1" asChild>
-                <Link href="/register">Enlist</Link>
-              </Button>
+              {user ? (
+                <UserMenu user={user} className="flex-1" />
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" className="flex-1" asChild>
+                    <Link href="/login">Log in</Link>
+                  </Button>
+                  <Button variant="primary" size="sm" className="flex-1" asChild>
+                    <Link href="/register">Enlist</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>

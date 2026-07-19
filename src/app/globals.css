@@ -38,6 +38,12 @@
   --color-success: #2d6b4f;
   --color-warning: #b8860b;
   --color-danger: #c0392b;
+  /* FL 16 Steel Blue — info / editor notes. */
+  --color-info: #4a6fa5;
+
+  /* FL 10 Aged Brass — secondary gold for avatars and featured borders,
+     one step down from --color-accent (FL 09 Tarnished Gold). */
+  --color-accent-dim: #8a6d2f;
 
   /* --- Radius (restrained; tactical, not soft) --- */
   --radius-sm: 3px;
@@ -117,4 +123,29 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+  Grain overlay (docs/DesignSystem.md, "Texture & iconography").
+
+  A faint fractal-noise wash for hero / auth / error backgrounds only —
+  never on dense data surfaces, where it costs legibility for no gain.
+
+  The noise is an inline data: URI so it needs no network request and no
+  binary asset in the repo. pointer-events:none keeps the overlay from
+  swallowing clicks on the content beneath it.
+*/
+.fl-grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.fl-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }

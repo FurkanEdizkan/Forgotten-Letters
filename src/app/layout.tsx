@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Cinzel, JetBrains_Mono } from "next/font/google";
 import { Navbar } from "@/components/layout/Navbar";
+import { getNavUser } from "@/lib/auth/nav-user";
 import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
 
@@ -32,16 +33,20 @@ export const metadata: Metadata = {
     "Community-driven scenario repository for wargame scenario generation and sharing, starting with Trench Crusade.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Resolved server-side so the first paint already reflects the session
+  // — a client-side fetch would flash "Log in" for every signed-in user.
+  const user = await getNavUser();
+
   return (
     <html
       lang="en"
       className={`${inter.variable} ${cinzel.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-dvh flex flex-col">
-        <Navbar />
+        <Navbar user={user} />
         <main className="flex-1">{children}</main>
         <Footer />
       </body>

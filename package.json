@@ -24,6 +24,7 @@
     "@aws-sdk/client-s3": "^3.1090.0",
     "@aws-sdk/s3-request-presigner": "^3.1090.0",
     "@radix-ui/react-slot": "^1.1.1",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
@@ -38,7 +39,7 @@
     "zod": "^4.4.3"
   },
   "comments": {
-    "overrides.nodemailer": "next-auth v5 declares an OPTIONAL peer of nodemailer ^7.0.7, but every nodemailer <=9.0.0 carries high-severity SMTP/header-injection advisories (GHSA-c7w3-x93f-qmm8 et al) with no fix in the 7.x line. We pin 9.x, which is patched. Safe because we do not use next-auth's nodemailer-backed Email provider \u2014 src/lib/mail/ owns sending. If an Email/magic-link provider is ever added, re-verify against nodemailer 9's API first."
+    "overrides.nodemailer": "next-auth v5 declares an OPTIONAL peer of nodemailer ^7.0.7, but every nodemailer <=9.0.0 carries high-severity SMTP/header-injection advisories (GHSA-c7w3-x93f-qmm8 et al) with no fix in the 7.x line. We pin 9.x, which is patched. Safe because we do not use next-auth's nodemailer-backed Email provider — src/lib/mail/ owns sending. If an Email/magic-link provider is ever added, re-verify against nodemailer 9's API first."
   },
   "overrides": {
     "nodemailer": "^9.0.3"
@@ -47,6 +48,7 @@
     "@eslint/eslintrc": "^3.3.6",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",

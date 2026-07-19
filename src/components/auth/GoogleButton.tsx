@@ -1,13 +1,58 @@
+"use client";
+
+import { Suspense } from "react";
+import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+
 import { Button } from "@/components/ui/Button";
 
-/** Presentational Google OAuth button. Wire onClick to Supabase OAuth later. */
-export function GoogleButton({ label = "Continue with Google" }: { label?: string }) {
+/**
+ * Google OAuth sign-in.
+ *
+ * The Google provider is only registered when AUTH_GOOGLE_ID/SECRET are
+ * set, so clicking this without them yields an Auth.js error page. Local
+ * development normally uses email + password instead.
+ *
+ * The Suspense boundary lives here rather than at each call site:
+ * useSearchParams opts the subtree into client rendering, and without a
+ * boundary `next build` fails prerendering every page that mounts this.
+ */
+export function GoogleButton(props: { label?: string }) {
+  return (
+    <Suspense fallback={<GoogleButtonFrame label={props.label} disabled />}>
+      <GoogleButtonInner {...props} />
+    </Suspense>
+  );
+}
+
+function GoogleButtonInner({ label }: { label?: string }) {
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") ?? "/";
+  return (
+    <GoogleButtonFrame
+      label={label}
+      onClick={() => signIn("google", { callbackUrl })}
+    />
+  );
+}
+
+function GoogleButtonFrame({
+  label = "Continue with Google",
+  onClick,
+  disabled,
+}: {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
   return (
     <Button
       variant="secondary"
       size="lg"
       className="w-full normal-case tracking-normal"
       type="button"
+      onClick={onClick}
+      disabled={disabled}
     >
       <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
         <path

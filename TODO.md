@@ -283,7 +283,8 @@ Done in Phase 0b / A3.
 - [x] Public profiles at `/user/[username]` with published counts; the owner sees
       their own drafts, visitors do not
 - [x] Browse + search with filters in the URL (shareable), pagination
-- [ ] Battle tracker + post-battle report
+- [x] Battle tracker — record games against a campaign with participants, results,
+      scores, and notes; owner-only recording and deletion
 - [x] Notifications — in-app feed, unread badge, mark-all-read; comment and reply
       notifications, with self-notification suppressed
 

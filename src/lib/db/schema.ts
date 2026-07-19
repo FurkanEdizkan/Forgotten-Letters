@@ -553,3 +553,73 @@ export const notifications = pgTable(
 );
 
 export type Notification = typeof notifications.$inferSelect;
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase 7 — battle tracker
+   ══════════════════════════════════════════════════════════════════ */
+
+export const battleResultEnum = pgEnum("battle_result", ["win", "loss", "draw"]);
+
+/**
+ * A played game.
+ *
+ * Recorded against a campaign, optionally naming the scenario played.
+ * scenarioId is set null rather than cascaded on scenario deletion:
+ * losing the scenario should not erase the record that a game happened.
+ */
+export const battles = pgTable(
+  "battles",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    campaignId: text("campaignId")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    scenarioId: text("scenarioId").references(() => scenarios.id, {
+      onDelete: "set null",
+    }),
+    // Who recorded it — the campaign owner. Used for authorization.
+    recordedById: text("recordedById")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    playedAt: timestamp("playedAt", { withTimezone: true }).notNull().defaultNow(),
+    // Sanitized on write, like every other user-authored body.
+    notes: text("notes"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("battles_campaign_idx").on(t.campaignId, t.playedAt),
+    index("battles_scenario_idx").on(t.scenarioId),
+  ],
+);
+
+/**
+ * One side of a battle.
+ *
+ * `warbandId` is deliberately absent until Phase 6 defines warbands —
+ * adding it later is an additive migration, whereas blocking the battle
+ * tracker on an undefined model would stall Phase 7 for no reason.
+ * Participants are named free-text so a campaign can record games
+ * against people who have no account here.
+ */
+export const battleParticipants = pgTable(
+  "battle_participants",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    battleId: text("battleId")
+      .notNull()
+      .references(() => battles.id, { onDelete: "cascade" }),
+    // Null when the participant is not a registered user.
+    userId: text("userId").references(() => users.id, { onDelete: "set null" }),
+    displayName: text("displayName").notNull(),
+    result: battleResultEnum("result").notNull(),
+    score: smallint("score"),
+  },
+  (t) => [index("battle_participants_battle_idx").on(t.battleId)],
+);
+
+export type Battle = typeof battles.$inferSelect;
+export type BattleParticipant = typeof battleParticipants.$inferSelect;

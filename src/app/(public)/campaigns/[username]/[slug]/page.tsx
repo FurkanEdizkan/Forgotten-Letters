@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getCampaignBySlug } from "@/lib/queries/campaigns";
+import { listBattles } from "@/lib/queries/battles";
+import { BattleTracker } from "@/components/campaign/BattleTracker";
 
 type Params = { username: string; slug: string };
 
@@ -41,6 +43,7 @@ export default async function CampaignDetailPage({
   if (!campaign) notFound();
 
   const isOwner = viewer?.id === campaign.authorId;
+  const battles = await listBattles(campaign.id);
 
   // Edges grouped by source, so the graph reads as an outline rather
   // than a flat list. A rendered canvas would need the design bundle.
@@ -114,6 +117,13 @@ export default async function CampaignDetailPage({
           </div>
         )}
       </section>
+
+      <BattleTracker
+        campaignId={campaign.id}
+        battles={battles}
+        scenarios={campaign.scenarios.map((s) => ({ id: s.id, title: s.title }))}
+        isOwner={isOwner}
+      />
 
       {campaign.graph.nodes.length > 0 && (
         <section className="mt-8">

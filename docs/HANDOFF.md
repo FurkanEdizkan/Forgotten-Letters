@@ -66,14 +66,14 @@ All of the below is verified against the running stack, not just written.
 | 2 — schema + storage      | Complete    | 17 tables, quota accounting, presigned uploads                                                  |
 | 3 — MDX content           | Complete    | rules with directory-driven versioning, official, legal, FAQ                                    |
 | 4 — scenarios & campaigns | Mostly      | CRUD, editors, browse, detail. **Graph canvas not built**                                       |
-| 7 — social                | Mostly      | votes, favorites, comments, profiles, notifications. **Battle tracker not built**               |
+| 7 — social                | Complete    | votes, favorites, comments, profiles, notifications, battle tracker                             |
 | 8 — account               | Mostly      | settings, storage, avatars, full 2FA. **AI Forge not built** (needs a provider contract + key)  |
 | 5 — map editor            | Not started | blocked, see §3                                                                                 |
 | 6 — warbands              | Not started | blocked, see §3                                                                                 |
 | 9 — monetization          | Not started | blocked, see §3                                                                                 |
 | 10 — hosting              | Not started | blocked, see §3                                                                                 |
 
-Test suite: **116 unit/integration + 74 e2e**, all passing.
+Test suite: **116 unit/integration + 79 e2e**, all passing.
 Run with `npm test` and `npm run test:e2e` (both need the stack up).
 
 ---
@@ -111,7 +111,14 @@ The schema columns exist. What remains:
 
 </details>
 
-### 2.2 Battle tracker (Phase 7) — ~1 day
+### 2.2 ~~Battle tracker~~ — DONE
+
+Built with the schema proposed below. `warbandId` was deliberately
+omitted rather than nullable — adding it when Phase 6 defines warbands
+is a purely additive migration. Participants are free-text names so a
+campaign can record games against opponents who have no account.
+
+<details><summary>Original plan (superseded)</summary>
 
 Needs one product decision from the owner: **what a battle result
 records**. A minimal, defensible shape:
@@ -123,6 +130,8 @@ battle_participants: battleId, userId, warbandId?, result (win|loss|draw), score
 
 `warbandId` stays nullable until Phase 6 defines warbands. Without that
 nullable escape hatch this phase blocks on Phase 6 unnecessarily.
+
+</details>
 
 ### 2.3 Campaign graph canvas (Phase 4) — ~2 days
 

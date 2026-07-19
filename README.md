@@ -60,6 +60,7 @@ Sanity) toward a fully open-source, self-hostable stack. See
 
 | Doc                                                          | What it covers                                                                                 |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md)                         | **Start here** — current state, next steps, blockers, and known traps                          |
 | [`docs/BuildPlan.md`](docs/BuildPlan.md)                     | Local-first execution plan: devcontainer + docker, per-phase test/security gates, then hosting |
 | [`docs/Architecture.md`](docs/Architecture.md)               | System design, data layer, auth, storage, AI Forge, old→new mapping                            |
 | [`docs/Deployment.md`](docs/Deployment.md)                   | AWS Lightsail/Fargate + Docker + Cloudflare + SES + CI/CD                                      |

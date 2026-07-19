@@ -1,24 +1,36 @@
 /**
  * Drizzle schema.
  *
- * Phase 0 defined the Auth.js adapter tables; Phase 1 adds credentials
- * support and the public `profiles` row every user gets. The rest of the
- * domain (campaigns, scenarios, votes, subscriptions, entitlements, …)
- * lands in Phase 2; see docs/Architecture.md "Data layer".
+ * Phase 0 defined the Auth.js adapter tables, Phase 1 added credentials
+ * and profiles, Phase 2 adds the content domain and monetization tables.
+ * See docs/Architecture.md "Data layer".
  *
  * Table shapes for users/accounts/sessions/verificationToken are dictated
  * by @auth/drizzle-adapter — column names and types must match what the
  * adapter queries, so do not rename them. Columns we add beyond the
  * adapter's expectations are safe.
+ *
+ * Ownership columns are named `authorId` and are the anchor for every
+ * authorization check: the database no longer enforces per-row access
+ * (Supabase RLS is gone), so src/lib/auth/guards.ts is the only thing
+ * standing between a user and someone else's rows.
  */
 import type { AdapterAccountType } from "next-auth/adapters";
+import { sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
+  bigint,
   boolean,
   index,
   integer,
+  jsonb,
+  pgEnum,
   primaryKey,
+  smallint,
   text,
   timestamp,
+  unique,
+  uniqueIndex,
   pgTable,
 } from "drizzle-orm/pg-core";
 
@@ -52,7 +64,11 @@ export const profiles = pgTable(
     displayName: text("displayName"),
     bio: text("bio"),
     avatarKey: text("avatarKey"),
-    storageUsedBytes: integer("storageUsedBytes").notNull().default(0),
+    // bigint to match uploaded_files.sizeBytes — an int4 counter
+    // overflows at 2 GB of cumulative uploads.
+    storageUsedBytes: bigint("storageUsedBytes", { mode: "number" })
+      .notNull()
+      .default(0),
     isAdmin: boolean("isAdmin").notNull().default(false),
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -103,3 +119,381 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase 2 — content domain
+   ══════════════════════════════════════════════════════════════════ */
+
+export const sectionTypeEnum = pgEnum("section_type", [
+  "narrative",
+  "objectives",
+  "deployment",
+  "special_rules",
+  "victory_conditions",
+  "event_table",
+  "aftermath",
+]);
+
+/** Polymorphic target for votes, favorites, and comments. */
+export const targetTypeEnum = pgEnum("target_type", [
+  "scenario",
+  "campaign",
+  "warband",
+  "comment",
+]);
+
+export const subscriptionTierEnum = pgEnum("subscription_tier", [
+  "conscript", // free
+  "veteran",
+  "cartographer",
+]);
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "past_due",
+  "canceled",
+  "incomplete",
+]);
+
+export const forgeJobStatusEnum = pgEnum("forge_job_status", [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+/** Game systems. Trench Crusade first; the schema is system-agnostic. */
+export const gameSystems = pgTable(
+  "game_systems",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    publisher: text("publisher"),
+    description: text("description"),
+    isActive: boolean("isActive").notNull().default(true),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("game_systems_slug_idx").on(t.slug)],
+);
+
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    authorId: text("authorId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameSystemId: text("gameSystemId")
+      .notNull()
+      .references(() => gameSystems.id, { onDelete: "restrict" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    // Node-based campaign graph: nodes + edges with branching paths.
+    // JSONB rather than tables because the shape is editor-driven and
+    // is always read and written whole.
+    graph: jsonb("graph"),
+    isPublished: boolean("isPublished").notNull().default(false),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Slugs are unique per author, so two users may both have
+    // "the-long-retreat" without colliding.
+    uniqueIndex("campaigns_author_slug_idx").on(t.authorId, t.slug),
+    index("campaigns_author_idx").on(t.authorId),
+    index("campaigns_published_idx").on(t.isPublished),
+    index("campaigns_created_idx").on(t.createdAt),
+  ],
+);
+
+export const scenarios = pgTable(
+  "scenarios",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    authorId: text("authorId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameSystemId: text("gameSystemId")
+      .notNull()
+      .references(() => gameSystems.id, { onDelete: "restrict" }),
+    // Nullable: a scenario can stand alone or belong to a campaign.
+    // set null (not cascade) so deleting a campaign does not destroy
+    // scenarios the author may still want.
+    campaignId: text("campaignId").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    playerCount: smallint("playerCount"),
+    estimatedMinutes: smallint("estimatedMinutes"),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    // Konva map document. Whole-document read/write, same as graph.
+    mapData: jsonb("mapData"),
+    isPublished: boolean("isPublished").notNull().default(false),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("scenarios_author_slug_idx").on(t.authorId, t.slug),
+    index("scenarios_author_idx").on(t.authorId),
+    index("scenarios_campaign_idx").on(t.campaignId),
+    index("scenarios_published_idx").on(t.isPublished),
+    index("scenarios_created_idx").on(t.createdAt),
+    index("scenarios_system_idx").on(t.gameSystemId),
+  ],
+);
+
+/** Ordered rich-text blocks making up a scenario. */
+export const scenarioSections = pgTable(
+  "scenario_sections",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    scenarioId: text("scenarioId")
+      .notNull()
+      .references(() => scenarios.id, { onDelete: "cascade" }),
+    type: sectionTypeEnum("type").notNull(),
+    heading: text("heading"),
+    // Sanitized HTML from Tiptap. Sanitization happens on write, in the
+    // server action — never trust it at render time.
+    body: text("body"),
+    position: smallint("position").notNull().default(0),
+  },
+  (t) => [index("scenario_sections_scenario_idx").on(t.scenarioId, t.position)],
+);
+
+/** Roll tables attached to a scenario section. */
+export const eventTables = pgTable(
+  "event_tables",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    scenarioId: text("scenarioId")
+      .notNull()
+      .references(() => scenarios.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    diceNotation: text("diceNotation").notNull().default("d6"),
+    // [{ min, max, result }] — read and written whole by the editor.
+    entries: jsonb("entries")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    position: smallint("position").notNull().default(0),
+  },
+  (t) => [index("event_tables_scenario_idx").on(t.scenarioId)],
+);
+
+/**
+ * Uploaded objects.
+ *
+ * Rows are the source of truth for quota accounting: the storage
+ * counter on profiles is maintained from inserts and deletes here, so
+ * every upload must be recorded even when the bytes land in R2 first.
+ */
+export const uploadedFiles = pgTable(
+  "uploaded_files",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    bucket: text("bucket").notNull(),
+    objectKey: text("objectKey").notNull(),
+    mimeType: text("mimeType").notNull(),
+    // bigint: an int4 column overflows at 2 GB, which a single user's
+    // cumulative uploads can exceed.
+    sizeBytes: bigint("sizeBytes", { mode: "number" }).notNull(),
+    // Temp uploads are swept by the cleanup task; permanent ones are not.
+    isTemporary: boolean("isTemporary").notNull().default(false),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uploaded_files_bucket_key_idx").on(t.bucket, t.objectKey),
+    index("uploaded_files_user_idx").on(t.userId),
+    index("uploaded_files_temp_idx").on(t.isTemporary, t.createdAt),
+  ],
+);
+
+/**
+ * Votes. One row per user per target; `value` is +1 or -1.
+ * The unique constraint is what makes a vote idempotent — re-voting
+ * updates rather than accumulating.
+ */
+export const votes = pgTable(
+  "votes",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    targetType: targetTypeEnum("targetType").notNull(),
+    targetId: text("targetId").notNull(),
+    value: smallint("value").notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("votes_user_target_unq").on(t.userId, t.targetType, t.targetId),
+    index("votes_target_idx").on(t.targetType, t.targetId),
+  ],
+);
+
+export const favorites = pgTable(
+  "favorites",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    targetType: targetTypeEnum("targetType").notNull(),
+    targetId: text("targetId").notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("favorites_user_target_unq").on(t.userId, t.targetType, t.targetId),
+    index("favorites_target_idx").on(t.targetType, t.targetId),
+    index("favorites_user_idx").on(t.userId),
+  ],
+);
+
+/** Threaded comments. parentId nests a reply under another comment. */
+export const comments = pgTable(
+  "comments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    authorId: text("authorId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    targetType: targetTypeEnum("targetType").notNull(),
+    targetId: text("targetId").notNull(),
+    // Self-reference needs the AnyPgColumn annotation to break the
+    // circular type. Cascade so deleting a comment removes its replies
+    // rather than orphaning them.
+    parentId: text("parentId").references((): AnyPgColumn => comments.id, {
+      onDelete: "cascade",
+    }),
+    // Sanitized on write, in the server action.
+    body: text("body").notNull(),
+    isDeleted: boolean("isDeleted").notNull().default(false),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("comments_target_idx").on(t.targetType, t.targetId),
+    index("comments_author_idx").on(t.authorId),
+    index("comments_parent_idx").on(t.parentId),
+  ],
+);
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase 2 — monetization
+   ══════════════════════════════════════════════════════════════════ */
+
+/** Mirror of the Stripe subscription. Stripe remains the source of truth. */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    stripeCustomerId: text("stripeCustomerId"),
+    stripeSubscriptionId: text("stripeSubscriptionId"),
+    tier: subscriptionTierEnum("tier").notNull().default("conscript"),
+    status: subscriptionStatusEnum("status").notNull().default("active"),
+    currentPeriodEnd: timestamp("currentPeriodEnd", { withTimezone: true }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("subscriptions_customer_idx").on(t.stripeCustomerId),
+    index("subscriptions_subscription_idx").on(t.stripeSubscriptionId),
+  ],
+);
+
+/**
+ * Flattened feature flags, derived from subscription plus donations.
+ *
+ * Denormalized deliberately: every request that renders an ad slot or
+ * checks a quota reads this, and recomputing it from Stripe state on
+ * each read would be both slow and unavailable when Stripe is down.
+ */
+export const entitlements = pgTable("entitlements", {
+  userId: text("userId")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  adsDisabled: boolean("adsDisabled").notNull().default(false),
+  // Default 50 MB free tier; overridden per-tier. bigint for the same
+  // overflow reason as uploaded_files.sizeBytes.
+  storageQuotaBytes: bigint("storageQuotaBytes", { mode: "number" })
+    .notNull()
+    .default(52_428_800),
+  forgeCredits: integer("forgeCredits").notNull().default(0),
+  privateCampaigns: boolean("privateCampaigns").notNull().default(false),
+  isSupporter: boolean("isSupporter").notNull().default(false),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** AI Forge runs, and the credit accounting behind them. */
+export const forgeJobs = pgTable(
+  "forge_jobs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    provider: text("provider").notNull(),
+    sourceAssetKey: text("sourceAssetKey"),
+    outputImageKey: text("outputImageKey"),
+    outputMeshKey: text("outputMeshKey"),
+    status: forgeJobStatusEnum("status").notNull().default("queued"),
+    creditsSpent: integer("creditsSpent").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completedAt", { withTimezone: true }),
+  },
+  (t) => [
+    index("forge_jobs_user_idx").on(t.userId, t.createdAt),
+    index("forge_jobs_status_idx").on(t.status),
+  ],
+);
+
+export type GameSystem = typeof gameSystems.$inferSelect;
+export type Campaign = typeof campaigns.$inferSelect;
+export type NewCampaign = typeof campaigns.$inferInsert;
+export type Scenario = typeof scenarios.$inferSelect;
+export type NewScenario = typeof scenarios.$inferInsert;
+export type ScenarioSection = typeof scenarioSections.$inferSelect;
+export type EventTable = typeof eventTables.$inferSelect;
+export type UploadedFile = typeof uploadedFiles.$inferSelect;
+export type Vote = typeof votes.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type Entitlement = typeof entitlements.$inferSelect;
+export type ForgeJob = typeof forgeJobs.$inferSelect;

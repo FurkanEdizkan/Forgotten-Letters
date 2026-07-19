@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 
 import { db } from "@/lib/db/client";
-import { profiles, users } from "@/lib/db/schema";
+import { entitlements, profiles, users } from "@/lib/db/schema";
 import { signIn } from "@/lib/auth";
 import { sendMail } from "@/lib/mail";
 import { clientEnv } from "@/lib/env";
@@ -88,6 +88,9 @@ export async function registerAction(formData: FormData): Promise<ActionResult> 
     await tx
       .insert(profiles)
       .values({ userId: user.id, username, displayName: username });
+    // Conscript (free tier) defaults come from the column defaults.
+    // Created here so no code path has to cope with a missing row.
+    await tx.insert(entitlements).values({ userId: user.id });
   });
 
   await sendMail({

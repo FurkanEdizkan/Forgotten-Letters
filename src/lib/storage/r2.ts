@@ -11,6 +11,7 @@
  * quota before issuing a URL — the presign itself grants write access.
  */
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
@@ -84,6 +85,11 @@ export async function getDownloadUrl(opts: {
 export function getPublicAssetUrl(key: string): string {
   const base = process.env.NEXT_PUBLIC_ASSET_BASE_URL!.replace(/\/$/, "");
   return `${base}/${key.replace(/^\//, "")}`;
+}
+
+/** Remove an object. Used to undo an upload whose row failed to write. */
+export async function deleteObject(bucket: string, key: string): Promise<void> {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 /** Liveness probe for /api/health. Returns false rather than throwing. */

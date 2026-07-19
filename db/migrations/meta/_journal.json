@@ -15,6 +15,13 @@
       "when": 1784467526902,
       "tag": "0001_parched_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784468909738,
+      "tag": "0002_regular_hercules",
+      "breakpoints": true
     }
   ]
 }

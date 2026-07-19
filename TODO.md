@@ -147,39 +147,51 @@ Done in Phase 0b / A3.
 
 ## Phase 2: Database schema & storage
 
-### 2.1 — Schema (Drizzle + SQL migrations)
+### 2.1 — Schema (Drizzle + SQL migrations) ✅
 
-- [ ] Enums: `section_type`, `target_type`, `subscription_tier`
-- [ ] Core tables (carried from original plan): `profiles`, `game_systems`, `campaigns`,
-      `scenarios`, `scenario_sections`, `event_tables`, `uploaded_files`, `votes`,
-      `favorites`, `comments`
-- [ ] Monetization tables: `subscriptions`, `entitlements`, `forge_jobs`
-- [ ] Indexes: slugs, author_id, campaign_id, scenario_id, (target_type,target_id),
-      is_published, created_at
+- [x] Enums: `section_type`, `target_type`, `subscription_tier`,
+      `subscription_status`, `forge_job_status`
+- [x] Core tables: `profiles`, `game_systems`, `campaigns`, `scenarios`,
+      `scenario_sections`, `event_tables`, `uploaded_files`, `votes`, `favorites`,
+      `comments`
+- [x] Monetization tables: `subscriptions`, `entitlements`, `forge_jobs`
+- [x] Indexes: per-author unique slugs, author_id, campaign_id, game_system_id,
+      (target_type,target_id), is_published, created_at
+- [x] 17 tables migrated and verified against the live database
 
-### 2.2 — Logic (functions/triggers, replacing Supabase RLS/triggers)
+### 2.2 — Logic (application-layer, replacing Supabase RLS/triggers) ✅
 
-- [ ] `handle_new_user` equivalent (profiles row on signup)
-- [ ] `check_user_storage_quota(user_id, size)` using `entitlements.storage_quota_bytes`
-- [ ] `update_storage_used` on uploaded_files insert/delete
-- [ ] `get_vote_count(target_type, target_id)`
-- [ ] **App-layer authorization** helpers in `src/lib/auth/guards.ts` (ownership/role
-      checks replace RLS in every server action)
+- [x] `handle_new_user` equivalent — profiles **and** entitlements rows created in the
+      same transaction as the user insert (registration action)
+- [x] `check_user_storage_quota` → `checkStorageQuota()`, reading
+      `entitlements.storageQuotaBytes` rather than a constant
+- [x] `update_storage_used` → maintained transactionally in `recordUpload` /
+      `deleteUpload`, with `recalculateStorageUsed()` as the repair path
+- [x] `get_vote_count` → `getVoteCount()` + batched `getVoteCounts()` (avoids N+1)
+- [x] App-layer authorization helpers in `src/lib/auth/guards.ts`
 
-### 2.3 — Object storage (Cloudflare R2)
+### 2.3 — Object storage (MinIO locally / R2 in prod) ✅
 
-- [ ] `npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner`
-- [ ] `src/lib/storage/r2.ts` — client, presigned PUT/GET, key helpers
-- [ ] Buckets: `assets` (5 MB image cap), `avatars` (2 MB cap); enforce MIME + quota
-      in the upload server action
-- [ ] Cloudflare custom domain → `NEXT_PUBLIC_ASSET_BASE_URL` (zero-egress reads)
+- [x] `@aws-sdk/client-s3` + `s3-request-presigner` installed (Phase 0 A2)
+- [x] `src/lib/storage/r2.ts` — client, presigned PUT/GET, delete, key helpers
+- [x] `src/lib/storage/upload-policy.ts` — MIME allowlist (SVG excluded: it can carry
+      script and the assets bucket is public-read), 5 MB assets / 2 MB avatars caps,
+      user-namespaced server-generated keys
+- [x] Two-step upload action: presign (validated + quota-checked) then confirm
+      (re-checked inside a transaction; orphaned objects removed on failure)
+- [ ] Cloudflare custom domain → `NEXT_PUBLIC_ASSET_BASE_URL` — **needs a real
+      Cloudflare account and domain; deferred to Phase 10**
 
-### 2.4 — Seed & verify
+### 2.4 — Seed & verify ✅
 
-- [ ] Seed "Trench Crusade" game system
-- [ ] New user → profiles + entitlements (Conscript defaults) created
-- [ ] User A's unpublished scenario invisible to user B / anon; B cannot edit it
-- [ ] Upload updates storage counter; over-quota upload rejected
+- [x] Idempotent seed for the "Trench Crusade" game system (`npm run db:seed`)
+- [x] New user → profiles + entitlements (Conscript defaults) created transactionally
+- [x] Upload updates the storage counter; over-quota upload rejected; concurrent
+      uploads cannot both exceed the quota (row-locked, proven by test)
+- [x] One user cannot delete another's file
+- [ ] User A's unpublished scenario invisible to B — **the guards and `isPublished`
+      column exist, but there are no scenario read paths yet to enforce it on;
+      lands with Phase 4 CRUD**
 
 ---
 

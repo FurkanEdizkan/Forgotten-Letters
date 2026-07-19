@@ -1,16 +1,20 @@
 {
   "name": "Forgotten Letters",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": "."
-  },
-  "workspaceFolder": "/workspace",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
 
-  "forwardPorts": [3000, 5432],
+  // Compose-based: opening the project starts the dev box AND every
+  // backing service (Postgres, MinIO, Mailpit). See docker-compose.yml.
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "runServices": ["db", "minio", "minio-init", "mailpit"],
+  "workspaceFolder": "/workspace",
+
+  "forwardPorts": [3000, 5432, 9000, 9001, 8025],
   "portsAttributes": {
     "3000": { "label": "Next.js Dev Server", "onAutoForward": "notify" },
-    "5432": { "label": "PostgreSQL (local)", "onAutoForward": "silent" }
+    "5432": { "label": "PostgreSQL (local)", "onAutoForward": "silent" },
+    "9000": { "label": "MinIO S3 API", "onAutoForward": "silent" },
+    "9001": { "label": "MinIO Console", "onAutoForward": "silent" },
+    "8025": { "label": "Mailpit (email inbox)", "onAutoForward": "notify" }
   },
 
   "containerEnv": {
@@ -47,6 +51,8 @@
     }
   },
 
-  "postCreateCommand": "echo '✅ Dev container ready. Run: cd /workspace && npm install'",
+  // npm install runs here rather than in the image so node_modules
+  // lands on the bind-mounted workspace and survives rebuilds.
+  "postCreateCommand": "npm install",
   "postStartCommand": "git config --global --add safe.directory /workspace"
 }

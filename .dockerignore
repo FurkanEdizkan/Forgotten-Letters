@@ -1,0 +1,45 @@
+# Keep the build context small and hermetic. Without this, the host's
+# node_modules (with host-native binaries) and stale .next output get
+# copied in, slowing the build and breaking it in subtle ways.
+
+# ── Dependencies & build output (rebuilt inside the image) ──
+node_modules
+.next
+out
+build
+dist
+*.tsbuildinfo
+
+# ── Secrets — must never enter an image layer ───────────────
+.env
+.env.*
+!.env.example
+
+# ── VCS & CI ────────────────────────────────────────────────
+.git
+.gitignore
+.github
+.gitmessage
+
+# ── Dev-only tooling ────────────────────────────────────────
+.devcontainer
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# design-lab is a standalone Vite sandbox, not part of the app
+design-lab
+
+# ── Docs & agent tooling ────────────────────────────────────
+docs
+skills
+.design-sync
+*.md
+!README.md
+
+# ── Local state ─────────────────────────────────────────────
+pgdata
+coverage
+.nyc_output
+npm-debug.log*
+.DS_Store

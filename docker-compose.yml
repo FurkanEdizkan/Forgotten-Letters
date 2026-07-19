@@ -1,0 +1,61 @@
+# ============================================================
+# Forgotten Letters — prod-shaped stack (app + db)
+#
+# Builds the REAL production image from the root Dockerfile, so the
+# standalone build can be validated locally long before Phase 10.
+# The same file runs on a single Lightsail box (docs/Deployment.md §2).
+#
+# For day-to-day development use .devcontainer/docker-compose.yml —
+# it has hot reload plus MinIO and Mailpit. This one does not.
+#
+#   docker compose up --build      # validate the prod image
+# ============================================================
+
+name: forgotten-letters
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Real secrets come from the host env in prod; this file is only
+    # for local prod-image validation and single-box deploys.
+    # required:false so `docker compose up` works before a developer
+    # has copied .env.example — the file is gitignored and absent on
+    # a fresh clone.
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      NODE_ENV: production
+      # Override the .env.local host: inside compose the DB is `db`,
+      # not localhost.
+      DATABASE_URL: postgresql://forgotten:forgotten@db:5432/forgotten_letters
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forgotten
+      POSTGRES_PASSWORD: forgotten
+      POSTGRES_DB: forgotten_letters
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Not published to the host by default — the app reaches it over
+    # the compose network. Uncomment to inspect with a local client.
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgotten -d forgotten_letters"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

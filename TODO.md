@@ -214,19 +214,31 @@ Done in Phase 0b / A3.
 
 ---
 
-## Phase 4: Campaign & scenario CRUD
+## Phase 4: Campaign & scenario CRUD — partial
 
-- [ ] Zod schemas: `campaign.ts`, `scenario.ts`
-- [ ] Server actions: campaigns (create/update/delete/duplicate),
-      scenarios (create/update/delete/duplicate/publish) — each with authz guard
-- [ ] Campaign pages: `/campaigns/new` (wizard), `/campaigns/[slug]` (lobby per
-      `Campaign.jsx`), `/campaigns/[slug]/edit`
-- [ ] **Campaign graph editor** (per `Campaigns.jsx`) — nodes (Start/Scenario/Finale),
-      branching edges with Victory/Defeat labels, reward nodes, inspector
-- [ ] Scenario editor (per `ScenarioEditor.jsx`) — tabbed inspector (Map/Scenario/Story/
-      Campaign/Rules), Tiptap story, event tables, rewards
-- [ ] Duplicate = deep copy (scenario + sections + event tables, new author, unpublished)
-- [ ] Verify CRUD, duplicate, cascade delete, author-only edit
+- [x] Zod schemas for scenarios, sections, and event tables (`validations/scenario.ts`)
+- [x] HTML sanitization on write (`lib/sanitize.ts`)
+- [x] Scenario server actions: create / update / delete / publish / duplicate, each
+      ownership-guarded
+- [x] Scenario editor at `/scenarios/new` and `/scenarios/[slug]/edit` — one component
+      for both, tabbed (Basic / Sections / Event tables), wired to the real actions
+- [x] Duplicate = deep copy (scenario + sections + event tables, new author, unpublished,
+      detached from the source campaign)
+- [x] Verified: create → persist → reload → publish; per-field validation errors;
+      event tables round-trip; author-only edit returns 404 for others; anonymous
+      users redirected
+- [ ] Campaign server actions and pages (`/campaigns/new`, `/campaigns/[slug]`,
+      `/campaigns/[slug]/edit`)
+- [ ] **Campaign graph editor** — node/edge canvas
+- [ ] Tiptap rich-text story editing (sections are plain textareas today; the
+      sanitizer is already in place for when Tiptap lands)
+
+> **Blocked on missing design input:** `docs/UI-Surfaces.md` names an 18-prototype
+> bundle under `project/components/` as the UI source of truth, but that bundle is
+> **not in this repository**. The editor above was built from the written spec and the
+> existing primitives — it is functionally complete but is not a faithful reproduction
+> of the intended design. The graph editor, warband builder, and Forge depend far more
+> heavily on that missing visual spec.
 
 ---
 

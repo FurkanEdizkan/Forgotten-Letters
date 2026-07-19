@@ -42,12 +42,10 @@ export default function AccountSettingsPage() {
 
       {/* Danger zone — full border + tint, never a side-stripe */}
       <Card className="border-danger/40 bg-[oklch(0.2_0.03_25)] p-6">
-        <h2 className="font-display text-lg font-semibold text-ink">
-          Delete account
-        </h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Delete account</h2>
         <p className="mt-1 max-w-prose text-sm text-muted">
-          Permanently remove your account and all associated scenarios,
-          campaigns, and uploads. This cannot be undone.
+          Permanently remove your account and all associated scenarios, campaigns, and
+          uploads. This cannot be undone.
         </p>
         <div className="mt-5">
           <Button variant="danger">Delete my account</Button>

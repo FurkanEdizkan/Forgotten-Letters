@@ -16,7 +16,7 @@ const SECTIONS = [
   {
     type: "Objective",
     title: "Primary Objective",
-    body: "Control the chapel altar at the end of round 6. A model must be within 2\" of the altar and unengaged to claim control.",
+    body: 'Control the chapel altar at the end of round 6. A model must be within 2" of the altar and unengaged to claim control.',
   },
   {
     type: "Deployment",
@@ -26,17 +26,34 @@ const SECTIONS = [
   {
     type: "Victory",
     title: "Victory Conditions",
-    body: "The player controlling the altar at the end of round 6 wins. If neither controls it, the player with the most models within 6\" of the chapel wins.",
+    body: 'The player controlling the altar at the end of round 6 wins. If neither controls it, the player with the most models within 6" of the chapel wins.',
   },
 ];
 
 const EVENT_TABLE = {
   title: "The Rising Water (roll d6 at the start of each round)",
   entries: [
-    { roll: "1", effect: "Downpour", detail: "All ranged attacks −1 to hit this round." },
-    { roll: "2–3", effect: "Steady rain", detail: "No effect. The water rises one row." },
-    { roll: "4–5", effect: "Flash flood", detail: "Models in the lowest row are swept 2\" toward a random board edge." },
-    { roll: "6", effect: "The bell tolls", detail: "Every model within 6\" of the tower must pass a nerve test or fall back 3\"." },
+    {
+      roll: "1",
+      effect: "Downpour",
+      detail: "All ranged attacks −1 to hit this round.",
+    },
+    {
+      roll: "2–3",
+      effect: "Steady rain",
+      detail: "No effect. The water rises one row.",
+    },
+    {
+      roll: "4–5",
+      effect: "Flash flood",
+      detail: 'Models in the lowest row are swept 2" toward a random board edge.',
+    },
+    {
+      roll: "6",
+      effect: "The bell tolls",
+      detail:
+        'Every model within 6" of the tower must pass a nerve test or fall back 3".',
+    },
   ],
 };
 
@@ -99,7 +116,8 @@ export default async function ScenarioDetailPage({
             </div>
             <span className="mx-2 h-8 w-px bg-border" />
             <span className="inline-flex items-center gap-1.5 font-mono text-sm text-muted">
-              <Users className="size-4" /> {scenario.playerMin}–{scenario.playerMax} players
+              <Users className="size-4" /> {scenario.playerMin}–{scenario.playerMax}{" "}
+              players
             </span>
           </div>
 
@@ -191,7 +209,9 @@ export default async function ScenarioDetailPage({
                   {EVENT_TABLE.entries.map((e) => (
                     <tr key={e.roll} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 font-mono text-primary">{e.roll}</td>
-                      <td className="px-4 py-3 font-mono uppercase text-ink">{e.effect}</td>
+                      <td className="px-4 py-3 font-mono uppercase text-ink">
+                        {e.effect}
+                      </td>
                       <td className="px-4 py-3 text-muted">{e.detail}</td>
                     </tr>
                   ))}
@@ -231,8 +251,7 @@ export default async function ScenarioDetailPage({
               </span>
             </div>
             <p className="mt-3 text-sm text-faint">
-              Comment threads render here once social features (Phase 6) are
-              wired.
+              Comment threads render here once social features (Phase 6) are wired.
             </p>
           </Card>
         </aside>

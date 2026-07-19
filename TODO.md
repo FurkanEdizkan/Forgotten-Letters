@@ -39,6 +39,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 ## Phase 1: Bootstrap, theme & auth
 
 ### 1.1 — Reconcile the existing scaffold
+
 > The Next.js app is already scaffolded (route groups, pages, `src/components/ui`) from the
 > design-system branch; it predates the stack change, so this step is cleanup, not `create-next-app`.
 
@@ -52,6 +53,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [x] Exclude `design-lab/` from the root typecheck (separate Vite app, own deps)
 
 ### 1.2 — Design system
+
 > Partly done: `src/components/ui` already carries the grimdark retoken from the design lab.
 
 - [x] Port grimdark tokens + `src/components/ui` primitives from `design-lab/`
@@ -61,11 +63,13 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [ ] Port the icon set + brand mark (`FLMark`) from the design bundle
 
 ### 1.3 — Database (Postgres + Drizzle)
+
 - [ ] `docker compose up -d db`; `npm install drizzle-orm pg && npm install -D drizzle-kit`
 - [ ] Create `src/lib/db/client.ts` and `src/lib/db/schema.ts`
 - [ ] Configure `drizzle.config.ts`; wire `npm run db:generate` / `db:migrate`
 
 ### 1.4 — Auth.js (NextAuth v5)
+
 - [ ] `npm install next-auth@beta @auth/drizzle-adapter`
 - [ ] `src/lib/auth/` — Auth.js config, Drizzle adapter, Credentials + Google + GitHub
 - [ ] Auth.js core tables in Drizzle schema; session = database strategy
@@ -74,17 +78,20 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [ ] On user create, insert a `profiles` row (adapter hook or trigger)
 
 ### 1.5 — Auth pages & email
+
 - [ ] `/(auth)/login`, `/register`, `/forgot-password` (per `Auth.jsx`)
 - [ ] Email verification + **reset-with-token** pages (design gap — see UI-Surfaces)
 - [ ] Wire Amazon SES SMTP for verification / reset mail
 - [ ] Zod schemas in `src/lib/validations/auth.ts`
 
 ### 1.6 — Layout shell
+
 - [ ] `components/layout/Navbar.tsx` + `Footer.tsx` (per `Chrome.jsx`, 4 navbar variants)
 - [ ] `components/layout/QuickDrawer.tsx` (per `QuickDrawer.jsx`)
 - [ ] `app/(public)/page.tsx` — Landing (per `Landing.jsx`, desktop + mobile)
 
 ### 1.7 — Verify
+
 - [ ] Register → verify email → login; Google + GitHub OAuth; forgot/reset works
 - [ ] Protected routes redirect when unauthenticated; logout clears session
 
@@ -93,6 +100,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 ## Phase 2: Database schema & storage
 
 ### 2.1 — Schema (Drizzle + SQL migrations)
+
 - [ ] Enums: `section_type`, `target_type`, `subscription_tier`
 - [ ] Core tables (carried from original plan): `profiles`, `game_systems`, `campaigns`,
       `scenarios`, `scenario_sections`, `event_tables`, `uploaded_files`, `votes`,
@@ -102,6 +110,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
       is_published, created_at
 
 ### 2.2 — Logic (functions/triggers, replacing Supabase RLS/triggers)
+
 - [ ] `handle_new_user` equivalent (profiles row on signup)
 - [ ] `check_user_storage_quota(user_id, size)` using `entitlements.storage_quota_bytes`
 - [ ] `update_storage_used` on uploaded_files insert/delete
@@ -110,6 +119,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
       checks replace RLS in every server action)
 
 ### 2.3 — Object storage (Cloudflare R2)
+
 - [ ] `npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner`
 - [ ] `src/lib/storage/r2.ts` — client, presigned PUT/GET, key helpers
 - [ ] Buckets: `assets` (5 MB image cap), `avatars` (2 MB cap); enforce MIME + quota
@@ -117,6 +127,7 @@ before porting into the main app. See `docs/superpowers/specs/` and `docs/superp
 - [ ] Cloudflare custom domain → `NEXT_PUBLIC_ASSET_BASE_URL` (zero-egress reads)
 
 ### 2.4 — Seed & verify
+
 - [ ] Seed "Trench Crusade" game system
 - [ ] New user → profiles + entitlements (Conscript defaults) created
 - [ ] User A's unpublished scenario invisible to user B / anon; B cannot edit it

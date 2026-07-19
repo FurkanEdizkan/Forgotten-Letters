@@ -44,18 +44,18 @@ a sibling container on the same host (cheapest) or as RDS micro (more operationa
 The product design is unchanged; only the implementation substrate moves. Apply this
 mapping wherever the original `TODO.md` referenced a managed service:
 
-| Concern | Old (managed) | New (open-source / AWS) |
-|---|---|---|
-| Database | Supabase Postgres | PostgreSQL + **Drizzle ORM** (raw SQL migrations preserved) |
-| Auth | Supabase Auth | **Auth.js v5** (Credentials + Google + GitHub), Drizzle adapter |
-| Row-level security | Supabase RLS policies | App-layer authorization in server actions + DB constraints/checks |
-| Object storage | Supabase Storage | **Cloudflare R2** via S3 SDK + presigned URLs; quota enforced in app |
-| Official CMS | Sanity | **MDX-in-repo** (rules / legal / FAQ); Payload CMS optional for news |
-| Rate limiting | Upstash Redis | `rate-limiter-flexible` with a Postgres store |
-| Hosting | Vercel | **AWS Lightsail Containers / Fargate** + Docker, fronted by Cloudflare |
-| Transactional email | Supabase SMTP | **Amazon SES** |
-| Type generation | `supabase gen types` | Drizzle-inferred types (`$inferSelect` / `$inferInsert`) |
-| Cron (temp-file cleanup) | Vercel Cron | Container cron / scheduled task (or Lightsail + EventBridge) |
+| Concern                  | Old (managed)         | New (open-source / AWS)                                                |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------- |
+| Database                 | Supabase Postgres     | PostgreSQL + **Drizzle ORM** (raw SQL migrations preserved)            |
+| Auth                     | Supabase Auth         | **Auth.js v5** (Credentials + Google + GitHub), Drizzle adapter        |
+| Row-level security       | Supabase RLS policies | App-layer authorization in server actions + DB constraints/checks      |
+| Object storage           | Supabase Storage      | **Cloudflare R2** via S3 SDK + presigned URLs; quota enforced in app   |
+| Official CMS             | Sanity                | **MDX-in-repo** (rules / legal / FAQ); Payload CMS optional for news   |
+| Rate limiting            | Upstash Redis         | `rate-limiter-flexible` with a Postgres store                          |
+| Hosting                  | Vercel                | **AWS Lightsail Containers / Fargate** + Docker, fronted by Cloudflare |
+| Transactional email      | Supabase SMTP         | **Amazon SES**                                                         |
+| Type generation          | `supabase gen types`  | Drizzle-inferred types (`$inferSelect` / `$inferInsert`)               |
+| Cron (temp-file cleanup) | Vercel Cron           | Container cron / scheduled task (or Lightsail + EventBridge)           |
 
 ## Data layer
 

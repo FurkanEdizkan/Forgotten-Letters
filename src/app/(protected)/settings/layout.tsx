@@ -7,11 +7,7 @@ const SETTINGS_NAV = [
   { href: "/settings/storage", label: "Storage", icon: HardDrive },
 ];
 
-export default function SettingsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <header className="border-b border-border pb-6">

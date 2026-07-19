@@ -107,7 +107,7 @@ Port `components/tokens.jsx` from the design project into `tokens/`:
   `countUp()` (followers 284, win-rate 63%, ducats 42,180), `barFill()` (W/D/L stacked
   bar and faction bars animate width from 0), streak-cell pop-in, card hover-lift.
 - ReactBits-inspired, restrained: an animated hero backdrop (drifting gold trench pattern
-  + ember/grain over the blood gradient) and a split-text reveal on the hero name.
+  - ember/grain over the blood gradient) and a split-text reveal on the hero name.
 - All motion gated behind `prefers-reduced-motion: reduce` (no-op when set).
 
 ### 3.5 Verification

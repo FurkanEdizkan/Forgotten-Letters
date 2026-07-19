@@ -10,7 +10,11 @@ export function Avatar({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const initials = name.replace(/[^a-zA-Z0-9]/g, " ").trim().slice(0, 2).toUpperCase();
+  const initials = name
+    .replace(/[^a-zA-Z0-9]/g, " ")
+    .trim()
+    .slice(0, 2)
+    .toUpperCase();
   const sizes = {
     sm: "size-6 text-[0.625rem]",
     md: "size-9 text-xs",

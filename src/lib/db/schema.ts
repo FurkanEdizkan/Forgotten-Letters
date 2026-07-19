@@ -11,13 +11,7 @@
  * and types must match what the adapter queries, so do not rename them.
  */
 import type { AdapterAccountType } from "next-auth/adapters";
-import {
-  integer,
-  primaryKey,
-  text,
-  timestamp,
-  pgTable,
-} from "drizzle-orm/pg-core";
+import { integer, primaryKey, text, timestamp, pgTable } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id")
@@ -46,9 +40,7 @@ export const accounts = pgTable(
     id_token: text("id_token"),
     session_state: text("session_state"),
   },
-  (account) => [
-    primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  ],
+  (account) => [primaryKey({ columns: [account.provider, account.providerAccountId] })],
 );
 
 export const sessions = pgTable("sessions", {

@@ -49,9 +49,10 @@
 ### U1.2 Account deletion cascade (specified)
 
 Document in `docs/data-deletion.md` and implement:
+
 - [ ] Hard delete `auth.users` row → cascades `profiles` (FK)
 - [ ] DB cascades remove: scenarios, scenario_sections, event_tables, comments, votes, favorites, uploaded_files, warbands, warband_units, campaign_state, unit_campaign_progress, matches owned by user
-- [ ] **Preserve** `matches` rows where the deleted user is only the *opponent* (set `opponent_warband_id = null`, prepend `[deleted user]` to `opponent_name`); enforce via trigger
+- [ ] **Preserve** `matches` rows where the deleted user is only the _opponent_ (set `opponent_warband_id = null`, prepend `[deleted user]` to `opponent_name`); enforce via trigger
 - [ ] **Preserve** comment threads anonymously: replace `user_id` with sentinel `00000000-0000-0000-0000-000000000000` "Deleted user" profile (created in seed)
 - [ ] Storage cleanup: delete user's files from `scenario-assets` and `avatars`
 - [ ] Audit row written to `moderation_actions` if deletion is admin-initiated

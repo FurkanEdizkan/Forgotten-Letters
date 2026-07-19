@@ -34,22 +34,22 @@ tiers, never paywalls on community content.
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| Auth | **Auth.js (NextAuth v5)** — Credentials + Google + GitHub |
-| Database | **PostgreSQL + Drizzle ORM** |
-| Object storage | **Cloudflare R2** (S3-compatible, zero egress fees) |
-| Official content | **MDX-in-repo** (rules / legal / FAQ); Payload CMS optional later |
-| Rich text | Tiptap |
-| Map editor | react-konva (Konva.js) |
-| Email | **Amazon SES** |
-| Payments | **Stripe** (supporter tiers) + GitHub Sponsors / Ko-fi (donations) |
-| Ads | **EthicalAds / Carbon** (primary) + Google AdSense (consent-gated fallback) |
-| Hosting | **AWS Lightsail Containers / Fargate** + Docker, fronted by **Cloudflare** |
-| Repo / CI | GitHub + GitHub Actions |
+| Layer            | Technology                                                                  |
+| ---------------- | --------------------------------------------------------------------------- |
+| Framework        | Next.js 15 (App Router)                                                     |
+| Language         | TypeScript                                                                  |
+| Styling          | Tailwind CSS v4 + shadcn/ui                                                 |
+| Auth             | **Auth.js (NextAuth v5)** — Credentials + Google + GitHub                   |
+| Database         | **PostgreSQL + Drizzle ORM**                                                |
+| Object storage   | **Cloudflare R2** (S3-compatible, zero egress fees)                         |
+| Official content | **MDX-in-repo** (rules / legal / FAQ); Payload CMS optional later           |
+| Rich text        | Tiptap                                                                      |
+| Map editor       | react-konva (Konva.js)                                                      |
+| Email            | **Amazon SES**                                                              |
+| Payments         | **Stripe** (supporter tiers) + GitHub Sponsors / Ko-fi (donations)          |
+| Ads              | **EthicalAds / Carbon** (primary) + Google AdSense (consent-gated fallback) |
+| Hosting          | **AWS Lightsail Containers / Fargate** + Docker, fronted by **Cloudflare**  |
+| Repo / CI        | GitHub + GitHub Actions                                                     |
 
 This stack is a deliberate move away from the original managed plan (Vercel + Supabase +
 Sanity) toward a fully open-source, self-hostable stack. See
@@ -58,16 +58,16 @@ Sanity) toward a fully open-source, self-hostable stack. See
 
 ## Documentation
 
-| Doc | What it covers |
-|---|---|
-| [`docs/BuildPlan.md`](docs/BuildPlan.md) | Local-first execution plan: devcontainer + docker, per-phase test/security gates, then hosting |
-| [`docs/Architecture.md`](docs/Architecture.md) | System design, data layer, auth, storage, AI Forge, old→new mapping |
-| [`docs/Deployment.md`](docs/Deployment.md) | AWS Lightsail/Fargate + Docker + Cloudflare + SES + CI/CD |
-| [`docs/Costs.md`](docs/Costs.md) | Managed vs self-hosted cost tables + break-even math |
-| [`docs/Monetization.md`](docs/Monetization.md) | Ads + supporter tiers mapped to the Pricing design |
-| [`docs/DesignSystem.md`](docs/DesignSystem.md) | The `FL` 16-color palette, ratios, fonts → Tailwind/CSS |
-| [`docs/UI-Surfaces.md`](docs/UI-Surfaces.md) | The 18 designed surfaces → routes → build priority |
-| [`docs/ClaudeDesign-Prompt.md`](docs/ClaudeDesign-Prompt.md) | Paste-ready prompt to redesign/extend the UI |
+| Doc                                                          | What it covers                                                                                 |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [`docs/BuildPlan.md`](docs/BuildPlan.md)                     | Local-first execution plan: devcontainer + docker, per-phase test/security gates, then hosting |
+| [`docs/Architecture.md`](docs/Architecture.md)               | System design, data layer, auth, storage, AI Forge, old→new mapping                            |
+| [`docs/Deployment.md`](docs/Deployment.md)                   | AWS Lightsail/Fargate + Docker + Cloudflare + SES + CI/CD                                      |
+| [`docs/Costs.md`](docs/Costs.md)                             | Managed vs self-hosted cost tables + break-even math                                           |
+| [`docs/Monetization.md`](docs/Monetization.md)               | Ads + supporter tiers mapped to the Pricing design                                             |
+| [`docs/DesignSystem.md`](docs/DesignSystem.md)               | The `FL` 16-color palette, ratios, fonts → Tailwind/CSS                                        |
+| [`docs/UI-Surfaces.md`](docs/UI-Surfaces.md)                 | The 18 designed surfaces → routes → build priority                                             |
+| [`docs/ClaudeDesign-Prompt.md`](docs/ClaudeDesign-Prompt.md) | Paste-ready prompt to redesign/extend the UI                                                   |
 
 ## Getting started
 
@@ -122,9 +122,9 @@ public/                  # Static assets
 
 ## Ports
 
-| Port | Service |
-|---|---|
-| 3000 | Next.js dev server |
+| Port | Service                        |
+| ---- | ------------------------------ |
+| 3000 | Next.js dev server             |
 | 5432 | PostgreSQL (local, via Docker) |
 
 ## Contributing

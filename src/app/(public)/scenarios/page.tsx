@@ -6,11 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import {
-  MOCK_SCENARIOS,
-  GAME_SYSTEMS,
-  ALL_TAGS,
-} from "@/lib/mock/scenarios";
+import { MOCK_SCENARIOS, GAME_SYSTEMS, ALL_TAGS } from "@/lib/mock/scenarios";
 
 export const metadata: Metadata = {
   title: "Browse Scenarios",
@@ -76,9 +72,21 @@ export default function ScenariosPage() {
           <fieldset>
             <Label className="mb-2 block">Player Count</Label>
             <div className="flex items-center gap-2">
-              <Input type="number" min={1} defaultValue={2} className="w-16" aria-label="Minimum players" />
+              <Input
+                type="number"
+                min={1}
+                defaultValue={2}
+                className="w-16"
+                aria-label="Minimum players"
+              />
               <span className="text-faint">–</span>
-              <Input type="number" min={1} defaultValue={4} className="w-16" aria-label="Maximum players" />
+              <Input
+                type="number"
+                min={1}
+                defaultValue={4}
+                className="w-16"
+                aria-label="Maximum players"
+              />
             </div>
           </fieldset>
 

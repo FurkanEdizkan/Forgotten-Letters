@@ -19,10 +19,10 @@ design and the app's feature gates.
 
 ### Ads
 
-| Network | Role | Consent | Notes |
-|---|---|---|---|
-| **EthicalAds / Carbon** | Primary | Not required (no tracking) | On-brand for a FOSS/dev audience; modest but clean RPM |
-| **Google AdSense** | Fallback | **Required** (cookie-consent banner) | Higher revenue; only loads after explicit consent |
+| Network                 | Role     | Consent                              | Notes                                                  |
+| ----------------------- | -------- | ------------------------------------ | ------------------------------------------------------ |
+| **EthicalAds / Carbon** | Primary  | Not required (no tracking)           | On-brand for a FOSS/dev audience; modest but clean RPM |
+| **Google AdSense**      | Fallback | **Required** (cookie-consent banner) | Higher revenue; only loads after explicit consent      |
 
 Implementation: an `<AdSlot/>` component (in `components/monetization/`) renders nothing
 when the viewer's `entitlements.ads_disabled` is true. It prefers EthicalAds; it loads
@@ -35,11 +35,11 @@ builder, battle tracker, or AI Forge workspace.
 
 Tiers come straight from the **Pricing design** (`Marketing.jsx`):
 
-| Tier | Price | What it unlocks |
-|---|---|---|
-| **Conscript** | Free | 3 warbands, 5 scenarios, 1 campaign (≤4 players), public only, **ads shown**, 50 MB storage |
-| **Veteran** *(POPULAR)* | €6/mo (€60/yr, save 17%) | **Ads off**, unlimited warbands/scenarios, private campaigns, custom sigil/portrait uploads, themed PDF export, **5 GB storage**, monthly Forge credits |
-| **Cartographer** *(PRO)* | €14/mo | Everything in Veteran + **50 GB storage**, custom domain, spectator/live battle log, API write access, co-author, priority support, larger Forge credit grant |
+| Tier                     | Price                    | What it unlocks                                                                                                                                               |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Conscript**            | Free                     | 3 warbands, 5 scenarios, 1 campaign (≤4 players), public only, **ads shown**, 50 MB storage                                                                   |
+| **Veteran** _(POPULAR)_  | €6/mo (€60/yr, save 17%) | **Ads off**, unlimited warbands/scenarios, private campaigns, custom sigil/portrait uploads, themed PDF export, **5 GB storage**, monthly Forge credits       |
+| **Cartographer** _(PRO)_ | €14/mo                   | Everything in Veteran + **50 GB storage**, custom domain, spectator/live battle log, API write access, co-author, priority support, larger Forge credit grant |
 
 The monthly/yearly toggle, the feature-compare table, and the pricing FAQ already exist in
 the design and map 1:1 to these tiers.
@@ -55,16 +55,16 @@ and turn ads off as a thank-you, without running full subscription billing.
 All gating reads the `entitlements` table (see [`Architecture.md`](Architecture.md)),
 which is derived from the active Stripe subscription plus any donation grants:
 
-| Entitlement | Conscript | Veteran | Cartographer |
-|---|---|---|---|
-| `ads_disabled` | false | true | true |
-| `storage_quota_bytes` | 50 MB | 5 GB | 50 GB |
-| `private_campaigns` | false | true | true |
-| `forge_credits` (monthly) | 0 | small grant | larger grant |
-| `max_warbands` | 3 | ∞ | ∞ |
-| `max_scenarios` | 5 | ∞ | ∞ |
-| `api_write` | false | false | true |
-| `is_supporter` (badge) | false | true | true |
+| Entitlement               | Conscript | Veteran     | Cartographer |
+| ------------------------- | --------- | ----------- | ------------ |
+| `ads_disabled`            | false     | true        | true         |
+| `storage_quota_bytes`     | 50 MB     | 5 GB        | 50 GB        |
+| `private_campaigns`       | false     | true        | true         |
+| `forge_credits` (monthly) | 0         | small grant | larger grant |
+| `max_warbands`            | 3         | ∞           | ∞            |
+| `max_scenarios`           | 5         | ∞           | ∞            |
+| `api_write`               | false     | false       | true         |
+| `is_supporter` (badge)    | false     | true        | true         |
 
 Server actions check entitlements before privileged operations (creating beyond a quota,
 making a campaign private, spending Forge credits, uploading past the storage cap). The

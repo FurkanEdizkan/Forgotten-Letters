@@ -12,6 +12,7 @@ The repo has full design/architecture docs ([docs/](.)) and a feature roadmap
 branch — but **nothing is wired to a backend**.
 
 What exists today:
+
 - `package.json` + `next.config.ts` + `tsconfig.json`; `npm run build`, `lint`, and `typecheck`
   all pass on a clean install (verified).
 - ~20 pages across `(auth)` / `(public)` / `(protected)` route groups, all rendering **static
@@ -33,6 +34,7 @@ Goal: a complete local dev environment where every framework/implementation can 
 run, tested, and security-checked locally** before any hosting. Hosting (AWS) comes last.
 
 **Decisions locked in:**
+
 - **Full local cloud parity** — Postgres + **MinIO** (S3-compatible R2 stand-in) + **Mailpit**
   (SMTP/email catcher) in compose; **Stripe CLI** test mode; **mock AI provider**. The same
   `@aws-sdk/client-s3` + SMTP code runs locally and in prod — only env differs.
@@ -53,6 +55,7 @@ and CI all green. Pages still render mock data at the end of Phase 0 — swappin
 queries is feature work, and belongs to Phases 1+.
 
 ### A1. Local services + devcontainer (full parity)
+
 - **`.devcontainer/docker-compose.yml`** — services:
   - `app` — built from `.devcontainer/Dockerfile`, mounts the workspace, runs as `developer`.
   - `db` — `postgres:16-alpine` (`forgotten`/`forgotten`/`forgotten_letters`), volume `pgdata`, `:5432`.
@@ -70,6 +73,7 @@ queries is feature work, and belongs to Phases 1+.
   [Deployment.md §1](./Deployment.md)); lets us validate the prod image builds early.
 
 ### A2. Reconcile the existing app scaffold
+
 > **Not a bootstrap.** The app was scaffolded on the design-system branch before the stack
 > change, so this is cleanup and dependency work — do **not** run `create-next-app`, it would
 > overwrite ~20 working pages.
@@ -83,12 +87,13 @@ queries is feature work, and belongs to Phases 1+.
 - Migrate off the deprecated `next lint` (removed in Next.js 16) to the ESLint CLI:
   `npx @next/codemod@canary next-lint-to-eslint-cli .`
 - **Theme:** `globals.css` already carries the **grimdark** tokens ported from `design-lab/`,
-  under stable token names that `src/components/ui/*` consume. This *competes* with the FL
+  under stable token names that `src/components/ui/*` consume. This _competes_ with the FL
   16-color palette in [DesignSystem.md](./DesignSystem.md) — the two have not been reconciled.
   Phase 0 does **not** need this resolved; pick a canonical system before Phase 1's theme work
   and align the loser to it. Fonts + `.fl-grain` land with that decision.
 
 ### A3. Typed config + cloud clients (parity layer)
+
 - **`src/lib/env.ts`** — Zod-validated env (fail fast at boot; no missing secrets). Add
   `R2_ENDPOINT` + `R2_FORCE_PATH_STYLE` to **`.env.example`** so the S3 client targets MinIO
   locally and R2 in prod with identical code.
@@ -102,6 +107,7 @@ queries is feature work, and belongs to Phases 1+.
   (local `DATABASE_URL`, MinIO endpoint/keys, Mailpit host). Document the steps in README.
 
 ### A4. Quality + security tooling (the gates)
+
 - **Vitest** config + a sample unit test; `npm test`.
 - **Playwright** config + an `e2e/` smoke test (home page renders); `npm run test:e2e`.
 - **Prettier** config + add `npm run format`. ESLint (`eslint.config.mjs`) and the `lint` /
@@ -113,6 +119,7 @@ queries is feature work, and belongs to Phases 1+.
 - **`.github/dependabot.yml`** (npm + GitHub Actions) and a `.gitleaks.toml`.
 
 ### Phase 0 verification (must all pass before Phase 1)
+
 `docker compose up -d` brings up db+minio+mailpit; `npm run dev` serves `:3000`; `/api/health`
 returns OK (DB + MinIO reachable); a trivial Drizzle migration applies; `npm test`,
 `npm run test:e2e`, `npm run lint`, `npm run typecheck`, and `docker build .` (prod image) all
@@ -123,6 +130,7 @@ succeed; CI is green.
 ## Part B — Cross-cutting strategies (apply to every phase)
 
 ### Testing strategy
+
 - **Unit/integration (Vitest):** Zod schemas, server actions, authz guards, storage/quota
   helpers, entitlement computation. Integration tests run against the **compose Postgres**
   (real DB, migrations applied) and **MinIO** — not mocks — so framework behavior is real.
@@ -131,6 +139,7 @@ succeed; CI is green.
 - **Gate:** a phase ends only when its unit + e2e tests and lint/typecheck pass locally and in CI.
 
 ### Security strategy (the "secure" requirement, enforced per phase)
+
 - **Env validation** (`src/lib/env.ts`) — boot fails on missing/invalid secrets.
 - **App-layer authorization** (`src/lib/auth/guards.ts`) replaces Supabase RLS — explicit
   ownership/role checks in **every** mutating server action, with unit tests proving
@@ -156,38 +165,38 @@ and are verified entirely on the local compose stack; nothing requires the cloud
 
 - **Phase 1 — Theme reconciliation & auth.** The Next.js shell already exists (see A2); this
   phase settles grimdark-vs-FL tokens, then adds **Auth.js v5** (Credentials
-  + Google + GitHub, Drizzle adapter, DB sessions), auth pages, SES/Mailpit email,
-  middleware-protected routes, layout shell.
-  *Test:* register→verify(via Mailpit)→login; OAuth; protected-route redirects.
-  *Security:* DB-session cookies, Auth.js CSRF, Zod auth schemas, rate-limit login/register.
+  - Google + GitHub, Drizzle adapter, DB sessions), auth pages, SES/Mailpit email,
+    middleware-protected routes, layout shell.
+    _Test:_ register→verify(via Mailpit)→login; OAuth; protected-route redirects.
+    _Security:_ DB-session cookies, Auth.js CSRF, Zod auth schemas, rate-limit login/register.
 - **Phase 2 — Schema & storage.** Full Drizzle schema (core + monetization tables, enums,
   indexes), DB logic (storage-quota, vote-count, storage-counter), **R2/MinIO** upload action,
   authz guards.
-  *Test:* unpublished-row isolation across users; over-quota upload rejected; counter updates.
-  *Security:* guards enforced + tested; MIME/size/quota on upload; presigned-URL TTL.
+  _Test:_ unpublished-row isolation across users; over-quota upload rejected; counter updates.
+  _Security:_ guards enforced + tested; MIME/size/quota on upload; presigned-URL TTL.
 - **Phase 3 — Official content (MDX).** `src/content/` rules/legal/faq/official with version
-  selector. *Test:* version switching renders right edition. *Security:* MDX sanitized.
+  selector. _Test:_ version switching renders right edition. _Security:_ MDX sanitized.
 - **Phase 4 — Campaign & scenario CRUD.** Zod schemas, guarded server actions, campaign graph
   editor, scenario editor (Tiptap), deep-copy duplicate.
-  *Test:* CRUD/duplicate/cascade, author-only edit. *Security:* authz on every action; sanitize story HTML.
+  _Test:_ CRUD/duplicate/cascade, author-only edit. _Security:_ authz on every action; sanitize story HTML.
 - **Phase 5 — 2D map editor (react-konva).** Editor, shape library, image import (MinIO
   presigned, quota), save/load map JSON, PNG export, 24h temp-file cleanup task.
-  *Test:* persistence, undo/redo, export, quota rejection, temp cleanup.
-  *Security:* upload validation, temp-file scoping.
+  _Test:_ persistence, undo/redo, export, quota rejection, temp cleanup.
+  _Security:_ upload validation, temp-file scoping.
 - **Phase 6 — Warbands.** Builder, browser/leaderboard, public detail, guarded actions +
-  campaign submit/approval. *Test:* build/save/leaderboard/favorite/copy/approval.
+  campaign submit/approval. _Test:_ build/save/leaderboard/favorite/copy/approval.
 - **Phase 7 — Social, profiles & play loop.** Votes/favorites/threaded comments, profiles,
   browse/search, battle tracker + post-battle report, notifications, news.
-  *Test:* social persistence, browse results. *Security:* sanitize comments, rate-limit.
+  _Test:_ social persistence, browse results. _Security:_ sanitize comments, rate-limit.
 - **Phase 8 — Account, settings & AI Forge.** Settings (2FA, delete-account), storage dashboard,
   **AI Forge** (server-only provider via **mock locally**, `forge_jobs` + credit debit).
-  *Test:* settings round-trip, avatar upload frees quota, Forge debits + stores in MinIO.
-  *Security:* provider keys server-only, credit gate prevents runaway spend.
+  _Test:_ settings round-trip, avatar upload frees quota, Forge debits + stores in MinIO.
+  _Security:_ provider keys server-only, credit gate prevents runaway spend.
 - **Phase 9 — Monetization & ads.** AdSlot/consent/upsell/badge, EthicalAds + AdSense
   (consent-gated), **Stripe** (Checkout, `/api/webhooks/stripe` via **Stripe CLI** locally,
   entitlement sync), feature gates.
-  *Test:* supporter sees no ads; checkout→webhook→entitlement; quota boundary→upsell;
-  cancel→downgrade. *Security:* verify Stripe webhook signature; gates enforced server-side.
+  _Test:_ supporter sees no ads; checkout→webhook→entitlement; quota boundary→upsell;
+  cancel→downgrade. _Security:_ verify Stripe webhook signature; gates enforced server-side.
 
 ---
 
@@ -197,12 +206,13 @@ Per [Deployment.md](./Deployment.md): Lightsail Containers (Postgres co-located 
 Cloudflare DNS/TLS/CDN + R2 custom domain, **SES** domain verification + production access,
 GitHub Actions **deploy** job (build→migrate→deploy), nightly `pg_dump`→R2, rate limiting +
 sanitization final pass, **full security review + OWASP pass**, SEO, error tracking.
-*Verify:* prod deploy stable; Lighthouse Perf>80/A11y>90/SEO>90; ~$10–20/mo cost floor
+_Verify:_ prod deploy stable; Lighthouse Perf>80/A11y>90/SEO>90; ~$10–20/mo cost floor
 ([Costs.md](./Costs.md)); restore-from-backup tested.
 
 ---
 
 ## Critical files this plan creates/changes (representative)
+
 - Infra: `.devcontainer/docker-compose.yml`, `.devcontainer/devcontainer.json` (rewrite), root
   `docker-compose.yml`, root `Dockerfile`, `.env.example` (add `R2_ENDPOINT` etc.).
 - App config: `package.json` (add stack deps + scripts) and `next.config.ts` (add `standalone`)
@@ -214,11 +224,13 @@ sanitization final pass, **full security review + OWASP pass**, SEO, error track
   Husky/lint-staged config.
 
 ## Overall verification
+
 Local: `docker compose up` + `npm run dev` → working app on the local stack; full test suite +
 lint + typecheck + prod `docker build` green; `/api/health` OK. Each feature phase verified on
 the compose stack via its Test + Security gates before moving on. Hosting (Phase 10) only after
 the local app is feature-complete and the security pass is clean.
 
 ## Suggested first execution step
+
 Implement **Phase 0** (Part A) as one branch/PR (`chore: local dev foundation`) so the
 environment is reviewable and green before any feature work begins.

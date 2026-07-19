@@ -13,9 +13,7 @@ export default function ProfileSettingsPage() {
     <div className="flex flex-col gap-6">
       <Card className="p-6">
         <h2 className="font-display text-lg font-semibold text-ink">Identity</h2>
-        <p className="mt-1 text-sm text-muted">
-          How you appear across the archive.
-        </p>
+        <p className="mt-1 text-sm text-muted">How you appear across the archive.</p>
 
         <div className="mt-5 flex items-center gap-4">
           <Avatar name="trench_rat" size="lg" />
@@ -37,7 +35,10 @@ export default function ProfileSettingsPage() {
 
         <div className="mt-5 flex flex-col gap-1.5">
           <Label htmlFor="bio">Bio</Label>
-          <Textarea id="bio" placeholder="A line or two about your warband and playstyle." />
+          <Textarea
+            id="bio"
+            placeholder="A line or two about your warband and playstyle."
+          />
         </div>
 
         <div className="mt-6 flex justify-end">

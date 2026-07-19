@@ -95,7 +95,9 @@
     outline-offset: 2px;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     font-family: var(--font-display);
     text-wrap: balance;
     letter-spacing: 0.02em;

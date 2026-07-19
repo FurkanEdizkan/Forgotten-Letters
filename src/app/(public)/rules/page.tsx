@@ -10,10 +10,26 @@ export const metadata: Metadata = {
 
 // Placeholder — real records come from Sanity (Phase 3).
 const RULES = [
-  { slug: "core-rules", title: "Core Rules", detail: "Movement, actions, combat, and the sequence of play." },
-  { slug: "warband-creation", title: "Warband Creation", detail: "Build and equip your warband within the roster limits." },
-  { slug: "injuries-and-recovery", title: "Injuries & Recovery", detail: "Post-battle rolls, scars, and the campaign economy." },
-  { slug: "terrain-and-cover", title: "Terrain & Cover", detail: "How the battlefield shapes line of sight and protection." },
+  {
+    slug: "core-rules",
+    title: "Core Rules",
+    detail: "Movement, actions, combat, and the sequence of play.",
+  },
+  {
+    slug: "warband-creation",
+    title: "Warband Creation",
+    detail: "Build and equip your warband within the roster limits.",
+  },
+  {
+    slug: "injuries-and-recovery",
+    title: "Injuries & Recovery",
+    detail: "Post-battle rolls, scars, and the campaign economy.",
+  },
+  {
+    slug: "terrain-and-cover",
+    title: "Terrain & Cover",
+    detail: "How the battlefield shapes line of sight and protection.",
+  },
 ];
 
 export default function RulesPage() {

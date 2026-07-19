@@ -18,7 +18,9 @@ test("health endpoint reports every service reachable", async ({ request }) => {
 
   // A 503 here means a container is down, not that the app is broken —
   // check `docker compose ps` before debugging the code.
-  expect(res.status(), "health returned non-200; are the compose services up?").toBe(200);
+  expect(res.status(), "health returned non-200; are the compose services up?").toBe(
+    200,
+  );
 
   const body = await res.json();
   expect(body.status).toBe("ok");

@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/Button";
 /** Presentational Google OAuth button. Wire onClick to Supabase OAuth later. */
 export function GoogleButton({ label = "Continue with Google" }: { label?: string }) {
   return (
-    <Button variant="secondary" size="lg" className="w-full normal-case tracking-normal" type="button">
+    <Button
+      variant="secondary"
+      size="lg"
+      className="w-full normal-case tracking-normal"
+      type="button"
+    >
       <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
         <path
           fill="#EA4335"

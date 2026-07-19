@@ -26,9 +26,11 @@
 ### Task A1: Gitignore unrelated agent tooling, keep three skills
 
 **Files:**
+
 - Modify: `.gitignore` (append a new section)
 
 **Interfaces:**
+
 - Produces: an ignore state where `git status --porcelain` no longer lists `.agents/`,
   `agent/`, `.codex/`, `.claude/`, `graphify-out/`, `skills-lock.json`, `.github/skills/`,
   or any `skills/*` dir except `skills/graphify/`, `skills/impeccable/`, `skills/design-sync/`.
@@ -77,12 +79,14 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task A2: Commit the real project files
 
 **Files:**
+
 - Add (already on disk, untracked): `.devcontainer/`, `.env.example`, `.gitmessage`,
   `CLAUDE.md`, `.github/` (workflows/scripts/hooks/plans — NOT `.github/skills/`, now ignored),
   `docs/` (incl. `Techstack.md`, the new `superpowers/`), `public/`, `sanity/`, `supabase/`
 - Modify: `README.md`, `TODO.md` (already modified in working tree; TODO.md gets further edits in Task D1)
 
 **Interfaces:**
+
 - Produces: a clean `git status` where only intended files remain (design-lab appears later).
 
 - [ ] **Step 1: Stage the real project files**
@@ -119,23 +123,27 @@ Expected: only `TODO.md` (still modified, edited in Task D1) and untracked `skil
 ### Task B1: Place and commit graphify, impeccable, design-sync
 
 **Files:**
+
 - Create: `skills/graphify/` (copy of the installed skill)
 - Create: `skills/impeccable/` (copy of the installed skill)
 - Create: `skills/design-sync/` (copy of the bundled skill)
 - Modify: `.claude/CLAUDE.md` reference reconciliation is N/A (`.claude/` is ignored); instead ensure root `CLAUDE.md` / `.claude/CLAUDE.md` on-disk references still resolve — see Step 3.
 
 **Interfaces:**
+
 - Produces: three committed skill directories under `skills/`, each containing at least
   `SKILL.md`.
 
 - [ ] **Step 1: Locate the source skill directories**
 
 Run:
+
 ```bash
 ls -d .claude/skills/graphify .agents/skills/graphify ~/.claude/skills/graphify 2>/dev/null | head -1
 ls -d .claude/skills/impeccable .agents/skills/impeccable .github/skills/impeccable 2>/dev/null | head -1
 ls -d /tmp/claude-1000/bundled-skills/*/*/design-sync 2>/dev/null | head -1
 ```
+
 Expected: one existing source path per skill. Record each.
 
 - [ ] **Step 2: Copy each skill into `skills/`**
@@ -147,6 +155,7 @@ cp -R "<impeccable-src>" skills/impeccable
 cp -R "<design-sync-src>" skills/design-sync
 ls skills/graphify/SKILL.md skills/impeccable/SKILL.md skills/design-sync/SKILL.md
 ```
+
 Expected: all three `SKILL.md` files exist.
 
 - [ ] **Step 3: Reconcile CLAUDE.md references (if needed)**
@@ -179,11 +188,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C1: Scaffold the isolated Vite app + routing
 
 **Files:**
+
 - Create: `design-lab/package.json`, `design-lab/vite.config.ts`, `design-lab/tsconfig.json`,
   `design-lab/tsconfig.node.json`, `design-lab/index.html`, `design-lab/.gitignore`,
   `design-lab/src/main.tsx`, `design-lab/src/App.tsx`
 
 **Interfaces:**
+
 - Produces: a bootable Vite app with two routes (`/profile`, `/design-system`) rendering
   placeholders; `App.tsx` exports the router. Nav/footer added in Task C4.
 
@@ -220,6 +231,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] **Step 2: Create config files**
 
 `design-lab/vite.config.ts`:
+
 ```ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -228,6 +240,7 @@ export default defineConfig({ plugins: [react()] });
 ```
 
 `design-lab/tsconfig.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -253,6 +266,7 @@ export default defineConfig({ plugins: [react()] });
 ```
 
 `design-lab/tsconfig.node.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -269,6 +283,7 @@ export default defineConfig({ plugins: [react()] });
 ```
 
 `design-lab/.gitignore`:
+
 ```gitignore
 node_modules
 dist
@@ -286,7 +301,10 @@ dist
     <title>Forgotten Letters — Design Lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>
@@ -298,6 +316,7 @@ dist
 - [ ] **Step 4: Create `design-lab/src/main.tsx` and `App.tsx`**
 
 `design-lab/src/main.tsx`:
+
 ```tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -312,6 +331,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 ```
 
 `design-lab/src/App.tsx` (placeholder routes; nav/footer wired in C4):
+
 ```tsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -321,7 +341,10 @@ export function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/profile" replace />} />
         <Route path="/profile" element={<div className="fl">Profile (todo)</div>} />
-        <Route path="/design-system" element={<div className="fl">Design System (todo)</div>} />
+        <Route
+          path="/design-system"
+          element={<div className="fl">Design System (todo)</div>}
+        />
       </Routes>
     </BrowserRouter>
   );
@@ -336,15 +359,18 @@ build. Do C1 and C2 together before the first verify, or temporarily comment the
 ```bash
 cd design-lab && npm install && npm run build
 ```
+
 Expected: `npm install` succeeds; `npm run build` fails only on the missing `theme.css`
 import (resolved in C2) — otherwise clean. Do not commit yet; commit at end of C2.
 
 ### Task C2: Design tokens (colors.ts + theme.css)
 
 **Files:**
+
 - Create: `design-lab/src/tokens/colors.ts`, `design-lab/src/tokens/theme.css`
 
 **Interfaces:**
+
 - Produces: `export const FL` (typed color+font object) from `colors.ts`; global CSS with
   `--fl-*` custom properties, `.fl` base class, `.fl-display`/`.fl-mono` font classes, grain,
   scrollbar, focus, and `fl-pulse`/`fl-flicker` keyframes.
@@ -381,36 +407,112 @@ export type FLColor = keyof typeof FL;
 
 ```css
 :root {
-  --fl-bg: #0C0C0E; --fl-surface: #1A1A1F; --fl-elevated: #252529;
-  --fl-border: #2E2E35; --fl-border-hi: #3A3A42;
-  --fl-text: #E8E2D6; --fl-text2: #9B9484; --fl-text-muted: #5C574E;
-  --fl-blood: #8B1A1A; --fl-crimson: #A52222; --fl-gold: #B8923F; --fl-brass: #8A6D2F;
-  --fl-success: #2D6B4F; --fl-warn: #B8860B; --fl-danger: #C0392B; --fl-info: #4A6FA5;
+  --fl-bg: #0c0c0e;
+  --fl-surface: #1a1a1f;
+  --fl-elevated: #252529;
+  --fl-border: #2e2e35;
+  --fl-border-hi: #3a3a42;
+  --fl-text: #e8e2d6;
+  --fl-text2: #9b9484;
+  --fl-text-muted: #5c574e;
+  --fl-blood: #8b1a1a;
+  --fl-crimson: #a52222;
+  --fl-gold: #b8923f;
+  --fl-brass: #8a6d2f;
+  --fl-success: #2d6b4f;
+  --fl-warn: #b8860b;
+  --fl-danger: #c0392b;
+  --fl-info: #4a6fa5;
   --fl-display: "Cinzel", Georgia, serif;
   --fl-body: "Inter", -apple-system, sans-serif;
   --fl-mono: "JetBrains Mono", ui-monospace, monospace;
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--fl-bg); }
-.fl, .fl * { box-sizing: border-box; }
-.fl { font-family: var(--fl-body); color: var(--fl-text); -webkit-font-smoothing: antialiased; background: var(--fl-bg); }
-.fl-display { font-family: var(--fl-display); letter-spacing: 0.02em; }
-.fl-mono { font-family: var(--fl-mono); }
-.fl input, .fl button, .fl textarea { font-family: inherit; }
-.fl button { cursor: pointer; }
-.fl ::selection { background: var(--fl-blood); color: var(--fl-text); }
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--fl-bg);
+}
+.fl,
+.fl * {
+  box-sizing: border-box;
+}
+.fl {
+  font-family: var(--fl-body);
+  color: var(--fl-text);
+  -webkit-font-smoothing: antialiased;
+  background: var(--fl-bg);
+}
+.fl-display {
+  font-family: var(--fl-display);
+  letter-spacing: 0.02em;
+}
+.fl-mono {
+  font-family: var(--fl-mono);
+}
+.fl input,
+.fl button,
+.fl textarea {
+  font-family: inherit;
+}
+.fl button {
+  cursor: pointer;
+}
+.fl ::selection {
+  background: var(--fl-blood);
+  color: var(--fl-text);
+}
 .fl-grain {
-  position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
-.fl-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-.fl-scroll::-webkit-scrollbar-track { background: var(--fl-bg); }
-.fl-scroll::-webkit-scrollbar-thumb { background: var(--fl-border); border-radius: 4px; }
-.fl-focus:focus-visible { outline: 2px solid var(--fl-blood); outline-offset: 2px; }
-@keyframes fl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-@keyframes fl-flicker { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
+.fl-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fl-scroll::-webkit-scrollbar-track {
+  background: var(--fl-bg);
+}
+.fl-scroll::-webkit-scrollbar-thumb {
+  background: var(--fl-border);
+  border-radius: 4px;
+}
+.fl-focus:focus-visible {
+  outline: 2px solid var(--fl-blood);
+  outline-offset: 2px;
+}
+@keyframes fl-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes fl-flicker {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 ```
 
@@ -433,29 +535,31 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C3: SVG art + icon set
 
 **Files:**
+
 - Create: `design-lab/src/components/art/icons.tsx` (the `I` icon set from `tokens.jsx`, typed)
 - Create: `design-lab/src/components/art/FighterMini.tsx` (archetype portraits from `Profile.jsx`)
 - Create: `design-lab/src/components/art/Sigils.tsx` (`SigilNA`, `DucatIcon`, `GloryIcon`, `HeartIcon`)
 
 **Interfaces:**
+
 - Produces: `Icons` (object of `(props?: {size?: number; color?: string}) => JSX.Element`),
   `FighterMini({ arch, size, frame })`, `SigilNA({ size, c })`, `DucatIcon`, `GloryIcon`,
   `HeartIcon({ size, filled })`.
 
 - [ ] **Step 1: Re-fetch the source art** from the design project (DesignSync `get_file` on
-  `019deab1-...`, paths `components/tokens.jsx` and `components/Profile.jsx`) — these are the
-  authoritative SVG definitions.
+      `019deab1-...`, paths `components/tokens.jsx` and `components/Profile.jsx`) — these are the
+      authoritative SVG definitions.
 
 - [ ] **Step 2: Port `icons.tsx`** — convert the `I = {...}` object to a typed export `Icons`,
-  replacing `p={}` params with `(p: {size?: number; color?: string} = {})`. Keep every path
-  verbatim. Default color `currentColor`.
+      replacing `p={}` params with `(p: {size?: number; color?: string} = {})`. Keep every path
+      verbatim. Default color `currentColor`.
 
 - [ ] **Step 3: Port `FighterMini.tsx`** — copy the `FighterMini` function verbatim, typing
-  props `{ arch?: string; size?: number; frame?: "gold" | "border" }`; replace `FL.*` refs
-  with imports from `../../tokens/colors`.
+      props `{ arch?: string; size?: number; frame?: "gold" | "border" }`; replace `FL.*` refs
+      with imports from `../../tokens/colors`.
 
 - [ ] **Step 4: Port `Sigils.tsx`** — copy `SigilNA`, `DucatIcon`, `GloryIcon`, `HeartIcon`
-  verbatim with typed props; import `FL` from `../../tokens/colors`.
+      verbatim with typed props; import `FL` from `../../tokens/colors`.
 
 - [ ] **Step 5: Verify compile**
 
@@ -474,12 +578,14 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C4: Primitives + chrome
 
 **Files:**
+
 - Create: `design-lab/src/components/primitives/` — `Button.tsx`, `Pill.tsx`, `BadgeChip.tsx`,
   `Section.tsx`, `RecordCell.tsx`, `MetricCell.tsx`, `StatBar.tsx`
 - Create: `design-lab/src/components/chrome/Navbar.tsx`, `Footer.tsx`
 - Modify: `design-lab/src/App.tsx` (wrap routes with `Navbar`/`Footer`)
 
 **Interfaces:**
+
 - Produces: typed primitives. Exact signatures:
   - `Button({ variant?: "primary"|"secondary"|"gold"|"ghost"; children; onClick? })`
   - `Pill({ tone?: "default"|"gold"|"blood"|"success"|"warn"|"info"; children })`
@@ -490,33 +596,94 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `StatBar({ segments: { pct: number; color: string }[] })`
 
 - [ ] **Step 1: Port `Pill`, `Section`, `BadgeChip`, `RecordCell`, `MetricCell`** verbatim
-  from the helper functions at the bottom of `Profile.jsx`, converting inline `FL.*` to
-  imports and adding the prop types above. One file each.
+      from the helper functions at the bottom of `Profile.jsx`, converting inline `FL.*` to
+      imports and adding the prop types above. One file each.
 
 - [ ] **Step 2: Create `Button.tsx`** from the `btn` style object in `Profile.jsx` (variants
-  `p`→primary, `s`→secondary, `gold`, `ghost`):
+      `p`→primary, `s`→secondary, `gold`, `ghost`):
 
 ```tsx
 import { FL } from "../../tokens/colors";
 type Variant = "primary" | "secondary" | "gold" | "ghost";
 const styles: Record<Variant, React.CSSProperties> = {
-  primary: { padding: "0 14px", height: 34, background: FL.blood, border: `1px solid ${FL.blood}`, borderRadius: 4, color: FL.text, fontSize: 12, fontWeight: 500, letterSpacing: "0.04em" },
-  secondary: { padding: "0 14px", height: 34, background: "transparent", border: `1px solid ${FL.borderHi}`, borderRadius: 4, color: FL.text, fontSize: 12, fontWeight: 500 },
-  gold: { padding: "0 14px", height: 34, background: "transparent", border: `1px solid ${FL.brass}`, borderRadius: 4, color: FL.gold, fontSize: 12, fontWeight: 500 },
-  ghost: { padding: "0 10px", height: 30, background: "transparent", border: "none", color: FL.text2, fontSize: 12 },
+  primary: {
+    padding: "0 14px",
+    height: 34,
+    background: FL.blood,
+    border: `1px solid ${FL.blood}`,
+    borderRadius: 4,
+    color: FL.text,
+    fontSize: 12,
+    fontWeight: 500,
+    letterSpacing: "0.04em",
+  },
+  secondary: {
+    padding: "0 14px",
+    height: 34,
+    background: "transparent",
+    border: `1px solid ${FL.borderHi}`,
+    borderRadius: 4,
+    color: FL.text,
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  gold: {
+    padding: "0 14px",
+    height: 34,
+    background: "transparent",
+    border: `1px solid ${FL.brass}`,
+    borderRadius: 4,
+    color: FL.gold,
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  ghost: {
+    padding: "0 10px",
+    height: 30,
+    background: "transparent",
+    border: "none",
+    color: FL.text2,
+    fontSize: 12,
+  },
 };
-export function Button({ variant = "primary", children, onClick }: { variant?: Variant; children: React.ReactNode; onClick?: () => void }) {
-  return <button className="fl-focus" style={styles[variant]} onClick={onClick}>{children}</button>;
+export function Button({
+  variant = "primary",
+  children,
+  onClick,
+}: {
+  variant?: Variant;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button className="fl-focus" style={styles[variant]} onClick={onClick}>
+      {children}
+    </button>
+  );
 }
 ```
 
 - [ ] **Step 3: Create `StatBar.tsx`** (the W/D/L / faction stacked bar, animation-ready via
-  a `data-fl-bar` attribute the motion layer targets in C7):
+      a `data-fl-bar` attribute the motion layer targets in C7):
 
 ```tsx
-export function StatBar({ segments, height = 10 }: { segments: { pct: number; color: string }[]; height?: number }) {
+export function StatBar({
+  segments,
+  height = 10,
+}: {
+  segments: { pct: number; color: string }[];
+  height?: number;
+}) {
   return (
-    <div style={{ display: "flex", height, borderRadius: 2, overflow: "hidden", border: "1px solid var(--fl-border)" }}>
+    <div
+      style={{
+        display: "flex",
+        height,
+        borderRadius: 2,
+        overflow: "hidden",
+        border: "1px solid var(--fl-border)",
+      }}
+    >
       {segments.map((s, i) => (
         <div key={i} data-fl-bar style={{ width: `${s.pct}%`, background: s.color }} />
       ))}
@@ -526,9 +693,9 @@ export function StatBar({ segments, height = 10 }: { segments: { pct: number; co
 ```
 
 - [ ] **Step 4: Port `Navbar` + `Footer`** — re-fetch `components/Chrome.jsx` from the design
-  project (DesignSync `get_file`), port the `Navbar` (with `variant`/`active` props) and
-  `Footer` to TSX with `FL` imports. If `Chrome.jsx` is large, port the logged-in Navbar and
-  a minimal Footer faithfully; record any omitted variants in a `design-lab/NOTES.md` line.
+      project (DesignSync `get_file`), port the `Navbar` (with `variant`/`active` props) and
+      `Footer` to TSX with `FL` imports. If `Chrome.jsx` is large, port the logged-in Navbar and
+      a minimal Footer faithfully; record any omitted variants in a `design-lab/NOTES.md` line.
 
 - [ ] **Step 5: Wire chrome into `App.tsx`**
 
@@ -562,6 +729,7 @@ files exporting empty components if building C4 in isolation.
 - [ ] **Step 6: Verify + commit**
 
 Run: `cd design-lab && npm run build` → succeeds.
+
 ```bash
 git add design-lab/src/components design-lab/src/App.tsx
 git commit -m "feat(design-lab): primitives + nav/footer chrome
@@ -572,29 +740,52 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C5: Mock data + Design System showcase page
 
 **Files:**
+
 - Create: `design-lab/src/data/profile.ts` (typed mock data extracted from `Profile.jsx`)
 - Create: `design-lab/src/pages/DesignSystemPage.tsx`
 
 **Interfaces:**
+
 - Consumes: `FL` (C2), all primitives + art (C3/C4).
 - Produces: `profileData` (typed export used by C6); `DesignSystemPage` component.
 
 - [ ] **Step 1: Create `data/profile.ts`** — extract the arrays literal-in-JSX from
-  `Profile.jsx` (warbands, match history, campaigns, activity, achievements, faction
-  distribution, career W/D/L) into typed exports. Example shape:
+      `Profile.jsx` (warbands, match history, campaigns, activity, achievements, faction
+      distribution, career W/D/L) into typed exports. Example shape:
 
 ```ts
-export interface MatchRow { r: "W" | "D" | "L"; my: string; myArch: string; myTone: string; op: string; opU: string; opArch: string; sc: string; scenario: string; date: string; feat: boolean; }
-export const matches: MatchRow[] = [ /* copy the 7 rows from Profile.jsx */ ];
-export const career = { winRate: 63, played: 38, wins: 24, draws: 5, losses: 9, last10: ["W","W","D","W","L","W","W","W","L","W"] as const, streak: "W3", best: "W7" };
+export interface MatchRow {
+  r: "W" | "D" | "L";
+  my: string;
+  myArch: string;
+  myTone: string;
+  op: string;
+  opU: string;
+  opArch: string;
+  sc: string;
+  scenario: string;
+  date: string;
+  feat: boolean;
+}
+export const matches: MatchRow[] = [/* copy the 7 rows from Profile.jsx */];
+export const career = {
+  winRate: 63,
+  played: 38,
+  wins: 24,
+  draws: 5,
+  losses: 9,
+  last10: ["W", "W", "D", "W", "L", "W", "W", "W", "L", "W"] as const,
+  streak: "W3",
+  best: "W7",
+};
 // …warbands, campaigns, activity, achievements, factionDist, connections, identity
 ```
 
 - [ ] **Step 2: Create `DesignSystemPage.tsx`** — a showcase rendering: a color-swatch grid
-  for every `FL` color (name + hex chip), the type scale (Cinzel/Inter/JetBrains at display/
-  heading/body/mono sizes), and a gallery section per primitive (Button all variants, Pill all
-  tones, BadgeChip, StatBar, RecordCell, MetricCell, FighterMini all archetypes, SigilNA,
-  icons grid). Each group wrapped in the ported `Section`.
+      for every `FL` color (name + hex chip), the type scale (Cinzel/Inter/JetBrains at display/
+      heading/body/mono sizes), and a gallery section per primitive (Button all variants, Pill all
+      tones, BadgeChip, StatBar, RecordCell, MetricCell, FighterMini all archetypes, SigilNA,
+      icons grid). Each group wrapped in the ported `Section`.
 
 - [ ] **Step 3: Verify visually**
 
@@ -614,27 +805,29 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C6: Profile page (faithful port)
 
 **Files:**
+
 - Create: `design-lab/src/pages/ProfilePage.tsx`
 - Create: `design-lab/src/components/primitives/MatchRow.tsx`, `WarbandRow.tsx`,
   `ActiveCampaignRow.tsx`, `Timeline.tsx` (the row/section sub-components from `Profile.jsx`)
 
 **Interfaces:**
+
 - Consumes: primitives, art, `profileData`.
 - Produces: `ProfilePage` — the full 3-column profile matching the design.
 
 - [ ] **Step 1: Port the row sub-components** (`ProfileWarbandRow`, `MatchRow`,
-  `ActiveCampaignRow`) verbatim from `Profile.jsx` into typed primitive files, `FL` imported,
-  data via props. Extract the right-column activity list into a `Timeline` component.
+      `ActiveCampaignRow`) verbatim from `Profile.jsx` into typed primitive files, `FL` imported,
+      data via props. Extract the right-column activity list into a `Timeline` component.
 
 - [ ] **Step 2: Port `ProfilePage.tsx`** — reproduce the full layout from `Profile.jsx`:
-  hero header (framed avatar SVG, identity block, badges row, actions + follower/following
-  stats), page tabs, then the `320px 1fr 320px` grid — left aside (career W/D/L using `StatBar`
-  + `RecordCell`, favorite faction with `SigilNA` + faction bars, field record `MetricCell`
-  grid, connections), center main (warbands grid, match-history table, active campaigns,
-  authored scenarios), right aside (activity `Timeline`, campaign history, achievements grid).
-  All literal data comes from `data/profile.ts`. Replace every `window.FL`/`FL.*` with the
-  imported `FL`; replace `Navbar`/`Footer` (already in `App.tsx`) — the page renders only the
-  inner content (do not double-render chrome).
+      hero header (framed avatar SVG, identity block, badges row, actions + follower/following
+      stats), page tabs, then the `320px 1fr 320px` grid — left aside (career W/D/L using `StatBar`
+  - `RecordCell`, favorite faction with `SigilNA` + faction bars, field record `MetricCell`
+    grid, connections), center main (warbands grid, match-history table, active campaigns,
+    authored scenarios), right aside (activity `Timeline`, campaign history, achievements grid).
+    All literal data comes from `data/profile.ts`. Replace every `window.FL`/`FL.*` with the
+    imported `FL`; replace `Navbar`/`Footer` (already in `App.tsx`) — the page renders only the
+    inner content (do not double-render chrome).
 
 - [ ] **Step 3: Verify against source**
 
@@ -655,29 +848,45 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task C7: Motion layer + ReactBits touches
 
 **Files:**
+
 - Create: `design-lab/src/lib/useInView.ts`, `design-lab/src/lib/motion.ts`,
   `design-lab/src/components/art/HeroBackdrop.tsx`
 - Modify: `ProfilePage.tsx` (attach reveal refs, count-up targets, hero backdrop, split-text name)
 
 **Interfaces:**
+
 - Consumes: `animejs`.
 - Produces: `useInView(ref, cb, opts?)`; `reveal(el, opts?)`, `countUp(el, to, opts?)`,
   `barFill(container)`; `HeroBackdrop` component.
 
 - [ ] **Step 1: `useInView.ts`** — IntersectionObserver hook that fires once when the element
-  enters view; respects `prefers-reduced-motion` by firing immediately (no animation).
+      enters view; respects `prefers-reduced-motion` by firing immediately (no animation).
 
 ```ts
 import { useEffect, useRef } from "react";
-export function useInView<T extends HTMLElement>(onEnter: (el: T) => void, opts?: IntersectionObserverInit) {
+export function useInView<T extends HTMLElement>(
+  onEnter: (el: T) => void,
+  opts?: IntersectionObserverInit,
+) {
   const ref = useRef<T>(null);
   useEffect(() => {
-    const el = ref.current; if (!el) return;
+    const el = ref.current;
+    if (!el) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { onEnter(el); return; }
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) if (e.isIntersecting) { onEnter(el); io.unobserve(el); }
-    }, opts ?? { threshold: 0.2 });
+    if (reduce) {
+      onEnter(el);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries)
+          if (e.isIntersecting) {
+            onEnter(el);
+            io.unobserve(el);
+          }
+      },
+      opts ?? { threshold: 0.2 },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -692,30 +901,53 @@ import anime from "animejs";
 const reduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export function reveal(targets: anime.AnimeTarget) {
   if (reduce()) return;
-  anime({ targets, opacity: [0, 1], translateY: [16, 0], duration: 600, delay: anime.stagger(70), easing: "easeOutQuart" });
+  anime({
+    targets,
+    opacity: [0, 1],
+    translateY: [16, 0],
+    duration: 600,
+    delay: anime.stagger(70),
+    easing: "easeOutQuart",
+  });
 }
 export function countUp(el: HTMLElement, to: number, suffix = "") {
-  if (reduce()) { el.textContent = `${to}${suffix}`; return; }
+  if (reduce()) {
+    el.textContent = `${to}${suffix}`;
+    return;
+  }
   const obj = { v: 0 };
-  anime({ targets: obj, v: to, duration: 1200, easing: "easeOutExpo", round: 1, update: () => { el.textContent = `${Math.round(obj.v)}${suffix}`; } });
+  anime({
+    targets: obj,
+    v: to,
+    duration: 1200,
+    easing: "easeOutExpo",
+    round: 1,
+    update: () => {
+      el.textContent = `${Math.round(obj.v)}${suffix}`;
+    },
+  });
 }
 export function barFill(container: HTMLElement) {
   if (reduce()) return;
   const bars = container.querySelectorAll<HTMLElement>("[data-fl-bar]");
-  bars.forEach((b) => { const w = b.style.width; b.style.width = "0%"; anime({ targets: b, width: w, duration: 900, easing: "easeOutQuart" }); });
+  bars.forEach((b) => {
+    const w = b.style.width;
+    b.style.width = "0%";
+    anime({ targets: b, width: w, duration: 900, easing: "easeOutQuart" });
+  });
 }
 ```
 
 - [ ] **Step 3: `HeroBackdrop.tsx`** — the ReactBits-inspired touch: a positioned layer over
-  the hero blood gradient with the grain (`fl-grain`) plus a slow anime.js drift on the gold
-  trench-pattern SVG (translateX loop, ~24s, `direction: "alternate"`), disabled under
-  reduced-motion. Keep opacity low (≤0.08).
+      the hero blood gradient with the grain (`fl-grain`) plus a slow anime.js drift on the gold
+      trench-pattern SVG (translateX loop, ~24s, `direction: "alternate"`), disabled under
+      reduced-motion. Keep opacity low (≤0.08).
 
 - [ ] **Step 4: Wire into `ProfilePage.tsx`** — use `useInView` on each major `Section` to call
-  `reveal` on its children; put `countUp` on the follower (284), win-rate (63, suffix "%"), and
-  ducats (42180) numbers; call `barFill` on the career + faction bar containers when in view;
-  render `HeroBackdrop` in the hero; wrap the hero name in per-letter spans and stagger-reveal
-  them (split-text).
+      `reveal` on its children; put `countUp` on the follower (284), win-rate (63, suffix "%"), and
+      ducats (42180) numbers; call `barFill` on the career + faction bar containers when in view;
+      render `HeroBackdrop` in the hero; wrap the hero name in per-letter spans and stagger-reveal
+      them (split-text).
 
 - [ ] **Step 5: Verify motion + reduced-motion**
 
@@ -741,10 +973,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task D1: Update TODO.md and open PR
 
 **Files:**
+
 - Modify: `TODO.md` (prepend a Design Lab section + a Repo Hygiene section, above Phase 0)
 - Create: `design-lab/README.md` (how to run the lab)
 
 **Interfaces:**
+
 - Produces: updated roadmap; a PR for the whole effort.
 
 - [ ] **Step 1: Prepend to `TODO.md`** a new section before `## Phase 0`:
@@ -767,8 +1001,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 (Leave the eight product phases below unchanged.)
 
 - [ ] **Step 2: Create `design-lab/README.md`** — one-paragraph purpose + `cd design-lab &&
-  npm install && npm run dev`, routes `/profile` and `/design-system`, note it is isolated
-  from the Next.js app.
+npm install && npm run dev`, routes `/profile` and `/design-system`, note it is isolated
+      from the Next.js app.
 
 - [ ] **Step 3: Commit**
 
@@ -785,6 +1019,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 git push -u origin chore/repo-hygiene-and-design-lab
 gh pr create --base main --title "Grimdark design-lab + repo hygiene" --body "<summary of groups A–D>"
 ```
+
 Expected: PR URL printed.
 
 - [ ] **Step 5: Final verification**

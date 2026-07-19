@@ -22,23 +22,24 @@
 - [ ] Add base components: `button input label card form toast separator avatar dropdown-menu sheet tabs skeleton dialog tooltip`
 - [ ] Create `src/app/globals.css` with the `@theme` block from the palette table below (Charcoal / Ash / Bone White / Blood Red / Tarnished Gold)
 
-  | Role               | Token                  | Hex       |
-  | ------------------ | ---------------------- | --------- |
-  | Background         | --color-bg             | `#0C0C0E` |
-  | Surface            | --color-surface        | `#1A1A1F` |
-  | Surface elevated   | --color-surface-elevated | `#252529` |
-  | Border             | --color-border         | `#2E2E35` |
-  | Text primary       | --color-text           | `#E8E2D6` |
-  | Text secondary     | --color-text-secondary | `#9B9484` |
-  | Text muted         | --color-text-muted     | `#5C574E` |
-  | Accent primary     | --color-accent         | `#8B1A1A` |
-  | Accent hover       | --color-accent-hover   | `#A52222` |
-  | Accent secondary   | --color-gold           | `#B8923F` |
-  | Accent gold muted  | --color-gold-muted     | `#8A6D2F` |
-  | Success            | --color-success        | `#2D6B4F` |
-  | Warning            | --color-warning        | `#B8860B` |
-  | Error              | --color-error          | `#C0392B` |
-  | Info               | --color-info           | `#4A6FA5` |
+  | Role              | Token                    | Hex       |
+  | ----------------- | ------------------------ | --------- |
+  | Background        | --color-bg               | `#0C0C0E` |
+  | Surface           | --color-surface          | `#1A1A1F` |
+  | Surface elevated  | --color-surface-elevated | `#252529` |
+  | Border            | --color-border           | `#2E2E35` |
+  | Text primary      | --color-text             | `#E8E2D6` |
+  | Text secondary    | --color-text-secondary   | `#9B9484` |
+  | Text muted        | --color-text-muted       | `#5C574E` |
+  | Accent primary    | --color-accent           | `#8B1A1A` |
+  | Accent hover      | --color-accent-hover     | `#A52222` |
+  | Accent secondary  | --color-gold             | `#B8923F` |
+  | Accent gold muted | --color-gold-muted       | `#8A6D2F` |
+  | Success           | --color-success          | `#2D6B4F` |
+  | Warning           | --color-warning          | `#B8860B` |
+  | Error             | --color-error            | `#C0392B` |
+  | Info              | --color-info             | `#4A6FA5` |
+
 - [ ] **Map palette to shadcn tokens** in `globals.css`:
   - `--primary` ← Blood Red `#8B1A1A`
   - `--primary-foreground` ← Bone White `#E8E2D6`

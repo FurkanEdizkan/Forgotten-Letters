@@ -14,14 +14,10 @@
 import { z } from "zod";
 
 /** Coerce the "true"/"false" strings env vars carry into real booleans. */
-const boolish = z
-  .enum(["true", "false"])
-  .transform((v) => v === "true");
+const boolish = z.enum(["true", "false"]).transform((v) => v === "true");
 
 const serverSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
   // ── Database ──────────────────────────────────────────────
   DATABASE_URL: z
@@ -108,8 +104,7 @@ function loadServerEnv() {
   // during the build — otherwise building an image on a laptop (or in CI)
   // with local MinIO settings fails on rules meant for a deployed server.
   // Building for production is not the same as running in production.
-  const isBuildPhase =
-    process.env.NEXT_PHASE === "phase-production-build";
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
   if (parsed.data.NODE_ENV === "production" && !isBuildPhase) {
     if (!parsed.data.AUTH_SECRET) {

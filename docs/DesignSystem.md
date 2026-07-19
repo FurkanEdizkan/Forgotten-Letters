@@ -16,46 +16,46 @@ Text (06–08) · Accent (09–12) · Action (13–16).
 
 ### Surfaces — ~60% of any screen
 
-| # | Name | Hex | Role |
-|---|---|---|---|
-| 01 | Charcoal Black | `#0C0C0E` | App canvas / page background, stat wells |
-| 02 | Ash Gray | `#1A1A1F` | Card / panel / navbar / footer surface |
-| 03 | Smoke | `#252529` | Elevated surface (modals, raised cards) |
-| 04 | Trench Gray | `#2E2E35` | Borders, dividers, stat separators |
-| 05 | Trench Gray (hover) | `#3A3A42` | Hover/active border |
+| #   | Name                | Hex       | Role                                     |
+| --- | ------------------- | --------- | ---------------------------------------- |
+| 01  | Charcoal Black      | `#0C0C0E` | App canvas / page background, stat wells |
+| 02  | Ash Gray            | `#1A1A1F` | Card / panel / navbar / footer surface   |
+| 03  | Smoke               | `#252529` | Elevated surface (modals, raised cards)  |
+| 04  | Trench Gray         | `#2E2E35` | Borders, dividers, stat separators       |
+| 05  | Trench Gray (hover) | `#3A3A42` | Hover/active border                      |
 
 ### Text — ~18%
 
-| # | Name | Hex | Role |
-|---|---|---|---|
-| 06 | Bone White | `#E8E2D6` | Primary text |
-| 07 | Dust | `#9B9484` | Secondary text, keyword chips, nav labels |
-| 08 | Iron | `#5C574E` | Muted text, captions, placeholders |
+| #   | Name       | Hex       | Role                                      |
+| --- | ---------- | --------- | ----------------------------------------- |
+| 06  | Bone White | `#E8E2D6` | Primary text                              |
+| 07  | Dust       | `#9B9484` | Secondary text, keyword chips, nav labels |
+| 08  | Iron       | `#5C574E` | Muted text, captions, placeholders        |
 
 ### Accent — ~8% (the gilding — use sparingly)
 
-| # | Name | Hex | Role |
-|---|---|---|---|
-| 09 | Tarnished Gold | `#B8923F` | Primary accent: selected state, Ducat glyph, gold kickers |
-| 10 | Aged Brass | `#8A6D2F` | Secondary gold: avatars, featured borders |
-| 11 | Blood Red | `#8B1A1A` | Brand/command accent: primary buttons, active underline |
-| 12 | Crimson | `#A52222` | Blood Red hover |
+| #   | Name           | Hex       | Role                                                      |
+| --- | -------------- | --------- | --------------------------------------------------------- |
+| 09  | Tarnished Gold | `#B8923F` | Primary accent: selected state, Ducat glyph, gold kickers |
+| 10  | Aged Brass     | `#8A6D2F` | Secondary gold: avatars, featured borders                 |
+| 11  | Blood Red      | `#8B1A1A` | Brand/command accent: primary buttons, active underline   |
+| 12  | Crimson        | `#A52222` | Blood Red hover                                           |
 
 ### Action — ~8% (status only)
 
-| # | Name | Hex | Role |
-|---|---|---|---|
-| 13 | Verdigris | `#2D6B4F` | Success |
-| 14 | Mustard Gas | `#B8860B` | Warning |
-| 15 | Flare Red | `#C0392B` | Danger / destructive |
-| 16 | Steel Blue | `#4A6FA5` | Info / editor notes |
+| #   | Name        | Hex       | Role                 |
+| --- | ----------- | --------- | -------------------- |
+| 13  | Verdigris   | `#2D6B4F` | Success              |
+| 14  | Mustard Gas | `#B8860B` | Warning              |
+| 15  | Flare Red   | `#C0392B` | Danger / destructive |
+| 16  | Steel Blue  | `#4A6FA5` | Info / editor notes  |
 
 ## The ratio contract
 
 Group budget across a screen: **Surfaces 60% · Text 18% · Accent 8% · Action 8%** (the
 remaining ~6% is incidental). The hard rule: **if a screen is more than ~10% gold (09),
 gold stops meaning anything.** Accent and action colors are spotlights, not fields. A
-fighter card, for example, uses 8 of 16 tokens and *no* action colors — by design.
+fighter card, for example, uses 8 of 16 tokens and _no_ action colors — by design.
 
 ## Forbidden combinations (✗)
 
@@ -76,11 +76,11 @@ From the color page — these collide and must not be paired:
 
 ## Typography
 
-| Family | Use | Token |
-|---|---|---|
+| Family                          | Use                                         | Token               |
+| ------------------------------- | ------------------------------------------- | ------------------- |
 | **Cinzel** (500/600/700, serif) | Display: headings, brand wordmark, numerals | `--fl-font-display` |
-| **Inter** (400–700, sans) | Body, UI labels, forms | `--fl-font-body` |
-| **JetBrains Mono** (400/500) | Stat lines, codes, kickers, mono captions | `--fl-font-mono` |
+| **Inter** (400–700, sans)       | Body, UI labels, forms                      | `--fl-font-body`    |
+| **JetBrains Mono** (400/500)    | Stat lines, codes, kickers, mono captions   | `--fl-font-mono`    |
 
 Loaded from Google Fonts (see `tokens.jsx`). Display headings use letter-spacing ~0.02em;
 mono kickers use wide tracking (0.1–0.4em) in gold caps.
@@ -102,50 +102,50 @@ Define the tokens once as CSS custom properties, then expose them to Tailwind v4
 ```css
 :root {
   /* Surfaces */
-  --fl-01-charcoal: #0C0C0E;
-  --fl-02-ash:      #1A1A1F;
-  --fl-03-smoke:    #252529;
-  --fl-04-trench:   #2E2E35;
-  --fl-05-trench-hi:#3A3A42;
+  --fl-01-charcoal: #0c0c0e;
+  --fl-02-ash: #1a1a1f;
+  --fl-03-smoke: #252529;
+  --fl-04-trench: #2e2e35;
+  --fl-05-trench-hi: #3a3a42;
   /* Text */
-  --fl-06-bone:     #E8E2D6;
-  --fl-07-dust:     #9B9484;
-  --fl-08-iron:     #5C574E;
+  --fl-06-bone: #e8e2d6;
+  --fl-07-dust: #9b9484;
+  --fl-08-iron: #5c574e;
   /* Accent */
-  --fl-09-gold:     #B8923F;
-  --fl-10-brass:    #8A6D2F;
-  --fl-11-blood:    #8B1A1A;
-  --fl-12-crimson:  #A52222;
+  --fl-09-gold: #b8923f;
+  --fl-10-brass: #8a6d2f;
+  --fl-11-blood: #8b1a1a;
+  --fl-12-crimson: #a52222;
   /* Action */
-  --fl-13-verdigris:#2D6B4F;
-  --fl-14-mustard:  #B8860B;
-  --fl-15-flare:    #C0392B;
-  --fl-16-steel:    #4A6FA5;
+  --fl-13-verdigris: #2d6b4f;
+  --fl-14-mustard: #b8860b;
+  --fl-15-flare: #c0392b;
+  --fl-16-steel: #4a6fa5;
 
   --fl-font-display: "Cinzel", Georgia, serif;
-  --fl-font-body:    "Inter", -apple-system, sans-serif;
-  --fl-font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --fl-font-body: "Inter", -apple-system, sans-serif;
+  --fl-font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 @theme inline {
-  --color-bg:        var(--fl-01-charcoal);
-  --color-surface:   var(--fl-02-ash);
-  --color-elevated:  var(--fl-03-smoke);
-  --color-border:    var(--fl-04-trench);
-  --color-text:      var(--fl-06-bone);
-  --color-text-2:    var(--fl-07-dust);
-  --color-muted:     var(--fl-08-iron);
-  --color-gold:      var(--fl-09-gold);
-  --color-brass:     var(--fl-10-brass);
-  --color-blood:     var(--fl-11-blood);
-  --color-crimson:   var(--fl-12-crimson);
-  --color-success:   var(--fl-13-verdigris);
-  --color-warn:      var(--fl-14-mustard);
-  --color-danger:    var(--fl-15-flare);
-  --color-info:      var(--fl-16-steel);
-  --font-display:    var(--fl-font-display);
-  --font-sans:       var(--fl-font-body);
-  --font-mono:       var(--fl-font-mono);
+  --color-bg: var(--fl-01-charcoal);
+  --color-surface: var(--fl-02-ash);
+  --color-elevated: var(--fl-03-smoke);
+  --color-border: var(--fl-04-trench);
+  --color-text: var(--fl-06-bone);
+  --color-text-2: var(--fl-07-dust);
+  --color-muted: var(--fl-08-iron);
+  --color-gold: var(--fl-09-gold);
+  --color-brass: var(--fl-10-brass);
+  --color-blood: var(--fl-11-blood);
+  --color-crimson: var(--fl-12-crimson);
+  --color-success: var(--fl-13-verdigris);
+  --color-warn: var(--fl-14-mustard);
+  --color-danger: var(--fl-15-flare);
+  --color-info: var(--fl-16-steel);
+  --font-display: var(--fl-font-display);
+  --font-sans: var(--fl-font-body);
+  --font-mono: var(--fl-font-mono);
 }
 ```
 

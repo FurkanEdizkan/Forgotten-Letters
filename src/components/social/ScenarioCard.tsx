@@ -34,7 +34,10 @@ export function ScenarioCard({ scenario }: { scenario: ScenarioSummary }) {
 
       <div className="flex flex-1 flex-col p-5">
         <h3 className="font-display text-lg font-semibold leading-tight text-ink transition-colors group-hover:text-primary">
-          <Link href={`/scenarios/${scenario.slug}`} className="after:absolute after:inset-0">
+          <Link
+            href={`/scenarios/${scenario.slug}`}
+            className="after:absolute after:inset-0"
+          >
             {scenario.title}
           </Link>
         </h3>

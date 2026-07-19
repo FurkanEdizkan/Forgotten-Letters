@@ -11,8 +11,8 @@ export default function NotFound() {
         Off the map
       </h1>
       <p className="mt-4 text-muted">
-        This position doesn&apos;t exist — the coordinates lead into no man&apos;s
-        land. Fall back to a known sector.
+        This position doesn&apos;t exist — the coordinates lead into no man&apos;s land.
+        Fall back to a known sector.
       </p>
       <div className="mt-8 flex gap-3">
         <Button asChild>

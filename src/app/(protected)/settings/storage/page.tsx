@@ -9,10 +9,30 @@ export const metadata: Metadata = { title: "Storage" };
 const QUOTA_MB = 50;
 const USED_MB = 18.4;
 const FILES = [
-  { name: "flooded-chapel.png", size: "4.2 MB", scenario: "The Mud and the Hymn", date: "3 days ago" },
-  { name: "no-mans-land-ref.jpg", size: "3.1 MB", scenario: "No Man's Vigil", date: "1 week ago" },
-  { name: "trench-network.webp", size: "6.8 MB", scenario: "Verdun in Miniature", date: "2 weeks ago" },
-  { name: "confessional-map.png", size: "4.3 MB", scenario: "The Iron Confessional", date: "3 weeks ago" },
+  {
+    name: "flooded-chapel.png",
+    size: "4.2 MB",
+    scenario: "The Mud and the Hymn",
+    date: "3 days ago",
+  },
+  {
+    name: "no-mans-land-ref.jpg",
+    size: "3.1 MB",
+    scenario: "No Man's Vigil",
+    date: "1 week ago",
+  },
+  {
+    name: "trench-network.webp",
+    size: "6.8 MB",
+    scenario: "Verdun in Miniature",
+    date: "2 weeks ago",
+  },
+  {
+    name: "confessional-map.png",
+    size: "4.3 MB",
+    scenario: "The Iron Confessional",
+    date: "3 weeks ago",
+  },
 ];
 
 export default function StorageSettingsPage() {
@@ -23,9 +43,7 @@ export default function StorageSettingsPage() {
       <Card className="p-6">
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">
-              Storage
-            </h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Storage</h2>
             <p className="mt-1 text-sm text-muted">
               Uploaded map assets count against your quota.
             </p>
@@ -68,9 +86,7 @@ export default function StorageSettingsPage() {
                   {file.scenario} · {file.date}
                 </p>
               </div>
-              <span className="shrink-0 font-mono text-xs text-muted">
-                {file.size}
-              </span>
+              <span className="shrink-0 font-mono text-xs text-muted">{file.size}</span>
               <Button
                 variant="ghost"
                 size="icon"

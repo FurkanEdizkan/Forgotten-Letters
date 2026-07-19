@@ -31,7 +31,14 @@ export default function LoginPage() {
       <form className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" placeholder="soldier@front.line" required />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="soldier@front.line"
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
@@ -43,7 +50,14 @@ export default function LoginPage() {
               Forgot?
             </Link>
           </div>
-          <Input id="password" name="password" type="password" autoComplete="current-password" placeholder="••••••••" required />
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            required
+          />
         </div>
         <Button type="submit" size="lg" className="mt-2 w-full">
           Log in

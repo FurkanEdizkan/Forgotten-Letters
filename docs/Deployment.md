@@ -73,12 +73,12 @@ instance. Postgres data lives on a persistent volume; back it up (see §7).
 
 ## 3. Hosting choice — Lightsail vs Fargate
 
-| | **Lightsail Containers** (recommended start) | **AWS Fargate** |
-|---|---|---|
-| Pricing | Flat $7–$20/mo per node | Per vCPU/sec — scales with use |
-| Ops | Simplest; push image, done | More moving parts (ECS, ALB, task defs) |
-| Scaling | Manual / fixed | Auto-scaling, load-balanced |
-| Best for | Launch + low traffic | When metrics justify horizontal scale |
+|          | **Lightsail Containers** (recommended start) | **AWS Fargate**                         |
+| -------- | -------------------------------------------- | --------------------------------------- |
+| Pricing  | Flat $7–$20/mo per node                      | Per vCPU/sec — scales with use          |
+| Ops      | Simplest; push image, done                   | More moving parts (ECS, ALB, task defs) |
+| Scaling  | Manual / fixed                               | Auto-scaling, load-balanced             |
+| Best for | Launch + low traffic                         | When metrics justify horizontal scale   |
 
 Start on **Lightsail Containers**. Migrate to Fargate only when traffic/availability needs
 it — the Docker image and env vars are identical, so the move is low-friction.

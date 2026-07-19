@@ -5,12 +5,14 @@
 > and [Costs.md](./Costs.md) for the full picture.
 
 ## Frontend & SSR
+
 - **Next.js 15** (App Router) — React framework with SSR/SSG, shipped as a Docker image
 - **TypeScript** — type-safe language across the entire codebase
 - **Tailwind CSS v4** — utility-first CSS framework
 - **shadcn/ui** — headless component library built on Radix UI
 
 ## Backend & Data
+
 - **PostgreSQL** — primary database (sibling container on the same box, or RDS micro)
 - **Drizzle ORM** — schema, queries, and SQL migrations under `db/migrations/`; types
   inferred via `$inferSelect` / `$inferInsert` (no separate type-generation step)
@@ -24,9 +26,11 @@
 - **rate-limiter-flexible** — rate limiting backed by the Postgres store
 
 ## Map Editor
+
 - **react-konva** (Konva.js) — canvas-based 2D map editor with shapes, images, layers
 
 ## Hosting & Deployment
+
 - **AWS Lightsail Containers** — flat-rate container hosting (migrate to Fargate when
   traffic/availability needs it)
 - **Cloudflare** — DNS, free TLS, CDN edge caching, and R2 in front of the app
@@ -34,11 +38,13 @@
 - **GitHub** — source control and CI/CD
 
 ## Monetization
+
 - **Stripe** — supporter tier billing; webhooks sync `subscriptions` + `entitlements`
 - **EthicalAds / Carbon** (primary, no-tracking) + **Google AdSense** (consent-gated fallback)
 - **GitHub Sponsors / Ko-fi** — optional donations (supporter badge)
 
 ## Dev Tools
+
 - **ESLint** + **Prettier** — linting and formatting
 - **Zod** — runtime schema validation
 - **Tiptap** — rich text editor for scenario stories (planned)

@@ -55,9 +55,9 @@ export default function HomePage() {
               <span className="block text-primary">Share the war.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              A community-driven scenario repository for grimdark wargaming.
-              Build maps, write campaigns, and deploy them to a front of players
-              who&apos;ll test them across the table.
+              A community-driven scenario repository for grimdark wargaming. Build maps,
+              write campaigns, and deploy them to a front of players who&apos;ll test
+              them across the table.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button size="lg" asChild>
@@ -100,8 +100,8 @@ export default function HomePage() {
             Everything a scenario needs
           </h2>
           <p className="mt-4 text-muted">
-            Built for the people who make the missions — precise tools, no
-            clutter, no toy-store gloss.
+            Built for the people who make the missions — precise tools, no clutter, no
+            toy-store gloss.
           </p>
         </div>
 
@@ -114,9 +114,7 @@ export default function HomePage() {
               <h3 className="mt-4 font-display text-xl font-semibold text-ink">
                 {cap.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                {cap.body}
-              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{cap.body}</p>
             </Card>
           ))}
         </div>
@@ -156,8 +154,8 @@ export default function HomePage() {
             The front is waiting for your scenario
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-muted">
-            Create an account, forge your first mission, and put it in front of
-            the community.
+            Create an account, forge your first mission, and put it in front of the
+            community.
           </p>
           <div className="mt-8 flex justify-center">
             <Button size="lg" asChild>

@@ -64,7 +64,10 @@ export default function NewScenarioPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="desc">Short description</Label>
-            <Textarea id="desc" placeholder="One or two lines that appear on the browse card." />
+            <Textarea
+              id="desc"
+              placeholder="One or two lines that appear on the browse card."
+            />
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -79,9 +82,19 @@ export default function NewScenarioPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Player count</Label>
               <div className="flex items-center gap-2">
-                <Input type="number" min={1} defaultValue={2} aria-label="Minimum players" />
+                <Input
+                  type="number"
+                  min={1}
+                  defaultValue={2}
+                  aria-label="Minimum players"
+                />
                 <span className="text-faint">–</span>
-                <Input type="number" min={1} defaultValue={2} aria-label="Maximum players" />
+                <Input
+                  type="number"
+                  min={1}
+                  defaultValue={2}
+                  aria-label="Maximum players"
+                />
               </div>
             </div>
           </div>
@@ -173,8 +186,8 @@ export default function NewScenarioPage() {
         <TabsContent value="events">
           <Card className="p-6 text-center">
             <p className="text-muted">
-              Build roll-driven event tables here — add rows of roll range,
-              effect, and description.
+              Build roll-driven event tables here — add rows of roll range, effect, and
+              description.
             </p>
             <Button variant="outline" className="mt-4">
               <Plus className="size-4" /> New event table
@@ -189,8 +202,8 @@ export default function NewScenarioPage() {
               Ready to deploy?
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Review your scenario, then publish it to the archive or save it as
-              a private draft.
+              Review your scenario, then publish it to the archive or save it as a
+              private draft.
             </p>
             <div className="mt-5 flex gap-2">
               <Button>

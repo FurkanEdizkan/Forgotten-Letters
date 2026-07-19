@@ -12,8 +12,7 @@ const buttonVariants = cva(
         primary:
           "bg-primary text-primary-ink hover:bg-primary-hover active:bg-primary-active",
         // Flare red — reserved for destructive intent.
-        danger:
-          "bg-danger text-ink hover:bg-danger/90 active:bg-danger/80",
+        danger: "bg-danger text-ink hover:bg-danger/90 active:bg-danger/80",
         // Flat-field tonal step, not a shadow.
         secondary:
           "bg-elevated text-ink border border-border-strong hover:bg-border hover:border-primary/60",
@@ -37,7 +36,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }

@@ -37,9 +37,7 @@ export function AuthShell({
         </div>
         <div className="px-6 py-6">{children}</div>
       </div>
-      {footer && (
-        <p className="mt-6 text-center text-sm text-muted">{footer}</p>
-      )}
+      {footer && <p className="mt-6 text-center text-sm text-muted">{footer}</p>}
       <p className="mt-4 text-center">
         <Link
           href="/"

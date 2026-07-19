@@ -32,16 +32,16 @@ Community-driven **wargame scenario repository**, starting with **Trench Crusade
 
 ## 2. Tech stack (per README / Techstack.md)
 
-| Layer | Tech |
-|---|---|
-| Framework | Next.js 15 (App Router, React 19) |
-| Language | TypeScript (strict) |
-| Styling | Tailwind CSS **v4** (CSS-first `@theme`, no `tailwind.config.js`) |
-| UI primitives | Hand-built in `src/components/ui` (shadcn-style, CVA variants) |
-| Auth / DB / Storage | Supabase — **not wired yet** |
-| CMS | Sanity — **not wired yet** |
-| Map editor | react-konva — **not started** |
-| Hosting | Vercel |
+| Layer               | Tech                                                              |
+| ------------------- | ----------------------------------------------------------------- |
+| Framework           | Next.js 15 (App Router, React 19)                                 |
+| Language            | TypeScript (strict)                                               |
+| Styling             | Tailwind CSS **v4** (CSS-first `@theme`, no `tailwind.config.js`) |
+| UI primitives       | Hand-built in `src/components/ui` (shadcn-style, CVA variants)    |
+| Auth / DB / Storage | Supabase — **not wired yet**                                      |
+| CMS                 | Sanity — **not wired yet**                                        |
+| Map editor          | react-konva — **not started**                                     |
+| Hosting             | Vercel                                                            |
 
 Note: `TODO.md` Phase 1.2 originally called for `shadcn/ui` + zinc palette. That was **deliberately overridden** — shadcn's zinc theme is the generic-SaaS look `PRODUCT.md` bans. Primitives are hand-built on the DESIGN.md token system instead. Keep building on these tokens; do not `npx shadcn init` and overwrite them.
 
@@ -60,6 +60,7 @@ npm run lint
 **Verified this session:** `npm install` (341 pkgs), `npm run typecheck` (clean), `npm run build` (all 7 routes static). Next was bumped `15.1.3 → 15.5.20` via `npm audit fix` to clear a **critical** RCE advisory (CVE-2025-66478 / GHSA-9qr9-h5gf-34mp). Two **moderate** advisories remain (a transitive `postcss` XSS bundled inside Next's own deps); the only npm-offered fix downgrades Next to v9, so it was left — not exploitable in this static build. Revisit when a clean Next patch ships.
 
 **Notes:**
+
 - Font loading: `layout.tsx` uses `next/font/google` (Inter, Oswald, JetBrains Mono). Needs network at build; if a later environment is offline, swap to local fonts or system stacks (the CSS already has fallbacks in the `--font-*` tokens).
 - Tailwind v4: styling comes entirely from `src/app/globals.css` (`@import "tailwindcss"` + `@theme`). There is intentionally no `tailwind.config.*`.
 
@@ -68,10 +69,13 @@ npm run lint
 ## 4. What has been built (design layer)
 
 ### Foundation
+
 - `package.json`, `tsconfig.json` (`@/*` → `src/*`), `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`, `next-env.d.ts`.
 
 ### Design tokens — `src/app/globals.css`
+
 The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@theme`:
+
 - Surface: `--color-bg` (near-black steel-tinted), `--color-surface`, `--color-elevated`, `--color-border`, `--color-border-strong`.
 - Ink: `--color-ink` (≥7:1), `--color-muted` (≥4.5:1), `--color-faint`.
 - Primary (steel-blue): `--color-primary` `oklch(0.65 0.16 250)` + hover/active/ink/soft.
@@ -80,6 +84,7 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 - Base layer: dark color-scheme, faint tactical-grid `body::before`, focus-visible ring, `prefers-reduced-motion` reset. Use `text-*` / `bg-*` / `border-*` utilities — Tailwind v4 generates them from the `@theme` color tokens (e.g. `bg-primary`, `text-muted`, `border-border-strong`).
 
 ### UI primitives — `src/components/ui/`
+
 - `Button.tsx` — CVA variants: `primary` (steel), `danger` (oxblood — destructive only), `secondary`, `outline`, `ghost`, `link`; sizes `sm/md/lg/icon`; `asChild` via Radix Slot.
 - `Card.tsx` — flat-field card (`interactive` prop adds hover lift + shadow-on-state) + Header/Title/Description/Content/Footer.
 - `Input.tsx` — dark field, primary focus glow, `aria-invalid` danger state.
@@ -87,11 +92,13 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 - `Badge.tsx` — CVA variants default/neutral/accent/success/warning.
 
 ### Layout shell — `src/components/layout/`
+
 - `Navbar.tsx` (client) — sticky, logo, Browse/Official/Rules, active-route highlight, Log in / Enlist, mobile hamburger sheet.
 - `Footer.tsx` — repository/create link columns, fan-project disclaimer.
 - Both wired into `src/app/layout.tsx` (root layout with font variables + metadata template).
 
 ### Pages
+
 - `src/app/(public)/page.tsx` — landing: war-room hero with a signature "map editor readout" panel (not a stat template), capabilities grid, ordered 01/02/03 build-flow (numbers earned — it's a real sequence), CTA.
 - `src/app/(auth)/{login,register,forgot-password}/page.tsx` — auth UI on a shared `AuthShell` (presentational; wire to Supabase later). Uses `GoogleButton` + `Divider` in `src/components/auth/`.
 - `src/app/(public)/scenarios/page.tsx` — browse: sticky filter rail (search, game-system, player-count, tag pills), sort control, and a responsive grid of `ScenarioCard`s. + `src/app/(public)/scenarios/loading.tsx` skeleton.
@@ -103,14 +110,17 @@ The full "War Room at Night" palette resolved to **OKLCH** in Tailwind v4 `@them
 - `src/app/not-found.tsx` — on-theme global 404 ("Sector 404"). `src/app/error.tsx` — global error boundary (client; wire to Sentry in Phase 8).
 
 ### More primitives / components
+
 - `src/components/ui/Skeleton.tsx`, `src/components/ui/Textarea.tsx`, `src/components/ui/Avatar.tsx` (initials-based; swap to `next/image` when `avatar_url` exists), `src/components/ui/Tabs.tsx` (client, context-based).
 - `src/components/social/ScenarioCard.tsx` — tactical dossier tile (map-grid preview, mono stat counts) + its `ScenarioSummary` type.
 - `src/lib/mock/scenarios.ts` — placeholder scenario data + `GAME_SYSTEMS` / `ALL_TAGS`. **Delete once Supabase queries are wired.**
 
 ### Utility
+
 - `src/lib/utils/cn.ts` — `clsx` + `tailwind-merge`.
 
 ### Visual verification (this session)
+
 Rendered in headless Chrome and eyeballed — landing, `/scenarios`, and `/login` all render on-brand (dark tactical field, Oswald condensed display, steel-blue primary, oxblood accent, mono data). Reference screenshots saved to `docs/design-preview/{landing,scenarios,login}.png`.
 
 ---
@@ -118,6 +128,7 @@ Rendered in headless Chrome and eyeballed — landing, `/scenarios`, and `/login
 ## 5. Remaining UI (finish these next — still "design parts")
 
 **Not yet started (UI shells to build on the token system):**
+
 - Route-group `error.tsx` files + more `loading.tsx` skeletons (only `/scenarios/loading.tsx` exists).
 - Official + Rules **detail** shells `(public)/official/[slug]`, `(public)/rules/[slug]` (list pages exist; detail pages 404 currently). Campaigns list/detail `(public)/campaigns`.
 - Route-group `error.tsx` files are optional now that a global `src/app/error.tsx` exists; add scoped ones only where a nicer local recovery matters.
@@ -134,6 +145,7 @@ Design guardrails for all of the above (from `DESIGN.md` §6): no cream/sand sur
 ## 6. Backend / data (NOT design — do after UI, per TODO.md)
 
 Left entirely untouched on purpose. Follow `TODO.md` in order:
+
 - **Phase 2** — Supabase schema (`supabase/migrations/001_initial_schema.sql`), triggers, RLS, storage buckets, seed, typegen. Tables/policies are fully specified in TODO.md §2.
 - **Phase 3** — Sanity CMS (schemas, client, GROQ, official/rules pages, revalidation webhook).
 - **Phase 4** — Campaign/scenario CRUD (Zod validations, server actions, form wiring).

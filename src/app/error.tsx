@@ -25,8 +25,8 @@ export default function GlobalError({
         Something broke
       </h1>
       <p className="mt-4 text-muted">
-        An unexpected error interrupted the transmission. Try again, or fall back
-        to base.
+        An unexpected error interrupted the transmission. Try again, or fall back to
+        base.
       </p>
       <div className="mt-8 flex gap-3">
         <Button onClick={reset}>Retry</Button>

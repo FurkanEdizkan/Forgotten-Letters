@@ -35,8 +35,8 @@ export function Footer() {
             </span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted">
-            A community-built repository for wargame scenarios — forge, share,
-            and deploy campaigns for Trench Crusade and beyond.
+            A community-built repository for wargame scenarios — forge, share, and
+            deploy campaigns for Trench Crusade and beyond.
           </p>
         </div>
 

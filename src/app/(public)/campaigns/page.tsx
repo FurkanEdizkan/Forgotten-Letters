@@ -16,7 +16,8 @@ const CAMPAIGNS = [
   {
     slug: "the-drowned-front",
     title: "The Drowned Front",
-    blurb: "A four-scenario campaign following two warbands through a flooded valley offensive.",
+    blurb:
+      "A four-scenario campaign following two warbands through a flooded valley offensive.",
     author: "trench_rat",
     scenarios: 4,
     system: "Trench Crusade",
@@ -24,7 +25,8 @@ const CAMPAIGNS = [
   {
     slug: "vigil-and-ash",
     title: "Vigil and Ash",
-    blurb: "Night raids escalate into a full dawn assault. Three linked scenarios with carried-over casualties.",
+    blurb:
+      "Night raids escalate into a full dawn assault. Three linked scenarios with carried-over casualties.",
     author: "sister_agnes",
     scenarios: 3,
     system: "Trench Crusade",
@@ -32,7 +34,8 @@ const CAMPAIGNS = [
   {
     slug: "the-iron-liturgy",
     title: "The Iron Liturgy",
-    blurb: "A defensive campaign holding a chain of confessionals against escalating waves.",
+    blurb:
+      "A defensive campaign holding a chain of confessionals against escalating waves.",
     author: "gunnery_sgt",
     scenarios: 5,
     system: "Trench Crusade",
@@ -51,7 +54,9 @@ export default function CampaignsPage() {
             <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-ink">
               Campaigns
             </h1>
-            <p className="mt-1 text-muted">Multi-scenario arcs, linked into one story.</p>
+            <p className="mt-1 text-muted">
+              Multi-scenario arcs, linked into one story.
+            </p>
           </div>
         </div>
         <Button asChild>
@@ -69,7 +74,10 @@ export default function CampaignsPage() {
               </span>
             </div>
             <h2 className="mt-3 font-display text-xl font-semibold text-ink">
-              <Link href={`/campaigns/${c.slug}`} className="after:absolute after:inset-0">
+              <Link
+                href={`/campaigns/${c.slug}`}
+                className="after:absolute after:inset-0"
+              >
                 {c.title}
               </Link>
             </h2>

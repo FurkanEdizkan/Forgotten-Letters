@@ -11,9 +11,21 @@ export const metadata: Metadata = {
 
 // Placeholder — real records come from Sanity (Phase 3).
 const OFFICIAL = [
-  { slug: "the-first-crusade", title: "The First Crusade", blurb: "The canonical opening campaign — four linked scenarios." },
-  { slug: "siege-of-the-cathedral", title: "Siege of the Cathedral", blurb: "A large-scale multiplayer siege with official rules." },
-  { slug: "the-broken-armistice", title: "The Broken Armistice", blurb: "An introductory duel scenario for new warbands." },
+  {
+    slug: "the-first-crusade",
+    title: "The First Crusade",
+    blurb: "The canonical opening campaign — four linked scenarios.",
+  },
+  {
+    slug: "siege-of-the-cathedral",
+    title: "Siege of the Cathedral",
+    blurb: "A large-scale multiplayer siege with official rules.",
+  },
+  {
+    slug: "the-broken-armistice",
+    title: "The Broken Armistice",
+    blurb: "An introductory duel scenario for new warbands.",
+  },
 ];
 
 export default function OfficialPage() {
@@ -38,7 +50,10 @@ export default function OfficialPage() {
           <Card key={item.slug} interactive className="relative p-5">
             <Badge variant="accent">Official</Badge>
             <h2 className="mt-3 font-display text-lg font-semibold text-ink">
-              <Link href={`/official/${item.slug}`} className="after:absolute after:inset-0">
+              <Link
+                href={`/official/${item.slug}`}
+                className="after:absolute after:inset-0"
+              >
                 {item.title}
               </Link>
             </h2>

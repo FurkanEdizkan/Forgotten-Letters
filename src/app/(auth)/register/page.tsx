@@ -31,15 +31,37 @@ export default function RegisterPage() {
       <form className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="username">Callsign</Label>
-          <Input id="username" name="username" type="text" autoComplete="username" placeholder="e.g. trench_rat" required />
+          <Input
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder="e.g. trench_rat"
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" placeholder="soldier@front.line" required />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="soldier@front.line"
+            required
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} />
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
+            required
+            minLength={8}
+          />
         </div>
         <Button type="submit" size="lg" className="mt-2 w-full">
           Enlist

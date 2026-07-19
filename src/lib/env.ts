@@ -16,6 +16,18 @@ import { z } from "zod";
 /** Coerce the "true"/"false" strings env vars carry into real booleans. */
 const boolish = z.enum(["true", "false"]).transform((v) => v === "true");
 
+/**
+ * An optional value that treats "" as absent.
+ *
+ * `.env` files spell "unset" as `FOO=""`, but an empty string is not
+ * undefined, so a plain `.optional()` still runs the inner validators and
+ * rejects it. Without this, `cp .env.example .env.local` — exactly what
+ * the README tells you to do — fails to build on AUTH_SECRET.
+ */
+function optional<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((v) => (v === "" ? undefined : v), schema.optional());
+}
+
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
@@ -28,12 +40,12 @@ const serverSchema = z.object({
   // Required in production only: a missing secret in prod is a
   // security failure, but demanding one before Phase 1 wires auth
   // would block `npm run dev` on a value nothing reads yet.
-  AUTH_SECRET: z.string().min(32).optional(),
-  AUTH_URL: z.string().url().optional(),
-  AUTH_GOOGLE_ID: z.string().optional(),
-  AUTH_GOOGLE_SECRET: z.string().optional(),
-  AUTH_GITHUB_ID: z.string().optional(),
-  AUTH_GITHUB_SECRET: z.string().optional(),
+  AUTH_SECRET: optional(z.string().min(32)),
+  AUTH_URL: optional(z.string().url()),
+  AUTH_GOOGLE_ID: optional(z.string()),
+  AUTH_GOOGLE_SECRET: optional(z.string()),
+  AUTH_GITHUB_ID: optional(z.string()),
+  AUTH_GITHUB_SECRET: optional(z.string()),
 
   // ── Object storage (MinIO locally, R2 in prod) ────────────
   R2_ENDPOINT: z.string().url(),
@@ -41,7 +53,7 @@ const serverSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_REGION: z.string().default("auto"),
   R2_FORCE_PATH_STYLE: boolish.default(false),
-  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCOUNT_ID: optional(z.string()),
   R2_BUCKET_ASSETS: z.string().min(1),
   R2_BUCKET_AVATARS: z.string().min(1),
   STORAGE_QUOTA_FREE_BYTES: z.coerce.number().int().positive(),
@@ -50,8 +62,8 @@ const serverSchema = z.object({
   SES_SMTP_HOST: z.string().min(1),
   SES_SMTP_PORT: z.coerce.number().int().positive(),
   // Mailpit accepts any credentials, so these stay optional.
-  SES_SMTP_USER: z.string().optional(),
-  SES_SMTP_PASSWORD: z.string().optional(),
+  SES_SMTP_USER: optional(z.string()),
+  SES_SMTP_PASSWORD: optional(z.string()),
   SES_SMTP_SECURE: boolish.default(false),
   EMAIL_FROM: z.string().min(1),
 });

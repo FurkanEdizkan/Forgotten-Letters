@@ -64,6 +64,23 @@ describe("env validation", () => {
     expect(env.R2_FORCE_PATH_STYLE).toBe(false);
   });
 
+  it("treats an empty string as absent for optional values", async () => {
+    // .env files spell "unset" as FOO="". A plain .optional() still runs
+    // the inner validators on "", so `cp .env.example .env.local` — what
+    // the README instructs — failed to build on AUTH_SECRET's min(32).
+    applyEnv({ AUTH_SECRET: "", R2_ACCOUNT_ID: "", SES_SMTP_USER: "" });
+    const { env } = await import("@/lib/env");
+    expect(() => env.DATABASE_URL).not.toThrow();
+    expect(env.AUTH_SECRET).toBeUndefined();
+  });
+
+  it("still rejects a non-empty AUTH_SECRET that is too short", async () => {
+    // The empty-string escape hatch must not weaken real validation.
+    applyEnv({ AUTH_SECRET: "too-short" });
+    const { env } = await import("@/lib/env");
+    expect(() => env.AUTH_SECRET).toThrow(/AUTH_SECRET/);
+  });
+
   it("throws on a malformed DATABASE_URL", async () => {
     applyEnv({ DATABASE_URL: "not-a-url" });
     const { env } = await import("@/lib/env");

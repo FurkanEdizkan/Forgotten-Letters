@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "conventional-branches": {
+      "source": "furkanedizkan/my-skills",
+      "sourceType": "github",
+      "skillPath": "skills/conventional-branches/SKILL.md",
+      "computedHash": "9b9d5c6b46b2d783f509e908e15f7a9abbfc8b1c51a6426eeab4b566834d43ba"
+    },
+    "conventional-commits": {
+      "source": "furkanedizkan/my-skills",
+      "sourceType": "github",
+      "skillPath": "skills/conventional-commits/SKILL.md",
+      "computedHash": "1f98a8da13bc6fc4a532b813e82fe6445d9262bd7d3da118b35700773b493459"
+    },
+    "pixijs-assets": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-assets/SKILL.md",
+      "computedHash": "2c831499efc3b875a8f0b7d5264b4d7220e51cfeff65fc25e8ca046e74da10c3"
+    },
+    "pixijs-filters": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-filters/SKILL.md",
+      "computedHash": "a144f8d96f351c1836e1635709d862feb05a69c1c95a48f86242794a114d557a"
+    },
+    "pixijs-performance": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-performance/SKILL.md",
+      "computedHash": "410877b8b6ff8de5aff4a3e636f6b256d6943798721d906598e525731c1a7f84"
+    },
+    "pixijs-scene-particle-container": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-particle-container/SKILL.md",
+      "computedHash": "837ee0a8aadc14bcbdba308cc36792ff11bbc41f5efe65939a4a4b7d448e089e"
+    },
+    "svelte-code-writer": {
+      "source": "sveltejs/ai-tools",
+      "sourceType": "github",
+      "skillPath": "plugins/claude/svelte/skills/svelte-code-writer/SKILL.md",
+      "computedHash": "6f78193a79906175595ce8e4ca8d726da350eb99035a9544b6553620df5673a1"
+    }
+  }
+}

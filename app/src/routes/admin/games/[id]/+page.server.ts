@@ -1,0 +1,85 @@
+import { fail, redirect } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { db } from '$lib/server/db';
+import { game } from '$lib/server/db/schema';
+import { rosters, type GameResult } from '$lib/server/campaign';
+import { commitGame, findGame, parseDraft, previewGame } from '$lib/server/games';
+import { publish } from '$lib/server/hub';
+import { tickRegions } from '$lib/server/fx';
+import { buildGraph } from '$lib/rules/zones';
+import { weatherByRoll } from '$lib/rules/weather';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = ({ params }) => {
+	const { c, g } = findGame(params.id);
+	const graph = buildGraph(c.houseZones);
+	const byId = new Map(rosters(c.id).map((r) => [r.warband.id, r]));
+	const side = (id: string) => {
+		const r = byId.get(id);
+		return {
+			id,
+			name: r?.warband.name ?? '?',
+			player: r?.player.name ?? '?',
+			portrait: r?.player.portrait ?? null,
+			symbol: r?.warband.symbol ?? null
+		};
+	};
+	const result = (g.result ?? { sides: {} }) as GameResult;
+	const blank = { winner: null, sides: {} };
+	const preview = previewGame(c, g, { ...blank, sides: result.sides, winner: g.winnerId });
+	return {
+		game: {
+			id: g.id,
+			status: g.status,
+			zone: g.zone,
+			scenario: g.scenario,
+			weather: g.weatherEvent ? weatherByRoll(g.weatherEvent) : null,
+			committedAt: g.committedAt
+		},
+		razing: c.houseRazing,
+		zone: graph.zones.get(g.zone)!,
+		zones: [...graph.zones.values()],
+		aggressor: side(g.aggressorId),
+		defender: side(g.defenderId),
+		saved: { winner: g.winnerId, sides: result.sides },
+		preview
+	};
+};
+
+export const actions: Actions = {
+	commit: async ({ params, request }) => {
+		const { c, g } = findGame(params.id);
+		const data = await request.formData();
+		let raw: unknown;
+		try {
+			raw = JSON.parse(String(data.get('draft') ?? ''));
+		} catch {
+			return fail(400, { message: 'Malformed result' });
+		}
+		const draft = parseDraft(raw, g);
+		if (!draft) return fail(400, { message: 'Malformed result' });
+		const { pending } = previewGame(c, g, draft);
+		if (pending.length && !data.has('force'))
+			return fail(400, { message: `${pending.length} reward choice(s) still unresolved.` });
+		const firstCommit = g.status !== 'done' && !g.committedAt;
+		commitGame(g, draft);
+		if (firstCommit) tickRegions(c.id, g.zone);
+		publish(c.id);
+		redirect(303, '/admin/games');
+	},
+
+	reopen: async ({ params }) => {
+		const { c, g } = findGame(params.id);
+		// Keep committedAt so the game replays in its original place once recommitted.
+		db.update(game).set({ status: 'in_progress' }).where(eq(game.id, g.id)).run();
+		publish(c.id);
+		return { reopened: true };
+	},
+
+	delete: async ({ params }) => {
+		const { c, g } = findGame(params.id);
+		db.delete(game).where(eq(game.id, g.id)).run();
+		publish(c.id);
+		redirect(303, '/admin/games');
+	}
+};

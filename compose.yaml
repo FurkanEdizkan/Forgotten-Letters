@@ -1,0 +1,13 @@
+services:
+  carcass-front:
+    build: ./app
+    ports:
+      - '3000:3000'
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  data:

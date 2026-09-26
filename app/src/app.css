@@ -1,0 +1,81 @@
+/* Palette from the Carcass Front Player's Guide. */
+:root {
+	--parchment: #efe6d0;
+	--paper: #f6eddb;
+	--ink: #231a12;
+	--ink-soft: #4a3b2b;
+	--muted: #6b5a44;
+	--rule: #b9a47c;
+	--blood: #8b2a1d;
+	--blood-bright: #b8321f;
+	--favour: #c8741e;
+	--relics: #9b2a1c;
+	--supplies: #5f7f2a;
+	--territories: #2f6770;
+	--font-display: 'UnifrakturMaguntia', serif;
+	--font-body: 'EB Garamond', Georgia, serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: 17px;
+	line-height: 1.55;
+}
+
+h1,
+h2 {
+	font-family: var(--font-display);
+	font-weight: 400;
+	line-height: 1.05;
+}
+
+h1 {
+	font-size: 2.6rem;
+	margin: 4px 0 8px;
+}
+
+a {
+	color: var(--blood);
+}
+
+a:hover {
+	color: var(--blood-bright);
+}
+
+input,
+select,
+textarea,
+button {
+	font: inherit;
+}
+
+input,
+select,
+textarea {
+	padding: 6px 8px;
+	border: 1px solid var(--rule);
+	background: #fffaf0;
+	color: var(--ink);
+}
+
+button {
+	padding: 8px 14px;
+	border: 1px solid var(--ink);
+	background: var(--ink);
+	color: var(--parchment);
+	cursor: pointer;
+	font-variant-caps: small-caps;
+	letter-spacing: 0.06em;
+}
+
+button:hover {
+	background: var(--blood);
+	border-color: var(--blood);
+}

@@ -1,4 +1,4 @@
-import { Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application } from 'pixi.js';
+import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
 import type { FxKind, FxTrigger } from './types';
 
 /**
@@ -102,9 +102,14 @@ function makeTextures() {
 }
 type Textures = ReturnType<typeof makeTextures>;
 
+/** Blender-rendered sprite sheets (static/fx/*.json), when loaded. */
+export type SheetName = 'lightning' | 'fire' | 'crow' | 'smoke';
+type Sheets = Partial<Record<SheetName, Texture[]>>;
+
 interface Ctx {
 	app: Application;
 	tex: Textures;
+	sheets: Sheets;
 	/** Particle budget multiplier from quality settings (0 = no particles). */
 	q: number;
 	wind: () => number;
@@ -441,6 +446,102 @@ class Rays implements Effect {
 	}
 }
 
+// ---------------------------------------------------------------- rendered sequences
+
+/** Plays a Blender-rendered frame sequence once, then reports done. */
+class FrameSprite implements Effect {
+	s: Sprite;
+	age: number;
+	constructor(
+		private frames: Texture[],
+		parent: Container,
+		at: { x: number; y: number },
+		opts: { scale: number; anchorY?: number; fps?: number; tint?: number; alpha?: number; delay?: number; rotation?: number; drift?: { x: number; y: number } }
+	) {
+		this.s = new Sprite(frames[0]);
+		this.s.anchor.set(0.5, opts.anchorY ?? 0.5);
+		this.s.position.set(at.x, at.y);
+		this.s.scale.set(opts.scale);
+		this.s.rotation = opts.rotation ?? 0;
+		if (opts.tint !== undefined) this.s.tint = opts.tint;
+		this.baseAlpha = opts.alpha ?? 1;
+		this.fps = opts.fps ?? 24;
+		this.age = -(opts.delay ?? 0);
+		this.drift = opts.drift;
+		this.s.visible = this.age >= 0;
+		parent.addChild(this.s);
+	}
+	private baseAlpha: number;
+	private fps: number;
+	private drift?: { x: number; y: number };
+	setIntensity() {}
+	update(dt: number) {
+		this.age += dt;
+		this.s.visible = this.age >= 0;
+		if (this.age < 0) return;
+		const i = Math.min(this.frames.length - 1, Math.floor(this.age * this.fps));
+		this.s.texture = this.frames[i];
+		this.s.alpha = this.baseAlpha;
+		if (this.drift) {
+			this.s.x += this.drift.x * dt;
+			this.s.y += this.drift.y * dt;
+		}
+	}
+	done = () => this.age * this.fps >= this.frames.length;
+	destroy() {
+		this.s.destroy();
+	}
+}
+
+/** Smoke puffs that bloom and fade at random spots, for smog, miasma and dust. */
+class Puffs implements Effect {
+	c = new Container();
+	live: FrameSprite[] = [];
+	next = 0;
+	i = 1;
+	constructor(
+		private ctx: Ctx,
+		private scope: Scope,
+		private tint: number,
+		private alpha: number,
+		parent: Container,
+		intensity: number
+	) {
+		parent.addChild(this.c);
+		this.setIntensity(intensity);
+	}
+	setIntensity(i: number) {
+		this.i = i;
+	}
+	update(dt: number) {
+		const frames = this.ctx.sheets.smoke;
+		this.next -= dt;
+		if (frames && this.next <= 0) {
+			const zone = this.scope.type === 'zone';
+			this.next = (zone ? 1.4 : 0.6) / (0.3 + this.i) / Math.max(0.35, this.ctx.q);
+			const b = area(this.ctx, this.scope);
+			const at = zone ? inZone(b, Math.random) : { x: Math.random() * b.w, y: b.h * (0.2 + Math.random() * 0.8) };
+			const wind = this.ctx.wind() || 0.15;
+			this.live.push(
+				new FrameSprite(frames, this.c, at, {
+					scale: zone ? 0.9 + Math.random() * 0.6 : 1.2 + Math.random() * 1.4,
+					fps: 7,
+					tint: this.tint,
+					alpha: this.alpha,
+					rotation: Math.random() * Math.PI * 2,
+					drift: { x: wind * 30, y: -8 }
+				})
+			);
+		}
+		for (const p of this.live) p.update(dt);
+		this.live = this.live.filter((p) => (p.done() ? (p.destroy(), false) : true));
+	}
+	destroy() {
+		for (const p of this.live) p.destroy();
+		this.c.destroy({ children: true });
+	}
+}
+
 // ---------------------------------------------------------------- lightning
 
 function drawBolt(g: Graphics, from: { x: number; y: number }, to: { x: number; y: number }, r: () => number, color: number, width: number) {
@@ -473,6 +574,9 @@ function drawBolt(g: Graphics, from: { x: number; y: number }, to: { x: number; 
 /** One lightning strike: bolt + flash, fades out. */
 class Strike implements Effect {
 	g = new Graphics();
+	bolt: FrameSprite | null = null;
+	global = new Graphics();
+	flashPeak = 0.35;
 	flash = new Graphics();
 	age = 0;
 	constructor(
@@ -482,26 +586,54 @@ class Strike implements Effect {
 		parentScreen: Container,
 		r: () => number,
 		private color: number,
-		at?: { x: number; y: number }
+		at?: { x: number; y: number },
+		portent = false
 	) {
 		const b = area(ctx, scope);
 		const target = at ?? (scope.type === 'zone' ? { x: scope.x, y: scope.y } : { x: b.w * (0.1 + r() * 0.8), y: b.h * (0.4 + r() * 0.5) });
 		const top = { x: target.x + (r() - 0.5) * 200, y: target.y - (scope.type === 'screen' && !at ? target.y + 20 : 700) };
-		drawBolt(this.g, top, target, r, color, scope.type === 'screen' && !at ? 3 : 6);
-		(scope.type === 'screen' && !at ? parentScreen : parentWorld).addChild(this.g);
-		this.flash.rect(0, 0, ctx.app.screen.width, ctx.app.screen.height).fill({ color: 0xffffff });
-		this.flash.tint = color === 0xffffff ? 0xffffff : color;
-		parentScreen.addChild(this.flash);
+		const parent = scope.type === 'screen' && !at ? parentScreen : parentWorld;
+		const frames = ctx.sheets.lightning;
+		if (frames && color !== 0x5dffa0) {
+			// Blender-rendered bolt, striking at the sprite's bottom-centre.
+			const height = target.y - top.y;
+			this.bolt = new FrameSprite(frames, parent, target, { scale: height / frames[0].height, anchorY: 0.98, fps: 16 });
+			this.bolt.s.scale.x *= r() < 0.5 ? -1 : 1;
+		} else {
+			drawBolt(this.g, top, target, r, color, scope.type === 'screen' && !at ? 3 : 6);
+			parent.addChild(this.g);
+		}
+		// Map-wide storms light up the whole screen; a zone's own storm only lights its zone;
+		// a portent struck at a zone gets a gentler global flash.
+		if (scope.type === 'screen' && !at) {
+			this.flash.rect(0, 0, ctx.app.screen.width, ctx.app.screen.height).fill({ color: 0xffffff });
+			this.flashPeak = 0.35;
+			parentScreen.addChild(this.flash);
+		} else {
+			this.flash.circle(target.x, target.y, 260).fill({ color: 0xffffff });
+			this.flashPeak = 0.3;
+			parentWorld.addChild(this.flash);
+			if (portent) {
+				this.global.rect(0, 0, ctx.app.screen.width, ctx.app.screen.height).fill({ color: 0xffffff });
+				parentScreen.addChild(this.global);
+			}
+		}
+		this.flash.tint = color;
+		this.global.tint = color;
 	}
 	setIntensity() {}
 	update(dt: number) {
 		this.age += dt;
 		const flicker = this.age < 0.08 || (this.age > 0.14 && this.age < 0.2) ? 1 : 0.4;
 		this.g.alpha = Math.max(0, 1 - this.age / 0.5) * flicker;
-		this.flash.alpha = Math.max(0, 0.35 - this.age * 1.2) * flicker;
+		this.flash.alpha = Math.max(0, this.flashPeak - this.age * 1.2) * flicker;
+		this.global.alpha = Math.max(0, 0.12 - this.age * 0.5) * flicker;
+		this.bolt?.update(dt);
 	}
-	done = () => this.age > 0.6;
+	done = () => this.age > 0.6 && (!this.bolt || this.bolt.done());
 	destroy() {
+		this.bolt?.destroy();
+		this.global.destroy();
 		this.g.destroy();
 		this.flash.destroy();
 	}
@@ -569,9 +701,10 @@ class Crows implements Effect {
 		} else this.setIntensity(intensity);
 	}
 	add(r: () => number, burst = false) {
-		const s = new Sprite(this.ctx.tex.birdUp);
+		const s = new Sprite(this.ctx.sheets.crow?.[0] ?? this.ctx.tex.birdUp);
 		s.anchor.set(0.5);
-		const k = this.scope.type === 'zone' || this.burst ? 1.1 : 0.7 + r() * 0.5;
+		const rendered = this.ctx.sheets.crow ? 0.55 : 1;
+		const k = (this.scope.type === 'zone' || this.burst ? 1.1 : 0.7 + r() * 0.5) * rendered;
 		s.scale.set(k);
 		this.c.addChild(s);
 		const b = area(this.ctx, this.scope);
@@ -597,7 +730,10 @@ class Crows implements Effect {
 		this.age += dt;
 		const b = area(this.ctx, this.scope);
 		for (const bird of this.birds) {
-			bird.s.texture = Math.sin(t * 14 + bird.phase) > 0 ? this.ctx.tex.birdUp : this.ctx.tex.birdDown;
+			const flap = this.ctx.sheets.crow;
+			const prev = { x: bird.s.x, y: bird.s.y };
+			if (flap) bird.s.texture = flap[Math.floor(t * 12 + bird.phase * 3) % flap.length];
+			else bird.s.texture = Math.sin(t * 14 + bird.phase) > 0 ? this.ctx.tex.birdUp : this.ctx.tex.birdDown;
 			if (this.burst) {
 				bird.s.x += bird.vx * dt;
 				bird.s.y += bird.vy * dt;
@@ -606,7 +742,7 @@ class Crows implements Effect {
 			} else if (this.scope.type === 'zone') {
 				const a = t * (bird.speed / bird.orbit) * 0.5 + bird.phase;
 				bird.s.position.set(this.scope.x + Math.cos(a) * bird.orbit * 1.4, this.scope.y - 40 + Math.sin(a) * bird.orbit * 0.6);
-				bird.s.scale.x = Math.abs(bird.s.scale.x) * (Math.sin(a) > 0 ? -1 : 1);
+				if (!flap) bird.s.scale.x = Math.abs(bird.s.scale.x) * (Math.sin(a) > 0 ? -1 : 1);
 			} else {
 				bird.s.x += (bird.vx + this.ctx.wind() * 40) * dt;
 				bird.s.y += (bird.vy + Math.sin(t + bird.phase) * 25) * dt;
@@ -614,6 +750,10 @@ class Crows implements Effect {
 					bird.s.x = -60 - Math.random() * 200;
 					bird.s.y = b.h * (0.1 + Math.random() * 0.5);
 				}
+			}
+			// Top-down rendered crows face +X: turn them along their flight path.
+			if (flap && (bird.s.x !== prev.x || bird.s.y !== prev.y)) {
+				bird.s.rotation = Math.atan2(bird.s.y - prev.y, bird.s.x - prev.x);
 			}
 		}
 	}
@@ -710,6 +850,7 @@ export class FxEngine {
 		this.ctx = {
 			app,
 			tex: this.tex,
+			sheets: {},
 			q: quality,
 			wind: () => this.windValue,
 			shake: (s, k) => {
@@ -718,7 +859,31 @@ export class FxEngine {
 			}
 		};
 		app.ticker.add(this.tick);
+		void this.loadSheets();
 	}
+
+	/** Load the Blender-rendered sheets; effects fall back to drawn versions until (or if never) loaded. */
+	private async loadSheets() {
+		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke'];
+		await Promise.all(
+			names.map(async (name) => {
+				try {
+					const sheet = await Assets.load<Spritesheet>(`/fx/${name}.json`);
+					const frames = sheet.animations[name];
+					if (frames?.length) this.ctx.sheets[name] = frames;
+				} catch (e) {
+					console.warn(`fx: ${name} sheet unavailable, using drawn effect`, e);
+				}
+			})
+		);
+		// Rebuild running effects so they pick up the new textures.
+		for (const [, e] of this.running) e.destroy();
+		this.running.clear();
+		this.onSheets?.();
+	}
+
+	/** Called once the sheets have loaded, so the owner can re-apply its wanted effects. */
+	onSheets?: () => void;
 
 	set wind(w: number) {
 		this.windValue = w;
@@ -749,13 +914,13 @@ export class FxEngine {
 			case 'fog':
 				return new Fog(ctx, w.scope, 0xdcdad0, 0.5, back, i);
 			case 'miasma':
-				return new Fog(ctx, w.scope, 0x7d9a5c, 0.55, back, i);
+				return this.pair(new Fog(ctx, w.scope, 0x7d9a5c, 0.55, back, i), ctx.q > 0 ? new Puffs(ctx, w.scope, 0x9dbb74, 0.55, back, i) : null);
 			case 'smog':
-				return new Fog(ctx, w.scope, 0x2e2822, 0.6, back, i);
+				return this.pair(new Fog(ctx, w.scope, 0x2e2822, 0.6, back, i), ctx.q > 0 ? new Puffs(ctx, w.scope, 0x5a5048, 0.8, back, i) : null);
 			case 'haze':
 				return new Fog(ctx, w.scope, 0xeae5d6, 0.3, back, i);
 			case 'dust':
-				return particles(dustSpec());
+				return this.pair(particles(dustSpec()), ctx.q > 0 && w.scope.type === 'zone' ? new Puffs(ctx, w.scope, 0x8a6a45, 0.5, back, i * 0.5) : null);
 			case 'embers':
 				return particles(embersSpec());
 			case 'crows':
@@ -771,6 +936,16 @@ export class FxEngine {
 			case 'thorns':
 				return new Thorns(w.scope, layer, ctx);
 		}
+	}
+
+	/** Run two effects as one (e.g. fog plus smoke puffs). */
+	private pair(a: Effect | null, b: Effect | null): Effect | null {
+		if (!a || !b) return a ?? b;
+		return {
+			update: (dt, t) => (a.update(dt, t), b.update(dt, t)),
+			setIntensity: (i) => (a.setIntensity(i), b.setIntensity(i)),
+			destroy: () => (a.destroy(), b.destroy())
+		};
 	}
 
 	/** Diff the wanted effects against the running ones. */
@@ -799,7 +974,7 @@ export class FxEngine {
 		const zone: Scope = at ? { type: 'zone', id: t.zone ?? '', x: at.x, y: at.y } : { type: 'screen' };
 		switch (t.kind) {
 			case 'lightning': {
-				this.oneShots.push(new Strike(this.ctx, zone, this.worldFront, this.screenLayer, r, 0xdfe8ff, at));
+				this.oneShots.push(new Strike(this.ctx, zone, this.worldFront, this.screenLayer, r, 0xdfe8ff, at, true));
 				if (this.ctx.q > 0 && at) this.oneShots.push(this.burst(at, r, 30));
 				break;
 			}
@@ -813,6 +988,20 @@ export class FxEngine {
 				const b = area(this.ctx, zone);
 				const p = at ?? { x: b.w * (0.2 + r() * 0.6), y: b.h * (0.4 + r() * 0.4) };
 				const scope: Scope = at ? zone : { type: 'zone', id: '', x: p.x, y: p.y };
+				const fire = this.ctx.sheets.fire;
+				if (fire && this.ctx.q > 0) {
+					const parent = at ? this.worldFront : this.screenLayer;
+					const k = at ? 1.6 : 1.1;
+					this.oneShots.push(new FrameSprite(fire, parent, p, { scale: k, anchorY: 0.72, fps: 18 }));
+					const smoke = this.ctx.sheets.smoke;
+					if (smoke)
+						this.oneShots.push(
+							new FrameSprite(smoke, at ? this.worldBack : this.screenLayer, { x: p.x, y: p.y - 40 * k }, {
+								scale: k * 1.1, fps: 9, tint: 0x3a3029, alpha: 0.8, delay: 0.35, drift: { x: this.windValue * 25, y: -14 }
+							})
+						);
+					break;
+				}
 				const glow = new Glow(this.ctx, scope, 0xff5a14, 0.9, 0, at ? this.worldBack : this.screenLayer, 1);
 				let age = 0;
 				this.oneShots.push({

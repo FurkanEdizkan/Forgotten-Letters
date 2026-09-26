@@ -369,6 +369,9 @@
 				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world) : []);
 			};
 			refx();
+			fx.onSheets = () => refx?.();
+			// Opt-in handle for inspecting effects: add ?debugfx to the URL.
+			if (new URLSearchParams(location.search).has('debugfx')) (window as unknown as { __fx: unknown }).__fx = fx;
 			const unsubscribe = subscribeTriggers?.((t) => {
 				if (!fxEnabled) return;
 				const z = t.zone ? graph.zones.get(t.zone) : undefined;

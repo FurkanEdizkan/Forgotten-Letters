@@ -88,9 +88,18 @@ npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run
 
 ### Blender (effect sprites)
 
-Weather and portent effects can be rendered in Blender and brought in as sprite sheets. The
-repo's `.mcp.json` registers Blender Lab's official MCP bridge for Claude Code; the bridge
-itself is downloaded, not committed:
+Lightning strikes, hellfire bursts, crows and smoke puffs on the live map are rendered in
+Blender and packed into sprite sheets in `app/static/fx/`; the map falls back to drawn
+effects if they fail to load. To regenerate them (headless, about a minute; your open Blender
+session is not touched):
+
+```sh
+blender --background --factory-startup --python app/scripts/fx/render_fx.py -- /tmp/fx-frames
+python3 app/scripts/fx/pack_fx.py /tmp/fx-frames app/static/fx
+```
+
+For interactive work, the repo's `.mcp.json` registers Blender Lab's official MCP bridge for
+Claude Code; the bridge itself is downloaded, not committed:
 
 ```sh
 mkdir -p tools/blender-mcp && cd tools/blender-mcp

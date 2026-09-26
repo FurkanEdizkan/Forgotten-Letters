@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "blender": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "tools/blender-mcp/bundle",
+        "blender-mcp"
+      ],
+      "env": {}
+    }
+  }
+}

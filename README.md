@@ -86,6 +86,22 @@ npm run check        # type-check
 npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run on start)
 ```
 
+### Blender (effect sprites)
+
+Weather and portent effects can be rendered in Blender and brought in as sprite sheets. The
+repo's `.mcp.json` registers Blender Lab's official MCP bridge for Claude Code; the bridge
+itself is downloaded, not committed:
+
+```sh
+mkdir -p tools/blender-mcp && cd tools/blender-mcp
+curl -LO https://projects.blender.org/lab/blender_mcp/releases/download/v1.0.3/blender-1.0.3.mcpb
+unzip blender-1.0.3.mcpb -d bundle && (cd bundle && uv sync)
+```
+
+In Blender 5.1+ install the MCP add-on
+([mcp-1.0.3.zip](https://www.blender.org/lab/mcp-server/)), enable it and start its server
+(port 9876), then start Claude Code in this folder and approve the `blender` server.
+
 Stack: SvelteKit 2 (Node adapter), SQLite + Drizzle, Server-Sent Events for live updates,
 PixiJS 8 + pixi-viewport for the map and weather, sharp for image uploads.
 

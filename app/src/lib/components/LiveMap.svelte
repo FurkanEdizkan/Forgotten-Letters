@@ -394,6 +394,7 @@
 			const { FxEngine } = await import('$lib/fx/engine');
 			if (destroyed) return;
 			const fx = new FxEngine(app, overlay, fxBack, fxFront, deviceQuality(snapshot.fx.quality));
+			fx.worldSize = { w: W, h: H };
 			refx = () => {
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
 				fx.wind = snapshot.fx.wind;

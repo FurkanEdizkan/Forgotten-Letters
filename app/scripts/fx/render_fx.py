@@ -509,7 +509,170 @@ def smoke():
     render()
 
 
+
+# ---------------------------------------------------------------- aircraft (top-down, face +X)
+
+def _top_down(name, w, h, frames, ortho_scale):
+    s = setup(name, w, h, frames, light=False, ortho_scale=ortho_scale)
+    # Spinning props turn 90-110 degrees per frame: motion blur would smear them away.
+    s.render.use_motion_blur = False
+    cam = s.camera
+    cam.location = (0, 0, 20)
+    cam.rotation_euler = (0, 0, 0)
+    bg = s.world.node_tree.nodes["Background"]
+    bg.inputs["Strength"].default_value = 0.55
+    bg.inputs["Color"].default_value = (0.8, 0.78, 0.72, 1)
+    sun_d = bpy.data.lights.new("Sun", "SUN")
+    sun_d.energy = 3.2
+    sun = bpy.data.objects.new("Sun", sun_d)
+    s.collection.objects.link(sun)
+    sun.rotation_euler = (math.radians(35), math.radians(-30), math.radians(20))
+    return s
+
+
+def _fabric(name, colour, rib_scale=0.0, rib_dark=0.7, rough=0.8):
+    """Doped-fabric look: base colour with darker rib bands along one axis."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = rough
+    if rib_scale:
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        wave = nt.nodes.new("ShaderNodeTexWave")
+        wave.wave_type = "BANDS"
+        wave.bands_direction = "X"
+        wave.inputs["Scale"].default_value = rib_scale
+        wave.inputs["Distortion"].default_value = 0.0
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].color = tuple(c * rib_dark for c in colour) + (1,)
+        ramp.color_ramp.elements[1].color = (*colour, 1)
+        nt.links.new(tc.outputs["Object"], wave.inputs["Vector"])
+        nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    else:
+        bsdf.inputs["Base Color"].default_value = (*colour, 1)
+    return m
+
+
+def _box(name, size, loc, mat, bevel=0.0):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.scale = size
+    # Bake only the scale: keep the origin at `loc` so the part can be animated in place.
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    if bevel:
+        mod = ob.modifiers.new("Bevel", "BEVEL")
+        mod.width = bevel
+        mod.segments = 3
+    ob.data.materials.append(mat)
+    return ob
+
+
+def _disc(name, radius, loc, mat, depth=0.02):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=radius, depth=depth, location=loc)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.data.materials.append(mat)
+    return ob
+
+
+def biplane():
+    """WW1 biplane of Rudolf's Folly, seen from above, flying toward +X; 8-frame prop spin."""
+    reset()
+    frames = 8
+    s = _top_down("biplane", 256, 256, frames, ortho_scale=3.8)
+    wing = _fabric("Wing", (0.24, 0.24, 0.13), rib_scale=9.0, rib_dark=0.62)
+    hull = _fabric("Hull", (0.2, 0.19, 0.11))
+    metal = _fabric("Metal", (0.12, 0.11, 0.1), rough=0.4)
+    red = _fabric("Red", (0.55, 0.06, 0.04))
+    cream = _fabric("Cream", (0.85, 0.8, 0.66))
+    blade = _fabric("Blade", (0.25, 0.15, 0.08), rough=0.5)
+
+    # Fuselage tapering to the tail, round engine cowl at the nose.
+    _box("Fuselage", (1.9, 0.36, 0.3), (-0.15, 0, 0), hull, bevel=0.1)
+    _box("TailBoom", (0.6, 0.2, 0.18), (-1.3, 0, 0.02), hull, bevel=0.06)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.17, depth=0.22, location=(0.88, 0, 0),
+                                        rotation=(0, math.radians(90), 0))
+    cowl = bpy.context.active_object
+    cowl.data.materials.append(metal)
+    _box("Cockpit", (0.2, 0.18, 0.05), (0.05, 0, 0.14), metal, bevel=0.04)
+    # Upper wing (full span, over the fuselage) and the lower wing peeking out behind it.
+    _box("UpperWing", (0.42, 2.9, 0.035), (0.3, 0, 0.35), wing, bevel=0.02)
+    _box("LowerWing", (0.38, 2.6, 0.03), (-0.02, 0, -0.18), wing, bevel=0.02)
+    _box("Stabiliser", (0.34, 1.2, 0.025), (-1.52, 0, 0.05), wing, bevel=0.015)
+    _box("Fin", (0.28, 0.03, 0.3), (-1.55, 0, 0.18), red, bevel=0.01)
+    # Roundels on the upper wing tips: red over cream.
+    for y in (-1.15, 1.15):
+        _disc(f"RoundelOuter{y}", 0.17, (0.3, y, 0.375), cream)
+        _disc(f"RoundelInner{y}", 0.1, (0.3, y, 0.39), red)
+
+    # Two-blade propeller spinning about the nose axis. Each blade is keyframed directly
+    # (orbiting the hub) rather than parented to a spinning empty, which rendered empty headless.
+    hub = (1.04, 0.0, 0.0)
+    blades = [(_box(f"Blade{k}", (0.05, 0.11, 0.5), hub, blade, bevel=0.015), k) for k in (1, -1)]
+    for f in range(1, frames + 1):
+        a = math.radians((f - 1) * (360 / frames) * 2.5)
+        for b, k in blades:
+            b.rotation_euler = (a, 0, 0)
+            b.location = (hub[0], -math.sin(a) * 0.26 * k, math.cos(a) * 0.26 * k)
+            b.keyframe_insert("rotation_euler", frame=f)
+            b.keyframe_insert("location", frame=f)
+    render()
+
+
+def zeppelin():
+    """War zeppelin seen from above, flying toward +X; 4-frame engine-prop cycle."""
+    reset()
+    frames = 4
+    s = _top_down("zeppelin", 512, 192, frames, ortho_scale=9.4)
+    hull_m = _fabric("Envelope", (0.55, 0.53, 0.47), rib_scale=14.0, rib_dark=0.8, rough=0.6)
+    dark = _fabric("Dark", (0.16, 0.15, 0.13))
+    red = _fabric("Red", (0.5, 0.06, 0.05))
+    blade = _fabric("Blade", (0.2, 0.12, 0.07), rough=0.5)
+
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=1)
+    hull = bpy.context.active_object
+    hull.name = "Hull"
+    bpy.ops.object.shade_smooth()
+    hull.scale = (3.8, 0.85, 0.85)
+    hull.location.x = 0.35
+    hull.data.materials.append(hull_m)
+    # Cruciform tail fins and a painted band near the nose.
+    _box("FinTop", (0.9, 0.04, 0.9), (-2.85, 0, 0.75), hull_m, bevel=0.03)
+    _box("FinSideL", (0.9, 0.75, 0.04), (-2.85, 0.75, 0), hull_m, bevel=0.03)
+    _box("FinSideR", (0.9, 0.75, 0.04), (-2.85, -0.75, 0), hull_m, bevel=0.03)
+    _box("Rudder", (0.3, 0.06, 0.8), (-3.27, 0, 0.72), red, bevel=0.02)
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.86, minor_radius=0.04, location=(2.95, 0, 0),
+                                     rotation=(0, math.radians(90), 0))
+    band = bpy.context.active_object
+    band.scale = (1, 1, 1)
+    band.data.materials.append(red)
+    # Engine pods on outriggers with spinning props.
+    pivots = []
+    for side in (-1, 1):
+        _box(f"Strut{side}", (0.12, 0.7, 0.05), (-0.6, side * 1.05, -0.2), dark)
+        _box(f"Pod{side}", (0.55, 0.22, 0.22), (-0.6, side * 1.35, -0.2), dark, bevel=0.06)
+        pv = bpy.data.objects.new(f"Prop{side}", None)
+        s.collection.objects.link(pv)
+        pv.location = (-0.92, side * 1.35, -0.2)
+        for k in (1, -1):
+            b = _box(f"ZBlade{side}{k}", (0.05, 0.1, 0.38), (0, 0, 0), blade)
+            b.parent = pv
+            b.location = (0, 0, 0.19 * k)
+        pivots.append(pv)
+    for f in range(1, frames + 1):
+        for pv in pivots:
+            pv.rotation_euler = (math.radians((f - 1) * 45), 0, 0)
+            pv.keyframe_insert("rotation_euler", frame=f)
+    render()
+
+EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin)}
+
 if __name__ == "__main__":
-    for effect in (lightning, fire, crow, smoke):
-        effect()
+    # Optional names after the output dir render only those effects.
+    args = sys.argv[sys.argv.index("--") + 2:] if "--" in sys.argv else []
+    for name in args or EFFECTS:
+        EFFECTS[name]()
     print(f"rendered effect frames into {OUT}")

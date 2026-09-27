@@ -54,6 +54,9 @@ export function wantedEffects(
 		}
 	}
 
+	// Rudolf's Folly: once anyone holds an Outpost at the airfield, a biplane circles it.
+	if (s.warbands.some((w) => w.outposts.includes('rudolfs-folly'))) add('aircraft', 'rudolfs-folly', 0.6);
+
 	if (s.fx.battleWeather) {
 		for (const g of s.active) {
 			const ev = g.weatherEvent ? weatherByRoll(g.weatherEvent) : undefined;

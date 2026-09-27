@@ -39,7 +39,19 @@ SPECS = {
     'fire': (192, 8, 'add'),
     'crow': (128, 8, 'normal'),
     'smoke': (192, 8, 'normal'),
+    'biplane': (128, 8, 'normal'),
+    'zeppelin': (384, 4, 'normal'),
 }
+# Aircraft also get a soft ground shadow (an extra frame, animation "shadow").
+SHADOWS = {'biplane', 'zeppelin'}
+
+
+def shadow_of(im):
+    """A blurred dark silhouette to draw on the ground under a flying sprite."""
+    from PIL import ImageFilter
+    a = im.getchannel('A').filter(ImageFilter.GaussianBlur(max(2, im.width // 40)))
+    a = a.point(lambda v: int(v * 0.55))
+    return Image.merge('RGBA', (Image.new('L', im.size, 20), Image.new('L', im.size, 16), Image.new('L', im.size, 12), a))
 os.makedirs(OUT, exist_ok=True)
 for name, (fw, cols, blend) in SPECS.items():
     files = sorted(f for f in os.listdir(os.path.join(SRC, name)) if f.endswith('.png'))
@@ -50,6 +62,9 @@ for name, (fw, cols, blend) in SPECS.items():
     if blend == 'add':
         margin = (0.14, 0.03) if name == 'lightning' else (0.14, 0.14)
         frames = [clean_additive(im, margin=margin) for im in frames]
+    anim_count = len(frames)
+    if name in SHADOWS:
+        frames = frames + [shadow_of(frames[0])]
     rows = (len(frames) + cols - 1) // cols
     sheet = Image.new('RGBA', (cols * fw, rows * fh), (0, 0, 0, 0 if blend == 'normal' else 255))
     atlas = {'frames': {}, 'animations': {name: []}, 'meta': {
@@ -61,7 +76,10 @@ for name, (fw, cols, blend) in SPECS.items():
         key = f'{name}_{i:02d}'
         atlas['frames'][key] = {'frame': {'x': x, 'y': y, 'w': fw, 'h': fh}, 'rotated': False, 'trimmed': False,
                                 'spriteSourceSize': {'x': 0, 'y': 0, 'w': fw, 'h': fh}, 'sourceSize': {'w': fw, 'h': fh}}
-        atlas['animations'][name].append(key)
+        if i < anim_count:
+            atlas['animations'][name].append(key)
+        else:
+            atlas['animations']['shadow'] = [key]
     if blend == 'add':
         sheet = light_to_alpha(sheet)  # rendered on black -> real alpha, drawn with normal blending
     sheet.save(os.path.join(OUT, f'{name}.webp'), quality=88, method=6)

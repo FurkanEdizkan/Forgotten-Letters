@@ -3,7 +3,7 @@ import { db } from './db';
 import { fxState, regionWeather } from './db/schema';
 import { currentCampaign, type Campaign } from './campaign';
 import { publish, sendTrigger } from './hub';
-import { normaliseFx, normaliseLayers, type FxConfig, type PublicRegion, type TriggerKind } from '$lib/fx/types';
+import { normaliseFx, normaliseLayers, type FxConfig, type PublicRegion, type TriggerKind, type ZeppelinEvent } from '$lib/fx/types';
 import { buildGraph } from '$lib/rules/zones';
 
 export function getFx(campaignId: string): FxConfig {
@@ -76,6 +76,11 @@ export function trigger(c: Campaign, kind: TriggerKind, zone: string | null) {
 	sendTrigger(c.id, { kind, zone, seed: Math.floor(Math.random() * 2 ** 31) });
 }
 
+/** A zeppelin crosses every map, with the Campaign Master's banner text. */
+export function zeppelinEvent(c: Campaign, ev: ZeppelinEvent) {
+	sendTrigger(c.id, { kind: 'zeppelin', zone: ev.via, seed: Math.floor(Math.random() * 2 ** 31), zeppelin: ev });
+}
+
 // Random events: one server-side timer so every screen sees the same strike.
 let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -94,9 +99,9 @@ export function schedule() {
 			if (cfg.random.on && cfg.random.kinds.length) {
 				const kind = cfg.random.kinds[Math.floor(Math.random() * cfg.random.kinds.length)];
 				const zones = [...buildGraph(now.houseZones).zones.keys()];
-				// Lightning and fire strike a zone; crows may rise anywhere.
-				const zone = kind === 'crows' && Math.random() < 0.5 ? null : zones[Math.floor(Math.random() * zones.length)];
-				trigger(now, kind, kind === 'quake' ? null : zone);
+				// Lightning, fire, strafing and bombs strike a zone; crows and flyovers may be anywhere.
+				const anywhere = kind === 'quake' || kind === 'flyover' || (kind === 'crows' && Math.random() < 0.5);
+				trigger(now, kind, anywhere ? null : zones[Math.floor(Math.random() * zones.length)]);
 			}
 		}
 		schedule();

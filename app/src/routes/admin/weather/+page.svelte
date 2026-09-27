@@ -199,6 +199,23 @@
 			<button name="kind" value={kind}>{label}</button>
 		{/each}
 	</form>
+	<form method="POST" action="?/zeppelin" use:enhance={() => ({ update }) => update({ reset: false })} class="zeppelin">
+		<h3>Special event · Zeppelin</h3>
+		<div class="line">
+			<label class="wide">Banner text <input name="text" placeholder="The Iron Sultanate's airship passes over the Vivarium" /></label>
+			<label>
+				Route over
+				<select name="via">
+					<option value="">Anywhere</option>
+					{#each data.zones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
+				</select>
+			</label>
+			<label>Crossing (s) <input name="seconds" type="number" min="15" max="180" value="45" /></label>
+			<label class="check"><input type="checkbox" name="bomb" /> Bomb that zone</label>
+			<button>Launch the zeppelin</button>
+		</div>
+		{#if form && 'zeppelin' in form}<span class="ok">Aloft on every map.</span>{/if}
+	</form>
 	<div class="random">
 		<label class="check"><input type="checkbox" bind:checked={fx.random.on} /> Random portents, about every</label>
 		<input type="number" min="5" max="600" bind:value={fx.random.everySeconds} /> seconds:
@@ -459,6 +476,23 @@
 		flex-wrap: wrap;
 		gap: 8px 12px;
 		align-items: end;
+	}
+	.zeppelin {
+		margin-top: 14px;
+		padding-top: 10px;
+		border-top: 1px dotted var(--rule);
+	}
+	.zeppelin h3 {
+		margin: 0 0 6px;
+		font-variant-caps: small-caps;
+		color: var(--blood);
+	}
+	.wide {
+		flex: 1;
+		min-width: 16rem;
+	}
+	.ok {
+		color: var(--supplies);
 	}
 	.random {
 		margin-top: 12px;

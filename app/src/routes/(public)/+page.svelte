@@ -25,9 +25,17 @@
 	// Hell on Earth dice rolled anywhere show up on every map.
 	let project = $state<((zoneId: string) => { x: number; y: number } | null) | undefined>();
 	let dice = $state<{ roll: DiceRoll; zone: string; key: number } | null>(null);
+	// Special events (a zeppelin crossing) carry a banner for as long as they last.
+	let event = $state<{ text: string; key: number } | null>(null);
+	let eventTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() =>
 		live.onTrigger((t) => {
 			if (t.kind === 'dice' && t.dice && t.zone) dice = { roll: t.dice, zone: t.zone, key: t.seed };
+			if (t.kind === 'zeppelin' && t.zeppelin) {
+				event = { text: t.zeppelin.text, key: t.seed };
+				clearTimeout(eventTimer);
+				eventTimer = setTimeout(() => (event = null), t.zeppelin.seconds * 1000);
+			}
 		})
 	);
 
@@ -75,6 +83,10 @@
 		subscribeTriggers={live.onTrigger}
 		bind:project
 	/>
+
+	{#if event}
+		{#key event.key}<div class="event-banner" role="status">✠ {event.text}</div>{/key}
+	{/if}
 
 	{#if dice}
 		{#key dice.key}
@@ -245,6 +257,28 @@
 	.dot.on {
 		background: #6fbf4a;
 		box-shadow: 0 0 6px #6fbf4a;
+	}
+	.event-banner {
+		position: absolute;
+		top: 110px;
+		left: 50%;
+		transform: translateX(-50%);
+		max-width: calc(100% - 24px);
+		padding: 8px 18px;
+		background: rgba(35, 26, 18, 0.9);
+		color: var(--parchment);
+		border: 1px solid var(--rule);
+		font-family: var(--font-display);
+		font-size: 1.3rem;
+		text-align: center;
+		animation: banner 0.6s ease-out;
+		pointer-events: none;
+	}
+	@keyframes banner {
+		from {
+			opacity: 0;
+			transform: translate(-50%, -12px);
+		}
 	}
 	.omen {
 		position: absolute;

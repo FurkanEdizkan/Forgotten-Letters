@@ -17,7 +17,8 @@ export type FxKind =
 	| 'heat'
 	| 'choir'
 	| 'quake'
-	| 'thorns';
+	| 'thorns'
+	| 'aircraft';
 
 export const FX_LABELS: Record<FxKind, string> = {
 	rain: 'Rain',
@@ -35,7 +36,8 @@ export const FX_LABELS: Record<FxKind, string> = {
 	heat: 'Oppressive heat',
 	choir: 'Holy light',
 	quake: 'Tremors',
-	thorns: 'Barbed wire'
+	thorns: 'Barbed wire',
+	aircraft: 'Aircraft flyovers'
 };
 
 /** Ambient kinds offered in the Campaign Master's console. */
@@ -51,7 +53,8 @@ export const AMBIENT_KINDS: FxKind[] = [
 	'eclipse',
 	'heat',
 	'choir',
-	'quake'
+	'quake',
+	'aircraft'
 ];
 
 /** Hell on Earth event → what it looks like. */
@@ -143,14 +146,27 @@ export const DEFAULT_FX: FxConfig = {
 	presets: []
 };
 
-export type TriggerKind = 'lightning' | 'crows' | 'fire' | 'quake';
+export type TriggerKind = 'lightning' | 'crows' | 'fire' | 'quake' | 'flyover' | 'strafing' | 'bombardment';
 
 export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	lightning: 'Lightning strike',
 	crows: 'Crow flock',
 	fire: 'Hellfire burst',
-	quake: 'Tremor'
+	quake: 'Tremor',
+	flyover: 'Biplane flyover',
+	strafing: 'Strafing run',
+	bombardment: 'Aerial bombardment'
 };
+
+/** A zeppelin crossing the whole map: a special event with its own banner text. */
+export interface ZeppelinEvent {
+	text: string;
+	/** Zone the route passes over (and may bomb); null = a random crossing. */
+	via: string | null;
+	/** Seconds to cross. */
+	seconds: number;
+	bomb: boolean;
+}
 
 /** Hell on Earth dice rolled for a battle, animated over its zone on every map. */
 export interface DiceRoll {
@@ -163,8 +179,9 @@ export interface DiceRoll {
 
 /** One-shot effect pushed to every viewer at once. */
 export interface FxTrigger {
-	kind: TriggerKind | 'dice';
+	kind: TriggerKind | 'dice' | 'zeppelin';
 	dice?: DiceRoll;
+	zeppelin?: ZeppelinEvent;
 	/** Zone to strike; null = anywhere. */
 	zone: string | null;
 	/** Deterministic seed so every screen plays the same thing. */

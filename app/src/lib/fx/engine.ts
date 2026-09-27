@@ -1,5 +1,5 @@
 import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
-import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger, type TimeOfDay } from './types';
+import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
 
 /**
  * Weather & atmosphere for the live map.
@@ -106,8 +106,8 @@ function makeTextures() {
 type Textures = ReturnType<typeof makeTextures>;
 
 /** Blender-rendered sprite sheets (static/fx/*.json), when loaded. */
-export type SheetName = 'lightning' | 'fire' | 'crow' | 'smoke';
-type Sheets = Partial<Record<SheetName, Texture[]>>;
+export type SheetName = 'lightning' | 'fire' | 'crow' | 'smoke' | 'biplane' | 'zeppelin';
+type Sheets = Partial<Record<SheetName | 'biplaneShadow' | 'zeppelinShadow', Texture[]>>;
 
 interface Ctx {
 	app: Application;
@@ -833,6 +833,268 @@ class Thorns implements Effect {
 	}
 }
 
+
+// ---------------------------------------------------------------- aircraft
+
+type Pt = { x: number; y: number };
+
+/** One aircraft on a straight path: prop frames, a ground shadow offset by altitude, fades at the ends. */
+class Flight implements Effect {
+	s: Sprite;
+	sh: Sprite | null = null;
+	age: number;
+	constructor(
+		private frames: Texture[],
+		shadow: Texture | undefined,
+		parent: Container,
+		private from: Pt,
+		private to: Pt,
+		private seconds: number,
+		scale: number,
+		private altitude: number,
+		private fps = 18,
+		delay = 0
+	) {
+		const heading = Math.atan2(to.y - from.y, to.x - from.x);
+		if (shadow) {
+			this.sh = new Sprite(shadow);
+			this.sh.anchor.set(0.5);
+			this.sh.scale.set(scale * 0.95);
+			this.sh.rotation = heading;
+			parent.addChild(this.sh);
+		}
+		this.s = new Sprite(frames[0]);
+		this.s.anchor.set(0.5);
+		this.s.scale.set(scale);
+		this.s.rotation = heading;
+		parent.addChild(this.s);
+		this.age = -delay;
+		this.update(0);
+	}
+	get progress() {
+		return Math.max(0, Math.min(1, this.age / this.seconds));
+	}
+	get pos(): Pt {
+		const k = this.progress;
+		return { x: this.from.x + (this.to.x - this.from.x) * k, y: this.from.y + (this.to.y - this.from.y) * k };
+	}
+	setIntensity() {}
+	update(dt: number) {
+		this.age += dt;
+		const visible = this.age >= 0;
+		this.s.visible = visible;
+		if (this.sh) this.sh.visible = visible;
+		if (!visible) return;
+		const p = this.pos;
+		this.s.position.set(p.x, p.y);
+		this.s.texture = this.frames[Math.floor(this.age * this.fps) % this.frames.length];
+		const k = this.progress;
+		const fade = Math.min(1, k / 0.08, (1 - k) / 0.08);
+		this.s.alpha = fade;
+		if (this.sh) {
+			this.sh.position.set(p.x + this.altitude * 0.55, p.y + this.altitude);
+			this.sh.alpha = fade;
+		}
+	}
+	done = () => this.age >= this.seconds;
+	destroy() {
+		this.s.destroy();
+		this.sh?.destroy();
+	}
+}
+
+/** A path across the screen (or a world rectangle) through `via`, at a heading. */
+function crossing(w: number, h: number, heading: number, via: Pt, margin = 160): [Pt, Pt] {
+	const r = Math.hypot(w, h) / 2 + margin;
+	const d = { x: Math.cos(heading), y: Math.sin(heading) };
+	return [
+		{ x: via.x - d.x * r, y: via.y - d.y * r },
+		{ x: via.x + d.x * r, y: via.y + d.y * r }
+	];
+}
+
+/** Ambient flyovers across the screen, or a plane circling a zone (Rudolf's Folly). */
+class AircraftAmbient implements Effect {
+	flights: Flight[] = [];
+	orbit: Sprite | null = null;
+	orbitShadow: Sprite | null = null;
+	next = 1.5;
+	i = 1;
+	constructor(
+		private ctx: Ctx,
+		private scope: Scope,
+		private parent: Container,
+		intensity: number
+	) {
+		this.setIntensity(intensity);
+	}
+	setIntensity(i: number) {
+		this.i = i;
+	}
+	private spawn() {
+		const frames = this.ctx.sheets.biplane;
+		if (!frames) return;
+		const { width: w, height: h } = this.ctx.app.screen;
+		const heading = Math.random() * Math.PI * 2;
+		const via = { x: w * (0.25 + Math.random() * 0.5), y: h * (0.25 + Math.random() * 0.5) };
+		const [a, b] = crossing(w, h, heading, via);
+		const seconds = (Math.hypot(b.x - a.x, b.y - a.y) / 260) * (0.8 + Math.random() * 0.4);
+		const vee = Math.random() < 0.35;
+		const offsets = vee ? [[0, 0], [-60, -55], [-60, 55]] : [[0, 0]];
+		const dx = Math.cos(heading);
+		const dy = Math.sin(heading);
+		for (const [back, side] of offsets) {
+			const off = { x: dx * back - dy * side, y: dy * back + dx * side };
+			this.flights.push(
+				new Flight(frames, this.ctx.sheets.biplaneShadow?.[0], this.parent, { x: a.x + off.x, y: a.y + off.y }, { x: b.x + off.x, y: b.y + off.y }, seconds, 0.62, 46, 18, back ? 0.15 : 0)
+			);
+		}
+	}
+	update(dt: number, t: number) {
+		const frames = this.ctx.sheets.biplane;
+		if (this.scope.type === 'zone') {
+			if (!frames) return;
+			if (!this.orbit) {
+				const shadow = this.ctx.sheets.biplaneShadow?.[0];
+				if (shadow) {
+					this.orbitShadow = new Sprite(shadow);
+					this.orbitShadow.anchor.set(0.5);
+					this.parent.addChild(this.orbitShadow);
+				}
+				this.orbit = new Sprite(frames[0]);
+				this.orbit.anchor.set(0.5);
+				this.orbit.scale.set(1.1);
+				this.parent.addChild(this.orbit);
+			}
+			const a = t * 0.45;
+			const r = 190;
+			const x = this.scope.x + Math.cos(a) * r;
+			const y = this.scope.y + Math.sin(a) * r * 0.7;
+			this.orbit.position.set(x, y);
+			this.orbit.rotation = Math.atan2(Math.cos(a) * 0.7, -Math.sin(a));
+			this.orbit.texture = frames[Math.floor(t * 18) % frames.length];
+			if (this.orbitShadow) {
+				this.orbitShadow.position.set(x + 50, y + 90);
+				this.orbitShadow.rotation = this.orbit.rotation;
+				this.orbitShadow.scale.set(1.05);
+			}
+			return;
+		}
+		this.next -= dt;
+		if (this.next <= 0) {
+			this.next = (10 + Math.random() * 14) / (0.35 + this.i);
+			this.spawn();
+		}
+		for (const f of this.flights) f.update(dt);
+		this.flights = this.flights.filter((f) => (f.done() ? (f.destroy(), false) : true));
+	}
+	destroy() {
+		for (const f of this.flights) f.destroy();
+		this.orbit?.destroy();
+		this.orbitShadow?.destroy();
+	}
+}
+
+/** A timeline of callbacks keyed to an aircraft's progress along its path. */
+class Sortie implements Effect {
+	fired = new Set<number>();
+	extra: Effect[] = [];
+	constructor(
+		private flight: Flight,
+		private cues: { at: number; run: (pos: Pt) => Effect[] | void }[]
+	) {}
+	setIntensity() {}
+	update(dt: number, t: number) {
+		this.flight.update(dt);
+		this.cues.forEach((c, i) => {
+			if (!this.fired.has(i) && this.flight.progress >= c.at) {
+				this.fired.add(i);
+				const made = c.run(this.flight.pos);
+				if (made) this.extra.push(...made);
+			}
+		});
+		for (const e of this.extra) e.update(dt, t);
+		this.extra = this.extra.filter((e) => (e.done?.() ? (e.destroy(), false) : true));
+	}
+	done = () => this.flight.done() && this.extra.length === 0;
+	destroy() {
+		this.flight.destroy();
+		for (const e of this.extra) e.destroy();
+	}
+}
+
+/** Tracer streaks in a line, flashing and fading. */
+class Tracers implements Effect {
+	g = new Graphics();
+	age = 0;
+	constructor(parent: Container, from: Pt, to: Pt, r: () => number) {
+		const n = 7;
+		for (let i = 0; i < n; i++) {
+			const k = i / n + r() * 0.05;
+			const x = from.x + (to.x - from.x) * k;
+			const y = from.y + (to.y - from.y) * k;
+			const len = 40 + r() * 30;
+			const d = Math.atan2(to.y - from.y, to.x - from.x);
+			this.g.moveTo(x, y).lineTo(x + Math.cos(d) * len, y + Math.sin(d) * len);
+		}
+		// A warm glow under a hot core, so tracers read over the busy map.
+		this.g.stroke({ width: 14, color: 0xff8a1a, alpha: 0.35, cap: 'round' });
+		this.g.stroke({ width: 6, color: 0xfff1b0, alpha: 1, cap: 'round' });
+		parent.addChild(this.g);
+	}
+	setIntensity() {}
+	update(dt: number) {
+		this.age += dt;
+		this.g.alpha = Math.max(0, 1 - this.age / 0.35);
+	}
+	done = () => this.age > 0.35;
+	destroy() {
+		this.g.destroy();
+	}
+}
+
+/** A bomb falling (shrinking dark dot), then a detonation from the fire and smoke sheets. */
+class Bomb implements Effect {
+	g = new Graphics().circle(0, 0, 9).fill({ color: 0x151008 });
+	age = 0;
+	boom: Effect[] = [];
+	constructor(
+		private ctx: Ctx,
+		private parent: Container,
+		private at: Pt,
+		private delay: number
+	) {
+		this.g.position.set(at.x, at.y);
+		this.g.visible = false;
+		parent.addChild(this.g);
+	}
+	setIntensity() {}
+	update(dt: number, t: number) {
+		this.age += dt;
+		const k = (this.age - this.delay) / 0.7;
+		if (k < 0) return;
+		if (k < 1) {
+			this.g.visible = true;
+			this.g.scale.set(1.6 - k);
+			return;
+		}
+		if (!this.boom.length && this.g.visible) {
+			this.g.visible = false;
+			const fire = this.ctx.sheets.fire;
+			const smoke = this.ctx.sheets.smoke;
+			if (fire) this.boom.push(new FrameSprite(fire, this.parent, this.at, { scale: 1.2, anchorY: 0.72, fps: 18 }));
+			if (smoke) this.boom.push(new FrameSprite(smoke, this.parent, { x: this.at.x, y: this.at.y - 40 }, { scale: 1.2, fps: 9, tint: 0x3a3029, alpha: 0.8, delay: 0.3, drift: { x: 10, y: -12 } }));
+			this.ctx.shake(0.35, 5);
+		}
+		for (const b of this.boom) b.update(dt, t);
+	}
+	done = () => this.age > this.delay + 0.7 && this.boom.every((b) => b.done?.() ?? true);
+	destroy() {
+		this.g.destroy();
+		for (const b of this.boom) b.destroy();
+	}
+}
+
 // ---------------------------------------------------------------- engine
 
 interface Running {
@@ -888,13 +1150,15 @@ export class FxEngine {
 
 	/** Load the Blender-rendered sheets; effects fall back to drawn versions until (or if never) loaded. */
 	private async loadSheets() {
-		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke'];
+		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke', 'biplane', 'zeppelin'];
 		await Promise.all(
 			names.map(async (name) => {
 				try {
 					const sheet = await Assets.load<Spritesheet>(`/fx/${name}.json`);
 					const frames = sheet.animations[name];
 					if (frames?.length) this.ctx.sheets[name] = frames;
+					const shadow = sheet.animations.shadow;
+					if (shadow?.length && (name === 'biplane' || name === 'zeppelin')) this.ctx.sheets[`${name}Shadow`] = shadow;
 				} catch (e) {
 					console.warn(`fx: ${name} sheet unavailable, using drawn effect`, e);
 				}
@@ -994,6 +1258,8 @@ export class FxEngine {
 				return new Quake(ctx, i);
 			case 'thorns':
 				return new Thorns(w.scope, layer, ctx);
+			case 'aircraft':
+				return new AircraftAmbient(ctx, w.scope, holder, i);
 		}
 	}
 
@@ -1044,6 +1310,10 @@ export class FxEngine {
 	/** Play a one-shot effect. `at` is in world coordinates; omit for anywhere on screen. */
 	trigger(t: FxTrigger, at?: { x: number; y: number }) {
 		if (t.kind === 'dice') return; // drawn by the page as a DOM overlay
+		if (t.kind === 'zeppelin') {
+			if (t.zeppelin) this.zeppelin(t.zeppelin, at, rng(t.seed));
+			return;
+		}
 		const r = rng(t.seed);
 		const zone: Scope = at ? { type: 'zone', id: t.zone ?? '', x: at.x, y: at.y } : { type: 'screen' };
 		switch (t.kind) {
@@ -1094,7 +1364,80 @@ export class FxEngine {
 			case 'quake':
 				this.ctx.shake(1, 12);
 				break;
+			case 'flyover':
+			case 'strafing':
+			case 'bombardment':
+				this.air(t.kind, at, r);
+				break;
 		}
+	}
+
+	/** Map size in world units, for paths that cross the whole map. */
+	worldSize = { w: 2398, h: 1604 };
+
+	/** Biplane portents: a flyover, a strafing run along a zone, or three bombs on it. */
+	private air(kind: 'flyover' | 'strafing' | 'bombardment', at: Pt | undefined, r: () => number) {
+		const frames = this.ctx.sheets.biplane;
+		if (!frames) return;
+		const shadow = this.ctx.sheets.biplaneShadow?.[0];
+		const heading = r() * Math.PI * 2;
+		if (!at || kind === 'flyover') {
+			const layer = at ? this.worldFront : this.screenLayer;
+			const { w, h } = at ? this.worldSize : { w: this.app.screen.width, h: this.app.screen.height };
+			const via = at ?? { x: w * (0.3 + r() * 0.4), y: h * (0.3 + r() * 0.4) };
+			const [a, b] = crossing(w, h, heading, via);
+			const k = at ? 1.3 : 0.62;
+			this.oneShots.push(new Flight(frames, shadow, layer, a, b, Math.hypot(b.x - a.x, b.y - a.y) / (at ? 520 : 260), k, at ? 110 : 46));
+			return;
+		}
+		// Low pass over the zone: comes in from ~1100 world units away and leaves as far.
+		const d = { x: Math.cos(heading), y: Math.sin(heading) };
+		const from = { x: at.x - d.x * 1100, y: at.y - d.y * 1100 };
+		const to = { x: at.x + d.x * 1100, y: at.y + d.y * 1100 };
+		const flight = new Flight(frames, shadow, this.worldFront, from, to, 4.2, 1.3, 70, 22);
+		const cues: { at: number; run: (pos: Pt) => Effect[] | void }[] = [];
+		if (kind === 'strafing') {
+			// Tracer bursts and dust along the ground line as the plane crosses the zone.
+			for (let i = 0; i < 6; i++) {
+				cues.push({
+					at: 0.4 + i * 0.035,
+					run: (pos) => {
+						const ahead = { x: pos.x + d.x * 180, y: pos.y + d.y * 180 };
+						const out: Effect[] = [new Tracers(this.worldFront, pos, ahead, r)];
+						const smoke = this.ctx.sheets.smoke;
+						if (smoke)
+							out.push(new FrameSprite(smoke, this.worldBack, { x: ahead.x + (r() - 0.5) * 30, y: ahead.y + (r() - 0.5) * 30 }, { scale: 0.5, fps: 14, tint: 0x8a6a45, alpha: 0.7 }));
+						return out;
+					}
+				});
+			}
+		} else {
+			for (let i = 0; i < 3; i++) {
+				cues.push({
+					at: 0.44 + i * 0.03,
+					run: (pos) => [new Bomb(this.ctx, this.worldFront, { x: pos.x + d.x * 40, y: pos.y + d.y * 40 + 30 }, 0)]
+				});
+			}
+		}
+		this.oneShots.push(new Sortie(flight, cues));
+	}
+
+	/** A zeppelin crossing the whole map (special event), optionally bombing the zone it passes over. */
+	private zeppelin(ev: ZeppelinEvent, via: Pt | undefined, r: () => number) {
+		const frames = this.ctx.sheets.zeppelin;
+		if (!frames) return;
+		const { w, h } = this.worldSize;
+		const heading = (r() - 0.5) * 0.9 + (r() < 0.5 ? 0 : Math.PI);
+		const centre = via ?? { x: w * (0.35 + r() * 0.3), y: h * (0.3 + r() * 0.4) };
+		const [a, b] = crossing(w, h, heading, centre, 700);
+		const flight = new Flight(frames, this.ctx.sheets.zeppelinShadow?.[0], this.worldFront, a, b, Math.max(15, ev.seconds), 2.4, 220, 8);
+		const cues: { at: number; run: (pos: Pt) => Effect[] | void }[] = [];
+		if (via && ev.bomb) {
+			for (let i = 0; i < 3; i++) {
+				cues.push({ at: 0.49 + i * 0.012, run: (pos) => [new Bomb(this.ctx, this.worldFront, { x: pos.x + (r() - 0.5) * 120, y: pos.y + 60 + r() * 60 }, 0)] });
+			}
+		}
+		this.oneShots.push(new Sortie(flight, cues));
 	}
 
 	/** Upward burst of embers from a point. */

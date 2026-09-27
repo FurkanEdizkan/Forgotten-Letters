@@ -3,3 +3,6 @@
 
 # Blender Lab MCP bridge (download: see README)
 /tools/blender-mcp/
+
+# Python caches (render/pack scripts)
+__pycache__/

@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { regionWeather } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { getFx, trigger } from '$lib/server/fx';
+import { getFx, trigger, zeppelinEvent } from '$lib/server/fx';
 import { publish } from '$lib/server/hub';
 import { buildGraph } from '$lib/rules/zones';
 import { weatherByRoll } from '$lib/rules/weather';
@@ -43,6 +43,20 @@ export const actions: Actions = {
 		const zone = String(data.get('zone') ?? '');
 		trigger(c, kind, buildGraph(c.houseZones).zones.has(zone) ? zone : null);
 		return { triggered: kind };
+	},
+
+	zeppelin: async ({ request }) => {
+		const c = need();
+		const data = await request.formData();
+		const via = String(data.get('via') ?? '');
+		const seconds = Number(data.get('seconds'));
+		zeppelinEvent(c, {
+			text: String(data.get('text') ?? '').trim().slice(0, 160) || 'A zeppelin passes over the front.',
+			via: buildGraph(c.houseZones).zones.has(via) ? via : null,
+			seconds: Number.isFinite(seconds) ? Math.min(180, Math.max(15, seconds)) : 45,
+			bomb: data.has('bomb') && buildGraph(c.houseZones).zones.has(via)
+		});
+		return { zeppelin: true };
 	},
 
 	addRegion: async ({ request }) => {

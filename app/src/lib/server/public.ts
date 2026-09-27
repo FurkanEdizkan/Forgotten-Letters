@@ -7,6 +7,8 @@ import { standings } from '$lib/rules/scoring';
 import { visionById } from '$lib/rules/visions';
 import type { PublicSnapshot } from '$lib/snapshot';
 import { activeRegions, getFx } from './fx';
+import { activeUnitsByWarband } from './roster';
+import type { GameResult } from './campaign';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
@@ -30,6 +32,7 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 		.limit(30)
 		.all();
 
+	const unitsBy = activeUnitsByWarband(c.id);
 	const playing = new Map<string, string>();
 	for (const g of active) {
 		playing.set(g.aggressorId, g.zone);
@@ -77,17 +80,41 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 				supplied: suppliedOutposts(state, s).zones,
 				omens: s.omens,
 				apocrypha: s.apocrypha,
-				vision: reveal && w.visionCard ? (visionById(w.visionCard)?.name ?? null) : null
+				vision: reveal && w.visionCard ? (visionById(w.visionCard)?.name ?? null) : null,
+				treasury: { ducats: w.treasuryDucats, glory: w.treasuryGlory },
+				units: (unitsBy.get(w.id) ?? []).map((u) => ({
+					id: u.id,
+					name: u.name,
+					type: u.type,
+					category: u.category,
+					leader: u.leader,
+					cost: u.cost,
+					currency: u.currency,
+					experience: u.experience,
+					equipment: u.equipment,
+					upgrades: u.upgrades,
+					skills: u.skills,
+					injuries: u.injuries,
+					stats: u.stats,
+					photo: u.photo,
+					status: u.status
+				}))
 			};
 		}),
-		active: active.map((g) => ({
-			id: g.id,
-			zone: g.zone,
-			aggressor: g.aggressorId,
-			defender: g.defenderId,
-			scenario: g.scenario,
-			weatherEvent: g.weatherEvent
-		})),
+		active: active.map((g) => {
+			const rolls = (g.weatherRolls ?? null) as { aggressor?: [number, number] | null; defender?: [number, number] | null; chooser?: string | null } | null;
+			return {
+				id: g.id,
+				zone: g.zone,
+				aggressor: g.aggressorId,
+				defender: g.defenderId,
+				scenario: g.scenario,
+				weatherEvent: g.weatherEvent,
+				status: g.status,
+				aggressorReason: ((g.result ?? {}) as Partial<GameResult>).aggressorReason ?? null,
+				weatherRolls: rolls ? { aggressor: rolls.aggressor ?? null, defender: rolls.defender ?? null, chooser: rolls.chooser ?? null } : null
+			};
+		}),
 		recent: recent.map((g) => ({
 			id: g.id,
 			zone: g.zone,
@@ -96,6 +123,9 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 			winner: g.winnerId,
 			scenario: g.scenario,
 			weatherEvent: g.weatherEvent,
+			status: g.status,
+			aggressorReason: null,
+			weatherRolls: null,
 			at: (g.committedAt ?? g.createdAt).getTime()
 		})),
 		standings: standings(state, infos, { revealVisions: reveal, final: reveal }),

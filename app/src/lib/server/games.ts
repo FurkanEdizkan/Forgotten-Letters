@@ -74,7 +74,7 @@ export function previewGame(c: Campaign, g: Game, draft: Draft) {
 
 export function commitGame(g: Game, draft: Draft) {
 	const prev = (g.result ?? {}) as Partial<GameResult>;
-	const result: GameResult = { sides: draft.sides, scenarioRandom: prev.scenarioRandom };
+	const result: GameResult = { ...prev, sides: draft.sides };
 	db.update(game)
 		.set({
 			status: 'done',

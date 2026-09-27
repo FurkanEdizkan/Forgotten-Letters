@@ -39,6 +39,28 @@ export interface PublicWarband {
 	apocrypha: number;
 	/** Only after the reveal. */
 	vision: string | null;
+	/** Roster bank. */
+	treasury: { ducats: number; glory: number };
+	/** Active models on the roster. */
+	units: PublicUnit[];
+}
+
+export interface PublicUnit {
+	id: string;
+	name: string;
+	type: string;
+	category: 'elite' | 'troop' | 'mercenary';
+	leader: boolean;
+	cost: number;
+	currency: 'ducats' | 'glory';
+	experience: number;
+	equipment: { name: string; kind: 'ranged' | 'melee' | 'armour' | 'equipment'; cost: number; currency: 'ducats' | 'glory' }[];
+	upgrades: string[];
+	skills: string[];
+	injuries: string[];
+	stats: { movement?: string; ranged?: string; melee?: string; armour?: string; base?: string };
+	photo: string | null;
+	status: 'active' | 'dead' | 'retired';
 }
 
 export interface PublicGame {
@@ -48,6 +70,12 @@ export interface PublicGame {
 	defender: string;
 	scenario: string | null;
 	weatherEvent: number | null;
+	/** Planned (not started) or being fought. */
+	status: 'scheduled' | 'in_progress' | 'done';
+	/** Why this side is the Aggressor. */
+	aggressorReason: 'fewer' | 'roll-off' | 'chosen' | null;
+	/** Hell on Earth 2D6 rolls, once rolled. */
+	weatherRolls: { aggressor: [number, number] | null; defender: [number, number] | null; chooser: string | null } | null;
 }
 
 export interface PublicSnapshot {

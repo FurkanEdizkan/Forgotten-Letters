@@ -45,6 +45,8 @@ export function rosters(campaignId: string) {
 export interface GameResult {
 	sides: Record<string, SideResult>;
 	scenarioRandom?: boolean;
+	/** Why the Aggressor is the Aggressor: fewer times so far, a roll-off, or chosen by the CM. */
+	aggressorReason?: 'fewer' | 'roll-off' | 'chosen';
 }
 
 export interface AdjustmentPayload {

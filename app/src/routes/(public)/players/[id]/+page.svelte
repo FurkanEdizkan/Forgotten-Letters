@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Portrait from '$lib/components/Portrait.svelte';
 	import TrackerSheet from '$lib/components/TrackerSheet.svelte';
+	import UnitCard from '$lib/components/UnitCard.svelte';
 	import { getLive } from '$lib/context';
 	import { FACTIONS } from '$lib/rules/factions';
 	import { buildGraph } from '$lib/rules/zones';
@@ -39,6 +40,20 @@
 			<div><small>Omens · Apocrypha</small>{w.omens} · {w.apocrypha}</div>
 			{#if w.vision}<div><small>Vision</small>{w.vision} · level {standing?.visionLevel ?? 0}</div>{/if}
 		</div>
+
+		<section class="roster">
+			<div class="roster-head">
+				<h2>The Warband</h2>
+				<span class="bank"><strong>{w.treasury.ducats}</strong> Ducats · <strong>{w.treasury.glory}</strong> Glory in the bank</span>
+			</div>
+			{#if w.units.length}
+				<div class="units">
+					{#each w.units as u (u.id)}<UnitCard unit={u} photo={u.photo} />{/each}
+				</div>
+			{:else}
+				<p class="muted"><em>The roster has not been mustered here yet.</em></p>
+			{/if}
+		</section>
 
 		<TrackerSheet {w} />
 
@@ -108,6 +123,27 @@
 		padding: 6px 10px;
 		border-left: 3px solid var(--blood);
 		background: var(--parchment);
+	}
+	.roster {
+		margin: 18px 0;
+	}
+	.roster-head {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 6px 16px;
+	}
+	.roster-head h2 {
+		margin: 0 0 6px;
+	}
+	.units {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+		gap: 8px;
+	}
+	.muted {
+		color: var(--muted);
 	}
 	.back {
 		display: grid;

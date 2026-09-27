@@ -23,6 +23,7 @@
 	<div>
 		<h1>{w.name}</h1>
 		<div class="sub">{p.seat ? `P${p.seat} · ` : ''}{p.name} · {data.games} games played</div>
+		<a class="roster-link" href="/admin/warbands/{w.id}/roster">Open the roster builder →</a>
 	</div>
 </div>
 
@@ -111,6 +112,10 @@
 	}
 	.sub {
 		color: var(--muted);
+	}
+	.roster-link {
+		font-variant-caps: small-caps;
+		letter-spacing: 0.04em;
 	}
 	section {
 		margin-top: 24px;

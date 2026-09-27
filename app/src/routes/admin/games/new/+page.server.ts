@@ -116,7 +116,13 @@ export const actions: Actions = {
 				scenario: s('scenario') || null,
 				weatherEvent: weatherByRoll(weatherEvent) ? weatherEvent : null,
 				weatherRolls,
-				result: { sides: {}, scenarioRandom: s('scenarioRandom') === 'true' }
+				result: {
+					sides: {},
+					scenarioRandom: s('scenarioRandom') === 'true',
+					aggressorReason: ((suggested) => (suggested === aggressor ? 'fewer' : suggested === null ? 'roll-off' : 'chosen'))(
+						suggestAggressor(state, aggressor, defender)
+					)
+				}
 			})
 			.returning()
 			.get();

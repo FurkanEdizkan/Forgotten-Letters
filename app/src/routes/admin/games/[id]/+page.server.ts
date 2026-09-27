@@ -6,6 +6,7 @@ import { rosters, type GameResult } from '$lib/server/campaign';
 import { commitGame, findGame, parseDraft, previewGame } from '$lib/server/games';
 import { publish } from '$lib/server/hub';
 import { tickRegions } from '$lib/server/fx';
+import { roster } from '$lib/server/roster';
 import { buildGraph } from '$lib/rules/zones';
 import { weatherByRoll } from '$lib/rules/weather';
 import type { Actions, PageServerLoad } from './$types';
@@ -65,7 +66,9 @@ export const actions: Actions = {
 		commitGame(g, draft);
 		if (firstCommit) tickRegions(c.id, g.zone);
 		publish(c.id);
-		redirect(303, '/admin/games');
+		// On to the roster aftermath (injuries, promotions) when either side keeps a roster.
+		const hasRoster = [g.aggressorId, g.defenderId].some((id) => roster(id).units.length);
+		redirect(303, hasRoster ? `/admin/games/${g.id}/aftermath` : '/admin/games');
 	},
 
 	reopen: async ({ params }) => {

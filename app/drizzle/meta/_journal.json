@@ -29,6 +29,13 @@
       "when": 1790468549944,
       "tag": "0003_zone_lore",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790468918578,
+      "tag": "0004_rosters",
+      "breakpoints": true
     }
   ]
 }

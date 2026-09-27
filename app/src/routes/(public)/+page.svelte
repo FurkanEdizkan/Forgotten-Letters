@@ -2,6 +2,7 @@
 	import LiveMap from '$lib/components/LiveMap.svelte';
 	import Portrait from '$lib/components/Portrait.svelte';
 	import ZoneFacts from '$lib/components/ZoneFacts.svelte';
+	import BattlePanel from '$lib/components/BattlePanel.svelte';
 	import { getLive } from '$lib/context';
 	import { buildGraph } from '$lib/rules/zones';
 	import { weatherByRoll } from '$lib/rules/weather';
@@ -119,19 +120,16 @@
 		</aside>
 	{/if}
 
-	{#if zone}
+	{#if zone && zoneGame}
+		<aside class="sheet wide">
+			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
+			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName} />
+		</aside>
+	{:else if zone}
 		<aside class="sheet">
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
 			<div class="kicker">{zone.type === 'entry' ? 'Entry Zone' : zone.type === 'special' ? 'Special Zone' : 'Zone'}{zone.house ? ' · our campaign' : ''}</div>
 			<h2>{zone.name}</h2>
-			{#if zoneGame}
-				{@const we = zoneGame.weatherEvent ? weatherByRoll(zoneGame.weatherEvent) : null}
-				<div class="now">
-					<strong>Battle in progress:</strong> {wb.get(zoneGame.aggressor)?.player} vs {wb.get(zoneGame.defender)?.player}
-					{#if zoneGame.scenario}<br />{zoneGame.scenario}{/if}
-					{#if we}<br /><em>{we.name}</em> — {we.effect}{/if}
-				</div>
-			{/if}
 			<ZoneFacts {zone} snapshot={s} compact />
 			<a class="lore-link" href="/zones/{zone.id}">Read the lore →</a>
 		</aside>
@@ -345,6 +343,10 @@
 	.sheet .kicker {
 		color: var(--blood);
 	}
+	.sheet.wide {
+		width: min(52rem, calc(100% - 24px));
+		max-height: 72%;
+	}
 	.close {
 		position: absolute;
 		top: 6px;
@@ -354,12 +356,6 @@
 		background: none;
 		color: var(--ink);
 		border: none;
-	}
-	.now {
-		margin-top: 8px;
-		padding: 8px 10px;
-		background: var(--parchment);
-		border-left: 3px solid var(--blood-bright);
 	}
 	.lore-link {
 		display: inline-block;

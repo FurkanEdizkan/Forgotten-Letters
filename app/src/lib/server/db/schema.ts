@@ -61,6 +61,14 @@ export const warband = sqliteTable(
 		visionCard: text('vision_card'),
 		visionProgress: integer('vision_progress').notNull().default(0),
 		visionNotes: text('vision_notes'),
+		/** Roster bank (the base game's Quartermaster). */
+		treasuryDucats: integer('treasury_ducats').notNull().default(0),
+		treasuryGlory: integer('treasury_glory').notNull().default(0),
+		rosterNotes: text('roster_notes'),
+		/** Map marker: the player's portrait, or the warband's model token. */
+		displayModel: text('display_model', { enum: ['portrait', 'model'] })
+			.notNull()
+			.default('portrait'),
 		createdAt: createdAt()
 	},
 	(t) => [index('warband_campaign_idx').on(t.campaignId)]
@@ -157,4 +165,77 @@ export const zoneLore = sqliteTable(
 			.$defaultFn(() => new Date())
 	},
 	(t) => [primaryKey({ columns: [t.campaignId, t.zoneId] })]
+);
+
+export interface RosterItem {
+	name: string;
+	kind: 'ranged' | 'melee' | 'armour' | 'equipment';
+	cost: number;
+	currency: 'ducats' | 'glory';
+}
+
+export interface UnitStats {
+	movement?: string;
+	ranged?: string;
+	melee?: string;
+	armour?: string;
+	base?: string;
+}
+
+/** A model on a warband roster, shaped like Trench Companion's per-model data. */
+export const unit = sqliteTable(
+	'unit',
+	{
+		id: id(),
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		warbandId: text('warband_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		type: text('type').notNull().default(''),
+		category: text('category', { enum: ['elite', 'troop', 'mercenary'] })
+			.notNull()
+			.default('troop'),
+		leader: integer('leader', { mode: 'boolean' }).notNull().default(false),
+		cost: integer('cost').notNull().default(0),
+		currency: text('currency', { enum: ['ducats', 'glory'] })
+			.notNull()
+			.default('ducats'),
+		experience: integer('experience').notNull().default(0),
+		equipment: text('equipment', { mode: 'json' }).$type<RosterItem[]>().notNull().default([]),
+		upgrades: text('upgrades', { mode: 'json' }).$type<string[]>().notNull().default([]),
+		skills: text('skills', { mode: 'json' }).$type<string[]>().notNull().default([]),
+		injuries: text('injuries', { mode: 'json' }).$type<string[]>().notNull().default([]),
+		stats: text('stats', { mode: 'json' }).$type<UnitStats>().notNull().default({}),
+		notes: text('notes'),
+		photo: text('photo'),
+		status: text('status', { enum: ['active', 'dead', 'retired'] })
+			.notNull()
+			.default('active'),
+		sort: integer('sort').notNull().default(0),
+		createdAt: createdAt()
+	},
+	(t) => [index('unit_warband_idx').on(t.warbandId)]
+);
+
+/** Items held in the warband's stash (paychest) rather than by a model. */
+export const warbandStash = sqliteTable(
+	'warband_stash',
+	{
+		id: id(),
+		warbandId: text('warband_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		kind: text('kind', { enum: ['ranged', 'melee', 'armour', 'equipment'] })
+			.notNull()
+			.default('equipment'),
+		cost: integer('cost').notNull().default(0),
+		currency: text('currency', { enum: ['ducats', 'glory'] })
+			.notNull()
+			.default('ducats')
+	},
+	(t) => [index('stash_warband_idx').on(t.warbandId)]
 );

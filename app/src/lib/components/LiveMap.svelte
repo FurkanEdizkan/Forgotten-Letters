@@ -397,6 +397,7 @@
 			refx = () => {
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
 				fx.wind = snapshot.fx.wind;
+				fx.setTimeOfDay(snapshot.fx.timeOfDay, W, H);
 				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world) : []);
 			};
 			refx();

@@ -1,7 +1,7 @@
 import { weatherByRoll } from '$lib/rules/weather';
 import type { Zone } from '$lib/rules/types';
 import type { PublicSnapshot } from '$lib/snapshot';
-import { PRESET_FX, type FxKind } from './types';
+import { PRESET_FX, layerParams, type FxKind, type FxParams } from './types';
 import type { Wanted } from './engine';
 
 /**
@@ -14,11 +14,12 @@ export function wantedEffects(
 	world: (z: Zone) => { x: number; y: number }
 ): Wanted[] {
 	const out = new Map<string, Wanted>();
-	const add = (kind: FxKind, zoneId: string | null, intensity: number) => {
+	// The strongest source of an effect at a place wins (with its tuning).
+	const add = (kind: FxKind, zoneId: string | null, intensity: number, params?: FxParams) => {
 		if (!zoneId) {
 			const key = `screen:${kind}`;
 			const prev = out.get(key);
-			if (!prev || prev.intensity < intensity) out.set(key, { key, kind, scope: { type: 'screen' }, intensity });
+			if (!prev || prev.intensity < intensity) out.set(key, { key, kind, scope: { type: 'screen' }, intensity, params });
 			return;
 		}
 		const z = zones.get(zoneId);
@@ -27,12 +28,21 @@ export function wantedEffects(
 		const prev = out.get(key);
 		if (!prev || prev.intensity < intensity) {
 			const p = world(z);
-			out.set(key, { key, kind, scope: { type: 'zone', id: zoneId, x: p.x, y: p.y }, intensity });
+			out.set(key, { key, kind, scope: { type: 'zone', id: zoneId, x: p.x, y: p.y }, intensity, params });
 		}
 	};
 
 	for (const [kind, layer] of Object.entries(s.fx.layers)) {
-		if (layer?.on) add(kind as FxKind, null, layer.intensity);
+		if (layer?.on) add(kind as FxKind, null, layer.intensity, layerParams(layer));
+	}
+
+	// Regional ambient layers: over the region's zones, or the whole map.
+	for (const r of s.regions) {
+		for (const [kind, layer] of Object.entries(r.layers ?? {})) {
+			if (!layer?.on) continue;
+			if (r.zones === null) add(kind as FxKind, null, layer.intensity, layerParams(layer));
+			else for (const z of r.zones) add(kind as FxKind, z, layer.intensity, layerParams(layer));
+		}
 	}
 
 	for (const r of s.regions) {

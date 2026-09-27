@@ -7,13 +7,15 @@ import { getFx, trigger } from '$lib/server/fx';
 import { publish } from '$lib/server/hub';
 import { buildGraph } from '$lib/rules/zones';
 import { weatherByRoll } from '$lib/rules/weather';
-import { TRIGGER_LABELS, type TriggerKind } from '$lib/fx/types';
+import { TRIGGER_LABELS, normaliseLayers, type TriggerKind } from '$lib/fx/types';
+import { publicSnapshot } from '$lib/server/public';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const c = currentCampaign();
 	if (!c) error(404, 'No campaign');
 	return {
+		snapshot: publicSnapshot(c),
 		fx: getFx(c.id),
 		zones: [...buildGraph(c.houseZones).zones.values()],
 		regions: db
@@ -22,7 +24,7 @@ export const load: PageServerLoad = () => {
 			.where(eq(regionWeather.campaignId, c.id))
 			.orderBy(desc(regionWeather.createdAt))
 			.all()
-			.map((r) => ({ ...r, zones: r.zones as string[] | null }))
+			.map((r) => ({ ...r, zones: r.zones as string[] | null, layers: normaliseLayers(r.fx) }))
 	};
 };
 
@@ -50,7 +52,15 @@ export const actions: Actions = {
 		const wholeMap = data.has('wholeMap');
 		const zones = data.getAll('zones').map(String).filter((z) => valid.has(z));
 		const event = Number(data.get('weatherEvent'));
-		if (!weatherByRoll(event)) return fail(400, { regionMessage: 'Choose a Hell on Earth event' });
+		let layers = {};
+		try {
+			layers = normaliseLayers(JSON.parse(String(data.get('layers') ?? '{}')));
+		} catch {
+			/* no layers */
+		}
+		const hasLayers = Object.values(layers).some((l) => (l as { on: boolean }).on);
+		if (!weatherByRoll(event) && !hasLayers)
+			return fail(400, { regionMessage: 'Choose a Hell on Earth event or at least one weather layer' });
 		if (!wholeMap && !zones.length) return fail(400, { regionMessage: 'Choose zones, or the whole map' });
 		const games = Number(data.get('gamesRemaining'));
 		db.insert(regionWeather)
@@ -58,7 +68,8 @@ export const actions: Actions = {
 				campaignId: c.id,
 				name: String(data.get('name') ?? '').trim() || null,
 				zones: wholeMap ? null : zones,
-				weatherEvent: event,
+				weatherEvent: weatherByRoll(event) ? event : null,
+				fx: layers,
 				gamesRemaining: Number.isInteger(games) && games > 0 ? games : null,
 				active: true
 			})

@@ -1,5 +1,5 @@
 import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
-import type { FxKind, FxTrigger } from './types';
+import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger, type TimeOfDay } from './types';
 
 /**
  * Weather & atmosphere for the live map.
@@ -16,11 +16,14 @@ export interface Wanted {
 	kind: FxKind;
 	scope: Scope;
 	intensity: number;
+	params?: FxParams;
 }
 
 interface Effect {
 	update(dt: number, t: number): void;
 	setIntensity(i: number): void;
+	/** Size multiplier for effects that scale their own pieces (particles). */
+	setSize?(k: number): void;
 	destroy(): void;
 	/** One-shot effects report when they are finished. */
 	done?: () => boolean;
@@ -148,9 +151,10 @@ interface ParticleSpec {
 
 class Particles implements Effect {
 	c: ParticleContainer;
-	ps: P[] = [];
+	ps: (P & { sx: number; sy: number })[] = [];
 	r = Math.random;
 	target = 0;
+	size = 1;
 	constructor(
 		private ctx: Ctx,
 		private scope: Scope,
@@ -169,10 +173,12 @@ class Particles implements Effect {
 		const share = this.scope.type === 'zone' ? 0.14 : 1;
 		this.target = Math.round(this.spec.count * i * share * this.ctx.q);
 		while (this.ps.length < this.target) {
-			const p = new Particle({ texture: this.ctx.tex[this.spec.texture], anchorX: 0.5, anchorY: 0.5 }) as P;
+			const p = new Particle({ texture: this.ctx.tex[this.spec.texture], anchorX: 0.5, anchorY: 0.5 }) as P & { sx: number; sy: number };
 			const [sx, sy] = this.spec.scale(this.r);
-			p.scaleX = sx;
-			p.scaleY = sy;
+			p.sx = sx;
+			p.sy = sy;
+			p.scaleX = sx * this.size;
+			p.scaleY = sy * this.size;
 			p.tint = this.spec.tint();
 			this.spec.spawn(p, this.bounds(), this.r, this.ctx.wind(), true);
 			p.base = this.spec.alpha * (0.6 + 0.4 * this.r());
@@ -181,6 +187,13 @@ class Particles implements Effect {
 			this.c.addParticle(p);
 		}
 		while (this.ps.length > this.target) this.c.removeParticle(this.ps.pop()!);
+	}
+	setSize(k: number) {
+		this.size = k;
+		for (const p of this.ps) {
+			p.scaleX = p.sx * k;
+			p.scaleY = p.sy * k;
+		}
 	}
 	update(dt: number, t: number) {
 		const b = this.bounds();
@@ -822,9 +835,19 @@ class Thorns implements Effect {
 
 // ---------------------------------------------------------------- engine
 
+interface Running {
+	effect: Effect;
+	holder: Container;
+	scope: Scope;
+	params: FxParams;
+	/** The effect's own clock, so speed changes don't jump its phase. */
+	t: number;
+}
+
 export class FxEngine {
 	private tex: Textures;
-	private running = new Map<string, Effect>();
+	private running = new Map<string, Running>();
+	private grade = new Graphics();
 	private oneShots: Effect[] = [];
 	private screenLayer = new Container();
 	private worldBack = new Container();
@@ -844,6 +867,7 @@ export class FxEngine {
 		quality: number
 	) {
 		this.tex = makeTextures();
+		this.worldBack.addChild(this.grade);
 		worldBackParent.addChild(this.worldBack);
 		worldFrontParent.addChild(this.worldFront);
 		screen.addChild(this.screenLayer);
@@ -877,8 +901,7 @@ export class FxEngine {
 			})
 		);
 		// Rebuild running effects so they pick up the new textures.
-		for (const [, e] of this.running) e.destroy();
-		this.running.clear();
+		this.clearRunning();
 		this.onSheets?.();
 	}
 
@@ -892,14 +915,50 @@ export class FxEngine {
 	set quality(q: number) {
 		if (q === this.ctx.q) return;
 		this.ctx.q = q;
-		for (const [, e] of this.running) e.destroy();
+		this.clearRunning();
+	}
+
+	private clearRunning() {
+		for (const r of this.running.values()) this.dispose(r);
 		this.running.clear();
 	}
 
-	private make(w: Wanted): Effect | null {
+	private dispose(r: Running) {
+		r.effect.destroy();
+		r.holder.destroy({ children: true });
+	}
+
+	/** Colour grade over the map (under the markers): day, dusk, night, blood moon. */
+	setTimeOfDay(tod: TimeOfDay, worldW: number, worldH: number) {
+		const g = TIME_OF_DAY[tod] ?? TIME_OF_DAY.day;
+		this.grade.clear();
+		if (g.alpha > 0) this.grade.rect(0, 0, worldW, worldH).fill({ color: g.color, alpha: g.alpha });
+	}
+
+	/** Opacity, tint and size apply to the effect's holder; speed to its clock. */
+	private applyParams(r: Running) {
+		const p = r.params;
+		r.holder.alpha = p.opacity;
+		r.holder.tint = p.tint ?? 0xffffff;
+		if (r.effect.setSize && r.scope.type === 'screen') {
+			r.effect.setSize(p.scale);
+			r.holder.scale.set(1);
+			return;
+		}
+		r.holder.scale.set(p.scale);
+		if (r.scope.type === 'zone') {
+			r.holder.pivot.set(r.scope.x, r.scope.y);
+			r.holder.position.set(r.scope.x, r.scope.y);
+		}
+	}
+
+	/** Effects drawn behind the markers (fog, glows, smoke); the rest go in front. */
+	private static BACK = new Set<FxKind>(['fog', 'miasma', 'smog', 'haze', 'eclipse', 'heat']);
+
+	private make(w: Wanted, holder: Container): Effect | null {
 		const { ctx } = this;
-		const layer = w.scope.type === 'screen' ? this.screenLayer : this.worldFront;
-		const back = w.scope.type === 'screen' ? this.screenLayer : this.worldBack;
+		const layer = holder;
+		const back = holder;
 		const i = w.intensity;
 		const particles = (spec: ParticleSpec) => (ctx.q > 0 ? new Particles(ctx, w.scope, spec, layer, i) : null);
 		switch (w.kind) {
@@ -908,9 +967,9 @@ export class FxEngine {
 			case 'bloodRain':
 				return particles(rainSpec(0x9e1010, 0.75));
 			case 'storm':
-				return new Storm(ctx, w.scope, this.worldFront, this.screenLayer, 0xdfe8ff, true, i);
+				return new Storm(ctx, w.scope, holder, holder, 0xdfe8ff, true, i);
 			case 'emeraldStorm':
-				return new Storm(ctx, w.scope, this.worldFront, this.screenLayer, 0x5dffa0, false, i);
+				return new Storm(ctx, w.scope, holder, holder, 0x5dffa0, false, i);
 			case 'fog':
 				return new Fog(ctx, w.scope, 0xdcdad0, 0.5, back, i);
 			case 'miasma':
@@ -953,16 +1012,30 @@ export class FxEngine {
 		const keep = new Set<string>();
 		for (const w of wanted) {
 			keep.add(w.key);
-			const e = this.running.get(w.key);
-			if (e) e.setIntensity(w.intensity);
-			else {
-				const made = this.make(w);
-				if (made) this.running.set(w.key, made);
+			const params = w.params ?? DEFAULT_PARAMS;
+			const r = this.running.get(w.key);
+			if (r) {
+				r.effect.setIntensity(w.intensity);
+				r.params = params;
+				this.applyParams(r);
+				continue;
 			}
+			const parent =
+				w.scope.type === 'screen' ? this.screenLayer : FxEngine.BACK.has(w.kind) ? this.worldBack : this.worldFront;
+			const holder = new Container();
+			parent.addChild(holder);
+			const effect = this.make(w, holder);
+			if (!effect) {
+				holder.destroy();
+				continue;
+			}
+			const entry: Running = { effect, holder, scope: w.scope, params, t: 0 };
+			this.applyParams(entry);
+			this.running.set(w.key, entry);
 		}
-		for (const [key, e] of this.running) {
+		for (const [key, r] of this.running) {
 			if (!keep.has(key)) {
-				e.destroy();
+				this.dispose(r);
 				this.running.delete(key);
 			}
 		}
@@ -1065,7 +1138,16 @@ export class FxEngine {
 	private tick = () => {
 		const dt = Math.min(0.05, this.app.ticker.deltaMS / 1000);
 		this.t += dt;
-		for (const e of this.running.values()) e.update(dt, this.t);
+		const { width: sw, height: sh } = this.app.screen;
+		for (const r of this.running.values()) {
+			const d = dt * r.params.speed;
+			r.t += d;
+			if (r.scope.type === 'screen' && r.params.scale !== 1 && !r.effect.setSize) {
+				r.holder.pivot.set(sw / 2, sh / 2);
+				r.holder.position.set(sw / 2, sh / 2);
+			}
+			r.effect.update(d, r.t);
+		}
 		for (const e of this.oneShots) e.update(dt, this.t);
 		this.oneShots = this.oneShots.filter((e) => (e.done?.() ? (e.destroy(), false) : true));
 		if (this.shakeLeft > 0) {
@@ -1078,7 +1160,7 @@ export class FxEngine {
 
 	destroy() {
 		this.app.ticker.remove(this.tick);
-		for (const e of this.running.values()) e.destroy();
+		for (const r of this.running.values()) this.dispose(r);
 		for (const e of this.oneShots) e.destroy();
 		this.running.clear();
 		this.oneShots = [];

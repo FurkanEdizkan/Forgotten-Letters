@@ -1,19 +1,33 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { AMBIENT_KINDS, FX_LABELS, TRIGGER_LABELS, type FxConfig, type TriggerKind } from '$lib/fx/types';
+	import LiveMap from '$lib/components/LiveMap.svelte';
+	import {
+		AMBIENT_KINDS,
+		FX_LABELS,
+		TIME_OF_DAY,
+		TRIGGER_LABELS,
+		type FxConfig,
+		type FxKind,
+		type FxLayer,
+		type TimeOfDay,
+		type TriggerKind
+	} from '$lib/fx/types';
 	import { WEATHER, weatherByRoll } from '$lib/rules/weather';
 
 	let { data, form } = $props();
 
+	const blank = (): FxLayer => ({ on: false, intensity: 0.6, speed: 1, scale: 1, opacity: 1, tint: null });
+
 	// Every ambient layer gets an entry up front, so the template never mutates state.
 	function withLayers(c: FxConfig): FxConfig {
 		const copy = structuredClone(c);
-		for (const k of AMBIENT_KINDS) copy.layers[k] ??= { on: false, intensity: 0.6 };
+		for (const k of AMBIENT_KINDS) copy.layers[k] = { ...blank(), ...(copy.layers[k] ?? {}) };
 		return copy;
 	}
 	// svelte-ignore state_referenced_locally
 	let fx = $state<FxConfig>(withLayers(data.fx));
 	let saved = $state<'idle' | 'saving' | 'live'>('idle');
+	let tuning = $state<Partial<Record<FxKind, boolean>>>({});
 
 	// Push every change to the server; viewers update within a second.
 	let first = true;
@@ -27,17 +41,43 @@
 		const t = setTimeout(async () => {
 			const res = await fetch('/admin/weather/fx', { method: 'POST', body });
 			saved = res.ok ? 'live' : 'idle';
-		}, 200);
+		}, 250);
 		return () => clearTimeout(t);
 	});
 
+	// The preview map shows this console's settings immediately.
+	const preview = $derived({ ...data.snapshot, fx });
+
 	function allOff() {
-		for (const k of Object.keys(fx.layers)) fx.layers[k as keyof typeof fx.layers]!.on = false;
+		for (const k of AMBIENT_KINDS) fx.layers[k]!.on = false;
+	}
+	function resetTuning(k: FxKind) {
+		const l = fx.layers[k]!;
+		fx.layers[k] = { ...blank(), on: l.on, intensity: l.intensity };
 	}
 	function toggleRandom(kind: TriggerKind) {
 		fx.random.kinds = fx.random.kinds.includes(kind) ? fx.random.kinds.filter((k) => k !== kind) : [...fx.random.kinds, kind];
 	}
 
+	// Presets
+	let presetName = $state('');
+	function savePreset() {
+		const name = presetName.trim();
+		if (!name) return;
+		const snapshot = { name, layers: structuredClone($state.snapshot(fx.layers)), wind: fx.wind, timeOfDay: fx.timeOfDay };
+		fx.presets = [...fx.presets.filter((p) => p.name !== name), snapshot];
+		presetName = '';
+	}
+	function applyPreset(i: number) {
+		const p = fx.presets[i];
+		const layers = structuredClone($state.snapshot(p.layers));
+		for (const k of AMBIENT_KINDS) fx.layers[k] = { ...blank(), ...(layers[k] ?? {}) };
+		fx.wind = p.wind;
+		fx.timeOfDay = p.timeOfDay;
+	}
+	const pct = (v: number | undefined) => `${Math.round((v ?? 1) * 100)}%`;
+
+	// Regional weather
 	let triggerZone = $state('');
 	let wholeMap = $state(false);
 	const zoneName = (id: string) => data.zones.find((z) => z.id === id)?.name ?? id;
@@ -48,6 +88,11 @@
 		'The east': ['kurd-dagh', 'kyrrhos-city', 'stylite-row', 'basarfuth-castle', 'ruins-of-nineveh-novus', 'scavenger-town', 'F']
 	};
 	let picked = $state<string[]>([]);
+	let regionKinds = $state<FxKind[]>([]);
+	let regionIntensity = $state(0.7);
+	const regionLayers = $derived(
+		Object.fromEntries(regionKinds.map((k) => [k, { ...blank(), on: true, intensity: regionIntensity }]))
+	);
 </script>
 
 <div class="top">
@@ -55,37 +100,89 @@
 	<span class="status status-{saved}">{saved === 'saving' ? 'Sending…' : saved === 'live' ? 'Live on every map' : ''}</span>
 </div>
 
-<section>
-	<div class="row-head">
-		<h2>Across the front</h2>
-		<button type="button" class="ghost" onclick={allOff}>Clear skies</button>
-	</div>
-	<div class="layers">
-		{#each AMBIENT_KINDS as kind (kind)}
-			<div class="layer" class:on={fx.layers[kind]!.on}>
-				<label class="check"><input type="checkbox" bind:checked={fx.layers[kind]!.on} /> {FX_LABELS[kind]}</label>
-				<input type="range" min="0.1" max="1" step="0.05" bind:value={fx.layers[kind]!.intensity} disabled={!fx.layers[kind]!.on} aria-label="{FX_LABELS[kind]} intensity" />
+<div class="split">
+	<div class="controls-col">
+		<section>
+			<div class="row-head">
+				<h2>Across the front</h2>
+				<button type="button" class="ghost" onclick={allOff}>Clear skies</button>
 			</div>
-		{/each}
+
+			<div class="tod">
+				{#each Object.entries(TIME_OF_DAY) as [k, t] (k)}
+					<button type="button" class="seg" class:on={fx.timeOfDay === k} onclick={() => (fx.timeOfDay = k as TimeOfDay)}>{t.label}</button>
+				{/each}
+			</div>
+
+			<div class="layers">
+				{#each AMBIENT_KINDS as kind (kind)}
+					{@const l = fx.layers[kind]!}
+					<div class="layer" class:on={l.on}>
+						<div class="lhead">
+							<label class="check"><input type="checkbox" bind:checked={l.on} /> {FX_LABELS[kind]}</label>
+							<button type="button" class="tune" onclick={() => (tuning[kind] = !tuning[kind])} aria-expanded={!!tuning[kind]}>{tuning[kind] ? '▾' : '▸'} tune</button>
+						</div>
+						<input type="range" min="0.05" max="1" step="0.05" bind:value={l.intensity} disabled={!l.on} aria-label="{FX_LABELS[kind]} strength" />
+						{#if tuning[kind]}
+							<div class="tuning">
+								<label>{kind.includes('torm') ? 'Frequency' : 'Speed'} <small>{pct(l.speed)}</small>
+									<input type="range" min="0.25" max="3" step="0.05" bind:value={l.speed} /></label>
+								<label>Size <small>{pct(l.scale)}</small>
+									<input type="range" min="0.5" max="2.5" step="0.05" bind:value={l.scale} /></label>
+								<label>Opacity <small>{pct(l.opacity)}</small>
+									<input type="range" min="0" max="1" step="0.05" bind:value={l.opacity} /></label>
+								<div class="colour">
+									<label>Colour <input type="color" value={l.tint ?? '#ffffff'} oninput={(e) => (l.tint = e.currentTarget.value)} /></label>
+									{#if l.tint}<button type="button" class="link" onclick={() => (l.tint = null)}>natural</button>{/if}
+									<button type="button" class="link" onclick={() => resetTuning(kind)}>reset</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			<div class="controls">
+				<label>
+					Wind {fx.wind < -0.05 ? '← west' : fx.wind > 0.05 ? 'east →' : 'still'}
+					<input type="range" min="-1" max="1" step="0.05" bind:value={fx.wind} />
+				</label>
+				<label>
+					Quality cap
+					<select bind:value={fx.quality}>
+						<option value="low">Low (old phones)</option>
+						<option value="medium">Medium</option>
+						<option value="high">High</option>
+					</select>
+				</label>
+				<label class="check"><input type="checkbox" bind:checked={fx.battleWeather} /> Show each battle's Hell on Earth weather at its zone</label>
+			</div>
+		</section>
+
+		<section>
+			<h2>Presets</h2>
+			<div class="presets-list">
+				{#each fx.presets as p, i (p.name)}
+					<span class="preset">
+						<button type="button" class="ghost" onclick={() => applyPreset(i)} title="Apply">{p.name}</button>
+						<button type="button" class="x" aria-label="Delete {p.name}" onclick={() => (fx.presets = fx.presets.filter((_, j) => j !== i))}>×</button>
+					</span>
+				{:else}
+					<span class="muted">No presets yet.</span>
+				{/each}
+			</div>
+			<div class="row">
+				<input bind:value={presetName} placeholder="Name this sky, e.g. The Red Tide" />
+				<button type="button" onclick={savePreset} disabled={!presetName.trim()}>Save current</button>
+			</div>
+		</section>
 	</div>
-	<div class="controls">
-		<label>
-			Wind {fx.wind < -0.05 ? '← west' : fx.wind > 0.05 ? 'east →' : 'still'}
-			<input type="range" min="-1" max="1" step="0.05" bind:value={fx.wind} />
-		</label>
-		<label>
-			Quality cap
-			<select bind:value={fx.quality}>
-				<option value="low">Low (old phones)</option>
-				<option value="medium">Medium</option>
-				<option value="high">High</option>
-			</select>
-		</label>
-		<label class="check">
-			<input type="checkbox" bind:checked={fx.battleWeather} /> Show each battle's Hell on Earth weather at its zone
-		</label>
-	</div>
-</section>
+
+	<aside class="preview">
+		<div class="preview-map"><LiveMap snapshot={preview} /></div>
+		<small class="muted">Preview — the same map every viewer sees.</small>
+	</aside>
+</div>
 
 <section>
 	<h2>Portents</h2>
@@ -117,20 +214,42 @@
 <section>
 	<h2>Regional weather</h2>
 	<p class="muted">
-		A Hell on Earth event over part of the front. It shows on the map and is suggested as the weather for games played there.
+		Weather over part of the front: a Hell on Earth event (suggested for games played there) and/or its own weather layers.
 	</p>
-	<form method="POST" action="?/addRegion" use:enhance={() => async ({ result, update }) => { await update(); if (result.type === 'success') picked = []; }} class="region-form">
+	<form
+		method="POST"
+		action="?/addRegion"
+		use:enhance={() =>
+			async ({ result, update }) => {
+				await update();
+				if (result.type === 'success') {
+					picked = [];
+					regionKinds = [];
+				}
+			}}
+		class="region-form"
+	>
 		<div class="line">
 			<label>Name <input name="name" placeholder="e.g. The Red Tide" /></label>
 			<label>
-				Event
-				<select name="weatherEvent" required>
-					<option value="">Choose…</option>
+				Hell on Earth event
+				<select name="weatherEvent">
+					<option value="">None</option>
 					{#each WEATHER as w (w.roll)}<option value={w.roll}>{w.roll} · {w.name}</option>{/each}
 				</select>
 			</label>
 			<label>Lasts (games in the region) <input name="gamesRemaining" type="number" min="1" placeholder="until cleared" /></label>
 		</div>
+		<fieldset>
+			<legend>Weather layers for this region</legend>
+			<div class="kinds">
+				{#each AMBIENT_KINDS as k (k)}
+					<label class="check"><input type="checkbox" value={k} bind:group={regionKinds} /> {FX_LABELS[k]}</label>
+				{/each}
+			</div>
+			<label>Strength <input type="range" min="0.1" max="1" step="0.05" bind:value={regionIntensity} /></label>
+		</fieldset>
+		<input type="hidden" name="layers" value={JSON.stringify(regionLayers)} />
 		<label class="check"><input type="checkbox" name="wholeMap" bind:checked={wholeMap} /> The whole map</label>
 		{#if !wholeMap}
 			<div class="presets">
@@ -152,11 +271,13 @@
 	<ul class="regions">
 		{#each data.regions as r (r.id)}
 			{@const w = r.weatherEvent ? weatherByRoll(r.weatherEvent) : null}
+			{@const kinds = Object.entries(r.layers).filter(([, l]) => l?.on).map(([k]) => FX_LABELS[k as FxKind])}
 			<li class:inactive={!r.active}>
 				<span>
-					<strong>{r.name ?? w?.name}</strong>{r.name ? ` · ${w?.name}` : ''}
+					<strong>{r.name ?? w?.name ?? kinds.join(', ')}</strong>{r.name && w ? ` · ${w.name}` : ''}
 					<small>
 						{r.zones ? r.zones.map(zoneName).join(', ') : 'Whole map'}
+						{kinds.length ? ` · ${kinds.join(', ')}` : ''}
 						{r.gamesRemaining !== null ? ` · ${r.gamesRemaining} game${r.gamesRemaining === 1 ? '' : 's'} left` : ''}
 					</small>
 				</span>
@@ -189,6 +310,28 @@
 	.status-live {
 		color: var(--supplies);
 	}
+	.split {
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+		gap: 16px;
+		align-items: start;
+	}
+	@media (max-width: 56rem) {
+		.split {
+			grid-template-columns: 1fr;
+		}
+	}
+	.preview {
+		position: sticky;
+		top: 12px;
+		margin: 16px 0;
+	}
+	.preview-map {
+		position: relative;
+		aspect-ratio: 2398 / 1604;
+		border: 1px solid var(--ink);
+		overflow: hidden;
+	}
 	section {
 		margin: 16px 0;
 		padding: 14px 18px;
@@ -204,9 +347,25 @@
 		justify-content: space-between;
 		align-items: center;
 	}
+	.tod {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0;
+		margin-bottom: 10px;
+	}
+	.seg {
+		background: var(--paper);
+		color: var(--ink);
+		border-color: var(--rule);
+		border-radius: 0;
+	}
+	.seg.on {
+		background: var(--ink);
+		color: var(--parchment);
+	}
 	.layers {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
 		gap: 8px;
 	}
 	.layer {
@@ -215,10 +374,49 @@
 		padding: 8px 10px;
 		border: 1px solid var(--rule);
 		background: var(--paper);
+		align-content: start;
 	}
 	.layer.on {
 		border-color: var(--blood);
 		box-shadow: inset 0 0 0 1px var(--blood);
+	}
+	.lhead {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 6px;
+	}
+	.tune,
+	.link {
+		padding: 0 4px;
+		background: none;
+		border: none;
+		color: var(--blood);
+		font-size: 0.85rem;
+		font-variant-caps: normal;
+		letter-spacing: 0;
+	}
+	.link {
+		text-decoration: underline;
+	}
+	.tuning {
+		display: grid;
+		gap: 4px;
+		padding-top: 4px;
+		border-top: 1px dotted var(--rule);
+	}
+	.tuning small {
+		color: var(--muted);
+	}
+	.colour {
+		display: flex;
+		gap: 8px;
+		align-items: end;
+	}
+	.colour input[type='color'] {
+		width: 3rem;
+		height: 1.8rem;
+		padding: 0;
 	}
 	.controls {
 		display: flex;
@@ -236,6 +434,23 @@
 		gap: 6px;
 		align-items: baseline;
 	}
+	.presets-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-bottom: 8px;
+	}
+	.preset {
+		display: inline-flex;
+	}
+	.x {
+		padding: 2px 8px;
+		background: transparent;
+		color: var(--blood);
+		border: 1px solid var(--rule);
+		border-left: none;
+	}
+	.row,
 	.triggers,
 	.random,
 	.presets,
@@ -257,9 +472,19 @@
 		gap: 10px;
 		justify-items: start;
 	}
+	fieldset {
+		display: grid;
+		gap: 8px;
+		width: 100%;
+		border: 1px solid var(--rule);
+	}
+	legend {
+		color: var(--muted);
+	}
+	.kinds,
 	.zones {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
 		gap: 2px 12px;
 		width: 100%;
 	}

@@ -3,7 +3,7 @@ import { db } from './db';
 import { fxState, regionWeather } from './db/schema';
 import { currentCampaign, type Campaign } from './campaign';
 import { publish, sendTrigger } from './hub';
-import { normaliseFx, type FxConfig, type PublicRegion, type TriggerKind } from '$lib/fx/types';
+import { normaliseFx, normaliseLayers, type FxConfig, type PublicRegion, type TriggerKind } from '$lib/fx/types';
 import { buildGraph } from '$lib/rules/zones';
 
 export function getFx(campaignId: string): FxConfig {
@@ -32,7 +32,8 @@ export function activeRegions(campaignId: string): PublicRegion[] {
 			name: r.name,
 			zones: (r.zones as string[] | null) ?? null,
 			weatherEvent: r.weatherEvent,
-			gamesRemaining: r.gamesRemaining
+			gamesRemaining: r.gamesRemaining,
+			layers: normaliseLayers(r.fx)
 		}));
 }
 

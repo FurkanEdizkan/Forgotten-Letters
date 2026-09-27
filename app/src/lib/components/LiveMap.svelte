@@ -7,6 +7,10 @@
 	import type { FxTrigger } from '$lib/fx/types';
 	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
 	import { outpostFrame } from '$lib/models';
+	import { hexToNumber, sigilFor } from '$lib/sigils';
+	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
+	import { CAIRN_FRAME, TIER_SCALE, hexNum, monumentFrame } from '$lib/monuments';
+	import type { Monument } from '$lib/snapshot';
 
 	let {
 		snapshot,
@@ -15,6 +19,7 @@
 		onwarband,
 		fxEnabled = true,
 		subscribeTriggers,
+		focus = null,
 		project = $bindable()
 	}: {
 		snapshot: PublicSnapshot;
@@ -25,6 +30,8 @@
 		fxEnabled?: boolean;
 		/** Live one-shot effects (lightning, crows…). */
 		subscribeTriggers?: (fn: (t: FxTrigger) => void) => () => void;
+		/** A battle's zone the viewer has entered: the camera flies in and its field burns at full intensity. */
+		focus?: string | null;
 		/** Set by the map: a zone's position on screen (relative to the map), for DOM overlays. */
 		project?: (zoneId: string) => { x: number; y: number } | null;
 	} = $props();
@@ -37,6 +44,7 @@
 	let host: HTMLDivElement;
 	let redraw: (() => void) | null = null;
 	let refx: (() => void) | null = null;
+	let fly: ((zoneId: string | null) => void) | null = null;
 
 	// Re-draw dynamic layers whenever the snapshot or selection changes.
 	$effect(() => {
@@ -47,7 +55,11 @@
 	$effect(() => {
 		void snapshot;
 		void fxEnabled;
+		void focus;
 		refx?.();
+	});
+	$effect(() => {
+		fly?.(focus);
 	});
 
 	onMount(() => {
@@ -192,12 +204,14 @@
 			// Dynamic layers
 			const highlight = new PIXI.Container();
 			const battles = new PIXI.Container();
+			const monumentLayer = new PIXI.Container();
 			const outposts = new PIXI.Container();
 			const markers = new PIXI.Container();
 			const hits = new PIXI.Container();
 			const fxBack = new PIXI.Container();
 			const fxFront = new PIXI.Container();
-			viewport.addChild(fxBack, highlight, battles, outposts, hits, markers, fxFront);
+			viewport.addChild(fxBack, highlight, battles, monumentLayer, outposts, hits, markers, fxFront);
+			monumentLayer.eventMode = 'none';
 
 			// Screen-space overlay above the map, for weather.
 			const overlay = new PIXI.Container();
@@ -224,6 +238,110 @@
 			};
 			// Default outpost tokens (Blender-rendered, one per faction): map content, so loaded even without effects.
 			const outpostSheet = PIXI.Assets.load<Spritesheet>('/fx/outposts.json').catch(() => null);
+			// Victory monuments, broken standards and the fallen: map content too.
+			let battleSheets: { monuments?: Texture[]; trophy?: Texture[]; corpses?: Texture[] } = {};
+			Promise.all(['monuments', 'trophy', 'corpses'].map((n) => PIXI.Assets.load<Spritesheet>(`/fx/${n}.json`).catch(() => null))).then(
+				([m, t, c]) => {
+					battleSheets = { monuments: m?.animations.monuments, trophy: t?.animations.trophy, corpses: c?.animations.corpses };
+					redraw?.();
+				}
+			);
+			/** Battles whose result is still playing: their monument waits for the animation to raise it. */
+			const pending = new Set<string>();
+			/** Same scatter on every screen for a zone. */
+			const scatter = (key: string) => {
+				let a = [...key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261) >>> 0;
+				return () => ((a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296);
+			};
+
+			/** A winner's monument with the loser's broken standard hung on it, at the container origin. */
+			function monumentSprite(m: Monument, scale: number, tint: number) {
+				const c = new PIXI.Container();
+				const mon = new PIXI.Sprite(battleSheets.monuments![monumentFrame(m.winnerFaction)]);
+				mon.anchor.set(0.5, 0.86);
+				mon.scale.set(scale);
+				mon.tint = tint;
+				c.addChild(mon);
+				const tr = battleSheets.trophy;
+				if (m.winnerFaction && m.loserFaction && tr && tr.length >= 2) {
+					const flag = new PIXI.Container();
+					for (const [i, t] of [tr[0], tr[1]].entries()) {
+						const sp = new PIXI.Sprite(t);
+						sp.anchor.set(0.5, 0.9);
+						if (i === 1) sp.tint = hexNum(factionColours(m.loserFaction).low);
+						flag.addChild(sp);
+					}
+					flag.scale.set(scale * 0.55);
+					flag.position.set(scale * 36, -scale * 14);
+					flag.rotation = 0.3;
+					c.addChild(flag);
+				}
+				return c;
+			}
+
+			/** Each zone's victories: the newest five as a cluster below the zone (older ones smaller and
+			 * darker, the rest heaped into a cairn), over a field of the fallen that grows with every battle. */
+			function drawMonuments(list: Monument[], k: number) {
+				if (!battleSheets.monuments) return;
+				const byZone = new Map<string, Monument[]>();
+				for (const m of list) if (!pending.has(m.gameId)) byZone.set(m.zone, [...(byZone.get(m.zone) ?? []), m]);
+				const SLOTS = [
+					[0, 10],
+					[-44, 0],
+					[44, 0],
+					[-80, -10],
+					[80, -10]
+				];
+				for (const [zid, ms] of byZone) {
+					const z = graph.zones.get(zid);
+					if (!z) continue;
+					// Anchored on the zone and scaled with the markers, so the offset keeps it clear of them at any zoom.
+					const g = new PIXI.Container();
+					g.position.set(world(z).x, world(z).y);
+					const row = new PIXI.Container();
+					row.position.set(-112, 44);
+					g.addChild(row);
+					const r = scatter(zid);
+					const fallen = ms.reduce((n, m) => n + m.fallen, 0);
+					if (battleSheets.corpses)
+						for (let i = 0; i < Math.min(10, Math.ceil(fallen / 2)); i++) {
+							const b = new PIXI.Sprite(battleSheets.corpses[Math.floor(r() * battleSheets.corpses.length)]);
+							b.anchor.set(0.5);
+							b.scale.set(0.3 * (r() < 0.5 ? -1 : 1), 0.3);
+							b.position.set((r() - 0.5) * 150, 8 + (r() - 0.5) * 30);
+							b.alpha = 0.75;
+							row.addChild(b);
+						}
+					const shown = ms.slice(-SLOTS.length);
+					const heaped = ms.length - shown.length;
+					if (heaped > 0) {
+						const cairn = new PIXI.Sprite(battleSheets.monuments[CAIRN_FRAME]);
+						cairn.anchor.set(0.5, 0.86);
+						cairn.scale.set(0.4);
+						cairn.position.set(0, -22);
+						cairn.tint = 0xa8a090;
+						row.addChild(cairn);
+						const n = new PIXI.Text({
+							text: `+${heaped}`,
+							style: { fontFamily: 'EB Garamond', fontWeight: '700', fontSize: 16, fill: 0xf1e6cb, stroke: { color: 0x231a12, width: 4 } }
+						});
+						n.anchor.set(0.5);
+						n.position.set(0, -86);
+						row.addChild(n);
+					}
+					// Oldest first, so the newest stands in front.
+					const newest = [...shown].reverse();
+					for (let j = newest.length - 1; j >= 0; j--) {
+						const m = newest[j];
+						const sp = monumentSprite(m, 0.5 * TIER_SCALE[m.tier] * (j === 0 ? 1 : 0.78), j === 0 ? 0xffffff : 0xb8b0a0);
+						sp.position.set(SLOTS[j][0], SLOTS[j][1]);
+						row.addChild(sp);
+					}
+					g.scale.set(k);
+					groups.push(g);
+					monumentLayer.addChild(g);
+				}
+			}
 
 			/** A sprite that fills in once its texture arrives, sized to `width` and anchored at its feet. */
 			function tokenSprite(parent: Container, source: Promise<Texture | null | undefined>, width: number, at = 0, y = 0) {
@@ -238,7 +356,7 @@
 			}
 
 			/** Small round badge with an image (symbol or portrait), at (x, y). */
-			function badge(url: string | null, r: number, x: number, y: number, ring = 0x231a12) {
+			function badge(url: string | null, r: number, x: number, y: number, ring = 0x231a12, faction?: string, bright = false) {
 				const b = new PIXI.Container();
 				b.position.set(x, y);
 				b.addChild(new PIXI.Graphics().circle(0, 0, r + 2.5).fill({ color: ring }));
@@ -252,8 +370,98 @@
 						const mask = new PIXI.Graphics().circle(0, 0, r).fill({ color: 0xffffff });
 						s.mask = mask;
 						b.addChild(mask, s);
+						if (faction) sigilLight(b, r, faction, bright);
 					});
 				return b;
+			}
+
+			/*
+			 * Faction sigils: a band of the faction's light climbs through each symbol badge,
+			 * bottom to top. One gradient texture per faction; the ticker moves the bands.
+			 */
+			const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+			const lightTextures = new Map<string, Texture>();
+			function lightTexture(faction: string) {
+				let t = lightTextures.get(faction);
+				if (!t) {
+					const { low, high } = sigilFor(faction);
+					const cv = document.createElement('canvas');
+					cv.width = 4;
+					cv.height = 128;
+					const g = cv.getContext('2d')!;
+					const grad = g.createLinearGradient(0, 128, 0, 0);
+					grad.addColorStop(0, 'rgba(0,0,0,0)');
+					grad.addColorStop(0.22, low);
+					grad.addColorStop(0.38, high);
+					grad.addColorStop(0.54, 'rgba(0,0,0,0)');
+					g.fillStyle = grad;
+					g.fillRect(0, 0, 4, 128);
+					t = PIXI.Texture.from(cv);
+					lightTextures.set(faction, t);
+				}
+				return t;
+			}
+			const sigils: { band: Container; R: number; phase: number; period: number }[] = [];
+			const studs: Container[] = [];
+			/** Light the badge whose disc (radius R) sits at the container origin. */
+			function sigilLight(b: Container, R: number, faction: string, bright: boolean) {
+				const sg = sigilFor(faction);
+				const band = new PIXI.Sprite(lightTexture(faction));
+				band.anchor.set(0.5, 0);
+				band.width = R * 2;
+				band.height = R * 4;
+				band.blendMode = 'add';
+				band.alpha = bright ? 0.95 : 0.7;
+				const mask = new PIXI.Graphics().circle(0, 0, R).fill({ color: 0xffffff });
+				band.mask = mask;
+				b.addChild(mask, band);
+				const phase = Math.random();
+				sigils.push({ band, R, phase, period: bright ? 2.6 : 4.2 });
+				band.y = reduceMotion ? -R * 1.5 : R;
+				if (sg.filigree) {
+					// The Sultanate's gold: a ring of studs turning slowly about the sigil.
+					const ring = new PIXI.Graphics();
+					const n = 12;
+					for (let i = 0; i < n; i++) {
+						const a = (i / n) * Math.PI * 2;
+						ring.circle(Math.cos(a) * (R + 5), Math.sin(a) * (R + 5), Math.max(1.2, R * 0.12));
+					}
+					ring.fill({ color: hexToNumber(sg.rim) });
+					b.addChild(ring);
+					studs.push(ring);
+				}
+			}
+
+			/* Seals: each look is composited once (metal tint + coloured light) and cut into frames. */
+			const sealFrames = new Map<string, Promise<Texture[]>>();
+			function sealTextures(look: SealLook) {
+				const k = [look.base, look.light, look.metal, look.low, look.high].join('|');
+				if (!sealFrames.has(k))
+					sealFrames.set(
+						k,
+						import('$lib/seal-compose')
+							.then(({ sealCanvas }) => sealCanvas(look))
+							.then((cv) => {
+								const source = PIXI.Texture.from(cv).source;
+								return Array.from({ length: SEAL_FRAMES }, (_, i) =>
+									new PIXI.Texture({ source, frame: new PIXI.Rectangle(i * SEAL_FRAME, 0, SEAL_FRAME, SEAL_FRAME) })
+								);
+							})
+					);
+				return sealFrames.get(k)!;
+			}
+			/** The warband's seal, radius R, at the container origin; burns faster while its warband fights. */
+			function sealBadge(parent: Container, look: SealLook, R: number, bright: boolean) {
+				sealTextures(look).then((frames) => {
+					if (parent.destroyed) return;
+					const a = new PIXI.AnimatedSprite(frames);
+					a.anchor.set(0.5);
+					a.width = a.height = R * 2;
+					a.animationSpeed = (SEAL_FRAMES / (SEAL_PERIOD * 60)) * (bright ? 1.6 : 1);
+					if (reduceMotion) a.gotoAndStop(SEAL_FRAMES / 2);
+					else a.gotoAndPlay(Math.floor(Math.random() * SEAL_FRAMES));
+					parent.addChild(a);
+				});
 			}
 
 			/** Outpost token: uploaded model, else the faction's default redoubt; supply shown by the base ring. */
@@ -273,7 +481,13 @@
 					60,
 					1
 				);
-				if (w.symbol) c.addChild(badge(w.symbol, 8, 22, -4, supplied ? 0x5f7f2a : 0x231a12));
+				if (w.seal) {
+					const b = new PIXI.Container();
+					b.position.set(22, -4);
+					b.addChild(new PIXI.Graphics().circle(0, 0, 11).fill({ color: supplied ? 0x5f7f2a : 0x15130e }));
+					sealBadge(b, w.seal, 10, false);
+					c.addChild(b);
+				} else if (w.symbol) c.addChild(badge(w.symbol, 8, 22, -4, supplied ? 0x5f7f2a : hexToNumber(sigilFor(w.faction).rim), w.faction));
 				return c;
 			}
 
@@ -284,7 +498,12 @@
 				// Feet of the token sit on the base.
 				tokenSprite(c, tex(w.figureToken!), r * 2.3, 1, r * 0.55);
 				c.addChild(badge(w.portrait, r * 0.36, -r * 0.8, r * 0.55, ring));
-				if (w.symbol) c.addChild(badge(w.symbol, r * 0.3, r * 0.8, r * 0.55));
+				if (w.seal) {
+					const b = new PIXI.Container();
+					b.position.set(r * 0.8, r * 0.55);
+					sealBadge(b, w.seal, r * 0.36, w.playing);
+					c.addChild(b);
+				} else if (w.symbol) c.addChild(badge(w.symbol, r * 0.3, r * 0.8, r * 0.55, hexToNumber(sigilFor(w.faction).rim), w.faction, w.playing));
 				c.eventMode = 'static';
 				c.cursor = 'pointer';
 				c.hitArea = new PIXI.Rectangle(-r, -r * 1.6, r * 2, r * 2.6);
@@ -319,10 +538,17 @@
 					initials.anchor.set(0.5);
 					c.addChild(initials);
 				}
-				if (w.symbol) {
+				if (w.seal) {
+					// The faction's struck seal, a little proud of the portrait.
+					const badge = new PIXI.Container();
+					badge.position.set(r * 0.78, r * 0.78);
+					badge.addChild(new PIXI.Graphics().circle(1, 2, r * 0.6).fill({ color: 0x15130e, alpha: 0.45 }));
+					sealBadge(badge, w.seal, r * 0.6, w.playing);
+					c.addChild(badge);
+				} else if (w.symbol) {
 					const badge = new PIXI.Container();
 					badge.position.set(r * 0.72, r * 0.72);
-					badge.addChild(new PIXI.Graphics().circle(0, 0, r * 0.42 + 3).fill({ color: 0x231a12 }));
+					badge.addChild(new PIXI.Graphics().circle(0, 0, r * 0.42 + 3).fill({ color: hexToNumber(sigilFor(w.faction).rim) }));
 					tex(w.symbol).then((t) => {
 						if (badge.destroyed) return;
 						const s = new PIXI.Sprite(t);
@@ -331,6 +557,7 @@
 						const mask = new PIXI.Graphics().circle(0, 0, r * 0.42).fill({ color: 0xffffff });
 						s.mask = mask;
 						badge.addChild(mask, s);
+						sigilLight(badge, r * 0.42, w.faction, w.playing);
 					});
 					c.addChild(badge);
 				}
@@ -347,10 +574,12 @@
 			const groups: Container[] = [];
 
 			function draw() {
-				for (const layer of [highlight, battles, outposts, markers]) {
+				for (const layer of [highlight, battles, monumentLayer, outposts, markers]) {
 					for (const child of layer.removeChildren()) child.destroy({ children: true });
 				}
 				groups.length = 0;
+				sigils.length = 0;
+				studs.length = 0;
 				const s = snapshot;
 				const k = markerScale();
 
@@ -376,22 +605,30 @@
 					const ring = new PIXI.Graphics();
 					if (game.status === 'scheduled') {
 						for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
-							ring.arc(0, 0, 80, a, a + Math.PI / 18).stroke({ width: 8, color: 0x8b2a1d });
+							ring.arc(0, 0, 80, a, a + Math.PI / 18).stroke({ width: 8, color: 0xa3170f });
 						}
-						const swords = new PIXI.Text({
-							text: '⚔',
-							style: { fontFamily: 'EB Garamond', fontSize: 46, fill: 0xf1e6cb, stroke: { color: 0x231a12, width: 6 } }
-						});
-						swords.anchor.set(0.5);
+						// Crossed swords, drawn in ink on a bone ground (a planned battle).
+						const swords = new PIXI.Graphics()
+							.circle(0, 0, 24)
+							.fill({ color: 0xece5d3 })
+							.stroke({ width: 4, color: 0x151210 })
+							.moveTo(-13, -13).lineTo(10, 10)
+							.moveTo(13, -13).lineTo(-10, 10)
+							.stroke({ width: 5, color: 0x151210, cap: 'square' })
+							.moveTo(3, 12).lineTo(12, 3)
+							.moveTo(-3, 12).lineTo(-12, 3)
+							.stroke({ width: 4, color: 0xa3170f, cap: 'square' });
 						swords.y = -96;
 						ring.addChild(swords);
 						ring.label = 'planned';
 					} else {
-						ring.circle(0, 0, 80).stroke({ width: 10, color: 0xb8321f });
+						ring.circle(0, 0, 80).stroke({ width: 10, color: 0xc8231a });
 					}
 					ring.position.set(world(z).x, world(z).y);
 					battles.addChild(ring);
 				}
+
+				if (s.fx.monuments) drawMonuments(s.monuments, k);
 
 				// Outposts: a redoubt token per holder above the zone, supplied ones on a green base.
 				const holders = new Map<string, PublicWarband[]>();
@@ -441,6 +678,17 @@
 
 			let t = 0;
 			app.ticker.add((ticker) => {
+				if (!reduceMotion) {
+					const now = performance.now() / 1000;
+					for (const g of sigils) {
+						if (g.band.destroyed) continue;
+						// Eased climb: from below the disc, through it, out over the top.
+						const p = (now / g.period + g.phase) % 1;
+						const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+						g.band.y = g.R - e * g.R * 4;
+					}
+					for (const r of studs) if (!r.destroyed) r.rotation = now * 0.17;
+				}
 				t += ticker.deltaMS / 1000;
 				const pulse = 1 + 0.08 * Math.sin(t * 4);
 				for (const r of battles.children) {
@@ -458,6 +706,28 @@
 
 			redraw = draw;
 			draw();
+
+			// Entering a battle: fly the camera in; leaving: fly back to where the viewer was.
+			let home: { x: number; y: number; scale: number } | null = null;
+			let flownTo: string | null = null;
+			fly = (zoneId) => {
+				if (zoneId === flownTo) return;
+				flownTo = zoneId;
+				const z = zoneId ? graph.zones.get(zoneId) : undefined;
+				const time = reduceMotion ? 0 : 1400;
+				if (z) {
+					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
+					viewport.animate({ position: world(z), scale: 2.2, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+				} else if (home) {
+					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					home = null;
+				}
+			};
+			viewport.on('moved', () => {
+				const k = markerScale();
+				for (const g of groups) g.scale.set(k);
+			});
+			fly(focus);
 			project = (zoneId: string) => {
 				const z = graph.zones.get(zoneId);
 				if (!z) return null;
@@ -473,7 +743,7 @@
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
 				fx.wind = snapshot.fx.wind;
 				fx.setTimeOfDay(snapshot.fx.timeOfDay, W, H);
-				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world) : []);
+				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focus) : []);
 			};
 			refx();
 			fx.onSheets = () => refx?.();
@@ -482,6 +752,17 @@
 			const unsubscribe = subscribeTriggers?.((t) => {
 				if (!fxEnabled) return;
 				const z = t.zone ? graph.zones.get(t.zone) : undefined;
+				if (t.kind === 'battle-result' && t.battle && z) {
+					// Hold the new monument back until the animation has raised its own.
+					const id = t.battle.gameId;
+					pending.add(id);
+					draw();
+					fx.trigger(t, world(z), () => {
+						pending.delete(id);
+						redraw?.();
+					});
+					return;
+				}
 				fx.trigger(t, z ? world(z) : undefined);
 			});
 
@@ -489,6 +770,7 @@
 				ro.disconnect();
 				redraw = null;
 				refx = null;
+				fly = null;
 				unsubscribe?.();
 				fx.destroy();
 				app.destroy(true, { children: true });

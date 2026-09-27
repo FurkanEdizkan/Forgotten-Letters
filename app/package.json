@@ -38,10 +38,13 @@
 	},
 	"dependencies": {
 		"@fontsource/eb-garamond": "^5.3.0",
+		"@fontsource/pirata-one": "^5.3.0",
 		"@fontsource/unifrakturmaguntia": "^5.3.0",
+		"animejs": "^4.5.0",
 		"better-sqlite3": "^13.0.2",
 		"pixi-viewport": "^6.0.3",
 		"pixi.js": "^8.21.0",
+		"postgres": "^3.4.9",
 		"sharp": "^0.35.4",
 		"three": "^0.186.1"
 	}

@@ -13,7 +13,7 @@ export const actions: Actions = {
 		try {
 			const id = await importCampaign(JSON.parse(await file.text()));
 			publish(id);
-			schedule();
+			await schedule();
 		} catch (e) {
 			return fail(400, { message: e instanceof SyntaxError ? 'That file is not valid JSON.' : (e as Error).message });
 		}

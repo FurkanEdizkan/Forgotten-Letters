@@ -108,6 +108,15 @@ def heat(t):
 
 
 def render():
+    """Render the effect's frames. With FX_BLEND_DIR set, also save the scene there as <effect>.blend
+    (FX_BLEND_ONLY=1 saves without rendering)."""
+    blend_dir = os.environ.get("FX_BLEND_DIR")
+    if blend_dir:
+        os.makedirs(blend_dir, exist_ok=True)
+        name = os.path.basename(bpy.context.scene.render.filepath.rstrip("/"))
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(blend_dir, f"{name}.blend"), copy=True, compress=True)
+        if os.environ.get("FX_BLEND_ONLY"):
+            return
     bpy.ops.render.render(animation=True)
 
 
@@ -782,7 +791,411 @@ def flat_flag(name, outline, mat, thickness=0.01):
     bpy.context.scene.collection.objects.link(ob)
     return ob
 
-EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin, outposts)}
+# ---------------------------------------------------------------- battlefield: monuments, trophy, corpses
+
+def _cyl(name, r, depth, loc, mat, rot=(0, 0, 0), verts=16, r2=None):
+    if r2 is None:
+        bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=depth, location=loc, rotation=rot)
+    else:
+        bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r, radius2=r2, depth=depth, location=loc, rotation=rot)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.data.materials.append(mat)
+    return ob
+
+
+def _ball(name, r, loc, mat, scale=(1, 1, 1), segs=16):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=segs, ring_count=max(6, segs // 2), radius=r, location=loc)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.scale = scale
+    bpy.ops.object.shade_smooth()
+    ob.data.materials.append(mat)
+    return ob
+
+
+def _ring(name, r, thick, loc, mat, rot=(0, 0, 0)):
+    bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=thick, major_segments=16, minor_segments=6, location=loc, rotation=rot)
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.data.materials.append(mat)
+    return ob
+
+
+def _glow(name, colour, strength=6):
+    return emission(name, colour, strength)[0]
+
+
+def _map_camera(name, w, h, frames, ortho_scale, lift=0.0):
+    """The outposts' camera and light, so battlefield sprites sit on the painted map the same way."""
+    s = setup(name, w, h, frames, light=False, ortho_scale=ortho_scale)
+    s.render.use_motion_blur = False
+    cam = s.camera
+    tilt = math.radians(46)
+    cam.location = (0, -6.5 + lift * math.cos(tilt), 6.2 + lift * math.sin(tilt))
+    cam.rotation_euler = (tilt, 0, 0)
+    bg = s.world.node_tree.nodes["Background"]
+    bg.inputs["Strength"].default_value = 0.5
+    bg.inputs["Color"].default_value = (0.8, 0.76, 0.68, 1)
+    sun_d = bpy.data.lights.new("Sun", "SUN")
+    sun_d.energy = 3.4
+    sun_d.angle = math.radians(8)
+    sun = bpy.data.objects.new("Sun", sun_d)
+    s.collection.objects.link(sun)
+    sun.rotation_euler = (math.radians(40), math.radians(-25), math.radians(35))
+    return s
+
+
+def _one_per_frame(groups):
+    """Show group n only on frame n+1 (hide_render keyed with constant interpolation)."""
+    for i, obs in enumerate(groups):
+        for f in range(1, len(groups) + 1):
+            for ob in obs:
+                ob.hide_render = (f != i + 1)
+                ob.keyframe_insert("hide_render", frame=f)
+    for ob in bpy.data.objects:
+        ad = ob.animation_data
+        if ad and ad.action:
+            for fc in getattr(ad.action, "fcurves", []):
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "CONSTANT"
+
+
+# The factions that raise a monument when they win, in sheet order (the last frame is a draw's cairn).
+MONUMENT_FACTIONS = ["new-antioch", "trench-pilgrims", "iron-sultanate", "heretic-legions", "black-grail",
+                     "seven-headed-serpent", "procession-of-the-sacred-affliction", "heretic-naval-raiders"]
+
+
+def monuments():
+    """A victory monument per faction (frame n = MONUMENT_FACTIONS[n]) plus a draw's cairn, each on a
+    scorched mound. They are stills: the map raises them out of the ground itself."""
+    reset()
+    s = _map_camera("monuments", 256, 320, len(MONUMENT_FACTIONS) + 1, ortho_scale=3.5, lift=1.0)
+    stone = _fabric("Stone", (0.27, 0.25, 0.22), rough=0.95)
+    dark_stone = _fabric("DarkStone", (0.16, 0.15, 0.14), rough=0.9)
+    earth = _fabric("Scorched", (0.07, 0.055, 0.045), rough=1.0)
+    iron = _fabric("Iron", (0.1, 0.1, 0.11), rough=0.45)
+    rust = _fabric("Rust", (0.3, 0.13, 0.06), rough=0.8)
+    wood = _fabric("Timber", (0.22, 0.14, 0.08), rough=0.85)
+    brass = _fabric("Brass", (0.75, 0.55, 0.2), rough=0.3)
+    gold = _fabric("Gold", (0.85, 0.65, 0.2), rough=0.25)
+    bone = _fabric("Bone", (0.8, 0.75, 0.62), rough=0.7)
+    blood = _fabric("Blood", (0.35, 0.02, 0.02), rough=0.6)
+    antioch = _fabric("AntiochBlue", (0.12, 0.2, 0.5), rough=0.8)
+    cream = _fabric("Cream", (0.85, 0.8, 0.66), rough=0.8)
+    grail = _fabric("GrailRot", (0.3, 0.33, 0.12), rough=0.6)
+    serpent = _fabric("SerpentRed", (0.45, 0.03, 0.05), rough=0.4)
+    sail = _fabric("BlackSail", (0.07, 0.07, 0.08), rough=0.9)
+    candle = _glow("Candle", (1.0, 0.7, 0.3), 12)
+    green = _glow("Alchemy", (0.3, 1.0, 0.45), 8)
+    purple = _glow("Aether", (0.6, 0.25, 1.0), 6)
+    ember = _glow("Ember", (1.0, 0.25, 0.05), 5)
+
+    def mound():
+        m = _ball("Mound", 1, (0, 0, -0.12), earth, scale=(0.95, 0.8, 0.22), segs=32)
+        rnd = random.Random(1)
+        rocks = [_ball(f"Rubble{i}", 0.06 + rnd.random() * 0.07,
+                       (math.cos(a) * rnd.uniform(0.6, 0.85), math.sin(a) * rnd.uniform(0.5, 0.7), 0.03), dark_stone,
+                       scale=(1.4, 1, 0.6), segs=8)
+                 for i, a in enumerate(rnd.uniform(0, math.tau) for _ in range(9))]
+        return [m, *rocks]
+
+    def plinth():
+        return [_box("PlinthLow", (0.9, 0.9, 0.18), (0, 0, 0.09), stone, bevel=0.02),
+                _box("PlinthHigh", (0.62, 0.62, 0.2), (0, 0, 0.28), stone, bevel=0.02)]
+
+    groups = []
+
+    # New Antioch: an iron cross with a torn Antiochian banner.
+    g = mound() + plinth()
+    g += [_box("CrossPost", (0.12, 0.12, 2.1), (0, 0, 1.43), iron, bevel=0.01),
+          _box("CrossArm", (1.0, 0.12, 0.12), (0, 0, 1.95), iron, bevel=0.01)]
+    ban = flat_flag("AntiochBanner", [(-0.4, 0), (0.4, 0), (0.4, -0.7), (0.2, -0.55), (0.05, -0.82), (-0.15, -0.6), (-0.4, -0.75)], antioch)
+    ban.location = (0, -0.08, 1.88)
+    stripe = flat_flag("AntiochStripe", [(-0.06, 0), (0.06, 0), (0.06, -0.6), (-0.06, -0.62)], cream)
+    stripe.location = (0, -0.1, 1.88)
+    g += [ban, stripe]
+    groups.append(g)
+
+    # Trench Pilgrims: a gabled reliquary on a pole, ringed with candles.
+    g = mound() + plinth()
+    g += [_cyl("RelPole", 0.06, 1.3, (0, 0, 1.03), wood),
+          _box("Reliquary", (0.55, 0.4, 0.42), (0, 0, 1.88), gold, bevel=0.02),
+          _cyl("RelRoof", 0.42, 0.35, (0, 0, 2.26), gold, rot=(0, 0, math.radians(45)), verts=4, r2=0.0),
+          _box("RelWindow", (0.2, 0.02, 0.22), (0, -0.21, 1.88), candle),
+          _box("RelCrossV", (0.04, 0.04, 0.3), (0, 0, 2.55), gold),
+          _box("RelCrossH", (0.18, 0.04, 0.04), (0, 0, 2.6), gold)]
+    for i in range(7):
+        a = i / 7 * math.tau + 0.25
+        p = (math.cos(a) * 0.42, math.sin(a) * 0.42, 0.45)
+        g += [_cyl(f"Candle{i}", 0.035, 0.16, p, cream), _ball(f"Flame{i}", 0.035, (p[0], p[1], p[2] + 0.12), candle, scale=(1, 1, 1.8), segs=8)]
+    groups.append(g)
+
+    # Iron Sultanate: a brass obelisk crowned by an alchemical orb.
+    g = mound() + plinth()
+    g += [_cyl("Obelisk", 0.36, 2.0, (0, 0, 1.38), brass, rot=(0, 0, math.radians(45)), verts=4, r2=0.16),
+          _ball("Orb", 0.2, (0, 0, 2.6), green),
+          _ring("OrbRing", 0.34, 0.025, (0, 0, 2.6), purple, rot=(math.radians(70), 0, math.radians(20))),
+          _ring("OrbRing2", 0.3, 0.02, (0, 0, 2.6), gold, rot=(math.radians(-60), math.radians(30), 0))]
+    groups.append(g)
+
+    # Heretic Legions: an inverted cross hung with chains, a skull at its foot.
+    g = mound() + plinth()
+    g += [_box("InvPost", (0.13, 0.13, 2.3), (0, 0, 1.53), wood, bevel=0.01),
+          _box("InvArm", (0.95, 0.13, 0.13), (0, 0, 1.0), wood, bevel=0.01),
+          _ball("Skull", 0.16, (0.22, -0.3, 0.45), bone, scale=(1, 1.1, 0.9)),
+          _box("BloodRag", (0.3, 0.02, 0.5), (-0.3, -0.08, 0.72), blood)]
+    for side in (-1, 1):
+        for k in range(5):
+            g.append(_ring(f"Chain{side}{k}", 0.05, 0.014, (side * 0.4, -0.09, 0.9 - k * 0.09), iron,
+                           rot=(0, math.radians(90 * (k % 2)), 0)))
+    groups.append(g)
+
+    # Cult of the Black Grail: a rotten pillar crowned by the grail, flies swarming.
+    g = mound() + plinth()
+    g += [_cyl("GrailPillar", 0.26, 1.6, (0, 0, 1.18), dark_stone, verts=10, r2=0.2),
+          _cyl("GrailStem", 0.05, 0.3, (0, 0, 2.13), grail),
+          _cyl("GrailCup", 0.12, 0.32, (0, 0, 2.43), grail, r2=0.3),
+          _cyl("GrailBrew", 0.27, 0.02, (0, 0, 2.58), green)]
+    rnd = random.Random(7)
+    for i in range(40):
+        a, r, z = rnd.random() * math.tau, 0.3 + rnd.random() * 0.7, 1.6 + rnd.random() * 1.4
+        g.append(_ball(f"Fly{i}", 0.025, (math.cos(a) * r, math.sin(a) * r, z), iron, segs=6))
+    groups.append(g)
+
+    # Court of the Seven-Headed Serpent: a pillar a serpent coils up, seven heads fanned at its top.
+    g = mound() + plinth()
+    g.append(_cyl("SerpPillar", 0.2, 1.8, (0, 0, 1.28), dark_stone, verts=12))
+    for i in range(28):
+        t = i / 27
+        a = t * math.tau * 2.2
+        g.append(_ball(f"Coil{i}", 0.1 - t * 0.02, (math.cos(a) * 0.26, math.sin(a) * 0.26, 0.45 + t * 1.75), serpent, segs=10))
+    for h in range(7):
+        a = math.radians(-75 + h * 25)
+        for k in range(4):
+            r = 0.1 + k * 0.12
+            g.append(_ball(f"Neck{h}{k}", 0.07 - k * 0.006, (math.sin(a) * r, -math.cos(a) * r * 0.3, 2.25 + k * 0.1 + (0.12 if k == 3 else 0)), serpent, segs=8))
+        g.append(_ball(f"Eye{h}", 0.02, (math.sin(a) * 0.46, -math.cos(a) * 0.14 - 0.05, 2.62), gold, segs=6))
+    groups.append(g)
+
+    # Procession of the Sacred Affliction: a gibbet hung with a cage and bells.
+    g = mound() + plinth()
+    g += [_box("GibPost", (0.14, 0.14, 2.3), (-0.35, 0, 1.53), wood, bevel=0.01),
+          _box("GibArm", (0.95, 0.12, 0.12), (0.05, 0, 2.6), wood, bevel=0.01),
+          _box("GibBrace", (0.5, 0.08, 0.08), (-0.15, 0, 2.38), wood),
+          _cyl("GibRope", 0.012, 0.35, (0.4, 0, 2.38), wood)]
+    g[-2].rotation_euler = (0, math.radians(45), 0)
+    for k in range(8):
+        a = k / 8 * math.tau
+        g.append(_cyl(f"CageBar{k}", 0.012, 0.6, (0.4 + math.cos(a) * 0.17, math.sin(a) * 0.17, 1.9), rust, verts=6))
+    g += [_cyl("CageTop", 0.2, 0.04, (0.4, 0, 2.2), rust), _cyl("CageBottom", 0.2, 0.04, (0.4, 0, 1.6), rust),
+          _ball("CageBones", 0.1, (0.4, 0, 1.7), bone)]
+    for k, x in enumerate((-0.05, 0.15)):
+        g.append(_cyl(f"Bell{k}", 0.08, 0.14, (x, 0, 2.43), brass, r2=0.03))
+    groups.append(g)
+
+    # Heretic Naval Raiders: an anchor driven into the mud before a broken mast with a black sail.
+    g = mound()
+    g += [_cyl("Mast", 0.07, 2.2, (0.35, 0.3, 1.0), wood, rot=(math.radians(-8), math.radians(10), 0)),
+          _box("Yard", (0.9, 0.06, 0.06), (0.42, 0.28, 1.85), wood)]
+    sailm = flat_flag("Sail", [(-0.4, 0), (0.45, 0), (0.35, -0.55), (0.1, -0.4), (-0.05, -0.75), (-0.35, -0.5)], sail)
+    sailm.location = (0.42, 0.25, 1.82)
+    g.append(sailm)
+    g += [_cyl("Shank", 0.07, 1.5, (-0.25, -0.1, 0.8), iron, rot=(0, math.radians(-12), 0)),
+          _box("Stock", (0.7, 0.08, 0.08), (-0.4, -0.1, 1.5), iron),
+          _ring("AnchorRing", 0.1, 0.025, (-0.42, -0.1, 1.66), iron, rot=(math.radians(90), 0, 0))]
+    arms = _ring("Arms", 0.42, 0.06, (-0.18, -0.1, 0.25), iron, rot=(math.radians(90), 0, math.radians(-12)))
+    g.append(arms)
+    g += [_ball("Figurehead", 0.22, (0.55, -0.35, 0.35), wood, scale=(0.9, 0.8, 1.2)), _box("Weed", (0.1, 0.02, 0.4), (-0.15, -0.2, 0.9), grail)]
+    groups.append(g)
+
+    # A draw: a cairn of stones with a helmet on a stake.
+    g = mound()
+    rnd = random.Random(3)
+    for i in range(22):
+        layer = i // 8
+        a = rnd.random() * math.tau
+        r = (0.55 - layer * 0.18) * rnd.random()
+        g.append(_ball(f"Cairn{i}", 0.2 - layer * 0.03, (math.cos(a) * r, math.sin(a) * r, 0.12 + layer * 0.22), stone, scale=(1.2, 1, 0.8), segs=8))
+    g += [_box("Stake", (0.05, 0.05, 1.2), (0.05, 0, 1.0), wood), _ball("Helmet", 0.18, (0.05, 0, 1.62), rust, scale=(1, 1, 0.55)),
+          _ball("Embers", 0.08, (-0.25, -0.35, 0.2), ember)]
+    groups.append(g)
+
+    _one_per_frame(groups)
+    render()
+
+
+def trophy():
+    """The loser's broken standard, hung on the winner's monument. Frame 1: the snapped pole and crossbar;
+    frame 2: the torn cloth alone, white so the map can dye it the loser's colours."""
+    reset()
+    s = _map_camera("trophy", 160, 200, 2, ortho_scale=2.2, lift=0.5)
+    wood = _fabric("Timber", (0.22, 0.14, 0.08), rough=0.85)
+    iron = _fabric("Iron", (0.12, 0.12, 0.12), rough=0.5)
+    cloth = _fabric("Cloth", (0.92, 0.9, 0.86), rough=0.85)
+    pole = [_cyl("Pole", 0.035, 1.4, (0, 0, 0.7), wood, rot=(0, math.radians(14), 0)),
+            _box("Bar", (0.8, 0.05, 0.05), (0.14, 0, 1.28), wood),
+            _cyl("Finial", 0.06, 0.16, (0.18, 0, 1.46), iron, r2=0.0)]
+    flag = flat_flag("Standard", [(-0.38, 0), (0.38, 0), (0.36, -0.5), (0.2, -0.38), (0.12, -0.68), (-0.05, -0.45),
+                                  (-0.22, -0.72), (-0.38, -0.46)], cloth)
+    flag.location = (0.14, -0.06, 1.25)
+    _one_per_frame([pole, [flag]])
+    render()
+
+
+def corpses():
+    """Six fallen soldiers seen from the map's angle, in drab grey-khaki so the map can tint them."""
+    reset()
+    s = _map_camera("corpses", 160, 128, 6, ortho_scale=1.5, lift=0.0)
+    cloth = _fabric("Uniform", (0.36, 0.34, 0.28), rough=0.95)
+    coat = _fabric("Greatcoat", (0.26, 0.25, 0.22), rough=0.95)
+    skin = _fabric("Skin", (0.5, 0.42, 0.36), rough=0.8)
+    iron = _fabric("Helmet", (0.2, 0.2, 0.19), rough=0.5)
+    blood = _fabric("Blood", (0.3, 0.02, 0.02), rough=0.4)
+    wood = _fabric("Stock", (0.22, 0.14, 0.08), rough=0.85)
+    rnd = random.Random(11)
+    groups = []
+    for v in range(6):
+        g = []
+        yaw = rnd.uniform(-1.2, 1.2)
+        c, sn = math.cos(yaw), math.sin(yaw)
+        at = lambda x, y, z: (x * c - y * sn, x * sn + y * c, z)
+        body = coat if v % 2 else cloth
+        torso = _ball(f"Torso{v}", 0.2, at(0, 0, 0.08), body, scale=(1.5, 0.9, 0.45))
+        torso.rotation_euler = (0, 0, yaw)
+        g.append(torso)
+        g.append(_ball(f"Head{v}", 0.08, at(0.4, 0.02, 0.07), skin))
+        if v != 3:  # one lost his helmet
+            g.append(_ball(f"Helm{v}", 0.1, at(0.43 + (0.18 if v == 4 else 0), 0.04 + (0.1 if v == 4 else 0), 0.1), iron, scale=(1, 1, 0.5)))
+        for k, (dx, dy, ang) in enumerate(((0.18, 0.2, 0.9 + v * 0.2), (0.15, -0.2, -0.6 - v * 0.15), (-0.35, 0.09, 0.2 * v), (-0.35, -0.1, -0.3))):
+            limb = _cyl(f"Limb{v}{k}", 0.045, 0.34, at(dx, dy, 0.05), body if k > 1 else coat, rot=(0, math.radians(90), yaw + ang), verts=8)
+            g.append(limb)
+        g.append(_ball(f"Pool{v}", 0.18, at(0.1, 0.05 * v, -0.02), blood, scale=(1.3 + v * 0.1, 1, 0.05)))
+        if v in (0, 2, 5):
+            g.append(_box(f"Rifle{v}", (0.7, 0.03, 0.03), at(0.05, -0.3, 0.03), wood))
+        groups.append(g)
+    _one_per_frame(groups)
+    render()
+
+
+def flash():
+    """A muzzle flash: four frames of a star of fire that flares and dies."""
+    reset()
+    s = setup("flash", 128, 128, 4, light=True, ortho_scale=1.2)
+    mat, em = emission("Flash", (1, 0.8, 0.45), 14)
+    parts = [_ball("Core", 0.12, (0, 0, 0), mat)]
+    for i in range(5):
+        a = i / 5 * math.tau
+        spike = _cyl(f"Spike{i}", 0.05, 0.45, (math.cos(a) * 0.2, 0, math.sin(a) * 0.2), mat, rot=(0, -a + math.pi / 2, 0), verts=6, r2=0.0)
+        parts.append(spike)
+    for f, (sc, st) in enumerate(((0.6, 18), (1.0, 14), (0.75, 7), (0.4, 3)), start=1):
+        for p in parts:
+            p.scale = (sc, sc, sc)
+            p.keyframe_insert("scale", frame=f)
+        em.inputs["Strength"].default_value = st
+        em.inputs["Strength"].keyframe_insert("default_value", frame=f)
+    render()
+
+
+def _dust_mat(name, colour):
+    """Soft dust: a principled surface whose alpha the effect keys frame by frame."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    try:
+        m.surface_render_method = "BLENDED"
+    except AttributeError:
+        m.blend_method = "BLEND"
+    b = m.node_tree.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (*colour, 1)
+    b.inputs["Roughness"].default_value = 1.0
+    return m, b.inputs["Alpha"]
+
+
+def _clod_mesh(name, r, rnd):
+    """A lumpy clod of earth: an icosphere with its vertices pushed about."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r)
+    ob = bpy.context.active_object
+    ob.name = name
+    for v in ob.data.vertices:
+        v.co *= 0.7 + rnd.random() * 0.6
+    return ob
+
+
+def blast():
+    """An artillery shell landing in the mud, seen from the map's angle: a plume of earth clods flung up on ballistic arcs that fall back, and the scorched crater left behind. The dust and
+    smoke are the map's own smoke sheet, layered over this. Transparent ground, so it sits on the painted map."""
+    reset()
+    frames = 18
+    s = _map_camera("blast", 256, 288, frames, ortho_scale=4.2, lift=1.2)
+    rnd = random.Random(21)
+    fps = 18.0
+    g = 9.0
+
+    earth = _fabric("Clod", (0.16, 0.12, 0.08), rough=1.0)
+    wet = _fabric("WetClod", (0.09, 0.07, 0.05), rough=0.8)
+    scorch_m, scorch_a = _dust_mat("Scorch", (0.05, 0.04, 0.03))
+    crater = _ball("Crater", 1, (0, 0, 0.01), scorch_m, scale=(0.75, 0.62, 0.02), segs=24)
+
+    # The flash itself is drawn by the map (additive light); this sheet is the earth and the crater.
+    # The plume: clods thrown up and out, a tight column of fast ones in the middle.
+    clods = []
+    for i in range(110):
+        up = rnd.uniform(4.0, 7.5) if i < 40 else rnd.uniform(2.0, 4.5)
+        spread = rnd.uniform(0.1, 0.5) if i < 40 else rnd.uniform(0.8, 2.2)
+        a = rnd.uniform(0, math.tau)
+        ob = _clod_mesh(f"Clod{i}", rnd.uniform(0.06, 0.16), rnd)
+        ob.data.materials.append(wet if i % 3 == 0 else earth)
+        clods.append((ob, (math.cos(a) * spread, math.sin(a) * spread * 0.8, up), rnd.uniform(0, 1.5)))
+
+    for f in range(1, frames + 1):
+        t = (f - 1) / fps
+        k = (f - 1) / (frames - 1)
+        # Clods on their arcs, settling where they land
+        for ob, (vx, vy, vz), spin in clods:
+            z = vz * t - 0.5 * g * t * t
+            landed = z < 0 and t > vz / g
+            tt = (2 * vz / g) if landed else t
+            ob.location = (vx * tt, vy * tt, max(0.02, 0.15 + (0 if landed else z)))
+            ob.rotation_euler = (spin * t * 8, spin * t * 5, 0)
+            ob.keyframe_insert("location", frame=f)
+            ob.keyframe_insert("rotation_euler", frame=f)
+        scorch_a.default_value = min(0.9, t * 6)
+        scorch_a.keyframe_insert("default_value", frame=f)
+    render()
+
+
+def spurt():
+    """A round striking the dirt: a kick of grit and a small dust puff that hangs and thins."""
+    reset()
+    frames = 8
+    s = _map_camera("spurt", 96, 96, frames, ortho_scale=1.2, lift=0.3)
+    rnd = random.Random(4)
+    earth = _fabric("Grit", (0.2, 0.15, 0.1), rough=1.0)
+    grit = []
+    for i in range(10):
+        ob = _clod_mesh(f"Grit{i}", rnd.uniform(0.015, 0.035), rnd)
+        ob.data.materials.append(earth)
+        a = rnd.uniform(0, math.tau)
+        grit.append((ob, (math.cos(a) * rnd.uniform(0.1, 0.4), math.sin(a) * 0.2, rnd.uniform(1.2, 2.4))))
+    m, alpha = _dust_mat("Kick", (0.4, 0.33, 0.25))
+    puff = _ball("Kick", 0.12, (0, 0, 0.08), m, segs=14)
+    for f in range(1, frames + 1):
+        t = (f - 1) / 18.0
+        for ob, (vx, vy, vz) in grit:
+            ob.location = (vx * t, vy * t, max(0.01, vz * t - 4.5 * t * t))
+            ob.keyframe_insert("location", frame=f)
+        sc = 0.4 + t * 5
+        puff.scale = (sc, sc, sc * 1.2)
+        puff.location = (0, 0, 0.08 + t * 0.5)
+        alpha.default_value = 0.8 * max(0, 1 - t * 2.1)
+        puff.keyframe_insert("scale", frame=f)
+        puff.keyframe_insert("location", frame=f)
+        alpha.keyframe_insert("default_value", frame=f)
+    render()
+
+
+EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin, outposts,
+                                   monuments, trophy, corpses, flash, blast, spurt)}
 
 if __name__ == "__main__":
     # Optional names after the output dir render only those effects.

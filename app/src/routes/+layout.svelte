@@ -5,6 +5,7 @@
 	import '@fontsource/eb-garamond/600.css';
 	import '@fontsource/eb-garamond/700.css';
 	import '@fontsource/unifrakturmaguntia/400.css';
+	import '@fontsource/pirata-one/400.css';
 	import '../app.css';
 
 	let { children } = $props();

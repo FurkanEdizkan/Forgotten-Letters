@@ -1,4 +1,5 @@
 import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
+import { BattleField, BattleResult } from './battle';
 import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
 
 /**
@@ -13,13 +14,14 @@ import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger
 export type Scope = { type: 'screen' } | { type: 'zone'; id: string; x: number; y: number };
 export interface Wanted {
 	key: string;
-	kind: FxKind;
+	/** A weather kind, or a battle being fought there. */
+	kind: FxKind | 'battlefield';
 	scope: Scope;
 	intensity: number;
 	params?: FxParams;
 }
 
-interface Effect {
+export interface Effect {
 	update(dt: number, t: number): void;
 	setIntensity(i: number): void;
 	/** Size multiplier for effects that scale their own pieces (particles). */
@@ -31,7 +33,7 @@ interface Effect {
 
 const ZONE_R = 130;
 
-function rng(seed: number) {
+export function rng(seed: number) {
 	let a = seed >>> 0;
 	return () => {
 		a |= 0;
@@ -103,13 +105,25 @@ function makeTextures() {
 		birdDown: bird(false)
 	};
 }
-type Textures = ReturnType<typeof makeTextures>;
+export type Textures = ReturnType<typeof makeTextures>;
 
 /** Blender-rendered sprite sheets (static/fx/*.json), when loaded. */
-export type SheetName = 'lightning' | 'fire' | 'crow' | 'smoke' | 'biplane' | 'zeppelin';
-type Sheets = Partial<Record<SheetName | 'biplaneShadow' | 'zeppelinShadow', Texture[]>>;
+export type SheetName =
+	| 'lightning'
+	| 'fire'
+	| 'crow'
+	| 'smoke'
+	| 'biplane'
+	| 'zeppelin'
+	| 'monuments'
+	| 'trophy'
+	| 'corpses'
+	| 'flash'
+	| 'blast'
+	| 'spurt';
+export type Sheets = Partial<Record<SheetName | 'biplaneShadow' | 'zeppelinShadow', Texture[]>>;
 
-interface Ctx {
+export interface Ctx {
 	app: Application;
 	tex: Textures;
 	sheets: Sheets;
@@ -462,7 +476,7 @@ class Rays implements Effect {
 // ---------------------------------------------------------------- rendered sequences
 
 /** Plays a Blender-rendered frame sequence once, then reports done. */
-class FrameSprite implements Effect {
+export class FrameSprite implements Effect {
 	s: Sprite;
 	age: number;
 	constructor(
@@ -836,7 +850,7 @@ class Thorns implements Effect {
 
 // ---------------------------------------------------------------- aircraft
 
-type Pt = { x: number; y: number };
+export type Pt = { x: number; y: number };
 
 /** One aircraft on a straight path: prop frames, a ground shadow offset by altitude, fades at the ends. */
 class Flight implements Effect {
@@ -1024,7 +1038,7 @@ class Sortie implements Effect {
 }
 
 /** Tracer streaks in a line, flashing and fading. */
-class Tracers implements Effect {
+export class Tracers implements Effect {
 	g = new Graphics();
 	age = 0;
 	constructor(parent: Container, from: Pt, to: Pt, r: () => number) {
@@ -1150,7 +1164,7 @@ export class FxEngine {
 
 	/** Load the Blender-rendered sheets; effects fall back to drawn versions until (or if never) loaded. */
 	private async loadSheets() {
-		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke', 'biplane', 'zeppelin'];
+		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke', 'biplane', 'zeppelin', 'monuments', 'trophy', 'corpses', 'flash', 'blast', 'spurt'];
 		await Promise.all(
 			names.map(async (name) => {
 				try {
@@ -1217,7 +1231,7 @@ export class FxEngine {
 	}
 
 	/** Effects drawn behind the markers (fog, glows, smoke); the rest go in front. */
-	private static BACK = new Set<FxKind>(['fog', 'miasma', 'smog', 'haze', 'eclipse', 'heat']);
+	private static BACK = new Set<Wanted['kind']>(['fog', 'miasma', 'smog', 'haze', 'eclipse', 'heat']);
 
 	private make(w: Wanted, holder: Container): Effect | null {
 		const { ctx } = this;
@@ -1260,6 +1274,8 @@ export class FxEngine {
 				return new Thorns(w.scope, layer, ctx);
 			case 'aircraft':
 				return new AircraftAmbient(ctx, w.scope, holder, i);
+			case 'battlefield':
+				return w.scope.type === 'zone' ? new BattleField(ctx, w.scope, holder, i) : null;
 		}
 	}
 
@@ -1308,8 +1324,15 @@ export class FxEngine {
 	}
 
 	/** Play a one-shot effect. `at` is in world coordinates; omit for anywhere on screen. */
-	trigger(t: FxTrigger, at?: { x: number; y: number }) {
+	trigger(t: FxTrigger, at?: { x: number; y: number }, onDone?: () => void) {
 		if (t.kind === 'dice') return; // drawn by the page as a DOM overlay
+		if (t.kind === 'battle-result') {
+			// Without effects (or a place), there is nothing to play: the monument just stands.
+			if (!t.battle || !at || this.ctx.q <= 0) return onDone?.();
+			const extra = (kind: 'lightning' | 'crows' | 'fire' | 'quake') => this.trigger({ kind, zone: t.zone, seed: t.seed + kind.length }, at);
+			this.oneShots.push(new BattleResult(this.ctx, this.worldBack, this.worldFront, at, t.battle, t.seed, extra, onDone));
+			return;
+		}
 		if (t.kind === 'zeppelin') {
 			if (t.zeppelin) this.zeppelin(t.zeppelin, at, rng(t.seed));
 			return;

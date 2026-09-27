@@ -32,7 +32,10 @@ export const FACTIONS: Faction[] = [
 	{
 		id: 'seven-headed-serpent', name: 'Court of the Seven-Headed Serpent', alignment: 'fallen',
 		variants: ['Wrath', 'Envy', 'Lust', 'Pride', 'Sloth', 'Gluttony', 'Greed']
-	}
+	},
+	// Carcass Front makes two variants into factions of their own.
+	{ id: 'procession-of-the-sacred-affliction', name: 'Procession of the Sacred Affliction', alignment: 'faithful', variants: [] },
+	{ id: 'heretic-naval-raiders', name: 'Heretic Naval Raiders', alignment: 'fallen', variants: [] }
 ];
 
 /** Carcass Front adds three Patrons. */

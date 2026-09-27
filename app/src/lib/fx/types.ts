@@ -1,3 +1,4 @@
+import type { Outcome } from '$lib/battle-outcome';
 import type { FxPreset } from '$lib/rules/weather';
 
 /** Visual effect kinds the map can render, map-wide or around a zone. */
@@ -132,6 +133,8 @@ export interface FxConfig {
 	quality: 'low' | 'medium' | 'high';
 	/** Show Hell on Earth effects around zones with games in progress. */
 	battleWeather: boolean;
+	/** Victory monuments (and the fallen) left on the zones where battles were won. */
+	monuments: boolean;
 	timeOfDay: TimeOfDay;
 	presets: WeatherPreset[];
 }
@@ -142,6 +145,7 @@ export const DEFAULT_FX: FxConfig = {
 	random: { on: false, everySeconds: 45, kinds: ['lightning', 'crows', 'fire'] },
 	quality: 'high',
 	battleWeather: true,
+	monuments: true,
 	timeOfDay: 'day',
 	presets: []
 };
@@ -178,10 +182,20 @@ export interface DiceRoll {
 }
 
 /** One-shot effect pushed to every viewer at once. */
+/** A battle's result, played on every screen when the Campaign Master records it. */
+export interface BattleResultEvent {
+	gameId: string;
+	zoneName: string;
+	aggressor: { id: string; name: string; faction: string };
+	defender: { id: string; name: string; faction: string };
+	outcome: Outcome;
+}
+
 export interface FxTrigger {
-	kind: TriggerKind | 'dice' | 'zeppelin';
+	kind: TriggerKind | 'dice' | 'zeppelin' | 'battle-result';
 	dice?: DiceRoll;
 	zeppelin?: ZeppelinEvent;
+	battle?: BattleResultEvent;
 	/** Zone to strike; null = anywhere. */
 	zone: string | null;
 	/** Deterministic seed so every screen plays the same thing. */

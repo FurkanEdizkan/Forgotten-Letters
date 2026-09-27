@@ -1,20 +1,20 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
 import * as schema from './schema';
 import { env } from '$env/dynamic/private';
-import { building } from '$app/environment';
 
-const url = env.DATABASE_URL ?? 'local.db';
+const url = env.DATABASE_URL ?? 'postgres://carcass:carcass@localhost:5432/carcass';
 
-if (!building) mkdirSync(dirname(url), { recursive: true });
-
-const client = new Database(building ? ':memory:' : url);
-client.pragma('journal_mode = WAL');
-client.pragma('foreign_keys = ON');
+// postgres.js connects lazily, so building the app never touches the database.
+const client = postgres(url, { max: 10, onnotice: () => {} });
 
 export const db = drizzle(client, { schema });
+export type Db = typeof db;
+/** A database handle or an open transaction: anything queries can run on. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0] | Db;
 
-if (!building) migrate(db, { migrationsFolder: env.MIGRATIONS_DIR ?? 'drizzle' });
+/** Bring the schema up to date; runs once at server start. */
+export async function migrateDb() {
+	await migrate(db, { migrationsFolder: env.MIGRATIONS_DIR ?? 'drizzle' });
+}

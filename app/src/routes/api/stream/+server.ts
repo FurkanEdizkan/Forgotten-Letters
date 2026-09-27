@@ -6,12 +6,12 @@ import { publicSnapshot } from '$lib/server/public';
  * Server-Sent Events: sends the public snapshot on connect and again after every
  * campaign change (debounced), plus a heartbeat so proxies keep the line open.
  */
-export function GET({ request }) {
+export async function GET({ request }) {
 	const encoder = new TextEncoder();
 	let cleanup = () => {};
 
 	const stream = new ReadableStream({
-		start(controller) {
+		async start(controller) {
 			const send = (event: string, data: unknown) => {
 				try {
 					controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
@@ -19,12 +19,12 @@ export function GET({ request }) {
 					cleanup();
 				}
 			};
-			const snapshot = () => {
-				const c = currentCampaign();
-				if (c) send('snapshot', publicSnapshot(c));
+			const snapshot = async () => {
+				const c = await currentCampaign();
+				if (c) send('snapshot', await publicSnapshot(c));
 			};
 
-			snapshot();
+			await snapshot();
 			let timer: ReturnType<typeof setTimeout> | undefined;
 			const unsubscribe = subscribe(() => {
 				clearTimeout(timer);

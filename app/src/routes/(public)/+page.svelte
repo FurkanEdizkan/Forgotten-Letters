@@ -6,8 +6,15 @@
 	import BattleControls from '$lib/components/BattleControls.svelte';
 	import ArrangeBattle from '$lib/components/ArrangeBattle.svelte';
 	import Dice from '$lib/components/Dice.svelte';
+	import Lockup from '$lib/components/Lockup.svelte';
+	import Mark from '$lib/components/Mark.svelte';
+	import BattleHud from '$lib/components/BattleHud.svelte';
+	import ResultBanner from '$lib/components/ResultBanner.svelte';
+	import { fly } from 'svelte/transition';
+	import { goto } from '$app/navigation';
+	import { cubicOut } from 'svelte/easing';
 	import { page } from '$app/state';
-	import type { DiceRoll } from '$lib/fx/types';
+	import type { BattleResultEvent, DiceRoll } from '$lib/fx/types';
 	import { getLive } from '$lib/context';
 	import { buildGraph } from '$lib/rules/zones';
 	import { weatherByRoll } from '$lib/rules/weather';
@@ -20,6 +27,8 @@
 	let zoneId = $state<string | null>(null);
 	let warbandId = $state<string | null>(null);
 	let showStandings = $state(false);
+	// Height of the smoke band that holds the chrome; the map plate starts below it.
+	let bandH = $state(64);
 	const isAdmin = $derived(!!page.data.isAdmin);
 
 	// Hell on Earth dice rolled anywhere show up on every map.
@@ -28,8 +37,11 @@
 	// Special events (a zeppelin crossing) carry a banner for as long as they last.
 	let event = $state<{ text: string; key: number } | null>(null);
 	let eventTimer: ReturnType<typeof setTimeout> | undefined;
+	// A battle's result plays on every screen: the camera goes there, and the banner lands once the monument stands.
+	let result = $state<{ battle: BattleResultEvent; zone: string; key: number } | null>(null);
 	$effect(() =>
 		live.onTrigger((t) => {
+			if (t.kind === 'battle-result' && t.battle && t.zone) result = { battle: t.battle, zone: t.zone, key: t.seed };
 			if (t.kind === 'dice' && t.dice && t.zone) dice = { roll: t.dice, zone: t.zone, key: t.seed };
 			if (t.kind === 'zeppelin' && t.zeppelin) {
 				event = { text: t.zeppelin.text, key: t.seed };
@@ -63,74 +75,168 @@
 	const warband = $derived(warbandId ? wb.get(warbandId) : undefined);
 	const zoneGame = $derived(zoneId ? s.active.find((g) => g.zone === zoneId) : undefined);
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
+
+	// Active battle mode: /?battle=<game> flies into a battle being fought (shareable, so the TV can sit in it).
+	const battleId = $derived(page.url.searchParams.get('battle'));
+	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status === 'in_progress') : undefined);
+	const focus = $derived(battle?.zone ?? result?.zone ?? null);
+	const enterBattle = (id: string) => goto(`?battle=${id}`, { noScroll: true, keepFocus: true });
+	const leaveBattle = () => {
+		zoneId = null;
+		goto('/', { noScroll: true, keepFocus: true });
+	};
+	function endResult() {
+		const id = result?.battle.gameId;
+		result = null;
+		if (id && id === battleId) leaveBattle();
+	}
+
+	// /?replay=<game>: play a finished battle's result again, on this screen only.
+	$effect(() => {
+		const id = page.url.searchParams.get('replay');
+		if (!id) return;
+		fetch(`/api/battle-result/${encodeURIComponent(id)}`)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((b: BattleResultEvent | null) => {
+				const z = s.monuments.find((m) => m.gameId === id)?.zone;
+				if (b && z) live.play({ kind: 'battle-result', zone: z, seed: Math.floor(Math.random() * 2 ** 31), battle: b });
+			});
+		goto('/', { replaceState: true, noScroll: true, keepFocus: true });
+	});
 </script>
 
 <svelte:head><title>{s.campaign.name} · Live</title></svelte:head>
 
-<div class="stage">
-	<LiveMap
-		snapshot={s}
-		selected={warbandId}
-		onzone={(id) => {
-			zoneId = id;
-			warbandId = null;
-		}}
-		onwarband={(id) => {
-			warbandId = warbandId === id ? null : id;
-			zoneId = null;
-		}}
-		{fxEnabled}
-		subscribeTriggers={live.onTrigger}
-		bind:project
-	/>
+<div class="stage" style:--band="{bandH}px">
+	<div class="plate">
+		<LiveMap
+			snapshot={s}
+			selected={warbandId}
+			onzone={(id) => {
+				zoneId = id;
+				warbandId = null;
+				// Clicking a battle being fought enters it (without covering it with the panel).
+				const fought = s.active.find((g) => g.zone === id && g.status === 'in_progress');
+				if (fought && fought.id !== battleId) {
+					zoneId = null;
+					enterBattle(fought.id);
+				}
+			}}
+			onwarband={(id) => {
+				warbandId = warbandId === id ? null : id;
+				zoneId = null;
+			}}
+			{fxEnabled}
+			subscribeTriggers={live.onTrigger}
+			{focus}
+			bind:project
+		/>
+	</div>
+
+	{#if battle}
+		{#key battle.id}
+			<BattleHud game={battle} snapshot={s} zoneName={zoneName(battle.zone)} onleave={leaveBattle} />
+		{/key}
+	{/if}
+
+	{#if result}
+		{#key result.key}<ResultBanner battle={result.battle} onclose={endResult} />{/key}
+	{/if}
 
 	{#if event}
-		{#key event.key}<div class="event-banner" role="status">✠ {event.text}</div>{/key}
+		{#key event.key}<div class="event-banner" role="status">
+				<Mark name="cross" size="0.8em" />
+				{event.text}
+			</div>{/key}
 	{/if}
 
 	{#if dice}
 		{#key dice.key}
-			<Dice roll={dice.roll} zoneName={zoneName(dice.zone)} at={project?.(dice.zone) ?? null} onclose={() => (dice = null)} />
+			{@const at = project?.(dice.zone)}
+			<Dice
+				roll={dice.roll}
+				zoneName={zoneName(dice.zone)}
+				at={at ? { x: at.x, y: at.y + bandH } : null}
+				onclose={() => (dice = null)}
+			/>
 		{/key}
 	{/if}
 
-	<header class="bar">
-		<div class="title">
-			<span class="kicker">Trench Crusade</span>
-			<span class="name">{s.campaign.name}</span>
-		</div>
-		<nav>
-			<button class="chip" onclick={toggleFx} aria-pressed={fxEnabled} title="Weather effects on this device">
-				<span class="long">{fxEnabled ? 'Weather on' : 'Weather off'}</span><span class="short" class:off={!fxEnabled}>Weather</span>
-			</button>
-			<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
-			<a class="chip" href="/zones">Zones</a>
-			<a class="chip" href="/history">Chronicle</a>
-			<span class="dot" class:on={live.connected} title={live.connected ? 'Live' : 'Reconnecting…'}></span>
-		</nav>
-	</header>
+	<div class="band" bind:clientHeight={bandH}>
+		<header class="bar">
+			<Lockup name={s.campaign.name} href="/players" compact />
+			<nav>
+				<button
+					class="chip"
+					onclick={toggleFx}
+					aria-pressed={fxEnabled}
+					title="Weather effects on this device"
+				>
+					<span class="long">{fxEnabled ? 'Weather on' : 'Weather off'}</span><span
+						class="short"
+						class:off={!fxEnabled}>Weather</span
+					>
+				</button>
+				<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
+				<a class="chip" href="/zones">Zones</a>
+				<a class="chip" href="/history">Chronicle</a>
+				{#if page.data.user}
+					<a class="chip who" href={page.data.user.warbandIds[0] ? `/warbands/${page.data.user.warbandIds[0]}` : page.data.user.role === 'cm' ? '/admin' : '/account'}>{page.data.user.name}</a>
+				{:else}
+					<a class="chip who" href="/login">Sign in</a>
+				{/if}
+				<span
+					class="dot"
+					class:on={live.connected}
+					title={live.connected ? 'Live' : 'Reconnecting…'}
+				></span>
+			</nav>
+		</header>
+		{#if s.active.length}
+			<div class="playing" aria-label="Now playing">
+				{#each s.active as g (g.id)}
+					{@const a = wb.get(g.aggressor)}
+					{@const d = wb.get(g.defender)}
+					<button
+						class="battle"
+						class:planned={g.status === 'scheduled'}
+						onclick={() => {
+							zoneId = g.zone;
+							warbandId = null;
+						}}
+					>
+						<span class="pair">
+							{#if a}<Portrait
+									name={a.player}
+									portrait={a.portrait}
+									symbol={a.symbol} faction={a.faction} seal={a.seal}
+									size={30}
+								/>{/if}
+							{#if d}<Portrait
+									name={d.player}
+									portrait={d.portrait}
+									symbol={d.symbol} faction={d.faction} seal={d.seal}
+									size={30}
+								/>{/if}
+						</span>
+						<span class="txt">
+							<strong>{a?.player} <span class="vs">vs</span> {d?.player}</strong>
+							<small
+								>{g.status === 'scheduled' ? 'Planned · ' : ''}{zoneName(g.zone)}{g.weatherEvent
+									? ` · ${weatherByRoll(g.weatherEvent)?.name}`
+									: ''}</small
+							>
+						</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
 
 	{#if mapWide?.weatherEvent}
 		{@const we = weatherByRoll(mapWide.weatherEvent)}
-		<div class="omen">{mapWide.name ? `${mapWide.name}: ` : ''}<strong>{we?.name}</strong> across the front</div>
-	{/if}
-
-	{#if s.active.length}
-		<div class="playing" aria-label="Now playing">
-			{#each s.active as g (g.id)}
-				{@const a = wb.get(g.aggressor)}
-				{@const d = wb.get(g.defender)}
-				<button class="battle" onclick={() => { zoneId = g.zone; warbandId = null; }}>
-					<span class="pair">
-						{#if a}<Portrait name={a.player} portrait={a.portrait} symbol={a.symbol} size={30} />{/if}
-						{#if d}<Portrait name={d.player} portrait={d.portrait} symbol={d.symbol} size={30} />{/if}
-					</span>
-					<span class="txt">
-						<strong>{a?.player} vs {d?.player}{g.status === 'scheduled' ? ' · planned' : ''}</strong>
-						<small>{zoneName(g.zone)}{g.weatherEvent ? ` · ${weatherByRoll(g.weatherEvent)?.name}` : ''}</small>
-					</span>
-				</button>
-			{/each}
+		<div class="omen">
+			{mapWide.name ? `${mapWide.name}: ` : ''}<strong>{we?.name}</strong> across the front
 		</div>
 	{/if}
 
@@ -143,9 +249,14 @@
 					{#if w}
 						<li>
 							<span class="rank">{i + 1}</span>
-							<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} size={34} />
-							<a href="/players/{w.id}" class="who"><strong>{w.player}</strong><small>{w.name}</small></a>
-							<span class="score"><strong>{row.total}</strong><small>{w.games}/{s.campaign.gamesPerPlayer}</small></span>
+							<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} faction={w.faction} seal={w.seal} size={34} />
+							<a href="/players/{w.id}" class="who"
+								><strong>{w.player}</strong><small>{w.name}</small></a
+							>
+							<span class="score"
+								><strong>{row.total}</strong><small>{w.games}/{s.campaign.gamesPerPlayer}</small
+								></span
+							>
 						</li>
 					{/if}
 				{/each}
@@ -155,83 +266,123 @@
 	{/if}
 
 	{#if zone && zoneGame}
-		<aside class="sheet wide">
-			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
+		<aside class="sheet wide" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
+				><Mark name="close" /></button
+			>
+			{#if zoneGame.status === 'in_progress' && zoneGame.id !== battleId}
+				<button class="enter" onclick={() => enterBattle(zoneGame.id)}>Enter the battle</button>
+			{/if}
 			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName}>
 				{#snippet controls()}
 					{#if isAdmin}<BattleControls game={zoneGame} {zone} snapshot={s} />{/if}
 				{/snippet}
 			</BattlePanel>
+			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if zone}
-		<aside class="sheet">
-			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
-			<div class="kicker">{zone.type === 'entry' ? 'Entry Zone' : zone.type === 'special' ? 'Special Zone' : 'Zone'}{zone.house ? ' · our campaign' : ''}</div>
+		<aside class="sheet" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
+				><Mark name="close" /></button
+			>
 			<h2>{zone.name}</h2>
+			<p class="kind">
+				{zone.type === 'entry'
+					? 'Entry Zone'
+					: zone.type === 'special'
+						? 'Special Zone'
+						: 'Zone'}{zone.house ? ' of our campaign' : ''}
+			</p>
 			<ZoneFacts {zone} snapshot={s} compact />
 			<a class="lore-link" href="/zones/{zone.id}">Read the lore →</a>
 			{#if isAdmin && zone.type !== 'entry'}<ArrangeBattle zoneId={zone.id} />{/if}
+			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if warband}
-		<aside class="sheet">
-			<button class="close" aria-label="Close" onclick={() => (warbandId = null)}>×</button>
+		<aside class="sheet" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+			<button class="close" aria-label="Close" onclick={() => (warbandId = null)}
+				><Mark name="close" /></button
+			>
 			<div class="who-head">
-				<Portrait name={warband.player} portrait={warband.portrait} symbol={warband.symbol} size={64} />
+				<Portrait
+					name={warband.player}
+					portrait={warband.portrait}
+					symbol={warband.symbol} faction={warband.faction} seal={warband.seal}
+					size={64}
+				/>
 				<div>
 					<h2>{warband.player}</h2>
 					<div class="muted">{warband.name}</div>
 				</div>
 			</div>
 			<p>
-				<strong>{warband.cvp}</strong> CVP · {warband.games}/{s.campaign.gamesPerPlayer} games · {warband.wins} won ·
+				<strong>{warband.cvp}</strong> CVP · {warband.games}/{s.campaign.gamesPerPlayer} games · {warband.wins}
+				won ·
 				{warband.dice}D6 exploration
 			</p>
 			<p class="muted">
-				At {zoneName(warband.position)} · {warband.outposts.length} Outposts ({warband.supplied.length} supplied) ·
-				{warband.scouted.length} zones scouted{warband.omens ? ` · ${warband.omens} Omen${warband.omens > 1 ? 's' : ''}` : ''}
+				At {zoneName(warband.position)} · {warband.outposts.length} Outposts ({warband.supplied
+					.length} supplied) ·
+				{warband.scouted.length} zones scouted{warband.omens
+					? ` · ${warband.omens} Omen${warband.omens > 1 ? 's' : ''}`
+					: ''}
 			</p>
-			<a href="/players/{warband.id}">Campaign Tracker →</a>
+			<p class="links"><a href="/warbands/{warband.id}">Warband</a> · <a href="/players/{warband.id}">Campaign Tracker</a></p>
+			<footer class="running-foot">{warband.name}</footer>
 		</aside>
 	{/if}
 </div>
 
 <style>
+	.enter {
+		display: block;
+		width: 100%;
+		margin: 0 0 10px;
+		padding: 9px 14px;
+		background: #8f1f18;
+		color: var(--bone);
+		border: 1px solid #b3261e;
+		font: inherit;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		cursor: pointer;
+	}
+	.enter:hover {
+		background: #a3170f;
+	}
+	/* The painted night around the map; panels are pages of the book laid over it. */
 	.stage {
 		position: fixed;
 		inset: 0;
-		background: var(--ink);
+		background: var(--night);
 		overflow: hidden;
 	}
-	.bar {
+	/* The map plate sits below a band of smoke that carries all the chrome. */
+	.plate {
+		position: absolute;
+		top: var(--band);
+		left: 0;
+		right: 0;
+		bottom: 0;
+	}
+	.band {
 		position: absolute;
 		top: 0;
 		left: 0;
 		right: 0;
+		z-index: 2;
+		display: grid;
+		gap: 8px;
+		padding: 10px 14px;
+		background: var(--night);
+		border-bottom: 1px solid rgba(236, 229, 211, 0.18);
+		box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+	}
+	.bar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		gap: 10px;
-		padding: 8px 12px;
-		background: linear-gradient(rgba(35, 26, 18, 0.92), rgba(35, 26, 18, 0));
-		pointer-events: none;
-	}
-	.bar > * {
-		pointer-events: auto;
-	}
-	.title {
-		display: grid;
-		line-height: 1.05;
-		color: var(--parchment);
-	}
-	.kicker {
-		font-variant-caps: small-caps;
-		letter-spacing: 0.14em;
-		font-size: 0.8rem;
-		color: var(--rule);
-	}
-	.name {
-		font-family: var(--font-display);
-		font-size: 1.5rem;
 	}
 	nav {
 		display: flex;
@@ -239,65 +390,98 @@
 		align-items: center;
 	}
 	.chip {
-		padding: 5px 10px;
-		font-size: 0.85rem;
-		background: rgba(35, 26, 18, 0.85);
-		border: 1px solid var(--rule);
-		color: var(--parchment);
+		display: inline-flex;
+		align-items: center;
+		padding: 5px 12px;
+		background: rgba(21, 19, 14, 0.78);
+		border: 1px solid rgba(236, 229, 211, 0.35);
+		color: var(--bone);
 		text-decoration: none;
-		font-variant-caps: small-caps;
-		letter-spacing: 0.06em;
+		font-family: var(--font-title);
+		font-weight: 400;
+		font-size: 1rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		white-space: nowrap;
+		transition:
+			border-color 0.18s var(--ease-out),
+			color 0.18s var(--ease-out);
+	}
+	.chip:hover {
+		background: rgba(21, 19, 14, 0.9);
+		border-color: var(--ember);
+		color: #fff;
+	}
+	.chip.who {
+		color: var(--ember);
+	}
+	.chip[aria-pressed='false'] {
+		color: var(--bone-dim);
 	}
 	.dot {
-		width: 10px;
-		height: 10px;
+		width: 9px;
+		height: 9px;
+		margin-left: 4px;
 		border-radius: 50%;
-		background: var(--muted);
+		background: var(--smoke);
 	}
 	.dot.on {
-		background: #6fbf4a;
-		box-shadow: 0 0 6px #6fbf4a;
+		background: #95b54c;
 	}
 	.event-banner {
 		position: absolute;
-		top: 110px;
+		z-index: 3;
+		top: calc(var(--band) + 40px);
 		left: 50%;
 		transform: translateX(-50%);
+		display: flex;
+		align-items: center;
+		gap: 12px;
 		max-width: calc(100% - 24px);
-		padding: 8px 18px;
-		background: rgba(35, 26, 18, 0.9);
-		color: var(--parchment);
-		border: 1px solid var(--rule);
+		padding: 10px 22px;
+		background: rgba(21, 19, 14, 0.92);
+		color: var(--bone);
+		border-top: 2px solid var(--blood-bright);
+		border-bottom: 2px solid var(--blood-bright);
 		font-family: var(--font-display);
-		font-size: 1.3rem;
+		font-size: 1.45rem;
 		text-align: center;
-		animation: banner 0.6s ease-out;
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+		animation: banner 0.7s var(--ease-out);
 		pointer-events: none;
+	}
+	.event-banner :global(.mark) {
+		color: var(--blood-bright);
 	}
 	@keyframes banner {
 		from {
 			opacity: 0;
-			transform: translate(-50%, -12px);
+			transform: translate(-50%, -14px);
+			filter: blur(4px);
 		}
 	}
 	.omen {
 		position: absolute;
-		bottom: 12px;
-		right: 12px;
-		max-width: calc(100% - 24px);
-		padding: 5px 12px;
-		background: rgba(35, 26, 18, 0.85);
-		color: var(--parchment);
-		border: 1px solid var(--blood);
-		font-size: 0.9rem;
+		z-index: 2;
+		bottom: 14px;
+		right: 14px;
+		max-width: calc(100% - 28px);
+		padding: 6px 14px;
+		background: rgba(21, 19, 14, 0.88);
+		color: var(--bone);
+		border: 1px solid var(--blood-bright);
+		font-size: 0.95rem;
 	}
+	.omen strong {
+		font-family: var(--font-display);
+		font-weight: 400;
+		font-size: 1.15rem;
+		color: var(--ember);
+	}
+	/* Battles in play: small pages pinned along the top of the map. */
 	.playing {
-		position: absolute;
-		top: 58px;
-		left: 12px;
-		right: 12px;
 		display: flex;
-		gap: 6px;
+		gap: 8px;
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
@@ -306,16 +490,26 @@
 		align-items: center;
 		gap: 8px;
 		flex: none;
-		padding: 4px 10px 4px 4px;
-		background: rgba(246, 237, 219, 0.95);
+		padding: 4px 12px 4px 4px;
+		background: var(--paper);
 		color: var(--ink);
-		border: 1px solid var(--blood);
+		border: 1px solid var(--ink);
+		border-top: 2px solid var(--blood);
 		text-align: left;
-		font-variant-caps: normal;
+		font-family: var(--font-body);
+		font-weight: 400;
+		font-size: 1rem;
+		text-transform: none;
 		letter-spacing: 0;
+	}
+	.battle.planned {
+		border-top-style: dashed;
+		border-top-color: var(--ink);
 	}
 	.battle:hover {
 		background: var(--paper);
+		color: var(--ink);
+		border-color: var(--blood);
 	}
 	.pair {
 		display: flex;
@@ -326,42 +520,51 @@
 	.txt {
 		display: grid;
 		line-height: 1.15;
-		font-size: 0.85rem;
+		font-size: 0.88rem;
+	}
+	.vs {
+		font-family: var(--font-display);
+		font-weight: 400;
+		color: var(--blood);
 	}
 	.txt small {
-		color: var(--blood);
+		color: var(--muted);
 	}
 	.drawer {
 		position: absolute;
-		top: 58px;
-		right: 12px;
-		width: min(22rem, calc(100% - 24px));
-		max-height: calc(100% - 80px);
+		z-index: 3;
+		top: calc(var(--band) + 12px);
+		right: 14px;
+		width: min(22rem, calc(100% - 28px));
+		max-height: calc(100% - var(--band) - 26px);
 		overflow-y: auto;
-		padding: 12px 14px;
+		padding: 14px 16px;
 		background: var(--paper);
-		border: 1px solid var(--rule);
-		box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+		border-top: 2px solid var(--blood);
+		box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
 	}
 	.drawer h2 {
-		margin: 0 0 6px;
+		margin: 0 0 8px;
 	}
 	.drawer ol {
 		list-style: none;
 		padding: 0;
 		margin: 0 0 10px;
-		display: grid;
-		gap: 4px;
+		border-top: 2px solid var(--ink);
 	}
 	.drawer li {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		padding: 5px 0;
+		border-bottom: 1px solid var(--rule);
 	}
 	.rank {
 		width: 1.4em;
 		text-align: right;
-		color: var(--muted);
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		color: var(--blood);
 	}
 	.who {
 		display: grid;
@@ -370,6 +573,9 @@
 		color: inherit;
 		text-decoration: none;
 		line-height: 1.15;
+	}
+	.who:hover strong {
+		color: var(--blood);
 	}
 	.who small,
 	.score small {
@@ -380,54 +586,76 @@
 		display: grid;
 		text-align: right;
 		line-height: 1.1;
+		font-variant-numeric: lining-nums;
 	}
+	.score strong {
+		font-size: 1.25rem;
+	}
+	/* A page of the book, laid over the right edge of the map. */
 	.sheet {
 		position: absolute;
-		left: 12px;
-		bottom: 12px;
-		width: min(26rem, calc(100% - 24px));
-		max-height: 55%;
+		z-index: 3;
+		top: calc(var(--band) + 12px);
+		right: 14px;
+		bottom: 14px;
+		width: min(27rem, calc(100% - 28px));
 		overflow-y: auto;
-		padding: 14px 16px;
+		padding: 18px 22px 22px;
 		background: var(--paper);
-		border: 1px solid var(--rule);
-		border-top: 3px solid var(--blood);
-		box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+		border-top: 2px solid var(--blood);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+		overscroll-behavior: contain;
 	}
 	.sheet h2 {
-		margin: 0 0 6px;
-		font-size: 1.8rem;
+		margin: 0 30px 4px 0;
+		font-size: 2.1rem;
 	}
 	.sheet p {
 		margin: 4px 0;
 	}
-	.sheet .kicker {
-		color: var(--blood);
+	.kind {
+		font-family: var(--font-title);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+	}
+	.sheet .running-foot {
+		margin: 28px 0 0;
+		font-size: 0.95rem;
 	}
 	.sheet.wide {
-		width: min(52rem, calc(100% - 24px));
-		max-height: 72%;
+		width: min(54rem, calc(100% - 28px));
 	}
 	.close {
 		position: absolute;
-		top: 6px;
-		right: 6px;
-		padding: 0 10px;
-		font-size: 1.3rem;
+		top: 10px;
+		right: 10px;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		font-size: 1.1rem;
 		background: none;
 		color: var(--ink);
-		border: none;
+		border: 1px solid transparent;
+	}
+	.close:hover {
+		background: none;
+		color: var(--blood);
+		border-color: var(--rule);
 	}
 	.lore-link {
 		display: inline-block;
-		margin-top: 10px;
-		font-variant-caps: small-caps;
-		letter-spacing: 0.04em;
+		margin: 14px 0 6px;
+		font-weight: 600;
 	}
 	.who-head {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 14px;
+		margin-bottom: 8px;
+	}
+	.who-head h2 {
+		margin: 0;
 	}
 	.muted {
 		color: var(--muted);
@@ -439,23 +667,25 @@
 		text-decoration: line-through;
 		opacity: 0.6;
 	}
-	.chip {
-		white-space: nowrap;
-	}
 	@media (max-width: 34rem) {
-		.bar {
-			padding: 6px 8px;
+		.band {
+			padding: 8px;
+			gap: 6px;
 		}
-		.title .kicker {
-			display: none;
-		}
-		.name {
-			font-size: 1.15rem;
+		.bar :global(.lockup .name) {
+			font-size: 0.95rem;
 			white-space: nowrap;
 		}
+		.bar :global(.lockup .series) {
+			font-size: 0.56rem;
+		}
+		nav {
+			gap: 4px;
+		}
 		.chip {
-			padding: 4px 7px;
-			font-size: 0.75rem;
+			padding: 3px 6px;
+			font-size: 0.74rem;
+			letter-spacing: 0.04em;
 		}
 		.long {
 			display: none;
@@ -463,19 +693,20 @@
 		.short {
 			display: inline;
 		}
-		.playing {
-			top: 46px;
-			left: 8px;
-			right: 8px;
-		}
 		.drawer {
-			top: 46px;
+			top: calc(var(--band) + 8px);
+			right: 8px;
+			width: calc(100% - 16px);
 		}
-		.sheet {
+		.sheet,
+		.sheet.wide {
+			top: auto;
 			left: 8px;
 			right: 8px;
-			width: auto;
 			bottom: 8px;
+			width: auto;
+			max-height: 62%;
+			padding: 14px 16px 18px;
 		}
 	}
 </style>

@@ -5,9 +5,33 @@ services:
       - '3000:3000'
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      DATABASE_URL: postgres://carcass:${POSTGRES_PASSWORD:-carcass}@db:5432/carcass
     volumes:
+      # Uploaded portraits, symbols, seals and models; also where an old SQLite campaign is picked up from.
       - data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: carcass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-carcass}
+      POSTGRES_DB: carcass
+    ports:
+      # Only this machine (for `npm run dev`); players never talk to the database.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U carcass -d carcass']
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
 volumes:
   data:
+  pgdata:

@@ -1,3 +1,4 @@
+import { FACTIONS } from './rules/factions';
 /** Warband roster rules shared by the admin builder, public views and imports. */
 
 export type Currency = 'ducats' | 'glory';
@@ -96,6 +97,30 @@ export interface TcImport {
 	glory: number;
 	units: RosterUnit[];
 	stash: Item[];
+	/** Our faction id for the list, or null when Trench Companion's faction isn't one we know. */
+	faction: string | null;
+	variant: string | null;
+	/** Trench Companion's own faction id, for messages. */
+	sourceFaction: string | null;
+}
+
+const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+
+/**
+ * Trench Companion names a list's faction like `fc_cultoftheblackgrail_fv_dirgeofthegreathegemon`:
+ * the faction, then (after `_fv_`) the variant, both as run-together lowercase names.
+ */
+export function factionFromCompanion(objectId: string | null | undefined) {
+	if (!objectId) return { faction: null, variant: null };
+	const [base, variantSlug] = objectId.replace(/^fc_/, '').split('_fv_');
+	const b = letters(base);
+	// Match either way round, so "hereticlegion" finds "Heretic Legions".
+	const f = FACTIONS.find((f) => {
+		const n = letters(f.name);
+		return n === b || n.startsWith(b) || b.startsWith(n);
+	});
+	const v = variantSlug ? f?.variants.find((v) => letters(v).startsWith(letters(variantSlug)) || letters(variantSlug).startsWith(letters(v))) : undefined;
+	return { faction: f?.id ?? null, variant: v ?? null };
 }
 
 /**
@@ -141,7 +166,10 @@ export function fromTrenchCompanion(raw: unknown): TcImport {
 		};
 	});
 
+	const sourceFaction: string | null = w.faction?.faction_property?.object_id ?? null;
 	return {
+		...factionFromCompanion(sourceFaction),
+		sourceFaction,
 		name: String(w.name ?? 'Imported warband'),
 		ducats: Number(w.ducat_bank) || 0,
 		glory: Number(w.glory_bank) || 0,
@@ -154,4 +182,22 @@ export function fromTrenchCompanion(raw: unknown): TcImport {
 export function trenchCompanionId(input: string): string | null {
 	const m = /(?:warband(?:\/detail)?\/|^)(\d{3,})\/?$/.exec(input.trim());
 	return m ? m[1] : null;
+}
+
+/**
+ * Why an imported list doesn't belong to this warband, or null when it does. A list of another
+ * faction (or another variant, when the warband has one) would bring the wrong units and rules.
+ */
+export function importMismatch(
+	imported: Pick<TcImport, 'faction' | 'variant' | 'sourceFaction' | 'name'>,
+	warband: { faction: string; variant: string | null; name: string }
+): string | null {
+	const name = (id: string) => FACTIONS.find((f) => f.id === id)?.name ?? id;
+	if (!imported.faction)
+		return `“${imported.name}” is of a faction this tracker doesn't know (${imported.sourceFaction ?? 'none given'}).`;
+	if (imported.faction !== warband.faction)
+		return `“${imported.name}” is a ${name(imported.faction)} list, but ${warband.name} is ${name(warband.faction)}. Import it into a ${name(imported.faction)} warband, or change this warband's faction first.`;
+	if (warband.variant && imported.variant !== warband.variant)
+		return `“${imported.name}” is ${imported.variant ?? `plain ${name(imported.faction)}`}, but ${warband.name} is ${warband.variant}.`;
+	return null;
 }

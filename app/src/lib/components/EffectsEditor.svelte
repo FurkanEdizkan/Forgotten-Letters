@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	import { EFFECT_KINDS, blankEffect } from '$lib/effects';
 	import { RESOURCES, RESOURCE_NAMES, type Effect, type Zone } from '$lib/rules/types';
 
@@ -42,7 +43,7 @@
 			{:else if field(e.t) === 'text' && 'text' in e}
 				<input value={e.text} oninput={(ev) => set(i, 'text', ev.currentTarget.value)} />
 			{/if}
-			<button type="button" class="x" aria-label="Remove" onclick={() => effects.splice(i, 1)}>×</button>
+			<button type="button" class="x" aria-label="Remove" onclick={() => effects.splice(i, 1)}><Mark name="close" /></button>
 		</div>
 	{/each}
 	<button type="button" class="add" onclick={() => effects.push(blankEffect('cvp'))}>+ effect</button>

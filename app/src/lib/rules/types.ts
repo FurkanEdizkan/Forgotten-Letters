@@ -94,6 +94,10 @@ export interface SideResult {
 	bonusExplorations?: Exploration[];
 	/** House rule Razing: a winning Aggressor strikes out the defender's Outpost in this zone. */
 	raze?: boolean;
+	/** Victory Points scored in the scenario (for the battle's result animation). */
+	vp?: number;
+	/** Models this side had taken Out of Action. */
+	fallen?: number;
 }
 
 export interface GameEvent {

@@ -4,7 +4,7 @@ import { deleteModel } from '$lib/server/models';
 import { publish } from '$lib/server/hub';
 
 export async function DELETE({ params }) {
-	const c = currentCampaign();
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	if (!(await deleteModel(c.id, params.id))) error(404, 'No such model');
 	publish(c.id);

@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T13:00:46+00:00",
+  "title": "Design System: Carcass Front",
+  "extensions": {
+    "colorMeta": {
+      "blood": {
+        "role": "primary",
+        "displayName": "Rubric Blood",
+        "canonical": "#a3170f",
+        "cssVar": "--blood",
+        "tonalRamp": [
+          "oklch(15% 0.174 29.3)",
+          "oklch(26% 0.174 29.3)",
+          "oklch(38% 0.174 29.3)",
+          "oklch(50% 0.174 29.3)",
+          "oklch(62% 0.174 29.3)",
+          "oklch(74% 0.174 29.3)",
+          "oklch(85% 0.174 29.3)",
+          "oklch(95% 0.174 29.3)"
+        ]
+      },
+      "blood-bright": {
+        "role": "primary",
+        "displayName": "Fresh Blood",
+        "canonical": "#c8231a",
+        "cssVar": "--blood-bright",
+        "tonalRamp": [
+          "oklch(15% 0.200 29.1)",
+          "oklch(26% 0.200 29.1)",
+          "oklch(38% 0.200 29.1)",
+          "oklch(50% 0.200 29.1)",
+          "oklch(62% 0.200 29.1)",
+          "oklch(74% 0.200 29.1)",
+          "oklch(85% 0.200 29.1)",
+          "oklch(95% 0.200 29.1)"
+        ]
+      },
+      "ember": {
+        "role": "secondary",
+        "displayName": "Ember",
+        "canonical": "#e0692a",
+        "cssVar": "--ember",
+        "tonalRamp": [
+          "oklch(15% 0.166 45.0)",
+          "oklch(26% 0.166 45.0)",
+          "oklch(38% 0.166 45.0)",
+          "oklch(50% 0.166 45.0)",
+          "oklch(62% 0.166 45.0)",
+          "oklch(74% 0.166 45.0)",
+          "oklch(85% 0.166 45.0)",
+          "oklch(95% 0.166 45.0)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Book White",
+        "canonical": "#fbfaf7",
+        "cssVar": "--paper",
+        "tonalRamp": [
+          "oklch(15% 0.004 91.4)",
+          "oklch(26% 0.004 91.4)",
+          "oklch(38% 0.004 91.4)",
+          "oklch(50% 0.004 91.4)",
+          "oklch(62% 0.004 91.4)",
+          "oklch(74% 0.004 91.4)",
+          "oklch(85% 0.004 91.4)",
+          "oklch(95% 0.004 91.4)"
+        ]
+      },
+      "parchment": {
+        "role": "neutral",
+        "displayName": "Grey Wash",
+        "canonical": "#f1efea",
+        "cssVar": "--parchment",
+        "tonalRamp": [
+          "oklch(15% 0.007 88.6)",
+          "oklch(26% 0.007 88.6)",
+          "oklch(38% 0.007 88.6)",
+          "oklch(50% 0.007 88.6)",
+          "oklch(62% 0.007 88.6)",
+          "oklch(74% 0.007 88.6)",
+          "oklch(85% 0.007 88.6)",
+          "oklch(95% 0.007 88.6)"
+        ]
+      },
+      "wash-deep": {
+        "role": "neutral",
+        "displayName": "Deep Wash",
+        "canonical": "#dedbd4",
+        "cssVar": "--wash-deep",
+        "tonalRamp": [
+          "oklch(15% 0.010 87.5)",
+          "oklch(26% 0.010 87.5)",
+          "oklch(38% 0.010 87.5)",
+          "oklch(50% 0.010 87.5)",
+          "oklch(62% 0.010 87.5)",
+          "oklch(74% 0.010 87.5)",
+          "oklch(85% 0.010 87.5)",
+          "oklch(95% 0.010 87.5)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Press Ink",
+        "canonical": "#151210",
+        "cssVar": "--ink",
+        "tonalRamp": [
+          "oklch(15% 0.006 56.0)",
+          "oklch(26% 0.006 56.0)",
+          "oklch(38% 0.006 56.0)",
+          "oklch(50% 0.006 56.0)",
+          "oklch(62% 0.006 56.0)",
+          "oklch(74% 0.006 56.0)",
+          "oklch(85% 0.006 56.0)",
+          "oklch(95% 0.006 56.0)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Faded Ink",
+        "canonical": "#3a332c",
+        "cssVar": "--ink-soft",
+        "tonalRamp": [
+          "oklch(15% 0.016 67.2)",
+          "oklch(26% 0.016 67.2)",
+          "oklch(38% 0.016 67.2)",
+          "oklch(50% 0.016 67.2)",
+          "oklch(62% 0.016 67.2)",
+          "oklch(74% 0.016 67.2)",
+          "oklch(85% 0.016 67.2)",
+          "oklch(95% 0.016 67.2)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#6a6159",
+        "cssVar": "--muted",
+        "tonalRamp": [
+          "oklch(15% 0.017 64.1)",
+          "oklch(26% 0.017 64.1)",
+          "oklch(38% 0.017 64.1)",
+          "oklch(50% 0.017 64.1)",
+          "oklch(62% 0.017 64.1)",
+          "oklch(74% 0.017 64.1)",
+          "oklch(85% 0.017 64.1)",
+          "oklch(95% 0.017 64.1)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#c8c3ba",
+        "cssVar": "--rule",
+        "tonalRamp": [
+          "oklch(15% 0.014 82.4)",
+          "oklch(26% 0.014 82.4)",
+          "oklch(38% 0.014 82.4)",
+          "oklch(50% 0.014 82.4)",
+          "oklch(62% 0.014 82.4)",
+          "oklch(74% 0.014 82.4)",
+          "oklch(85% 0.014 82.4)",
+          "oklch(95% 0.014 82.4)"
+        ]
+      },
+      "night": {
+        "role": "neutral",
+        "displayName": "Smoke Black",
+        "canonical": "#15130e",
+        "cssVar": "--night",
+        "tonalRamp": [
+          "oklch(15% 0.010 88.8)",
+          "oklch(26% 0.010 88.8)",
+          "oklch(38% 0.010 88.8)",
+          "oklch(50% 0.010 88.8)",
+          "oklch(62% 0.010 88.8)",
+          "oklch(74% 0.010 88.8)",
+          "oklch(85% 0.010 88.8)",
+          "oklch(95% 0.010 88.8)"
+        ]
+      },
+      "smoke": {
+        "role": "neutral",
+        "displayName": "Smoke",
+        "canonical": "#3a3829",
+        "cssVar": "--smoke",
+        "tonalRamp": [
+          "oklch(15% 0.025 101.3)",
+          "oklch(26% 0.025 101.3)",
+          "oklch(38% 0.025 101.3)",
+          "oklch(50% 0.025 101.3)",
+          "oklch(62% 0.025 101.3)",
+          "oklch(74% 0.025 101.3)",
+          "oklch(85% 0.025 101.3)",
+          "oklch(95% 0.025 101.3)"
+        ]
+      },
+      "bone": {
+        "role": "neutral",
+        "displayName": "Bone",
+        "canonical": "#ece5d3",
+        "cssVar": "--bone",
+        "tonalRamp": [
+          "oklch(15% 0.025 89.2)",
+          "oklch(26% 0.025 89.2)",
+          "oklch(38% 0.025 89.2)",
+          "oklch(50% 0.025 89.2)",
+          "oklch(62% 0.025 89.2)",
+          "oklch(74% 0.025 89.2)",
+          "oklch(85% 0.025 89.2)",
+          "oklch(95% 0.025 89.2)"
+        ]
+      },
+      "bone-dim": {
+        "role": "neutral",
+        "displayName": "Dim Bone",
+        "canonical": "#b0a791",
+        "cssVar": "--bone-dim",
+        "tonalRamp": [
+          "oklch(15% 0.032 88.4)",
+          "oklch(26% 0.032 88.4)",
+          "oklch(38% 0.032 88.4)",
+          "oklch(50% 0.032 88.4)",
+          "oklch(62% 0.032 88.4)",
+          "oklch(74% 0.032 88.4)",
+          "oklch(85% 0.032 88.4)",
+          "oklch(95% 0.032 88.4)"
+        ]
+      },
+      "favour": {
+        "role": "tertiary",
+        "displayName": "Favour Amber",
+        "canonical": "#c8741e",
+        "cssVar": "--favour",
+        "tonalRamp": [
+          "oklch(15% 0.140 59.8)",
+          "oklch(26% 0.140 59.8)",
+          "oklch(38% 0.140 59.8)",
+          "oklch(50% 0.140 59.8)",
+          "oklch(62% 0.140 59.8)",
+          "oklch(74% 0.140 59.8)",
+          "oklch(85% 0.140 59.8)",
+          "oklch(95% 0.140 59.8)"
+        ]
+      },
+      "relics": {
+        "role": "tertiary",
+        "displayName": "Relic Red",
+        "canonical": "#9b2a1c",
+        "cssVar": "--relics",
+        "tonalRamp": [
+          "oklch(15% 0.151 30.6)",
+          "oklch(26% 0.151 30.6)",
+          "oklch(38% 0.151 30.6)",
+          "oklch(50% 0.151 30.6)",
+          "oklch(62% 0.151 30.6)",
+          "oklch(74% 0.151 30.6)",
+          "oklch(85% 0.151 30.6)",
+          "oklch(95% 0.151 30.6)"
+        ]
+      },
+      "supplies": {
+        "role": "tertiary",
+        "displayName": "Supply Green",
+        "canonical": "#5a7a26",
+        "cssVar": "--supplies",
+        "tonalRamp": [
+          "oklch(15% 0.117 127.8)",
+          "oklch(26% 0.117 127.8)",
+          "oklch(38% 0.117 127.8)",
+          "oklch(50% 0.117 127.8)",
+          "oklch(62% 0.117 127.8)",
+          "oklch(74% 0.117 127.8)",
+          "oklch(85% 0.117 127.8)",
+          "oklch(95% 0.117 127.8)"
+        ]
+      },
+      "territories": {
+        "role": "tertiary",
+        "displayName": "Territory Teal",
+        "canonical": "#2f6770",
+        "cssVar": "--territories",
+        "tonalRamp": [
+          "oklch(15% 0.060 209.3)",
+          "oklch(26% 0.060 209.3)",
+          "oklch(38% 0.060 209.3)",
+          "oklch(50% 0.060 209.3)",
+          "oklch(62% 0.060 209.3)",
+          "oklch(74% 0.060 209.3)",
+          "oklch(85% 0.060 209.3)",
+          "oklch(95% 0.060 209.3)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (Title capitals)",
+        "purpose": "Page titles; smaller for tracker section names."
+      },
+      "headline": {
+        "displayName": "Headline (Blackletter)",
+        "purpose": "Section heads, always in Rubric Blood."
+      },
+      "title": {
+        "displayName": "Title (Sub-head)",
+        "purpose": "Bold capital sub-heads over a 1px blood rule."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading text; old-style figures; ledes cap at 60ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Button text and table header cells."
+      },
+      "nav": {
+        "displayName": "Nav",
+        "purpose": "Masthead links and map chips on night."
+      },
+      "footer": {
+        "displayName": "Running footer",
+        "purpose": "Chapter name at the end of a long hairline."
+      }
+    },
+    "shadows": [
+      {
+        "name": "band",
+        "value": "0 10px 24px rgba(0,0,0,0.45)",
+        "purpose": "The night band carrying the map's chrome."
+      },
+      {
+        "name": "banner",
+        "value": "0 12px 40px rgba(0,0,0,0.55)",
+        "purpose": "Event banners over the map."
+      },
+      {
+        "name": "drawer",
+        "value": "0 16px 50px rgba(0,0,0,0.6)",
+        "purpose": "Standings drawer over the map."
+      },
+      {
+        "name": "sheet",
+        "value": "0 20px 60px rgba(0,0,0,0.65)",
+        "purpose": "Book-page sheet laid over the map."
+      },
+      {
+        "name": "selected-ring",
+        "value": "0 0 0 1px var(--blood)",
+        "purpose": "Selected card or pick on paper; a drawn line, not elevation."
+      },
+      {
+        "name": "printed-box-line",
+        "value": "inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--ink)",
+        "purpose": "The printed inner line of a tracker box."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The single easing curve (--ease-out) for every state transition."
+      },
+      {
+        "name": "state",
+        "value": "0.18s",
+        "purpose": "Colour, border and background transitions on buttons, chips, rows and links."
+      },
+      {
+        "name": "disclosure",
+        "value": "0.2s",
+        "purpose": "Chevron rotation on roster toggles."
+      },
+      {
+        "name": "banner-in",
+        "value": "0.7s",
+        "purpose": "Event banner drops in from -14px with a fading 4px blur."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All animation and transition durations collapse under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "34rem",
+        "purpose": "Map: bottom sheets, short chip labels, compact lockup."
+      },
+      {
+        "name": "chronicle",
+        "value": "36rem",
+        "purpose": "Chronicle entries stack their date line."
+      },
+      {
+        "name": "narrow",
+        "value": "40rem",
+        "purpose": "Ledger drops detail columns, tables stack, tracker rows wrap to six, admin nav wraps."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Printed label: ink fill, tracked capitals; turns blood on hover. Commits an action.",
+      "html": "<button class=\"ds-btn\">Record result</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border:1px solid var(--ink);border-radius:0;background:var(--ink);color:var(--paper);font-family:var(--font-body);font-weight:600;font-size:.92rem;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:background-color .18s var(--ease-out),border-color .18s var(--ease-out),color .18s var(--ease-out)}.ds-btn:hover{background:var(--blood);border-color:var(--blood)}.ds-btn:focus-visible{outline:2px solid var(--blood);outline-offset:2px}.ds-btn:disabled{background:var(--wash-deep);border-color:var(--wash-deep);color:var(--muted);cursor:not-allowed}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action on paper: hairline border, ink label, blood on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;padding:7px 16px;border:1px solid var(--rule);border-radius:0;background:transparent;color:var(--ink);font-family:var(--font-body);font-weight:600;font-size:.92rem;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:border-color .18s var(--ease-out),color .18s var(--ease-out)}.ds-btn-ghost:hover{color:var(--blood);border-color:var(--blood)}.ds-btn-ghost:focus-visible{outline:2px solid var(--blood);outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Square white field with a hairline; blood border and ring on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Warband name\">",
+      "css": ".ds-input{padding:6px 8px;border:1px solid var(--rule);border-radius:0;background:#fff;color:var(--ink);font:17px/1.55 var(--font-body);caret-color:var(--blood)}.ds-input::placeholder{color:#857b70}.ds-input:focus{outline:none;border-color:var(--blood);box-shadow:0 0 0 1px var(--blood)}"
+    },
+    {
+      "name": "Night Masthead",
+      "kind": "nav",
+      "refersTo": "masthead",
+      "description": "Smoke-black band with a blood rule; title-capital links, current page underlined in fresh blood.",
+      "html": "<header class=\"ds-mast\"><a class=\"ds-lockup\" href=\"#\"><span class=\"ds-series\">Trench <svg viewBox=\"0 0 24 24\" width=\"0.8em\" height=\"0.8em\"><path fill=\"currentColor\" d=\"M8.6 1.5h6.8l-2 8.9 8.9-2v6.8l-8.9-2 2 8.9H8.6l2-8.9-8.9 2V8.4l8.9 2z\"/></svg> Crusade</span><span class=\"ds-name\">Carcass Front</span></a><nav><a href=\"#\">Map</a><a href=\"#\" aria-current=\"page\">Standings</a><a href=\"#\">Zones</a><a href=\"#\">Chronicle</a></nav></header>",
+      "css": ".ds-mast{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:center;justify-content:space-between;padding:10px clamp(16px,4vw,40px);background:var(--night);border-bottom:2px solid var(--blood)}.ds-lockup{display:inline-grid;gap:1px;color:var(--bone);text-decoration:none;line-height:1}.ds-series{display:inline-flex;align-items:center;gap:.3em;font-family:var(--font-title);font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:var(--bone-dim)}.ds-series svg{color:var(--blood-bright)}.ds-name{font-family:var(--font-title);font-size:1.25rem;letter-spacing:.08em;text-transform:uppercase}.ds-mast nav{display:flex;gap:4px 20px;flex-wrap:wrap}.ds-mast nav a{position:relative;padding:4px 0;color:var(--bone-dim);text-decoration:none;font-family:var(--font-title);font-size:1.05rem;letter-spacing:.1em;text-transform:uppercase}.ds-mast nav a:hover,.ds-mast nav a[aria-current=page]{color:var(--bone)}.ds-mast nav a[aria-current=page]::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--blood-bright)}.ds-mast a:focus-visible{outline:2px solid var(--blood);outline-offset:2px}"
+    },
+    {
+      "name": "Night Chip",
+      "kind": "chip",
+      "refersTo": "night-chip",
+      "description": "Square toggle on the map's night band; ember border on hover.",
+      "html": "<a class=\"ds-chip\" href=\"#\" aria-pressed=\"true\">Weather on</a>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;padding:5px 12px;background:rgba(21,19,14,.78);border:1px solid rgba(236,229,211,.35);color:var(--bone);text-decoration:none;font-family:var(--font-title);font-size:1rem;letter-spacing:.1em;text-transform:uppercase;transition:border-color .18s var(--ease-out),color .18s var(--ease-out)}.ds-chip:hover{background:rgba(21,19,14,.9);border-color:var(--ember);color:#fff}.ds-chip[aria-pressed=false]{color:var(--bone-dim)}.ds-chip:focus-visible{outline:2px solid var(--blood);outline-offset:2px}"
+    },
+    {
+      "name": "Rules Box",
+      "kind": "card",
+      "refersTo": "rules-box",
+      "description": "The book's callout: grey wash in a blood hairline, capital sub-head over a blood rule.",
+      "html": "<div class=\"ds-rules\"><h3>Entry Zone</h3><p>A · Zone Name</p></div>",
+      "css": ".ds-rules{border:1px solid var(--blood);background:var(--parchment);padding:10px 14px 12px;font-family:var(--font-body);color:var(--ink)}.ds-rules h3{margin:0 0 .5em;padding-bottom:2px;border-bottom:1px solid var(--blood);font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:.04em}.ds-rules p{margin:0}"
+    },
+    {
+      "name": "Running Footer",
+      "kind": "custom",
+      "refersTo": "running-foot",
+      "description": "Blackletter chapter name at the end of a long ink hairline, closing every page.",
+      "html": "<footer class=\"ds-foot\">Standings</footer>",
+      "css": ".ds-foot{display:flex;align-items:center;gap:14px;margin:48px 0 24px;color:var(--ink);font-family:var(--font-display);font-size:1rem}.ds-foot::before{content:'';flex:1;height:1px;background:var(--ink)}"
+    },
+    {
+      "name": "Book-Page Sheet",
+      "kind": "card",
+      "refersTo": "book-page-sheet",
+      "description": "A page of the book laid over the night map: blood top edge, deep ambient shadow, blackletter title.",
+      "html": "<div class=\"ds-night\"><article class=\"ds-sheet\"><h2>Zone Name</h2><p>Scenario: <strong>Scenario Name</strong></p><footer class=\"ds-foot\">Zone Name</footer></article></div>",
+      "css": ".ds-night{background:var(--night);padding:24px}.ds-sheet{max-width:27rem;padding:18px 22px 22px;background:var(--paper);color:var(--ink);border-top:2px solid var(--blood);box-shadow:0 20px 60px rgba(0,0,0,.65);font:17px/1.55 var(--font-body)}.ds-sheet h2{margin:0 0 4px;font-family:var(--font-display);font-weight:400;font-size:2.1rem;line-height:1.05;color:var(--blood)}.ds-sheet p{margin:4px 0}.ds-foot{display:flex;align-items:center;gap:14px;margin:28px 0 0;font-family:var(--font-display);font-size:.95rem}.ds-foot::before{content:'';flex:1;height:1px;background:var(--ink)}"
+    },
+    {
+      "name": "Tracker Box",
+      "kind": "custom",
+      "refersTo": "tracker-box",
+      "description": "Printed campaign-tracker box: 2px ink with inner line; first box heavier; filled boxes carry a blood strike.",
+      "html": "<div class=\"ds-track\"><div class=\"ds-box first\"><svg viewBox=\"0 0 24 24\" width=\"1.4em\" height=\"1.4em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"square\"><path d=\"M5.5 5.5l13 13M18.5 5.5l-13 13\"/></svg><small>Map F</small></div><div class=\"ds-box\"><small>Shrine I</small></div><div class=\"ds-box\"><small>10 CVP</small></div></div>",
+      "css": ".ds-track{display:grid;grid-template-columns:repeat(3,4.5rem);gap:6px}.ds-box{display:grid;justify-items:center;align-content:space-between;min-height:3.6rem;padding:3px 2px;border:2px solid var(--ink);box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3px var(--ink);background:var(--paper);color:var(--blood);font-family:var(--font-body)}.ds-box.first{border-width:3px}.ds-box small{font-size:.72rem;color:var(--ink-soft)}"
+    },
+    {
+      "name": "Ledger Row",
+      "kind": "custom",
+      "refersTo": "table-header",
+      "description": "Standings ledger: 2px ink rules top and bottom, wash header, blood blackletter rank, grey wash on hover.",
+      "html": "<div class=\"ds-ledger\"><div class=\"ds-row ds-head\"><span>#</span><span>Warband</span><span>CVP</span></div><a class=\"ds-row\" href=\"#\"><span class=\"ds-rank\">1</span><strong>Alric</strong><span class=\"ds-score\">4</span></a></div>",
+      "css": ".ds-ledger{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);font-family:var(--font-body);color:var(--ink)}.ds-row{display:grid;grid-template-columns:2.4rem 1fr 4rem;align-items:center;gap:14px;padding:8px 12px;border-top:1px solid var(--rule);color:inherit;text-decoration:none;transition:background-color .18s var(--ease-out)}.ds-head{border-top:none;background:var(--wash-deep);padding-block:5px;font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}a.ds-row:hover{background:var(--parchment)}a.ds-row:hover strong{color:var(--blood)}a.ds-row:focus-visible{outline:2px solid var(--blood);outline-offset:2px}.ds-rank{text-align:right;font-family:var(--font-display);font-size:1.6rem;line-height:1;color:var(--blood)}.ds-score{text-align:right;font-weight:700;font-size:1.7rem;line-height:1;font-variant-numeric:lining-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Book, Bound",
+    "overview": "The app is the *Carcass Front* campaign book turned into software, and it keeps the book's two registers. Everything that is read or filled in (standings, rosters, zone lore, the chronicle, every admin form) is a **rulebook page**: bright white paper, black Garamond, red blackletter section heads, bold capital sub-heads ruled in red, grey-washed callout boxes with a red hairline, and a blackletter running footer on a long black hairline. Around the live map the book turns into a **painted night**: an olive-black field, bone text, ember and red accents, with the map lit as a plate in the middle. Pages of the book slide in over that night whenever a zone, player or battle is opened.\n\nIt is dense like a printed rulebook, not spacious like a marketing page. Hierarchy comes from typeface changes (spiky title capitals, then blackletter, then Garamond) and from ink rules, not from cards, fills or elevation. There are no rounded rectangles anywhere. It rejects the generic cream-parchment fantasy look and the dark admin dashboard. The only dark surfaces are the night register and the black mastheads that bind the page register.\n\nThe build honours the book without copying it. Glyphs are drawn as authored single-stroke SVG marks, the Crusade cross is a solid cross pattée, and no book art or text is embedded in the UI chrome.",
+    "keyCharacteristics": [
+      "Two registers, chosen by surface: page (paper and ink) for reading and forms, night (smoke and bone) for the live map.",
+      "Three-face type system: Pirata One title capitals, UnifrakturMaguntia blackletter heads, EB Garamond for everything else.",
+      "One red (blood) carries every structural accent: section heads, sub-head rules, callout borders, links, focus, selection.",
+      "Square corners everywhere. Circles appear only for resource discs, portraits and status dots.",
+      "Rules and hairlines instead of cards. Heavy 2px ink rules open lists and tables, 1px hairlines separate rows.",
+      "Depth exists only in the night register, where book pages sit above the map on deep ambient shadows."
+    ],
+    "rules": [
+      {
+        "name": "The One Red Rule",
+        "body": "Blood is the only structural accent on paper. If something needs emphasis on a page, it becomes red, bold or blackletter. It never gets a new colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Register Rule",
+        "body": "Bone, ember and fresh blood belong to the night. Paper, ink and washes belong to the page. A book page laid over the night uses page colours inside it and a single blood edge on top.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Faces Rule",
+        "body": "Title capitals name places and chapters, blackletter names sections, and Garamond carries everything else. Don't add a fourth face, and don't set body copy in either display face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Figures Rule",
+        "body": "Prose uses old-style numerals. Anything compared in a column (scores, ranks, tables, tracker counts) uses lining tabular figures.",
+        "section": "typography"
+      },
+      {
+        "name": "The Page-on-Night Rule",
+        "body": "Only something laid over the map may cast a shadow. On paper, depth is drawn with ink.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do choose the register by surface: rulebook page for anything read or filled in, painted night only around the live map.",
+      "Do use Rubric Blood (#a3170f) for every structural accent on paper, and Fresh Blood (#c8231a) or Ember (#e0692a) for accents on night.",
+      "Do open lists and tables with a 2px ink rule and divide rows with 1px hairlines instead of wrapping them in cards.",
+      "Do end every page-register screen and book-page sheet with the blackletter running footer.",
+      "Do draw new glyphs as single-stroke SVG marks on the 24-unit grid (1.8 stroke, square caps), coloured with currentColor.",
+      "Do switch to lining tabular figures wherever numbers are compared."
+    ],
+    "donts": [
+      "Don't use the cream-parchment fantasy look or a dark dashboard on UI surfaces. Paper is white, and the only dark surface is the night register.",
+      "Don't round rectangles. Radius is 0 everywhere, and circles are only for discs, portraits and dots.",
+      "Don't put drop or ambient shadows on page-register surfaces. On paper, box-shadow is only a 1px ring or a printed inner line.",
+      "Don't introduce new hues on paper. The resource colours are the only non-red hues, used for resources and their established extensions (unit kit marks, glory cost, supplied or OK).",
+      "Don't set body copy in Pirata One or blackletter, and don't add a fourth typeface.",
+      "Don't use icon fonts, emoji or text glyphs as icons. Draw a Mark."
+    ]
+  }
+}

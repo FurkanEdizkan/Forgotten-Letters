@@ -11,7 +11,7 @@ import { FACTIONS } from '$lib/rules/factions';
  * Save a model token rendered in the browser: multipart { kind, ownerType, ownerId, token (PNG), stl?, params (JSON) }.
  */
 export async function POST({ request }) {
-	const c = currentCampaign();
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const data = await request.formData().catch(() => null);
 	if (!data) error(400, 'Malformed request');
@@ -22,11 +22,11 @@ export async function POST({ request }) {
 	if (ownerType === 'faction') {
 		if (!FACTIONS.some((f) => f.id === ownerId)) error(400, 'Unknown faction');
 	} else if (ownerType === 'warband') {
-		const w = db
+		const w = (await db
 			.select({ id: warband.id })
 			.from(warband)
 			.where(and(eq(warband.id, ownerId), eq(warband.campaignId, c.id)))
-			.get();
+			)[0];
 		if (!w) error(400, 'Unknown warband');
 	} else error(400, 'Unknown owner');
 

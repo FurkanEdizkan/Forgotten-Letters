@@ -1,0 +1,62 @@
+{
+ "frames": {
+  "trophy_00": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 120
+   }
+  },
+  "trophy_01": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 96,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 120
+   }
+  }
+ },
+ "animations": {
+  "trophy": [
+   "trophy_00",
+   "trophy_01"
+  ]
+ },
+ "meta": {
+  "image": "trophy.webp",
+  "format": "RGBA8888",
+  "size": {
+   "w": 192,
+   "h": 120
+  },
+  "scale": "1",
+  "blend": "normal",
+  "light": false,
+  "app": "blender-fx"
+ }
+}

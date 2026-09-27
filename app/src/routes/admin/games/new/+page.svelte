@@ -99,9 +99,9 @@
 		{@const agg = byId.get(m.aggressor)!}
 		{@const def = byId.get(m.defender)!}
 		<div class="versus">
-			<div><Portrait name={agg.player} portrait={agg.portrait} symbol={agg.symbol} /> <strong>{agg.player}</strong> <span class="tag">Aggressor</span></div>
+			<div><Portrait name={agg.player} portrait={agg.portrait} symbol={agg.symbol} faction={agg.faction} /> <strong>{agg.player}</strong> <span class="tag">Aggressor</span></div>
 			<span class="vs">vs</span>
-			<div><Portrait name={def.player} portrait={def.portrait} symbol={def.symbol} /> <strong>{def.player}</strong></div>
+			<div><Portrait name={def.player} portrait={def.portrait} symbol={def.symbol} faction={def.faction} /> <strong>{def.player}</strong></div>
 		</div>
 		<p class="muted">
 			{#if m.suggested}

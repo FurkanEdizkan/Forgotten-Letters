@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	import { onMount } from 'svelte';
 	import { weatherByRoll } from '$lib/rules/weather';
 	import type { DiceRoll } from '$lib/fx/types';
@@ -49,7 +50,7 @@
 </script>
 
 <div class="dice-pop" style={pos} role="dialog" aria-label="Hell on Earth roll at {zoneName}">
-	<button class="close" aria-label="Close" onclick={onclose}>×</button>
+	<button class="close" aria-label="Close" onclick={onclose}><Mark name="close" /></button>
 	<div class="title">Hell on Earth · {zoneName}</div>
 	<div class="pairs">
 		{#each sides as s, si (s.key)}

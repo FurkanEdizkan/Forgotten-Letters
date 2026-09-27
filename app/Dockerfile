@@ -13,7 +13,7 @@ FROM node:24-slim
 WORKDIR /app
 ENV NODE_ENV=production \
 	PORT=3000 \
-	DATABASE_URL=/data/campaign.db \
+	LEGACY_SQLITE=/data/campaign.db \
 	MIGRATIONS_DIR=/app/drizzle \
 	UPLOADS_DIR=/data/uploads \
 	BODY_SIZE_LIMIT=30M \

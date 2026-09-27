@@ -22,11 +22,12 @@
 <p><a href="/admin/warbands">← Warbands</a></p>
 
 <div class="head">
-	<Portrait name={p.name} portrait={p.portrait} symbol={w.symbol} size={88} />
+	<Portrait name={p.name} portrait={p.portrait} symbol={w.symbol} faction={w.faction} size={88} />
 	<div>
 		<h1>{w.name}</h1>
 		<div class="sub">{p.seat ? `P${p.seat} · ` : ''}{p.name} · {data.games} games played</div>
-		<a class="roster-link" href="/admin/warbands/{w.id}/roster">Open the roster builder →</a>
+		<a class="roster-link" href="/warbands/{w.id}">Open the warband builder →</a>
+		<a class="roster-link" href="/admin/warbands/{w.id}/roster">Bank, import and roster tools →</a>
 	</div>
 </div>
 
@@ -55,6 +56,32 @@
 		{#if form?.saved}<span class="ok">Recorded.</span>{/if}
 		{#if form?.message}<span class="error">{form.message}</span>{/if}
 	</form>
+</section>
+
+<section>
+	<h2>Account</h2>
+	{#if data.account}
+		<p class="note">
+			{p.name} plays this warband as <strong>{data.account.username}</strong>{data.account.disabled ? ' (disabled)' : ''}, and can
+			edit its seal, roster pictures and builder. Manage the account on <a href="/admin/players">Players</a>.
+		</p>
+	{:else}
+		<p class="note">No account plays this warband yet. Create one for {p.name} on <a href="/admin/players">Players</a>.</p>
+	{/if}
+</section>
+
+<section>
+	<h2>Strongbox</h2>
+	<p class="note">
+		{w.treasuryDucats} Ducats and {w.treasuryGlory} Glory in the strongbox; the roster holds {data.spent} Ducats of models and battlekit.
+	</p>
+	{#if w.treasuryDucats <= 0}
+		<form method="POST" action="?/strongbox" use:enhance={keep} class="inline">
+			<button>Set the starting strongbox</button>
+			<span class="note">700 Ducats, less the {data.spent} already spent: {700 - data.spent} Ducats.</span>
+		</form>
+	{/if}
+	{#if form && 'strongbox' in form}<p class="ok">The strongbox now holds {form.strongbox} Ducats.</p>{/if}
 </section>
 
 <section>
@@ -151,6 +178,7 @@
 		color: var(--muted);
 	}
 	.roster-link {
+		display: block;
 		font-variant-caps: small-caps;
 		letter-spacing: 0.04em;
 	}

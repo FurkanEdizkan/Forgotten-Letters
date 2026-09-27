@@ -10,32 +10,43 @@ import { activeRegions, getFx } from './fx';
 import { activeUnitsByWarband } from './roster';
 import type { GameResult } from './campaign';
 import { listModels } from './models';
+import { artFor, artIndex } from './unit-art';
 import { resolveTokens } from '$lib/models';
+import { sealLook } from '$lib/seals';
+import { outcome } from '$lib/battle-outcome';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
  * progress and evidence stay out until the Campaign Master reveals them.
  */
-export function publicSnapshot(c: Campaign): PublicSnapshot {
-	const { rows, infos, state } = loadCampaignState(c);
+export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
+	const { rows, infos, state } = await loadCampaignState(c);
 	const reveal = c.visionsRevealed;
 
-	const active = db
+	const active = (await db
 		.select()
 		.from(game)
 		.where(and(eq(game.campaignId, c.id), ne(game.status, 'done')))
 		.orderBy(desc(game.createdAt))
-		.all();
-	const recent = db
+		);
+	const recent = (await db
 		.select()
 		.from(game)
 		.where(and(eq(game.campaignId, c.id), eq(game.status, 'done')))
 		.orderBy(desc(game.committedAt))
 		.limit(30)
-		.all();
+		);
 
-	const unitsBy = activeUnitsByWarband(c.id);
-	const models = listModels(c.id);
+	const done = await db
+		.select({ id: game.id, zone: game.zone, aggressorId: game.aggressorId, defenderId: game.defenderId, winnerId: game.winnerId, result: game.result, committedAt: game.committedAt, createdAt: game.createdAt })
+		.from(game)
+		.where(and(eq(game.campaignId, c.id), eq(game.status, 'done')))
+		.orderBy(game.committedAt);
+	const factionOf = new Map(rows.map(({ warband: w }) => [w.id, w.faction]));
+
+	const unitsBy = await activeUnitsByWarband(c.id);
+	const models = await listModels(c.id);
+	const art = await artIndex(c.id);
 	const playing = new Map<string, string>();
 	for (const g of active) {
 		playing.set(g.aggressorId, g.zone);
@@ -82,6 +93,7 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 				outposts: s.outposts,
 				supplied: suppliedOutposts(state, s).zones,
 				displayModel: w.displayModel,
+				seal: sealLook(w.faction, w.seal),
 				...resolveTokens(models, w),
 				omens: s.omens,
 				apocrypha: s.apocrypha,
@@ -102,6 +114,7 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 					injuries: u.injuries,
 					stats: u.stats,
 					photo: u.photo,
+					art: artFor(art, w.faction, u.type),
 					status: u.status
 				}))
 			};
@@ -133,11 +146,23 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 			weatherRolls: null,
 			at: (g.committedAt ?? g.createdAt).getTime()
 		})),
+		monuments: done.map((g) => {
+			const o = outcome({ ...g, result: g.result as GameResult | null });
+			return {
+				gameId: g.id,
+				zone: g.zone,
+				winnerFaction: o.winner ? (factionOf.get(o.winner) ?? null) : null,
+				loserFaction: o.loser ? (factionOf.get(o.loser) ?? null) : null,
+				tier: o.tier,
+				fallen: o.fallen.aggressor + o.fallen.defender,
+				at: (g.committedAt ?? g.createdAt).getTime()
+			};
+		}),
 		standings: standings(state, infos, { revealVisions: reveal, final: reveal }),
 		merchantTier: state.merchantTier,
 		omensTaken: [...state.omensTaken],
-		fx: getFx(c.id),
-		regions: activeRegions(c.id),
+		fx: await getFx(c.id),
+		regions: await activeRegions(c.id),
 		updatedAt: Date.now()
 	};
 }

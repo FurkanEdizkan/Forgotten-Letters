@@ -43,7 +43,19 @@ SPECS = {
     'zeppelin': (384, 4, 'normal'),
     # One frame per faction, in render_fx.OUTPOST_FACTIONS order (last is neutral).
     'outposts': (128, 4, 'normal'),
+    # One monument per faction, in render_fx.MONUMENT_FACTIONS order; the last is a draw's cairn.
+    'monuments': (160, 5, 'normal'),
+    # Frame 0: the broken pole; frame 1: its cloth, white for tinting.
+    'trophy': (96, 2, 'normal'),
+    'corpses': (96, 6, 'normal'),
+    'flash': (64, 4, 'add'),
+    # An artillery impact: flash, earth plume and crater (dust comes from the smoke sheet).
+    'blast': (192, 6, 'normal'),
+    # A round striking the dirt.
+    'spurt': (48, 8, 'normal'),
 }
+# Pack only these sheets when names are given after the directories.
+ONLY = set(sys.argv[3:])
 # Aircraft also get a soft ground shadow (an extra frame, animation "shadow").
 SHADOWS = {'biplane', 'zeppelin'}
 
@@ -56,6 +68,8 @@ def shadow_of(im):
     return Image.merge('RGBA', (Image.new('L', im.size, 20), Image.new('L', im.size, 16), Image.new('L', im.size, 12), a))
 os.makedirs(OUT, exist_ok=True)
 for name, (fw, cols, blend) in SPECS.items():
+    if ONLY and name not in ONLY:
+        continue
     files = sorted(f for f in os.listdir(os.path.join(SRC, name)) if f.endswith('.png'))
     frames = [Image.open(os.path.join(SRC, name, f)).convert('RGBA') for f in files]
     w0, h0 = frames[0].size

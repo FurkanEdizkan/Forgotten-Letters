@@ -6,21 +6,21 @@ import { currentCampaign, rosters } from '$lib/server/campaign';
 import { buildGraph } from '$lib/rules/zones';
 import { weatherByRoll } from '$lib/rules/weather';
 
-export function load() {
-	const c = currentCampaign();
+export async function load() {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const zones = buildGraph(c.houseZones).zones;
-	const byId = new Map(rosters(c.id).map((r) => [r.warband.id, r]));
+	const byId = new Map((await rosters(c.id)).map((r) => [r.warband.id, r]));
 	const who = (id: string | null) => {
 		const r = id ? byId.get(id) : undefined;
-		return r ? { id: r.warband.id, player: r.player.name, portrait: r.player.portrait, symbol: r.warband.symbol } : null;
+		return r ? { id: r.warband.id, player: r.player.name, portrait: r.player.portrait, symbol: r.warband.symbol, faction: r.warband.faction } : null;
 	};
-	const games = db
+	const games = (await db
 		.select()
 		.from(game)
 		.where(eq(game.campaignId, c.id))
 		.orderBy(desc(game.committedAt), desc(game.createdAt))
-		.all()
+		)
 		.map((g) => ({
 			id: g.id,
 			status: g.status,

@@ -35,6 +35,10 @@ export function liveSnapshot(initial: PublicSnapshot) {
 		onTrigger(fn: (t: FxTrigger) => void) {
 			triggerListeners.add(fn);
 			return () => triggerListeners.delete(fn);
+		},
+		/** Play a one-shot effect on this screen only (replaying a battle's result). */
+		play(t: FxTrigger) {
+			for (const fn of triggerListeners) fn(t);
 		}
 	};
 }

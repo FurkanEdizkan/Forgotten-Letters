@@ -5,12 +5,12 @@ import { publish } from '$lib/server/hub';
 
 /** Plan a battle from the map: { zone, aggressor, defender, override? } → a scheduled game. */
 export async function POST({ request }) {
-	const c = currentCampaign();
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Malformed request');
 	try {
-		const g = planGame(c, {
+		const g = await planGame(c, {
 			zone: String(body.zone ?? ''),
 			aggressor: String(body.aggressor ?? ''),
 			defender: String(body.defender ?? ''),

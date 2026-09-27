@@ -1,0 +1,188 @@
+{
+ "frames": {
+  "spurt_00": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_01": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_02": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_03": {
+   "frame": {
+    "x": 144,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_04": {
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_05": {
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_06": {
+   "frame": {
+    "x": 288,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  },
+  "spurt_07": {
+   "frame": {
+    "x": 336,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 48
+   }
+  }
+ },
+ "animations": {
+  "spurt": [
+   "spurt_00",
+   "spurt_01",
+   "spurt_02",
+   "spurt_03",
+   "spurt_04",
+   "spurt_05",
+   "spurt_06",
+   "spurt_07"
+  ]
+ },
+ "meta": {
+  "image": "spurt.webp",
+  "format": "RGBA8888",
+  "size": {
+   "w": 384,
+   "h": 48
+  },
+  "scale": "1",
+  "blend": "normal",
+  "light": false,
+  "app": "blender-fx"
+ }
+}

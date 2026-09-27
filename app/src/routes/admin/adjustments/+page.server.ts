@@ -9,20 +9,20 @@ import { EFFECT_KINDS } from '$lib/effects';
 import type { Effect } from '$lib/rules/types';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const c = currentCampaign();
+export const load: PageServerLoad = async () => {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
-	const rows = rosters(c.id);
+	const rows = await rosters(c.id);
 	const names = new Map(rows.map((r) => [r.warband.id, r.player.name]));
 	return {
 		warbands: rows.map((r) => ({ id: r.warband.id, player: r.player.name, seat: r.player.seat, name: r.warband.name })),
 		zones: [...buildGraph(c.houseZones).zones.values()],
-		adjustments: db
+		adjustments: (await db
 			.select()
 			.from(adjustment)
 			.where(eq(adjustment.campaignId, c.id))
 			.orderBy(desc(adjustment.committedAt))
-			.all()
+			)
 			.map((a) => ({
 				id: a.id,
 				player: names.get(a.warbandId) ?? '?',
@@ -37,11 +37,11 @@ const KINDS = new Set<string>(EFFECT_KINDS.map((k) => k.t));
 
 export const actions: Actions = {
 	add: async ({ request }) => {
-		const c = currentCampaign();
+		const c = await currentCampaign();
 		if (!c) return fail(404);
 		const data = await request.formData();
 		const warbandId = String(data.get('warband') ?? '');
-		if (!rosters(c.id).some((r) => r.warband.id === warbandId)) return fail(400, { message: 'Choose a warband' });
+		if (!(await rosters(c.id)).some((r) => r.warband.id === warbandId)) return fail(400, { message: 'Choose a warband' });
 		let effects: Effect[];
 		try {
 			effects = (JSON.parse(String(data.get('effects') ?? '[]')) as Effect[]).filter((e) => KINDS.has(e?.t));
@@ -50,7 +50,7 @@ export const actions: Actions = {
 		}
 		if (!effects.length) return fail(400, { message: 'Add at least one effect' });
 		const payload: AdjustmentPayload = { effects };
-		db.insert(adjustment)
+		(await db.insert(adjustment)
 			.values({
 				campaignId: c.id,
 				warbandId,
@@ -58,17 +58,17 @@ export const actions: Actions = {
 				payload,
 				note: String(data.get('note') ?? '').trim() || null
 			})
-			.run();
+			);
 		publish(c.id);
 		return { added: true };
 	},
 	delete: async ({ request }) => {
-		const c = currentCampaign();
+		const c = await currentCampaign();
 		if (!c) return fail(404);
 		const id = String((await request.formData()).get('id'));
-		db.delete(adjustment)
+		(await db.delete(adjustment)
 			.where(and(eq(adjustment.id, id), eq(adjustment.campaignId, c.id)))
-			.run();
+			);
 		publish(c.id);
 		return { deleted: true };
 	}

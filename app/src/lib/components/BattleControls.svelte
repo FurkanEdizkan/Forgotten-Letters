@@ -31,8 +31,8 @@
 	let confirmCancel = $state(false);
 </script>
 
-<div class="cm">
-	<div class="label">Campaign Master</div>
+<div class="cm rules-box">
+	<h3 class="label">Campaign Master</h3>
 
 	{#if game.status === 'scheduled'}
 		<div class="row">
@@ -90,15 +90,9 @@
 	.cm {
 		display: grid;
 		gap: 8px;
-		padding: 10px;
-		border: 1px dashed var(--blood);
-		background: var(--parchment);
 	}
 	.label {
-		font-variant-caps: small-caps;
-		letter-spacing: 0.1em;
-		color: var(--blood);
-		font-weight: 600;
+		margin: 0 0 4px;
 	}
 	.row {
 		display: flex;

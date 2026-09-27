@@ -19,8 +19,8 @@
 			<li>
 				<a href="/admin/games/{g.id}">
 					<span class="pair">
-						<Portrait name={g.aggressor.player} portrait={g.aggressor.portrait} symbol={g.aggressor.symbol} size={40} />
-						<Portrait name={g.defender.player} portrait={g.defender.portrait} symbol={g.defender.symbol} size={40} />
+						<Portrait name={g.aggressor.player} portrait={g.aggressor.portrait} symbol={g.aggressor.symbol} faction={g.aggressor.faction} size={40} />
+						<Portrait name={g.defender.player} portrait={g.defender.portrait} symbol={g.defender.symbol} faction={g.defender.faction} size={40} />
 					</span>
 					<span class="what">
 						<strong>{g.aggressor.player} vs {g.defender.player}</strong>
@@ -42,8 +42,8 @@
 			<li>
 				<a href="/admin/games/{g.id}">
 					<span class="pair">
-						<Portrait name={g.aggressor.player} portrait={g.aggressor.portrait} symbol={g.aggressor.symbol} size={40} />
-						<Portrait name={g.defender.player} portrait={g.defender.portrait} symbol={g.defender.symbol} size={40} />
+						<Portrait name={g.aggressor.player} portrait={g.aggressor.portrait} symbol={g.aggressor.symbol} faction={g.aggressor.faction} size={40} />
+						<Portrait name={g.defender.player} portrait={g.defender.portrait} symbol={g.defender.symbol} faction={g.defender.faction} size={40} />
 					</span>
 					<span class="what">
 						<strong>

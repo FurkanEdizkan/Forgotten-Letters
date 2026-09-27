@@ -6,11 +6,11 @@ import { currentCampaign, rosters } from '$lib/server/campaign';
 import { visionById } from '$lib/rules/visions';
 import type { Actions } from './$types';
 
-export function load() {
-	const c = currentCampaign();
+export async function load() {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	return {
-		warbands: rosters(c.id).map(({ warband: w, player: p }) => ({
+		warbands: (await rosters(c.id)).map(({ warband: w, player: p }) => ({
 			id: w.id,
 			name: w.name,
 			player: p.name,
@@ -22,16 +22,16 @@ export function load() {
 
 export const actions: Actions = {
 	keep: async ({ request }) => {
-		const c = currentCampaign();
+		const c = await currentCampaign();
 		if (!c) return fail(404);
 		const data = await request.formData();
 		const id = String(data.get('warband'));
 		const card = String(data.get('card'));
 		if (!visionById(card)) return fail(400, { message: 'Unknown card' });
-		db.update(warband)
+		(await db.update(warband)
 			.set({ visionCard: card, visionProgress: 0 })
 			.where(and(eq(warband.id, id), eq(warband.campaignId, c.id)))
-			.run();
+			);
 		return { kept: id };
 	}
 };

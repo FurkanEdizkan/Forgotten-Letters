@@ -57,9 +57,9 @@ export function toEvent(g: Game, draft: Draft, at: number): GameEvent {
  * Replay the campaign with this game's draft result applied (as if committed now,
  * or at its original commit time) and report what it does and what it still needs.
  */
-export function previewGame(c: Campaign, g: Game, draft: Draft) {
-	const infos = warbandInfos(rosters(c.id));
-	const others = campaignEvents(c.id).filter((e) => e.id !== g.id);
+export async function previewGame(c: Campaign, g: Game, draft: Draft) {
+	const infos = warbandInfos(await rosters(c.id));
+	const others = (await campaignEvents(c.id)).filter((e) => e.id !== g.id);
 	const at = g.committedAt?.getTime() ?? Date.now();
 	const before = replay(infos, others.filter((e) => e.at < at), rulesConfig(c));
 	const after = replay(infos, [...others.filter((e) => e.at < at), toEvent(g, draft, at)], rulesConfig(c));
@@ -77,10 +77,10 @@ export function previewGame(c: Campaign, g: Game, draft: Draft) {
 	};
 }
 
-export function commitGame(g: Game, draft: Draft) {
+export async function commitGame(g: Game, draft: Draft) {
 	const prev = (g.result ?? {}) as Partial<GameResult>;
 	const result: GameResult = { ...prev, sides: draft.sides };
-	db.update(game)
+	(await db.update(game)
 		.set({
 			status: 'done',
 			winnerId: draft.winner,
@@ -88,8 +88,10 @@ export function commitGame(g: Game, draft: Draft) {
 			committedAt: g.committedAt ?? new Date()
 		})
 		.where(eq(game.id, g.id))
-		.run();
+		);
 }
+
+const count = (v: unknown) => (v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? undefined : Math.max(0, Math.min(99, Math.floor(Number(v)))));
 
 /** Parse and sanity-check a draft posted from the result form. */
 export function parseDraft(raw: unknown, g: Game): Draft | null {
@@ -107,20 +109,22 @@ export function parseDraft(raw: unknown, g: Game): Draft | null {
 			anyChoices: Array.isArray(s.anyChoices) ? s.anyChoices : [],
 			exploration: s.exploration,
 			bonusExplorations: Array.isArray(s.bonusExplorations) ? s.bonusExplorations : [],
-			raze: s.raze === true && id === g.aggressorId
+			raze: s.raze === true && id === g.aggressorId,
+			vp: count(s.vp),
+			fallen: count(s.fallen)
 		};
 	}
 	return { winner: d.winner, sides };
 }
 
-export function findGame(id: string) {
-	const c = currentCampaign();
+export async function findGame(id: string) {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
-	const g = db
+	const g = (await db
 		.select()
 		.from(game)
 		.where(and(eq(game.id, id), eq(game.campaignId, c.id)))
-		.get();
+		)[0];
 	if (!g) error(404, 'No such game');
 	return { c, g };
 }
@@ -130,9 +134,9 @@ export function findGame(id: string) {
 export class BattleError extends Error {}
 
 /** Warbands already on the field in a game that isn't recorded yet. */
-export function busyWarbands(campaignId: string) {
+export async function busyWarbands(campaignId: string) {
 	const busy = new Set<string>();
-	for (const g of db.select().from(game).where(and(eq(game.campaignId, campaignId), ne(game.status, 'done'))).all()) {
+	for (const g of (await db.select().from(game).where(and(eq(game.campaignId, campaignId), ne(game.status, 'done'))))) {
 		busy.add(g.aggressorId);
 		busy.add(g.defenderId);
 	}
@@ -152,12 +156,12 @@ export interface PlanInput {
 }
 
 /** Validate and create a battle: legal zone, warbands free and with games left (unless overridden). */
-export function planGame(c: Campaign, input: PlanInput): Game {
-	const { state } = loadCampaignState(c);
+export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
+	const { state } = await loadCampaignState(c);
 	const { aggressor, defender, zone } = input;
 	if (!state.players.has(aggressor) || !state.players.has(defender) || aggressor === defender)
 		throw new BattleError('Choose two different warbands');
-	const busy = busyWarbands(c.id);
+	const busy = await busyWarbands(c.id);
 	if (busy.has(aggressor) || busy.has(defender))
 		throw new BattleError('One of these warbands is already on the field — record or cancel that game first.');
 	const spent = [aggressor, defender].filter((id) => state.players.get(id)!.games >= c.gamesPerPlayer);
@@ -174,7 +178,7 @@ export function planGame(c: Campaign, input: PlanInput): Game {
 		aggressorReason: suggested === aggressor ? 'fewer' : suggested === null ? 'roll-off' : 'chosen'
 	};
 	const zoneDef = state.graph.zones.get(zone)!;
-	return db
+	return (await db
 		.insert(game)
 		.values({
 			campaignId: c.id,
@@ -183,12 +187,12 @@ export function planGame(c: Campaign, input: PlanInput): Game {
 			aggressorId: aggressor,
 			defenderId: defender,
 			scenario: input.scenario ?? zoneDef.scenario ?? null,
-			weatherEvent: input.weatherEvent && weatherByRoll(input.weatherEvent) ? input.weatherEvent : (regionEventFor(c.id, zone) ?? null),
+			weatherEvent: input.weatherEvent && weatherByRoll(input.weatherEvent) ? input.weatherEvent : (await regionEventFor(c.id, zone) ?? null),
 			weatherRolls: input.weatherRolls ?? null,
 			result
 		})
 		.returning()
-		.get();
+		)[0];
 }
 
 export interface WeatherRolls {
@@ -200,9 +204,9 @@ export interface WeatherRolls {
 }
 
 /** Roll 2D6 for both players on the server (so nobody can fake it) and record who chooses. */
-export function rollWeather(c: Campaign, g: Game): WeatherRolls {
+export async function rollWeather(c: Campaign, g: Game): Promise<WeatherRolls> {
 	if (g.status === 'done') throw new BattleError('This battle is already recorded');
-	const { state } = loadCampaignState(c);
+	const { state } = await loadCampaignState(c);
 	const cvp = (id: string) => trackerCvp(state.players.get(id)!);
 	const rolls: WeatherRolls = {
 		aggressor: [d6(), d6()],
@@ -210,42 +214,42 @@ export function rollWeather(c: Campaign, g: Game): WeatherRolls {
 		chooser: weatherChooser({ id: g.aggressorId, cvp: cvp(g.aggressorId) }, { id: g.defenderId, cvp: cvp(g.defenderId) }),
 		rolledAt: Date.now()
 	};
-	db.update(game).set({ weatherRolls: rolls, weatherEvent: null }).where(eq(game.id, g.id)).run();
+	(await db.update(game).set({ weatherRolls: rolls, weatherEvent: null }).where(eq(game.id, g.id)));
 	return rolls;
 }
 
-export function setWeather(g: Game, event: number | null) {
+export async function setWeather(g: Game, event: number | null) {
 	if (event !== null && !weatherByRoll(event)) throw new BattleError('Unknown Hell on Earth event');
-	db.update(game).set({ weatherEvent: event }).where(eq(game.id, g.id)).run();
+	(await db.update(game).set({ weatherEvent: event }).where(eq(game.id, g.id)));
 }
 
-export function rollScenario(c: Campaign, g: Game) {
+export async function rollScenario(c: Campaign, g: Game) {
 	const zone = buildGraph(c.houseZones).zones.get(g.zone);
 	if (!zone?.archetype) throw new BattleError('This zone has a fixed scenario');
 	const s = randomScenario(zone.archetype, d6(), d6(), c.randomScenarioTurns);
 	const prev = (g.result ?? { sides: {} }) as GameResult;
-	db.update(game)
+	(await db.update(game)
 		.set({ scenario: s.name, result: { ...prev, scenarioRandom: true } })
 		.where(eq(game.id, g.id))
-		.run();
+		);
 	return s;
 }
 
-export function swapSides(g: Game) {
+export async function swapSides(g: Game) {
 	if (g.status !== 'scheduled') throw new BattleError('Sides can only be swapped before the battle starts');
 	const prev = (g.result ?? { sides: {} }) as GameResult;
-	db.update(game)
+	(await db.update(game)
 		.set({ aggressorId: g.defenderId, defenderId: g.aggressorId, result: { ...prev, aggressorReason: 'chosen' } })
 		.where(eq(game.id, g.id))
-		.run();
+		);
 }
 
-export function startGame(g: Game) {
+export async function startGame(g: Game) {
 	if (g.status !== 'scheduled') throw new BattleError('Only a planned battle can start');
-	db.update(game).set({ status: 'in_progress' }).where(eq(game.id, g.id)).run();
+	(await db.update(game).set({ status: 'in_progress' }).where(eq(game.id, g.id)));
 }
 
-export function cancelGame(g: Game) {
+export async function cancelGame(g: Game) {
 	if (g.status === 'done') throw new BattleError('Recorded battles are deleted from the Games page');
-	db.delete(game).where(eq(game.id, g.id)).run();
+	(await db.delete(game).where(eq(game.id, g.id)));
 }

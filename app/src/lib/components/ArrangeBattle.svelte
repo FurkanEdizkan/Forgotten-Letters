@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	/** Campaign Master: plan a battle at this zone from the map. */
 	let { zoneId }: { zoneId: string } = $props();
 
@@ -69,7 +70,7 @@
 </script>
 
 {#if !open}
-	<button class="arrange" onclick={() => (open = true)}>⚔ Arrange a battle here</button>
+	<button class="arrange" onclick={() => (open = true)}><Mark name="swords" /> Arrange a battle here</button>
 {:else}
 	<div class="box">
 		<div class="head">Arrange a battle <button class="link" onclick={() => (open = false)}>close</button></div>

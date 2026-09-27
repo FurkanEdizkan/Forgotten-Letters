@@ -8,13 +8,13 @@ import { resolveUpload } from '$lib/server/uploads';
 
 /** The source STL, for re-rendering a token. Behind the /admin guard; never public. */
 export async function GET({ params }) {
-	const c = currentCampaign();
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
-	const m = db
+	const m = (await db
 		.select()
 		.from(model)
 		.where(and(eq(model.id, params.id), eq(model.campaignId, c.id)))
-		.get();
+		)[0];
 	const full = m?.stl ? resolveUpload(m.stl) : null;
 	if (!full) error(404, 'No STL kept for this model');
 	try {

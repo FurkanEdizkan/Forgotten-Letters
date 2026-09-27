@@ -19,7 +19,7 @@
 		{#each data.warbands as w (w.id)}
 			<li>
 				<a href="/admin/warbands/{w.id}">
-					<Portrait name={w.player.name} portrait={w.player.portrait} symbol={w.symbol} />
+					<Portrait name={w.player.name} portrait={w.player.portrait} symbol={w.symbol} faction={w.faction} />
 					<span class="who">
 						<strong>{w.name}</strong>
 						<span>{w.player.seat ? `P${w.player.seat} · ` : ''}{w.player.name}</span>

@@ -11,32 +11,32 @@ import { TRIGGER_LABELS, normaliseLayers, type TriggerKind } from '$lib/fx/types
 import { publicSnapshot } from '$lib/server/public';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => {
-	const c = currentCampaign();
+export const load: PageServerLoad = async () => {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	return {
-		snapshot: publicSnapshot(c),
-		fx: getFx(c.id),
+		snapshot: await publicSnapshot(c),
+		fx: await getFx(c.id),
 		zones: [...buildGraph(c.houseZones).zones.values()],
-		regions: db
+		regions: (await db
 			.select()
 			.from(regionWeather)
 			.where(eq(regionWeather.campaignId, c.id))
 			.orderBy(desc(regionWeather.createdAt))
-			.all()
+			)
 			.map((r) => ({ ...r, zones: r.zones as string[] | null, layers: normaliseLayers(r.fx) }))
 	};
 };
 
-function need() {
-	const c = currentCampaign();
+async function need() {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	return c;
 }
 
 export const actions: Actions = {
 	trigger: async ({ request }) => {
-		const c = need();
+		const c = await need();
 		const data = await request.formData();
 		const kind = String(data.get('kind')) as TriggerKind;
 		if (!(kind in TRIGGER_LABELS)) return fail(400, { message: 'Unknown effect' });
@@ -46,7 +46,7 @@ export const actions: Actions = {
 	},
 
 	zeppelin: async ({ request }) => {
-		const c = need();
+		const c = await need();
 		const data = await request.formData();
 		const via = String(data.get('via') ?? '');
 		const seconds = Number(data.get('seconds'));
@@ -60,7 +60,7 @@ export const actions: Actions = {
 	},
 
 	addRegion: async ({ request }) => {
-		const c = need();
+		const c = await need();
 		const data = await request.formData();
 		const valid = buildGraph(c.houseZones).zones;
 		const wholeMap = data.has('wholeMap');
@@ -77,7 +77,7 @@ export const actions: Actions = {
 			return fail(400, { regionMessage: 'Choose a Hell on Earth event or at least one weather layer' });
 		if (!wholeMap && !zones.length) return fail(400, { regionMessage: 'Choose zones, or the whole map' });
 		const games = Number(data.get('gamesRemaining'));
-		db.insert(regionWeather)
+		(await db.insert(regionWeather)
 			.values({
 				campaignId: c.id,
 				name: String(data.get('name') ?? '').trim() || null,
@@ -87,31 +87,31 @@ export const actions: Actions = {
 				gamesRemaining: Number.isInteger(games) && games > 0 ? games : null,
 				active: true
 			})
-			.run();
+			);
 		publish(c.id);
 		return { regionAdded: true };
 	},
 
 	toggleRegion: async ({ request }) => {
-		const c = need();
+		const c = await need();
 		const id = String((await request.formData()).get('id'));
-		const r = db
+		const r = (await db
 			.select()
 			.from(regionWeather)
 			.where(and(eq(regionWeather.id, id), eq(regionWeather.campaignId, c.id)))
-			.get();
+			)[0];
 		if (!r) return fail(404);
-		db.update(regionWeather).set({ active: !r.active }).where(eq(regionWeather.id, id)).run();
+		(await db.update(regionWeather).set({ active: !r.active }).where(eq(regionWeather.id, id)));
 		publish(c.id);
 		return {};
 	},
 
 	deleteRegion: async ({ request }) => {
-		const c = need();
+		const c = await need();
 		const id = String((await request.formData()).get('id'));
-		db.delete(regionWeather)
+		(await db.delete(regionWeather)
 			.where(and(eq(regionWeather.id, id), eq(regionWeather.campaignId, c.id)))
-			.run();
+			);
 		publish(c.id);
 		return {};
 	}

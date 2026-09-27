@@ -1,5 +1,5 @@
 import { currentCampaign } from '$lib/server/campaign';
 
-export function load() {
-	return { campaign: currentCampaign() ?? null };
+export async function load() {
+	return { campaign: await currentCampaign() ?? null };
 }

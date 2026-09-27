@@ -1,7 +1,9 @@
 <script lang="ts">
+	import Seal from './Seal.svelte';
 	import type { Snippet } from 'svelte';
 	import Portrait from './Portrait.svelte';
 	import UnitCard from './UnitCard.svelte';
+	import Mark from './Mark.svelte';
 	import { RESOURCES, RESOURCE_NAMES, type Zone } from '$lib/rules/types';
 	import { weatherByRoll } from '$lib/rules/weather';
 	import type { PublicGame, PublicSnapshot, PublicWarband } from '$lib/snapshot';
@@ -44,17 +46,20 @@
 </script>
 
 <div class="panel">
-	<div class="kicker">{game.status === 'scheduled' ? 'Planned battle' : game.status === 'in_progress' ? 'Battle in progress' : 'Battle'}</div>
 	<h2>{zone.name}</h2>
 	<p class="meta">
-		{game.scenario ?? (zone.scenario ? zone.scenario : 'Scenario to be rolled')}
-		· <a href="/zones/{zone.id}">lore</a>
+		<strong class="status" class:live={game.status === 'in_progress'}>{game.status === 'scheduled' ? 'Planned battle' : game.status === 'in_progress' ? 'Battle in progress' : 'Battle'}</strong>
+		· {game.scenario ?? (zone.scenario ? zone.scenario : 'Scenario to be rolled')}
+		· <a href="/zones/{zone.id}">Lore</a>
 	</p>
-	{#if weather}
-		<div class="weather"><strong>{weather.name}</strong> — {weather.effect}</div>
-	{:else}
-		<div class="weather muted">Hell on Earth not yet rolled.</div>
-	{/if}
+	<div class="weather rules-box">
+		<h3>Hell on Earth</h3>
+		{#if weather}
+			<p><strong>{weather.name}.</strong> {weather.effect}</p>
+		{:else}
+			<p class="muted">Not yet rolled.</p>
+		{/if}
+	</div>
 
 	{#if controls}<div class="controls">{@render controls()}</div>{/if}
 
@@ -62,23 +67,31 @@
 		{#each sides as { w, role } (w.id)}
 			<section class="side" class:agg={role === 'Aggressor'}>
 				<header>
-					<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} size={52} />
+					<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} faction={w.faction} seal={w.seal} size={52} />
 					<div>
 						<span class="role">{role}</span>
 						<strong>{w.player}</strong>
 						<small>{w.name}</small>
 						{#if role === 'Aggressor' && reason}<small class="why">{reason}</small>{/if}
 					</div>
+					<span class="side-seal"><Seal look={w.seal} faction={w.faction} size={64} ignite igniteDelay={role === 'Aggressor' ? 150 : 700} phase={role === 'Aggressor' ? 0 : 0.5} /></span>
 				</header>
 
-				<dl class="numbers">
-					<div><dt>CVP</dt><dd>{w.cvp} <small>#{standing(w.id)}</small></dd></div>
-					<div><dt>Ducats</dt><dd>{w.treasury.ducats}</dd></div>
-					<div><dt>Glory</dt><dd>{w.treasury.glory}</dd></div>
-					<div><dt>Games</dt><dd>{w.games}/{snapshot.campaign.gamesPerPlayer}</dd></div>
-					<div><dt>Explore</dt><dd>{w.dice}D6</dd></div>
-					{#if w.omens}<div><dt>Omens</dt><dd>{w.omens}</dd></div>{/if}
-				</dl>
+				<table class="numbers">
+					<thead>
+						<tr><th>CVP</th><th>Ducats</th><th>Glory</th><th>Games</th><th>Explore</th>{#if w.omens}<th>Omens</th>{/if}</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>{w.cvp} <small>#{standing(w.id)}</small></td>
+							<td>{w.treasury.ducats}</td>
+							<td>{w.treasury.glory}</td>
+							<td>{w.games}/{snapshot.campaign.gamesPerPlayer}</td>
+							<td>{w.dice}D6</td>
+							{#if w.omens}<td>{w.omens}</td>{/if}
+						</tr>
+					</tbody>
+				</table>
 
 				<div class="tracks">
 					{#each RESOURCES as r (r)}
@@ -94,7 +107,7 @@
 				</p>
 
 				<div class="outposts">
-					<span class="label">Outposts</span>
+					<span class="label"><Mark name="pennant" /> Outposts</span>
 					{#each w.outposts as z (z)}
 						<a href="/zones/{z}" class:supplied={w.supplied.includes(z)} title={w.supplied.includes(z) ? 'Supplied' : 'Cut off'}>{zoneName(z)}</a>
 					{:else}
@@ -102,108 +115,113 @@
 					{/each}
 				</div>
 
-				<button type="button" class="roster-toggle" onclick={() => (openRoster[w.id] = !openRoster[w.id])}>
-					{openRoster[w.id] ? '▾' : '▸'} Warband ({w.units.length} model{w.units.length === 1 ? '' : 's'})
+				<button type="button" class="roster-toggle" aria-expanded={!!openRoster[w.id]} onclick={() => (openRoster[w.id] = !openRoster[w.id])}>
+					<span class="chev" class:open={openRoster[w.id]}><Mark name="chevron" /></span> Warband ({w.units.length} model{w.units.length === 1 ? '' : 's'})
 				</button>
 				{#if openRoster[w.id]}
 					<div class="units">
-						{#each w.units as u (u.id)}<UnitCard unit={u} photo={u.photo} compact />{:else}<small class="muted">No roster yet.</small>{/each}
+						{#each w.units as u (u.id)}<UnitCard unit={u} photo={u.photo} art={u.art} compact />{:else}<small class="muted">No roster yet.</small>{/each}
 					</div>
 				{/if}
-				<a class="tracker" href="/players/{w.id}">Campaign Tracker →</a>
+				<span class="tracker"><a href="/warbands/{w.id}">Warband</a> · <a href="/players/{w.id}">Campaign Tracker</a></span>
 			</section>
 		{/each}
 	</div>
 </div>
 
 <style>
-	.kicker {
-		font-variant-caps: small-caps;
-		letter-spacing: 0.12em;
-		color: var(--blood);
-		font-weight: 600;
-	}
 	h2 {
 		margin: 0;
-		font-size: 1.8rem;
+		font-size: 2.2rem;
 	}
 	.meta {
-		margin: 2px 0 6px;
+		margin: 4px 0 12px;
 	}
-	.weather {
-		padding: 6px 10px;
-		background: var(--parchment);
-		border-left: 3px solid var(--blood-bright);
+	.status {
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 0.85rem;
+	}
+	.status.live {
+		color: var(--blood);
+	}
+	.weather p {
+		margin: 0;
 	}
 	.controls {
-		margin: 10px 0 4px;
+		margin: 12px 0 4px;
 	}
 	.sides {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-		gap: 10px;
-		margin-top: 10px;
+		gap: 20px;
+		margin-top: 16px;
 	}
 	.side {
 		display: grid;
-		gap: 8px;
+		gap: 10px;
 		align-content: start;
-		padding: 10px;
-		background: var(--paper);
-		border: 1px solid var(--rule);
-		border-top: 3px solid var(--rule);
+		padding-top: 10px;
+		border-top: 2px solid var(--ink);
 	}
 	.side.agg {
 		border-top-color: var(--blood);
 	}
 	header {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		align-items: center;
 	}
 	header div {
 		display: grid;
+		flex: 1;
+		min-width: 0;
 		line-height: 1.2;
 	}
+	.side-seal {
+		display: flex;
+		margin-left: auto;
+	}
+	header strong {
+		font-size: 1.15rem;
+	}
 	.role {
-		font-variant-caps: small-caps;
-		letter-spacing: 0.1em;
-		font-size: 0.8rem;
-		color: var(--muted);
+		font-family: var(--font-title);
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		font-size: 0.95rem;
+		color: var(--ink-soft);
 	}
 	.agg .role {
 		color: var(--blood);
 	}
 	.why {
 		font-style: italic;
-		color: var(--muted);
 	}
 	.numbers {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 4px;
-		margin: 0;
+		width: 100%;
+		border-collapse: collapse;
+		text-align: center;
+		font-size: 0.92rem;
 	}
-	.numbers div {
-		padding: 2px 6px;
-		background: var(--parchment);
+	.numbers th {
+		padding: 2px 4px;
+		background: var(--wash-deep);
+		font-size: 0.66rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 	}
-	dt {
-		font-size: 0.72rem;
-		font-variant-caps: small-caps;
-		color: var(--muted);
-	}
-	dd {
-		margin: 0;
+	.numbers td {
+		padding: 3px 4px;
+		border-bottom: 1px solid var(--ink);
 		font-weight: 700;
 	}
-	dd small {
+	.numbers td small {
 		font-weight: 400;
-		color: var(--muted);
 	}
 	.tracks {
 		display: grid;
-		gap: 2px;
+		gap: 3px;
 	}
 	.track {
 		display: grid;
@@ -211,11 +229,12 @@
 		gap: 6px;
 		align-items: center;
 		font-weight: 700;
+		font-variant-numeric: lining-nums;
 	}
 	.bar {
-		height: 7px;
-		background: var(--parchment);
-		border: 1px solid var(--rule);
+		height: 8px;
+		background: var(--paper);
+		border: 1px solid var(--ink);
 	}
 	.fill {
 		display: block;
@@ -247,19 +266,24 @@
 	}
 	.small {
 		margin: 0;
-		font-size: 0.85rem;
+		font-size: 0.88rem;
 	}
 	.outposts {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 4px 8px;
+		gap: 4px 10px;
 		align-items: baseline;
-		font-size: 0.9rem;
+		font-size: 0.92rem;
 	}
 	.label {
-		font-variant-caps: small-caps;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		font-size: 0.8rem;
 		color: var(--blood);
-		font-weight: 600;
 	}
 	.outposts a.supplied {
 		text-decoration-color: var(--supplies);
@@ -267,18 +291,30 @@
 	}
 	.roster-toggle {
 		justify-self: start;
-		padding: 2px 8px;
+		padding: 3px 10px 3px 6px;
 		background: none;
 		border: 1px solid var(--rule);
 		color: var(--ink);
-		font-size: 0.9rem;
+		font-size: 0.8rem;
+	}
+	.roster-toggle:hover {
+		background: none;
+		color: var(--blood);
+		border-color: var(--blood);
+	}
+	.chev {
+		display: inline-flex;
+		transition: transform 0.2s var(--ease-out);
+	}
+	.chev.open {
+		transform: rotate(90deg);
 	}
 	.units {
 		display: grid;
-		gap: 4px;
+		gap: 6px;
 	}
 	.tracker {
-		font-size: 0.9rem;
+		font-size: 0.92rem;
 	}
 	.muted,
 	small {

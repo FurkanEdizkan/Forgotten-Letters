@@ -3,7 +3,7 @@ import { currentCampaign } from '$lib/server/campaign';
 import { exportCampaign } from '$lib/server/backup';
 
 export async function GET() {
-	const c = currentCampaign();
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const backup = await exportCampaign(c.id);
 	const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');

@@ -8,13 +8,13 @@ import { zoneOptions } from '$lib/rules/legality';
  * as Aggressor (against any opponent — Altar of Leviathan also checks the defender,
  * which the plan step re-validates).
  */
-export function GET({ url }) {
-	const c = currentCampaign();
+export async function GET({ url }) {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const zone = url.searchParams.get('zone') ?? '';
-	const { rows, state } = loadCampaignState(c);
+	const { rows, state } = await loadCampaignState(c);
 	if (!state.graph.zones.has(zone)) error(404, 'No such zone');
-	const busy = busyWarbands(c.id);
+	const busy = await busyWarbands(c.id);
 	const warbands = rows.map(({ warband: w, player: p }) => {
 		const s = state.players.get(w.id)!;
 		const other = rows.find((r) => r.warband.id !== w.id)?.warband.id ?? w.id;

@@ -1,1 +1,0 @@
-ALTER TABLE `campaign` ADD `expected_players` integer DEFAULT 8 NOT NULL;

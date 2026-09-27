@@ -52,7 +52,7 @@
 <p><a href="/admin/warbands/{data.warband.id}">← {data.warband.name}</a></p>
 
 <header class="top">
-	<Portrait name={data.player.name} portrait={data.player.portrait} symbol={data.warband.symbol} size={56} />
+	<Portrait name={data.player.name} portrait={data.player.portrait} symbol={data.warband.symbol} faction={data.warband.faction} size={56} />
 	<div>
 		<h1>{data.warband.name}</h1>
 		<div class="muted">{data.player.name} · {data.warband.variant ?? FACTIONS.find((f) => f.id === data.warband.faction)?.name ?? data.warband.faction}</div>
@@ -78,7 +78,7 @@
 			{#if g.units.length}
 				<h2>{g.title}</h2>
 				{#each g.units as u (u.id)}
-					<UnitCard unit={u as RosterUnit} photo={u.photo} selected={u.id === selectedId} onclick={() => select(u.id)} />
+					<UnitCard unit={u as RosterUnit} photo={u.photo} art={u.art} editable unitId={u.id} selected={u.id === selectedId} onclick={() => select(u.id)} />
 				{/each}
 			{/if}
 		{/each}
@@ -227,16 +227,19 @@
 			<summary>Import from Trench Companion</summary>
 			<p class="muted">
 				Replaces this roster and bank with your own warband from <a href="https://trench-companion.com" target="_blank" rel="noopener">Trench Companion</a>.
-				Stat lines aren't in their export — fill them in here.
+				Stat lines aren't in their export — fill them in here. The list must be of this warband's faction
+				({data.factionName}{data.warband.variant ? `, ${data.warband.variant}` : ''}).
 			</p>
 			<form method="POST" action="?/importTc" use:enhance={keep}>
 				<input name="link" placeholder="https://trench-companion.com/warband/detail/…" size="40" />
 				<label class="check"><input type="checkbox" name="confirm" /> Replace this roster</label>
+				{#if form && 'mismatch' in form}<label class="check"><input type="checkbox" name="force" /> Import it anyway</label>{/if}
 				<button>Import link</button>
 			</form>
 			<form method="POST" action="?/importFile" enctype="multipart/form-data" use:enhance={keep}>
 				<input type="file" name="file" accept="application/json,.json" />
 				<label class="check"><input type="checkbox" name="confirm" /> Replace this roster</label>
+				{#if form && 'mismatch' in form}<label class="check"><input type="checkbox" name="force" /> Import it anyway</label>{/if}
 				<button>Import file</button>
 			</form>
 			{#if form && 'imported' in form}<p class="ok">Imported {form.imported}.</p>{/if}

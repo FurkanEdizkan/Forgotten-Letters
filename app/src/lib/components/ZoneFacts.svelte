@@ -20,7 +20,7 @@
 <div class="facts" class:compact>
 	{#if zone.resources.length}
 		<p class="res">
-			{#each zone.resources as r (r)}<span class="res-chip res-{r}">{RESOURCE_NAMES[r]}</span>{/each}
+			{#each zone.resources as r (r)}<span class="res-chip res-{r}"><span class="disc">{r}</span>{RESOURCE_NAMES[r]}</span>{/each}
 		</p>
 	{/if}
 	{#if zone.scenario}<p>Scenario: <strong>{zone.scenario}</strong></p>{/if}
@@ -39,7 +39,7 @@
 		<div class="faces">
 			{#each holders as w (w.id)}
 				<a href="/players/{w.id}" class="holder" class:supplied={w.supplied.includes(zone.id)} title={w.supplied.includes(zone.id) ? 'Supplied' : 'Cut off from the Entry Zone'}>
-					<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} size={compact ? 36 : 44} />
+					<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} faction={w.faction} seal={w.seal} size={compact ? 36 : 44} />
 					{#if !compact}<span>{w.player}</span>{/if}
 				</a>
 			{/each}
@@ -55,10 +55,7 @@
 		margin: 4px 0;
 	}
 	h3 {
-		margin: 10px 0 4px;
-		font-variant-caps: small-caps;
-		color: var(--blood);
-		font-size: 1rem;
+		margin: 14px 0 6px;
 	}
 	.res {
 		display: flex;
@@ -66,28 +63,41 @@
 		flex-wrap: wrap;
 	}
 	.res-chip {
-		padding: 1px 8px;
-		color: var(--paper);
-		font-size: 0.85rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		font-size: 0.92rem;
 		font-weight: 600;
 	}
+	.disc {
+		display: inline-grid;
+		place-items: center;
+		width: 1.45em;
+		height: 1.45em;
+		border-radius: 50%;
+		border: 1.5px solid var(--ink);
+		color: #fff;
+		font-size: 0.78rem;
+		font-weight: 700;
+		background: var(--c);
+	}
 	.res-F {
-		background: var(--favour);
+		--c: var(--favour);
 	}
 	.res-R {
-		background: var(--relics);
+		--c: var(--relics);
 	}
 	.res-S {
-		background: var(--supplies);
+		--c: var(--supplies);
 	}
 	.res-T {
-		background: var(--territories);
+		--c: var(--territories);
 	}
 	.weather {
-		margin-top: 8px;
+		margin-top: 10px;
 		padding: 8px 10px;
-		background: var(--parchment);
-		border-left: 3px solid var(--territories);
+		border: 1px solid var(--blood);
+		background: var(--paper);
 	}
 	.faces {
 		display: flex;

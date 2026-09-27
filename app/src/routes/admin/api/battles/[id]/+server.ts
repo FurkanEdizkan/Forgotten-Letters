@@ -17,14 +17,14 @@ import { publish, sendTrigger } from '$lib/server/hub';
  * { op: 'roll-weather' | 'choose-weather' | 'roll-scenario' | 'swap' | 'start' | 'cancel', event? }
  */
 export async function POST({ params, request }) {
-	const { c, g } = findGame(params.id);
+	const { c, g } = await findGame(params.id);
 	const body = await request.json().catch(() => null);
 	if (!body?.op) error(400, 'Malformed request');
 	try {
 		switch (body.op) {
 			case 'roll-weather': {
-				const rolls = rollWeather(c, g);
-				const names = new Map(rosters(c.id).map((r) => [r.warband.id, r.player.name]));
+				const rolls = await rollWeather(c, g);
+				const names = new Map((await rosters(c.id)).map((r) => [r.warband.id, r.player.name]));
 				// Every open map animates the same dice over the zone.
 				sendTrigger(c.id, {
 					kind: 'dice',
@@ -41,20 +41,20 @@ export async function POST({ params, request }) {
 			}
 			case 'choose-weather': {
 				const event = body.event === null ? null : Number(body.event);
-				setWeather(g, event);
+				await setWeather(g, event);
 				break;
 			}
 			case 'roll-scenario':
-				rollScenario(c, g);
+				await rollScenario(c, g);
 				break;
 			case 'swap':
-				swapSides(g);
+				await swapSides(g);
 				break;
 			case 'start':
-				startGame(g);
+				await startGame(g);
 				break;
 			case 'cancel':
-				cancelGame(g);
+				await cancelGame(g);
 				break;
 			default:
 				error(400, 'Unknown action');

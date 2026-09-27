@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, index, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import type { SealSettings } from '$lib/seals';
 
 const id = () =>
 	text('id')
@@ -6,11 +7,11 @@ const id = () =>
 		.$defaultFn(() => crypto.randomUUID());
 
 const createdAt = () =>
-	integer('created_at', { mode: 'timestamp_ms' })
+	timestamp('created_at', { withTimezone: true, mode: 'date' })
 		.notNull()
 		.$defaultFn(() => new Date());
 
-export const campaign = sqliteTable('campaign', {
+export const campaign = pgTable('campaign', {
 	id: id(),
 	name: text('name').notNull(),
 	gamesPerPlayer: integer('games_per_player').notNull().default(8),
@@ -19,14 +20,14 @@ export const campaign = sqliteTable('campaign', {
 	gloryScoring: text('glory_scoring', { enum: ['boxIndex', 'deeds', 'none'] })
 		.notNull()
 		.default('boxIndex'),
-	houseZones: integer('house_zones', { mode: 'boolean' }).notNull().default(true),
-	houseRazing: integer('house_razing', { mode: 'boolean' }).notNull().default(false),
-	houseOutpostLevy: integer('house_outpost_levy', { mode: 'boolean' }).notNull().default(false),
-	visionsRevealed: integer('visions_revealed', { mode: 'boolean' }).notNull().default(false),
+	houseZones: boolean('house_zones').notNull().default(true),
+	houseRazing: boolean('house_razing').notNull().default(false),
+	houseOutpostLevy: boolean('house_outpost_levy').notNull().default(false),
+	visionsRevealed: boolean('visions_revealed').notNull().default(false),
 	createdAt: createdAt()
 });
 
-export const player = sqliteTable(
+export const player = pgTable(
 	'player',
 	{
 		id: id(),
@@ -36,12 +37,14 @@ export const player = sqliteTable(
 		seat: integer('seat'),
 		name: text('name').notNull(),
 		portrait: text('portrait'),
+		/** The account that plays this seat (and edits its warbands), if any. */
+		userId: text('user_id').references((): AnyPgColumn => user.id, { onDelete: 'set null' }),
 		createdAt: createdAt()
 	},
 	(t) => [index('player_campaign_idx').on(t.campaignId)]
 );
 
-export const warband = sqliteTable(
+export const warband = pgTable(
 	'warband',
 	{
 		id: id(),
@@ -69,12 +72,17 @@ export const warband = sqliteTable(
 		displayModel: text('display_model', { enum: ['portrait', 'model'] })
 			.notNull()
 			.default('portrait'),
+		/** How the warband's seal looks: colours, and an optional seal struck from the player's own symbol. */
+		seal: jsonb('seal').$type<SealSettings>(),
+		/** Trench Companion's "Remove Restrictions": the builder skips availability and item limits. */
+		unrestricted: boolean('unrestricted').notNull().default(false),
+
 		createdAt: createdAt()
 	},
 	(t) => [index('warband_campaign_idx').on(t.campaignId)]
 );
 
-export const game = sqliteTable(
+export const game = pgTable(
 	'game',
 	{
 		id: id(),
@@ -95,17 +103,17 @@ export const game = sqliteTable(
 		scenario: text('scenario'),
 		weatherEvent: integer('weather_event'),
 		// { aggressor: [d,d], defender: [d,d], chosenBy }
-		weatherRolls: text('weather_rolls', { mode: 'json' }),
+		weatherRolls: jsonb('weather_rolls'),
 		// Per-side result entry: deeds, resource boxes, exploration, loot, rewards chosen.
-		result: text('result', { mode: 'json' }),
+		result: jsonb('result'),
 		// Replay order key: set when the game is committed as done.
-		committedAt: integer('committed_at', { mode: 'timestamp_ms' }),
+		committedAt: timestamp('committed_at', { withTimezone: true, mode: 'date' }),
 		createdAt: createdAt()
 	},
 	(t) => [index('game_campaign_idx').on(t.campaignId)]
 );
 
-export const adjustment = sqliteTable(
+export const adjustment = pgTable(
 	'adjustment',
 	{
 		id: id(),
@@ -116,42 +124,42 @@ export const adjustment = sqliteTable(
 			.notNull()
 			.references(() => warband.id, { onDelete: 'cascade' }),
 		kind: text('kind').notNull(),
-		payload: text('payload', { mode: 'json' }),
+		payload: jsonb('payload'),
 		note: text('note'),
-		committedAt: integer('committed_at', { mode: 'timestamp_ms' })
+		committedAt: timestamp('committed_at', { withTimezone: true, mode: 'date' })
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
 	(t) => [index('adjustment_campaign_idx').on(t.campaignId)]
 );
 
-export const regionWeather = sqliteTable('region_weather', {
+export const regionWeather = pgTable('region_weather', {
 	id: id(),
 	campaignId: text('campaign_id')
 		.notNull()
 		.references(() => campaign.id, { onDelete: 'cascade' }),
 	name: text('name'),
 	// Zone ids, or null for the whole map.
-	zones: text('zones', { mode: 'json' }).$type<string[] | null>(),
+	zones: jsonb('zones').$type<string[] | null>(),
 	weatherEvent: integer('weather_event'),
-	fx: text('fx', { mode: 'json' }),
-	active: integer('active', { mode: 'boolean' }).notNull().default(true),
+	fx: jsonb('fx'),
+	active: boolean('active').notNull().default(true),
 	gamesRemaining: integer('games_remaining'),
 	createdAt: createdAt()
 });
 
-export const fxState = sqliteTable('fx_state', {
+export const fxState = pgTable('fx_state', {
 	campaignId: text('campaign_id')
 		.primaryKey()
 		.references(() => campaign.id, { onDelete: 'cascade' }),
-	config: text('config', { mode: 'json' }).notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+	config: jsonb('config').notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
 		.notNull()
 		.$defaultFn(() => new Date())
 });
 
 /** Lore for a map zone, written by the Campaign Master (public). */
-export const zoneLore = sqliteTable(
+export const zoneLore = pgTable(
 	'zone_lore',
 	{
 		campaignId: text('campaign_id')
@@ -160,7 +168,7 @@ export const zoneLore = sqliteTable(
 		zoneId: text('zone_id').notNull(),
 		lore: text('lore').notNull().default(''),
 		image: text('image'),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
@@ -183,7 +191,7 @@ export interface UnitStats {
 }
 
 /** A model on a warband roster, shaped like Trench Companion's per-model data. */
-export const unit = sqliteTable(
+export const unit = pgTable(
 	'unit',
 	{
 		id: id(),
@@ -198,19 +206,21 @@ export const unit = sqliteTable(
 		category: text('category', { enum: ['elite', 'troop', 'mercenary'] })
 			.notNull()
 			.default('troop'),
-		leader: integer('leader', { mode: 'boolean' }).notNull().default(false),
+		leader: boolean('leader').notNull().default(false),
 		cost: integer('cost').notNull().default(0),
 		currency: text('currency', { enum: ['ducats', 'glory'] })
 			.notNull()
 			.default('ducats'),
 		experience: integer('experience').notNull().default(0),
-		equipment: text('equipment', { mode: 'json' }).$type<RosterItem[]>().notNull().default([]),
-		upgrades: text('upgrades', { mode: 'json' }).$type<string[]>().notNull().default([]),
-		skills: text('skills', { mode: 'json' }).$type<string[]>().notNull().default([]),
-		injuries: text('injuries', { mode: 'json' }).$type<string[]>().notNull().default([]),
-		stats: text('stats', { mode: 'json' }).$type<UnitStats>().notNull().default({}),
+		equipment: jsonb('equipment').$type<RosterItem[]>().notNull().default([]),
+		upgrades: jsonb('upgrades').$type<string[]>().notNull().default([]),
+		skills: jsonb('skills').$type<string[]>().notNull().default([]),
+		injuries: jsonb('injuries').$type<string[]>().notNull().default([]),
+		stats: jsonb('stats').$type<UnitStats>().notNull().default({}),
 		notes: text('notes'),
 		photo: text('photo'),
+		/** The rules entry this model was recruited as (rules_unit.id), for its profile, keywords and abilities. */
+		profileId: text('profile_id'),
 		status: text('status', { enum: ['active', 'dead', 'retired'] })
 			.notNull()
 			.default('active'),
@@ -221,7 +231,7 @@ export const unit = sqliteTable(
 );
 
 /** Items held in the warband's stash (paychest) rather than by a model. */
-export const warbandStash = sqliteTable(
+export const warbandStash = pgTable(
 	'warband_stash',
 	{
 		id: id(),
@@ -244,7 +254,7 @@ export const warbandStash = sqliteTable(
  * A 3D model uploaded as STL and rendered to a map token in the browser.
  * Owned by a faction (the campaign default for that faction) or by one warband.
  */
-export const model = sqliteTable(
+export const model = pgTable(
 	'model',
 	{
 		id: id(),
@@ -259,8 +269,8 @@ export const model = sqliteTable(
 		stl: text('stl'),
 		/** Public /uploads path of the rendered WebP token. */
 		token: text('token').notNull(),
-		params: text('params', { mode: 'json' }).$type<ModelParams>().notNull().default({}),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+		params: jsonb('params').$type<ModelParams>().notNull().default({}),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
@@ -275,3 +285,134 @@ export interface ModelParams {
 	/** Rotate Z-up files (most miniature STLs) to Y-up. */
 	zUp?: boolean;
 }
+
+
+/**
+ * The default picture for a unit type in a faction (e.g. every "Trench Pilgrim"), set by the
+ * Campaign Master. A unit's own photo, if any, takes precedence.
+ */
+export const unitArt = pgTable(
+	'unit_art',
+	{
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		faction: text('faction').notNull(),
+		/** The unit type as letters only, lowercase, so "Trench-Pilgrim" and "Trench Pilgrim" share art. */
+		typeKey: text('type_key').notNull(),
+		type: text('type').notNull(),
+		image: text('image').notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(t) => [primaryKey({ columns: [t.campaignId, t.faction, t.typeKey] })]
+);
+
+/** Accounts: the Campaign Master and the players. Created by the CM; nobody signs up. */
+export const user = pgTable('user', {
+	id: id(),
+	/** Lowercase, unique. */
+	username: text('username').notNull().unique(),
+	displayName: text('display_name'),
+	passwordHash: text('password_hash').notNull(),
+	role: text('role', { enum: ['cm', 'player'] })
+		.notNull()
+		.default('player'),
+	disabled: boolean('disabled').notNull().default(false),
+	/** Set when the CM issues or resets a password; the user must choose their own on next sign-in. */
+	mustChangePassword: boolean('must_change_password').notNull().default(true),
+	lastSignInAt: timestamp('last_sign_in_at', { withTimezone: true, mode: 'date' }),
+	createdAt: createdAt()
+});
+
+/** Signed-in devices. The cookie holds a random token; only its hash is kept here. */
+export const session = pgTable(
+	'session',
+	{
+		idHash: text('id_hash').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+		lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		userAgent: text('user_agent')
+	},
+	(t) => [index('session_user_idx').on(t.userId)]
+);
+
+/*
+ * Rules data, imported from the group's own rulebooks (scripts/import-rules.py) and shared by every
+ * campaign on this install. Never committed. Rows the CM marks verified survive later imports.
+ */
+export const rulesUnit = pgTable(
+	'rules_unit',
+	{
+		id: text('id').primaryKey(),
+		faction: text('faction').notNull(),
+		variant: text('variant'),
+		name: text('name').notNull(),
+		category: text('category', { enum: ['elite', 'troop', 'mercenary'] }).notNull(),
+		availabilityMin: integer('availability_min').notNull().default(0),
+		/** Null: any number. */
+		availabilityMax: integer('availability_max'),
+		cost: integer('cost').notNull(),
+		currency: text('currency', { enum: ['ducats', 'glory'] }).notNull().default('ducats'),
+		stats: jsonb('stats').$type<UnitStats>().notNull().default({}),
+		keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+		abilities: jsonb('abilities').$type<{ name: string; text: string }[]>().notNull().default([]),
+		battlekitNote: text('battlekit_note'),
+		powers: text('powers'),
+		description: text('description'),
+		page: text('page'),
+		verified: boolean('verified').notNull().default(false)
+	},
+	(t) => [index('rules_unit_faction_idx').on(t.faction)]
+);
+
+export const rulesItem = pgTable(
+	'rules_item',
+	{
+		id: text('id').primaryKey(),
+		faction: text('faction').notNull(),
+		variant: text('variant'),
+		category: text('category', { enum: ['ranged', 'melee', 'grenade', 'armour', 'shield', 'equipment', 'special'] }).notNull(),
+		name: text('name').notNull(),
+		/** Marked [•] in the armoury: only this faction has it. */
+		unique: boolean('unique').notNull().default(false),
+		cost: integer('cost').notNull(),
+		currency: text('currency', { enum: ['ducats', 'glory'] }).notNull().default('ducats'),
+		limit: integer('limit'),
+		restrictions: text('restrictions'),
+		type: text('type'),
+		range: text('range'),
+		keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+		text: text('text'),
+		description: text('description'),
+		verified: boolean('verified').notNull().default(false)
+	},
+	(t) => [index('rules_item_faction_idx').on(t.faction)]
+);
+
+export const rulesKeyword = pgTable('rules_keyword', {
+	name: text('name').primaryKey(),
+	kind: text('kind'),
+	text: text('text').notNull(),
+	verified: boolean('verified').notNull().default(false)
+});
+
+/** Core rules, campaign rules and scenarios, one page per heading of the book. */
+export const rulesPage = pgTable('rules_page', {
+	slug: text('slug').primaryKey(),
+	book: text('book', { enum: ['core', 'campaign', 'scenario'] }).notNull(),
+	chapter: text('chapter').notNull(),
+	title: text('title').notNull(),
+	order: integer('order').notNull().default(0),
+	/** Paragraphs separated by blank lines; "### " sub-headings, "| a | b" table rows, "* " bullets. */
+	body: text('body').notNull(),
+	source: text('source'),
+	page: text('page'),
+	verified: boolean('verified').notNull().default(false)
+});

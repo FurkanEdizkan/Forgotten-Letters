@@ -6,3 +6,8 @@
 
 # Python caches (render/pack scripts)
 __pycache__/
+graphify-out/
+.impeccable/review/
+app/src/lib/assets/sigils/
+app/assets/blender/seals/
+rules.json

@@ -10,18 +10,18 @@ import { looksLikeStl, type ModelKind, type ModelOwner } from '$lib/models';
 export const MAX_STL_BYTES = 25 * 1024 * 1024;
 const TOKEN_SIZE = 256;
 
-export function listModels(campaignId: string) {
-	return db.select().from(model).where(eq(model.campaignId, campaignId)).all();
+export async function listModels(campaignId: string) {
+	return (await db.select().from(model).where(eq(model.campaignId, campaignId)));
 }
 
-export function findModel(campaignId: string, kind: ModelKind, ownerType: ModelOwner, ownerId: string) {
-	return db
+export async function findModel(campaignId: string, kind: ModelKind, ownerType: ModelOwner, ownerId: string) {
+	return (await db
 		.select()
 		.from(model)
 		.where(
 			and(eq(model.campaignId, campaignId), eq(model.kind, kind), eq(model.ownerType, ownerType), eq(model.ownerId, ownerId))
 		)
-		.get();
+		)[0];
 }
 
 function cleanParams(raw: unknown): ModelParams {
@@ -75,28 +75,28 @@ export async function saveModel(
 		.toBuffer();
 	const token = await store(campaignId, webp, 'webp');
 
-	const prev = findModel(campaignId, kind, ownerType, ownerId);
+	const prev = await findModel(campaignId, kind, ownerType, ownerId);
 	const params = cleanParams(rawParams);
 	if (prev) {
-		db.update(model)
+		(await db.update(model)
 			.set({ token, stl: stl ?? prev.stl, params, updatedAt: new Date() })
 			.where(eq(model.id, prev.id))
-			.run();
+			);
 		await removeImage(prev.token);
 		if (stl) await removeImage(prev.stl);
 	} else {
-		db.insert(model).values({ campaignId, kind, ownerType, ownerId, token, stl, params }).run();
+		(await db.insert(model).values({ campaignId, kind, ownerType, ownerId, token, stl, params }));
 	}
 }
 
 export async function deleteModel(campaignId: string, id: string) {
-	const m = db
+	const m = (await db
 		.select()
 		.from(model)
 		.where(and(eq(model.id, id), eq(model.campaignId, campaignId)))
-		.get();
+		)[0];
 	if (!m) return false;
-	db.delete(model).where(eq(model.id, m.id)).run();
+	(await db.delete(model).where(eq(model.id, m.id)));
 	await removeImage(m.token);
 	await removeImage(m.stl);
 	return true;
@@ -104,6 +104,6 @@ export async function deleteModel(campaignId: string, id: string) {
 
 /** Remove every model a warband owns (used when the warband is deleted). */
 export async function deleteWarbandModels(campaignId: string, warbandId: string) {
-	const rows = listModels(campaignId).filter((m) => m.ownerType === 'warband' && m.ownerId === warbandId);
+	const rows = (await listModels(campaignId)).filter((m) => m.ownerType === 'warband' && m.ownerId === warbandId);
 	for (const m of rows) await deleteModel(campaignId, m.id);
 }

@@ -1,1 +1,0 @@
-ALTER TABLE `campaign` ADD `glory_scoring` text DEFAULT 'boxIndex' NOT NULL;

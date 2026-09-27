@@ -8,11 +8,11 @@ import { suggestAggressor, zoneOptions } from '$lib/rules/legality';
 import { weatherChooser } from '$lib/rules/weather';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url }) => {
-	const c = currentCampaign();
+export const load: PageServerLoad = async ({ url }) => {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
-	const { rows, state } = loadCampaignState(c);
-	const busy = busyWarbands(c.id);
+	const { rows, state } = await loadCampaignState(c);
+	const busy = await busyWarbands(c.id);
 	const warbands = rows.map(({ warband: w, player: p }) => {
 		const s = state.players.get(w.id)!;
 		return {
@@ -22,6 +22,7 @@ export const load: PageServerLoad = ({ url }) => {
 			seat: p.seat,
 			portrait: p.portrait,
 			symbol: w.symbol,
+			faction: w.faction,
 			games: s.games,
 			busy: busy.has(w.id),
 			aggressorCount: s.aggression.length,
@@ -52,7 +53,9 @@ export const load: PageServerLoad = ({ url }) => {
 		matchup,
 		zones: [...state.graph.zones.values()],
 		regionEvents: Object.fromEntries(
-			[...state.graph.zones.keys()].map((z) => [z, regionEventFor(c.id, z)]).filter(([, e]) => e)
+			(await Promise.all([...state.graph.zones.keys()].map(async (z) => [z, await regionEventFor(c.id, z)] as const))).filter(
+				([, e]) => e
+			)
 		) as Record<string, number>,
 		randomTurns: c.randomScenarioTurns,
 		gamesPerPlayer: c.gamesPerPlayer
@@ -61,7 +64,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 export const actions: Actions = {
 	default: async ({ request }) => {
-		const c = currentCampaign();
+		const c = await currentCampaign();
 		if (!c) return fail(404, { message: 'No campaign' });
 		const data = await request.formData();
 		const s = (k: string) => String(data.get(k) ?? '');
@@ -74,7 +77,7 @@ export const actions: Actions = {
 		}
 		let g;
 		try {
-			g = planGame(c, {
+			g = await planGame(c, {
 				aggressor: s('aggressor'),
 				defender: s('defender'),
 				zone: s('zone'),

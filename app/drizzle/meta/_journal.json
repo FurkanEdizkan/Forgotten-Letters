@@ -1,47 +1,54 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1790447630696,
+      "version": "7",
+      "when": 1790507971852,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "6",
-      "when": 1790452124432,
-      "tag": "0001_glory_scoring",
+      "version": "7",
+      "when": 1790508583930,
+      "tag": "0001_player_seals",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "6",
-      "when": 1790463011588,
-      "tag": "0002_expected_players",
+      "version": "7",
+      "when": 1790509816723,
+      "tag": "0002_unit_art",
       "breakpoints": true
     },
     {
       "idx": 3,
-      "version": "6",
-      "when": 1790468549944,
-      "tag": "0003_zone_lore",
+      "version": "7",
+      "when": 1790512437734,
+      "tag": "0003_accounts",
       "breakpoints": true
     },
     {
       "idx": 4,
-      "version": "6",
-      "when": 1790468918578,
-      "tag": "0004_rosters",
+      "version": "7",
+      "when": 1790513332993,
+      "tag": "0004_rules_data",
       "breakpoints": true
     },
     {
       "idx": 5,
-      "version": "6",
-      "when": 1790471593535,
-      "tag": "0005_models",
+      "version": "7",
+      "when": 1790513654859,
+      "tag": "0005_unit_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790516665127,
+      "tag": "0006_rules_pages",
       "breakpoints": true
     }
   ]

@@ -8,17 +8,17 @@ import { buildGraph } from '$lib/rules/zones';
 import { renderMarkdown } from '$lib/markdown';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params }) => {
-	const c = currentCampaign();
+export const load: PageServerLoad = async ({ params }) => {
+	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	if (!buildGraph(c.houseZones).zones.has(params.id)) error(404, 'No such zone on this campaign’s map');
-	const lore = loreFor(c.id, params.id);
-	const history = db
+	const lore = await loreFor(c.id, params.id);
+	const history = (await db
 		.select()
 		.from(game)
 		.where(and(eq(game.campaignId, c.id), eq(game.zone, params.id), eq(game.status, 'done')))
 		.orderBy(desc(game.committedAt))
-		.all()
+		)
 		.map((g) => ({
 			id: g.id,
 			aggressor: g.aggressorId,

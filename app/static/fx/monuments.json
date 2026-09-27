@@ -1,0 +1,209 @@
+{
+ "frames": {
+  "monuments_00": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_01": {
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_02": {
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_03": {
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_04": {
+   "frame": {
+    "x": 640,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_05": {
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_06": {
+   "frame": {
+    "x": 160,
+    "y": 200,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_07": {
+   "frame": {
+    "x": 320,
+    "y": 200,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  },
+  "monuments_08": {
+   "frame": {
+    "x": 480,
+    "y": 200,
+    "w": 160,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 160,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 160,
+    "h": 200
+   }
+  }
+ },
+ "animations": {
+  "monuments": [
+   "monuments_00",
+   "monuments_01",
+   "monuments_02",
+   "monuments_03",
+   "monuments_04",
+   "monuments_05",
+   "monuments_06",
+   "monuments_07",
+   "monuments_08"
+  ]
+ },
+ "meta": {
+  "image": "monuments.webp",
+  "format": "RGBA8888",
+  "size": {
+   "w": 800,
+   "h": 400
+  },
+  "scale": "1",
+  "blend": "normal",
+  "light": false,
+  "app": "blender-fx"
+ }
+}

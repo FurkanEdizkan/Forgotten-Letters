@@ -26,11 +26,13 @@ Requires Docker.
    python3 app/scripts/extract-map.py "docs/Trench Crusade/Carcass Front/Carcass Front.pdf"
    ```
 
-2. **Start it**, choosing the Campaign Master's password:
+2. **Start it**, choosing the Campaign Master's password (and, optionally, the database's):
 
    ```sh
-   ADMIN_PASSWORD='something-secret' docker compose up -d --build
+   ADMIN_PASSWORD='something-secret' POSTGRES_PASSWORD='another-secret' docker compose up -d --build
    ```
+
+   This runs two containers: the app and PostgreSQL.
 
 3. Open **http://localhost:3000/admin**, log in, and found the campaign: number of players,
    games per player, house zones and house rules. Then muster the warbands (portrait and
@@ -39,9 +41,33 @@ Requires Docker.
 4. Players open **http://&lt;this machine's LAN address&gt;:3000** on the same network, e.g.
    `http://192.168.1.20:3000` (`ip -4 addr` or `hostname -I` shows it).
 
-Data (SQLite database and uploaded images) lives in the `data` Docker volume and survives
-restarts and rebuilds. **Backup** in the admin menu downloads everything as one JSON file —
-keep one after each game night. `docker compose down -v` deletes the volume and all data.
+5. **Make the players' accounts.** Sign in as `cm` with `ADMIN_PASSWORD` (you'll be asked to choose
+   your own password), then open *Players* in the admin menu: create each player's account with
+   a username, let a password be generated, and tick the seat they play. They sign in at `/login`,
+   choose their own password, and can then edit their own warband's seal, pictures and roster. The
+   *Players* page also resets passwords, disables accounts and signs them out everywhere.
+
+Campaign data lives in PostgreSQL (the `pgdata` volume); uploaded portraits, symbols, seals
+and models live in the `data` volume. Both survive restarts and rebuilds. An older install's
+SQLite campaign (`/data/campaign.db`) is copied into Postgres automatically on first start and
+the old file is kept as `campaign.db.imported`. **Backup** in the admin menu downloads everything as one JSON file —
+keep one after each game night. `docker compose down -v` deletes the volumes and all data.
+
+### Rules: the compendium and the warband builder
+
+The compendium (core rules, campaign and scenarios, units, battlekit, keywords) and the warband builder read the rules from your
+own copies of the books, which are copyrighted and so not in the repo. Generate the data locally
+(needs `pdftotext` from poppler-utils):
+
+```sh
+python3 app/scripts/import-rules.py "docs/Trench Crusade/Base/v1.0.2/Warbands-of-Trench-Crusade.pdf" \
+    --carcass "docs/Trench Crusade/Carcass Front/Carcass Front.pdf" \
+    --rulebook "docs/Trench Crusade/Base/v1.0.2/Trench-Crusade-Digital-Rulebook.pdf" -o rules.json
+```
+
+then load `rules.json` in *Admin → Rules* (or drop it in the `data` volume as `/data/rules.json`
+before the first start). The reader is a best effort: check entries against the books in
+*Admin → Rules*, correct them, and mark them verified — verified entries survive a re-import.
 
 ### Viewing from outside the venue
 
@@ -54,7 +80,12 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | --- | --- | --- |
 | `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Weather on/off* per device. |
 | `/players`, `/players/<id>` | everyone | Standings and each warband's digital Campaign Tracker. |
-| `/zones`, `/zones/<id>` | everyone | Zone lore, resources, Outposts and battles fought there. |
+| `/campaign` | everyone | The campaign: players, warbands and standings. |
+| `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
+| `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
+| `/warbands/new` | players, Campaign Master | Found a warband: pick a faction or variant, name it, starting Ducats (700), Remove Restrictions. |
+| `/?battle=<game>` | everyone | Enter a battle being fought (click its zone); the result plays on every screen when it's recorded. |
+| `/zones`, `/zones/<id>` | everyone | Zone lore, resources, Outposts and battles fought there (each can be replayed on the map). |
 | `/history` | everyone | The chronicle of battles. |
 | `/admin` | Campaign Master | Campaign settings, final-reckoning preview, Vision reveal. |
 | `/admin/games` | Campaign Master | Arrange a game → record its result. Up to 8 games at once. |
@@ -62,6 +93,8 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/admin/warbands/<id>` | Campaign Master | Muster roll, roster builder, map models (STL → token), Vision. |
 | `/admin/factions` | Campaign Master | Default outpost and figure models per faction. |
 | `/admin/lore` | Campaign Master | Edit each zone's lore. |
+| `/admin/players` | Campaign Master | Player accounts: create, reset passwords, disable, assign seats. |
+| `/admin/rules` | Campaign Master | Load and correct the rules data from `import-rules.py`. |
 | `/admin/weather` | Campaign Master | Live weather console, portents, regional weather, zeppelin events. |
 | `/admin/visions`, `/admin/backup` | Campaign Master | Deal Visions; export / restore. |
 
@@ -88,13 +121,19 @@ light on phones; the STL is kept for re-rendering but never served publicly.
 ```sh
 cd app
 npm install
-npm run dev          # http://localhost:5173 (uses app/.env: DATABASE_URL, ADMIN_PASSWORD)
+docker compose up -d db   # from the repo root: Postgres on the compose network
+npm run dev          # http://localhost:5173 (app/.env: DATABASE_URL=postgres://…, ADMIN_PASSWORD)
 npm test             # rules-engine tests
 npm run check        # type-check
 npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run on start)
 ```
 
 ### Blender (effect sprites)
+
+The Blender scenes behind the effects are kept in `app/assets/blender/*.blend` (open and tweak
+them there). Re-save them after changing `render_fx.py` with
+`FX_BLEND_DIR=app/assets/blender FX_BLEND_ONLY=1 blender --background --factory-startup --python app/scripts/fx/render_fx.py -- /tmp/x`.
+The seal scenes (`app/assets/blender/seals/`) contain the faction logos and are not committed.
 
 Lightning strikes, hellfire bursts, crows, smoke puffs, the biplane, the zeppelin and the
 default outpost tokens on the live map are rendered in Blender and packed into sprite sheets in `app/static/fx/`; the map falls back to drawn
@@ -105,6 +144,16 @@ session is not touched):
 blender --background --factory-startup --python app/scripts/fx/render_fx.py -- /tmp/fx-frames
 python3 app/scripts/fx/pack_fx.py /tmp/fx-frames app/static/fx
 ```
+
+**Faction seals** are rendered in two passes (a neutral medallion and a light mask) so each
+warband's metal and light colours are applied live. Put your own copies of the six faction logos under `docs/Factions/<Faction>/` (gitignored; the expected paths are listed in `app/scripts/fx/render_sigils.py`), then:
+
+```sh
+blender --background --factory-startup --python app/scripts/fx/render_sigils.py -- docs/Factions /tmp/seal-frames
+python3 app/scripts/fx/pack_sigils.py /tmp/seal-frames app/src/lib/assets/sigils
+```
+
+and rebuild. Without them the app shows each warband's uploaded symbol instead.
 
 For interactive work, the repo's `.mcp.json` registers Blender Lab's official MCP bridge for
 Claude Code; the bridge itself is downloaded, not committed:

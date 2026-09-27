@@ -18,8 +18,8 @@ export type Player = typeof player.$inferSelect;
 export type Game = typeof game.$inferSelect;
 
 /** Single-campaign for now: the oldest campaign is the current one. */
-export function currentCampaign(): Campaign | undefined {
-	return db.select().from(campaign).orderBy(asc(campaign.createdAt)).limit(1).get();
+export async function currentCampaign(): Promise<Campaign | undefined> {
+	return (await db.select().from(campaign).orderBy(asc(campaign.createdAt)).limit(1))[0];
 }
 
 export function rulesConfig(c: Campaign): RulesConfig {
@@ -32,14 +32,14 @@ export function rulesConfig(c: Campaign): RulesConfig {
 	};
 }
 
-export function rosters(campaignId: string) {
-	return db
+export async function rosters(campaignId: string) {
+	return (await db
 		.select({ warband, player })
 		.from(warband)
 		.innerJoin(player, eq(player.id, warband.playerId))
 		.where(eq(warband.campaignId, campaignId))
 		.orderBy(asc(player.seat), asc(player.name))
-		.all();
+		);
 }
 
 export interface GameResult {
@@ -56,13 +56,13 @@ export interface AdjustmentPayload {
 }
 
 /** Completed games and adjustments as rules-engine events. */
-export function campaignEvents(campaignId: string): CampaignEvent[] {
-	const games = db
+export async function campaignEvents(campaignId: string): Promise<CampaignEvent[]> {
+	const games = (await db
 		.select()
 		.from(game)
 		.where(and(eq(game.campaignId, campaignId), eq(game.status, 'done')))
-		.all();
-	const adjustments = db.select().from(adjustment).where(eq(adjustment.campaignId, campaignId)).all();
+		);
+	const adjustments = (await db.select().from(adjustment).where(eq(adjustment.campaignId, campaignId)));
 
 	const events: CampaignEvent[] = [];
 	for (const g of games) {
@@ -107,9 +107,9 @@ export function warbandInfos(rows: { warband: Warband }[]): WarbandInfo[] {
 }
 
 /** Everything derived for a campaign. Contains secret Vision data — CM use only. */
-export function loadCampaignState(c: Campaign) {
-	const rows = rosters(c.id);
+export async function loadCampaignState(c: Campaign) {
+	const rows = await rosters(c.id);
 	const infos = warbandInfos(rows);
-	const state = replay(infos, campaignEvents(c.id), rulesConfig(c));
+	const state = replay(infos, await campaignEvents(c.id), rulesConfig(c));
 	return { rows, infos, state };
 }

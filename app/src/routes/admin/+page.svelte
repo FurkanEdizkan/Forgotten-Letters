@@ -116,18 +116,22 @@
 		gap: 18px;
 		max-width: 40rem;
 	}
+	/* Settings groups read as the book's rules boxes. */
 	fieldset {
 		display: grid;
 		gap: 12px;
-		border: 1px solid var(--rule);
+		border: 1px solid var(--blood);
 		background: var(--parchment);
 		padding: 14px 18px;
 	}
 	legend {
-		font-variant-caps: small-caps;
-		font-weight: 600;
-		color: var(--blood);
 		padding: 0 6px;
+		font-weight: 700;
+		font-size: 0.9rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--ink);
+		background: var(--paper);
 	}
 	label {
 		display: grid;

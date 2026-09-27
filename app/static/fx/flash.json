@@ -1,0 +1,104 @@
+{
+ "frames": {
+  "flash_00": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   }
+  },
+  "flash_01": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   }
+  },
+  "flash_02": {
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   }
+  },
+  "flash_03": {
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   }
+  }
+ },
+ "animations": {
+  "flash": [
+   "flash_00",
+   "flash_01",
+   "flash_02",
+   "flash_03"
+  ]
+ },
+ "meta": {
+  "image": "flash.webp",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 64
+  },
+  "scale": "1",
+  "blend": "normal",
+  "light": true,
+  "app": "blender-fx"
+ }
+}

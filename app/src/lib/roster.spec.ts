@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromTrenchCompanion, humaniseId, rosterTotals, rosterWarnings, sellValue, trenchCompanionId, type RosterUnit } from './roster';
+import { factionFromCompanion, fromTrenchCompanion, humaniseId, importMismatch, rosterTotals, rosterWarnings, sellValue, trenchCompanionId, type RosterUnit } from './roster';
 
 const unit = (over: Partial<RosterUnit> = {}): RosterUnit => ({
 	name: 'Brother',
@@ -90,5 +90,25 @@ describe('Trench Companion import', () => {
 		expect(trenchCompanionId('225201')).toBe('225201');
 		expect(trenchCompanionId('https://evil.example/x')).toBeNull();
 		expect(humaniseId('ab_undead_fortitude')).toBe('Undead Fortitude');
+	});
+});
+
+describe('Trench Companion faction check', () => {
+	it('reads the faction and variant from the object id', () => {
+		expect(factionFromCompanion('fc_cultoftheblackgrail_fv_dirgeofthegreathegemon')).toEqual({
+			faction: 'black-grail',
+			variant: 'Dirge of the Great Hegemon'
+		});
+		expect(factionFromCompanion('fc_hereticlegion').faction).toBe('heretic-legions');
+		expect(factionFromCompanion('fc_ironsultanate').faction).toBe('iron-sultanate');
+		expect(factionFromCompanion('fc_somethingelse').faction).toBeNull();
+	});
+	it('refuses a list of another faction or variant', () => {
+		const grail = { name: 'Spuds', faction: 'black-grail', variant: 'Dirge of the Great Hegemon', sourceFaction: 'x' };
+		expect(importMismatch(grail, { faction: 'black-grail', variant: null, name: 'W' })).toBeNull();
+		expect(importMismatch(grail, { faction: 'black-grail', variant: 'Dirge of the Great Hegemon', name: 'W' })).toBeNull();
+		expect(importMismatch(grail, { faction: 'new-antioch', variant: null, name: 'W' })).toMatch(/Cult of the Black Grail list/);
+		expect(importMismatch({ ...grail, variant: null }, { faction: 'black-grail', variant: 'Dirge of the Great Hegemon', name: 'W' })).toMatch(/plain/);
+		expect(importMismatch({ ...grail, faction: null }, { faction: 'black-grail', variant: null, name: 'W' })).toMatch(/doesn't know/);
 	});
 });

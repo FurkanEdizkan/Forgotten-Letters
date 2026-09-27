@@ -1,23 +1,52 @@
-/* Palette from the Carcass Front Player's Guide. */
+/*
+ * The Carcass Front book, bound as an app.
+ * Two registers, as in the book: rulebook pages (bright paper, black ink, red
+ * blackletter heads) for everything read or filled in, and the painted night
+ * (olive-black smoke, bone text, ember) around the live map.
+ */
 :root {
-	--parchment: #efe6d0;
-	--paper: #f6eddb;
-	--ink: #231a12;
-	--ink-soft: #4a3b2b;
-	--muted: #6b5a44;
-	--rule: #b9a47c;
-	--blood: #8b2a1d;
-	--blood-bright: #b8321f;
+	/* Page register */
+	--paper: #fbfaf7;
+	--parchment: #f1efea; /* the book's grey wash: boxes, rows, cells */
+	--wash-deep: #dedbd4; /* table header rows */
+	--ink: #151210;
+	--ink-soft: #3a332c;
+	--muted: #6a6159;
+	--rule: #c8c3ba; /* hairlines */
+	--blood: #a3170f; /* the book's red: section heads, rules, callout borders */
+	--blood-bright: #c8231a;
+
+	/* Night register */
+	--night: #15130e;
+	--night-2: #211e16;
+	--smoke: #3a3829;
+	--bone: #ece5d3;
+	--bone-dim: #b0a791;
+	--ember: #e0692a;
+
+	/* Resources (from the book's tracker) */
 	--favour: #c8741e;
 	--relics: #9b2a1c;
-	--supplies: #5f7f2a;
+	--supplies: #5a7a26;
 	--territories: #2f6770;
+
+	--font-title: 'Pirata One', 'UnifrakturMaguntia', serif;
 	--font-display: 'UnifrakturMaguntia', serif;
 	--font-body: 'EB Garamond', Georgia, serif;
+
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+	color-scheme: light;
+	accent-color: var(--blood);
 }
 
 * {
 	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	scrollbar-color: var(--rule) transparent;
 }
 
 body {
@@ -27,26 +56,65 @@ body {
 	font-family: var(--font-body);
 	font-size: 17px;
 	line-height: 1.55;
+	font-variant-numeric: oldstyle-nums;
+	caret-color: var(--blood);
+	-webkit-font-smoothing: antialiased;
 }
 
-h1,
+::selection {
+	background: var(--blood);
+	color: var(--paper);
+}
+
+/* Chapter titles: tall spiky capitals, tracked wide, like INTRODUCTION in the book. */
+h1 {
+	font-family: var(--font-title);
+	font-weight: 400;
+	font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem);
+	line-height: 1;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	margin: 8px 0 14px;
+	text-wrap: balance;
+}
+
+/* Section heads: red blackletter, like "The Carcass Front". */
 h2 {
 	font-family: var(--font-display);
 	font-weight: 400;
+	font-size: 1.9rem;
 	line-height: 1.05;
+	color: var(--blood);
+	margin: 1.4em 0 0.35em;
+	text-wrap: balance;
 }
 
-h1 {
-	font-size: 2.6rem;
-	margin: 4px 0 8px;
+/* Sub-heads: bold small capitals over a red rule, like USING THIS RULEBOOK. */
+h3 {
+	font-family: var(--font-body);
+	font-weight: 700;
+	font-size: 1rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	line-height: 1.3;
+	margin: 1.4em 0 0.5em;
+	padding-bottom: 2px;
+	border-bottom: 1px solid var(--blood);
 }
 
 a {
 	color: var(--blood);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.18em;
 }
 
 a:hover {
 	color: var(--blood-bright);
+}
+
+:focus-visible {
+	outline: 2px solid var(--blood);
+	outline-offset: 2px;
 }
 
 input,
@@ -61,21 +129,114 @@ select,
 textarea {
 	padding: 6px 8px;
 	border: 1px solid var(--rule);
-	background: #fffaf0;
+	border-radius: 0;
+	background: #fff;
 	color: var(--ink);
 }
 
-button {
-	padding: 8px 14px;
-	border: 1px solid var(--ink);
-	background: var(--ink);
-	color: var(--parchment);
-	cursor: pointer;
-	font-variant-caps: small-caps;
-	letter-spacing: 0.06em;
+input:focus,
+select:focus,
+textarea:focus {
+	outline: none;
+	border-color: var(--blood);
+	box-shadow: 0 0 0 1px var(--blood);
 }
 
-button:hover {
+::placeholder {
+	color: #857b70;
+}
+
+table {
+	font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Buttons: printed labels. Ink by default; red when it commits something. */
+button,
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 7px 16px;
+	border: 1px solid var(--ink);
+	border-radius: 0;
+	background: var(--ink);
+	color: var(--paper);
+	cursor: pointer;
+	font-family: var(--font-body);
+	font-weight: 600;
+	font-size: 0.92rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	text-decoration: none;
+	transition:
+		background-color 0.18s var(--ease-out),
+		border-color 0.18s var(--ease-out),
+		color 0.18s var(--ease-out);
+}
+
+button:hover,
+.button:hover {
 	background: var(--blood);
 	border-color: var(--blood);
+	color: var(--paper);
+}
+
+button:disabled,
+button:disabled:hover {
+	cursor: not-allowed;
+	background: var(--wash-deep);
+	border-color: var(--wash-deep);
+	color: var(--muted);
+}
+
+button.ghost {
+	background: transparent;
+	color: var(--ink);
+	border-color: var(--rule);
+}
+
+button.ghost:hover {
+	background: transparent;
+	color: var(--blood);
+	border-color: var(--blood);
+}
+
+/* The book's rules callout: red hairline, grey wash, small-caps head over a red rule. */
+.rules-box {
+	border: 1px solid var(--blood);
+	background: var(--parchment);
+	padding: 10px 14px 12px;
+}
+
+.rules-box > h3:first-child,
+.rules-box > .head {
+	margin-top: 0;
+}
+
+/* Running footer, as at the foot of every page of the book. */
+.running-foot {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 48px 0 24px;
+	color: var(--ink);
+	font-family: var(--font-display);
+	font-size: 1rem;
+}
+
+.running-foot::before {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

@@ -1,3 +1,4 @@
+import type { SealLook } from '$lib/seals';
 import type { CvpSource } from '$lib/rules/engine';
 import type { Standing } from '$lib/rules/scoring';
 import type { Building, Resource } from '$lib/rules/types';
@@ -37,6 +38,8 @@ export interface PublicWarband {
 	supplied: string[];
 	/** Map marker preference, and the rendered model tokens to use (null: defaults). */
 	displayModel: 'portrait' | 'model';
+	/** The warband's seal (its own colours or symbol), or null when it has none. */
+	seal: SealLook | null;
 	outpostToken: string | null;
 	figureToken: string | null;
 	omens: number;
@@ -63,7 +66,10 @@ export interface PublicUnit {
 	skills: string[];
 	injuries: string[];
 	stats: { movement?: string; ranged?: string; melee?: string; armour?: string; base?: string };
+	/** The unit's own picture, if any. */
 	photo: string | null;
+	/** Its type's default picture, set by the Campaign Master. */
+	art: string | null;
 	status: 'active' | 'dead' | 'retired';
 }
 
@@ -82,11 +88,24 @@ export interface PublicGame {
 	weatherRolls: { aggressor: [number, number] | null; defender: [number, number] | null; chooser: string | null } | null;
 }
 
+export interface Monument {
+	gameId: string;
+	zone: string;
+	/** Null for a draw: a cairn instead of a monument. */
+	winnerFaction: string | null;
+	loserFaction: string | null;
+	tier: 1 | 2 | 3;
+	fallen: number;
+	at: number;
+}
+
 export interface PublicSnapshot {
 	campaign: { name: string; gamesPerPlayer: number; houseZones: boolean; visionsRevealed: boolean };
 	warbands: PublicWarband[];
 	active: PublicGame[];
 	recent: (PublicGame & { winner: string | null; at: number })[];
+	/** Every finished battle's mark on the map, oldest first. */
+	monuments: Monument[];
 	standings: Standing[];
 	merchantTier: number;
 	omensTaken: string[];

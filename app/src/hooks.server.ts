@@ -1,18 +1,33 @@
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
-import { ADMIN_COOKIE, isAdmin } from '$lib/server/auth';
+import { SESSION_COOKIE, ensureCmAccount, pruneSessions, sessionUser } from '$lib/server/auth';
 import { schedule } from '$lib/server/fx';
+import { migrateDb } from '$lib/server/db';
+import { importLegacySqlite } from '$lib/server/db/legacy';
+import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
 
-/** Start the random weather events timer, if the campaign has it on. */
-export const init: ServerInit = () => {
-	schedule();
+/** Bring the database up to date (and carry over an old SQLite campaign), then start the weather timer. */
+export const init: ServerInit = async () => {
+	await migrateDb();
+	await importLegacySqlite();
+	await ensureCmAccount();
+	await loadRulesFileIfEmpty();
+	await pruneSessions();
+	await schedule();
 };
 
+/** Pages a signed-in user can reach before choosing their own password. */
+const OPEN_WHILE_TEMPORARY = ['/account', '/logout', '/login', '/health', '/api/stream'];
+
 export const handle: Handle = async ({ event, resolve }) => {
-	event.locals.isAdmin = isAdmin(event.cookies.get(ADMIN_COOKIE));
+	const user = await sessionUser(event.cookies.get(SESSION_COOKIE));
+	event.locals.user = user;
+	event.locals.isAdmin = user?.role === 'cm';
 
 	const path = event.url.pathname;
-	if (path.startsWith('/admin') && path !== '/admin/login' && !event.locals.isAdmin) {
-		redirect(303, `/admin/login?next=${encodeURIComponent(path)}`);
+	if (user?.mustChangePassword && !OPEN_WHILE_TEMPORARY.some((p) => path === p || path.startsWith(p + '/')) && !path.startsWith('/_app/') && !path.startsWith('/uploads/'))
+		redirect(303, '/account?first=1');
+	if (path.startsWith('/admin') && !event.locals.isAdmin) {
+		redirect(303, `/login?next=${encodeURIComponent(path)}`);
 	}
 
 	return resolve(event);

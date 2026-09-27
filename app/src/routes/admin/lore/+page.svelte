@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { renderMarkdown } from '$lib/markdown';
@@ -42,7 +43,7 @@
 			</div>
 			<div class="row">
 				<button>Save lore</button>
-				<a href="/zones/{data.selected}" target="_blank" rel="noopener">View page ↗</a>
+				<a href="/zones/{data.selected}" target="_blank" rel="noopener">View page <Mark name="external" size="0.8em" /></a>
 				{#if form && 'saved' in form}<span class="ok">Recorded.</span>{/if}
 				{#if form && 'message' in form}<span class="error">{form.message}</span>{/if}
 			</div>

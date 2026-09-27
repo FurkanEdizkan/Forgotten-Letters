@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	import { enhance } from '$app/forms';
 	import Portrait from '$lib/components/Portrait.svelte';
 	import ExplorationEditor from '$lib/components/ExplorationEditor.svelte';
@@ -23,7 +24,9 @@
 			fills: s?.fills ?? [],
 			anyChoices: s?.anyChoices ?? [],
 			exploration: s?.exploration ?? blankExploration(aggressor ? data.zone.resources[0] : undefined),
-			bonusExplorations: s?.bonusExplorations ?? []
+			bonusExplorations: s?.bonusExplorations ?? [],
+			vp: s?.vp,
+			fallen: s?.fallen
 		};
 	}
 
@@ -100,9 +103,9 @@
 <p><a href="/admin/games">← Games</a></p>
 
 <header class="head">
-	<div class="kicker">{data.game.status === 'done' ? 'Recorded' : 'In progress'}</div>
 	<h1>{zone.name}</h1>
 	<p class="muted">
+		<strong class="status">{data.game.status === 'done' ? 'Recorded' : 'In progress'}</strong> ·
 		{data.game.scenario ?? 'Scenario not set'}
 		{#if data.game.weather}· <strong>{data.game.weather.name}</strong>: {data.game.weather.effect}{/if}
 	</p>
@@ -114,7 +117,7 @@
 		{#each sidesInfo as s (s.id)}
 			<label class="choice" class:chosen={winner === s.id}>
 				<input type="radio" bind:group={winner} value={s.id} />
-				<Portrait name={s.player} portrait={s.portrait} symbol={s.symbol} size={48} />
+				<Portrait name={s.player} portrait={s.portrait} symbol={s.symbol} faction={s.faction} size={48} />
 				<span><strong>{s.player}</strong> won<br /><small>{s.role}</small></span>
 			</label>
 		{/each}
@@ -135,6 +138,14 @@
 			<label>
 				Glorious Deeds completed
 				<input type="number" min="0" max="20" bind:value={s.deeds} class="short" />
+			</label>
+			<label>
+				Victory Points
+				<input type="number" min="0" max="99" bind:value={s.vp} class="short" placeholder="—" />
+			</label>
+			<label>
+				Models Out of Action
+				<input type="number" min="0" max="99" bind:value={s.fallen} class="short" placeholder="—" />
 			</label>
 			<fieldset>
 				<legend>Resource box{maxFills(info.id) > 1 ? 'es (2, different)' : ''}</legend>
@@ -173,7 +184,7 @@
 						<select bind:value={s.anyChoices![i]}>
 							{#each RESOURCES as r (r)}<option value={r}>{RESOURCE_NAMES[r]}</option>{/each}
 						</select>
-						<button type="button" class="x" onclick={() => s.anyChoices!.splice(i, 1)}>×</button>
+						<button type="button" class="x" aria-label="Remove" onclick={() => s.anyChoices!.splice(i, 1)}><Mark name="close" /></button>
 					</span>
 				{/each}
 				{#each pendingFor(info.id, 'fillAny') as _, i (i)}
@@ -187,7 +198,7 @@
 
 		{#each s.bonusExplorations ?? [] as _, i (i)}
 			<h3>Tracker reward roll · {RESOURCE_NAMES[s.bonusExplorations![i].table ?? 'F']} table
-				<button type="button" class="x" onclick={() => s.bonusExplorations!.splice(i, 1)}>×</button>
+				<button type="button" class="x" aria-label="Remove" onclick={() => s.bonusExplorations!.splice(i, 1)}><Mark name="close" /></button>
 			</h3>
 			<ExplorationEditor
 				bind:value={s.bonusExplorations![i]}
@@ -255,11 +266,11 @@
 	.head h1 {
 		margin: 0;
 	}
-	.kicker {
-		font-variant-caps: small-caps;
-		letter-spacing: 0.14em;
+	.status {
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 0.85rem;
 		color: var(--blood);
-		font-weight: 600;
 	}
 	section {
 		margin: 16px 0;

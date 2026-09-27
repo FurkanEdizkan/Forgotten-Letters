@@ -11,11 +11,13 @@ import type { Wanted } from './engine';
 export function wantedEffects(
 	s: PublicSnapshot,
 	zones: Map<string, Zone>,
-	world: (z: Zone) => { x: number; y: number }
+	world: (z: Zone) => { x: number; y: number },
+	/** The battle the viewer has entered: its field burns at full intensity. */
+	focusZone: string | null = null
 ): Wanted[] {
 	const out = new Map<string, Wanted>();
 	// The strongest source of an effect at a place wins (with its tuning).
-	const add = (kind: FxKind, zoneId: string | null, intensity: number, params?: FxParams) => {
+	const add = (kind: Wanted['kind'], zoneId: string | null, intensity: number, params?: FxParams) => {
 		if (!zoneId) {
 			const key = `screen:${kind}`;
 			const prev = out.get(key);
@@ -56,6 +58,9 @@ export function wantedEffects(
 
 	// Rudolf's Folly: once anyone holds an Outpost at the airfield, a biplane circles it.
 	if (s.warbands.some((w) => w.outposts.includes('rudolfs-folly'))) add('aircraft', 'rudolfs-folly', 0.6);
+
+	// Every battle being fought smokes and flashes; the one being watched most of all.
+	for (const g of s.active) if (g.status === 'in_progress') add('battlefield', g.zone, g.zone === focusZone ? 1 : 0.35);
 
 	if (s.fx.battleWeather) {
 		for (const g of s.active) {

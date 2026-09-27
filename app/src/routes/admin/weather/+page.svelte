@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Mark from '$lib/components/Mark.svelte';
 	import { enhance } from '$app/forms';
 	import LiveMap from '$lib/components/LiveMap.svelte';
 	import {
@@ -156,6 +157,7 @@
 					</select>
 				</label>
 				<label class="check"><input type="checkbox" bind:checked={fx.battleWeather} /> Show each battle's Hell on Earth weather at its zone</label>
+				<label class="check"><input type="checkbox" bind:checked={fx.monuments} /> Leave victory monuments and the fallen on the zones where battles were won</label>
 			</div>
 		</section>
 
@@ -165,7 +167,7 @@
 				{#each fx.presets as p, i (p.name)}
 					<span class="preset">
 						<button type="button" class="ghost" onclick={() => applyPreset(i)} title="Apply">{p.name}</button>
-						<button type="button" class="x" aria-label="Delete {p.name}" onclick={() => (fx.presets = fx.presets.filter((_, j) => j !== i))}>×</button>
+						<button type="button" class="x" aria-label="Delete {p.name}" onclick={() => (fx.presets = fx.presets.filter((_, j) => j !== i))}><Mark name="close" /></button>
 					</span>
 				{:else}
 					<span class="muted">No presets yet.</span>

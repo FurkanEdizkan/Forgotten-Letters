@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { asc, count, eq, ilike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
-import { rulesItem, rulesKeyword, rulesPage, rulesUnit } from './db/schema';
+import { rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from './db/schema';
 
 type Unit = typeof rulesUnit.$inferInsert;
 type Item = typeof rulesItem.$inferInsert;
@@ -29,6 +29,11 @@ function pageRow(p: any, i: number): typeof rulesPage.$inferInsert | null {
 		title,
 		order: Number.isFinite(Number(p.order)) ? Number(p.order) : i,
 		body,
+		// Only WebP data URLs from import-rules.py, a few per page and none too large.
+		maps: (Array.isArray(p.maps) ? p.maps : [])
+			.filter((m: any) => typeof m?.src === 'string' && /^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(m.src) && m.src.length < 800_000)
+			.slice(0, 8)
+			.map((m: any) => ({ src: m.src as string, width: int(m.width), height: int(m.height) })),
 		source: str(p.source, 120),
 		page: str(String(p.page ?? ''), 10)
 	};
@@ -92,7 +97,7 @@ function itemRow(i: any): Item | null {
  * replaced. Returns what changed.
  */
 export async function importRules(data: unknown) {
-	const d = data as { units?: unknown[]; items?: unknown[]; keywords?: unknown[]; pages?: unknown[] };
+	const d = data as { units?: unknown[]; items?: unknown[]; keywords?: unknown[]; pages?: unknown[]; rules?: unknown[] };
 	if (!d || !Array.isArray(d.units) || !Array.isArray(d.items)) throw new Error('Not an import-rules.py file');
 	const units = d.units.map(unitRow).filter((u): u is Unit => !!u);
 	const items = d.items.map(itemRow).filter((i): i is Item => !!i);
@@ -100,11 +105,19 @@ export async function importRules(data: unknown) {
 		.map((k: any) => ({ name: str(k?.name, 80), kind: str(k?.kind, 20), text: str(k?.text, 4000) }))
 		.filter((k): k is { name: string; kind: string | null; text: string } => !!k.name && !!k.text);
 	const pages = (Array.isArray(d.pages) ? d.pages : []).map(pageRow).filter((p): p is typeof rulesPage.$inferInsert => !!p);
-	const n = { units: 0, items: 0, keywords: 0, pages: 0, kept: 0 };
+	type FactionRule = { id: string; faction: string; variant: string | null; text: string; page: string | null };
+	const factionRules: FactionRule[] = [];
+	for (const r of (Array.isArray(d.rules) ? d.rules : []) as any[]) {
+		const faction = str(r?.faction, 60);
+		const variant = str(r?.variant, 120);
+		const text = str(r?.text, 20_000);
+		if (faction && text) factionRules.push({ id: `${faction}:${variant ?? ''}`, faction, variant, text, page: str(String(r.page ?? ''), 10) });
+	}
+	const n = { units: 0, items: 0, keywords: 0, pages: 0, rules: 0, kept: 0 };
 	await db.transaction(async (tx) => {
 		const keep = async <T extends { id?: string; name?: string; slug?: string }>(
 			rows: T[],
-			table: typeof rulesUnit | typeof rulesItem | typeof rulesKeyword | typeof rulesPage,
+			table: typeof rulesUnit | typeof rulesItem | typeof rulesKeyword | typeof rulesPage | typeof rulesFaction,
 			key: 'id' | 'name' | 'slug'
 		) => {
 			const verified = new Set(
@@ -125,6 +138,12 @@ export async function importRules(data: unknown) {
 		await tx.delete(rulesKeyword).where(eq(rulesKeyword.verified, false));
 		for (const row of kw) await tx.insert(rulesKeyword).values(row).onConflictDoNothing();
 		n.keywords = kw.length;
+		if (factionRules.length) {
+			const fr = await keep(factionRules, rulesFaction, 'id');
+			await tx.delete(rulesFaction).where(eq(rulesFaction.verified, false));
+			for (const row of fr) await tx.insert(rulesFaction).values(row).onConflictDoNothing();
+			n.rules = fr.length;
+		}
 		// An older file without pages leaves the pages already loaded alone.
 		if (pages.length) {
 			const pg = await keep(pages, rulesPage, 'slug');
@@ -202,3 +221,12 @@ export async function searchRules(q: string) {
 	});
 	return { units, items, keywords, pages: snip };
 }
+
+/** A faction's rules and (when given) its variant's, as printed. */
+export async function factionRulesText(faction: string, variant: string | null) {
+	const rows = await db.select().from(rulesFaction).where(eq(rulesFaction.faction, faction));
+	const f = rows.find((r) => !r.variant);
+	const v = variant ? rows.find((r) => r.variant === variant) : undefined;
+	return { faction: f?.text ?? null, variant: v?.text ?? null, overrides: [f?.overrides ?? null, v?.overrides ?? null] };
+}
+export const allFactionRules = () => db.select().from(rulesFaction).orderBy(asc(rulesFaction.faction), asc(rulesFaction.variant));

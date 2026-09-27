@@ -1,5 +1,6 @@
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
+import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
 
 const id = () =>
 	text('id')
@@ -48,18 +49,17 @@ export const warband = pgTable(
 	'warband',
 	{
 		id: id(),
-		campaignId: text('campaign_id')
-			.notNull()
-			.references(() => campaign.id, { onDelete: 'cascade' }),
-		playerId: text('player_id')
-			.notNull()
-			.references(() => player.id, { onDelete: 'cascade' }),
+		/** Null for a player's own list, which is not (yet) in the campaign. */
+		campaignId: text('campaign_id').references(() => campaign.id, { onDelete: 'cascade' }),
+		playerId: text('player_id').references(() => player.id, { onDelete: 'cascade' }),
+		/** The account a list belongs to (lists live outside the campaign until one is used for it). */
+		listOwnerId: text('list_owner_id').references((): AnyPgColumn => user.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
 		faction: text('faction').notNull(),
 		variant: text('variant'),
 		patron: text('patron'),
 		symbol: text('symbol'),
-		entryZone: text('entry_zone').notNull(),
+		entryZone: text('entry_zone'),
 		// Secret until campaign.visionsRevealed — never sent to public views.
 		visionCard: text('vision_card'),
 		visionProgress: integer('vision_progress').notNull().default(0),
@@ -76,6 +76,12 @@ export const warband = pgTable(
 		seal: jsonb('seal').$type<SealSettings>(),
 		/** Trench Companion's "Remove Restrictions": the builder skips availability and item limits. */
 		unrestricted: boolean('unrestricted').notNull().default(false),
+		/** "Open Exploration": exploration-only battlekit may be bought. */
+		openExploration: boolean('open_exploration').notNull().default(false),
+		/** Fireteams: named groups of models (unit ids); a model may be in more than one. */
+		fireteams: jsonb('fireteams').$type<{ name: string; members: string[] }[]>().notNull().default([]),
+		/** The warband's own lore (notes are rosterNotes). */
+		lore: text('lore'),
 
 		createdAt: createdAt()
 	},
@@ -195,9 +201,8 @@ export const unit = pgTable(
 	'unit',
 	{
 		id: id(),
-		campaignId: text('campaign_id')
-			.notNull()
-			.references(() => campaign.id, { onDelete: 'cascade' }),
+		/** Null for a model in a player's list (outside the campaign). */
+		campaignId: text('campaign_id').references(() => campaign.id, { onDelete: 'cascade' }),
 		warbandId: text('warband_id')
 			.notNull()
 			.references(() => warband.id, { onDelete: 'cascade' }),
@@ -367,7 +372,13 @@ export const rulesUnit = pgTable(
 		powers: text('powers'),
 		description: text('description'),
 		page: text('page'),
-		verified: boolean('verified').notNull().default(false)
+		verified: boolean('verified').notNull().default(false),
+		/** Where the row came from: the books, authored in the Faction Studio, or a book entry edited as a house rule. */
+		origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book'),
+		/** Builder facts set by hand (they win over what is read from the battlekit note). */
+		kit: jsonb('kit').$type<UnitKitOverride>(),
+		/** The book's version, kept when an entry is first edited, for "Revert to book". */
+		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>()
 	},
 	(t) => [index('rules_unit_faction_idx').on(t.faction)]
 );
@@ -391,16 +402,49 @@ export const rulesItem = pgTable(
 		keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
 		text: text('text'),
 		description: text('description'),
-		verified: boolean('verified').notNull().default(false)
+		verified: boolean('verified').notNull().default(false),
+		origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book'),
+		/** Stipulations set by hand (they win over what is read from the restrictions text). */
+		stipulations: jsonb('stipulations').$type<StipulationsOverride>(),
+		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>()
 	},
 	(t) => [index('rules_item_faction_idx').on(t.faction)]
 );
+
+/** Each faction's (variant null) and variant's special rules as printed: starting money, exclusions, upgrades… */
+export const rulesFaction = pgTable('rules_faction', {
+	/** `${faction}:${variant ?? ''}` */
+	id: text('id').primaryKey(),
+	faction: text('faction').notNull(),
+	variant: text('variant'),
+	/** Paragraphs separated by blank lines, one per rule ("* Name: text"). */
+	text: text('text').notNull(),
+	page: text('page'),
+	verified: boolean('verified').notNull().default(false),
+	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book'),
+	/** Builder rules set by hand (starting money, exclusions, upgrades…); they win over the parsed text. */
+	overrides: jsonb('overrides').$type<RulesOverride>()
+});
+
+/** A faction or variant authored in the Faction Studio (the books' own are in lib/rules/factions.ts). */
+export const customFaction = pgTable('custom_faction', {
+	/** Slug; for a variant, the variant's name is its identity within the parent. */
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	alignment: text('alignment', { enum: ['faithful', 'fallen'] }).notNull().default('faithful'),
+	/** Null for a new faction; else the faction this variant belongs to. */
+	parent: text('parent'),
+	description: text('description'),
+	colours: jsonb('colours').$type<{ metal: string; low: string; high: string }>(),
+	createdAt: createdAt()
+});
 
 export const rulesKeyword = pgTable('rules_keyword', {
 	name: text('name').primaryKey(),
 	kind: text('kind'),
 	text: text('text').notNull(),
-	verified: boolean('verified').notNull().default(false)
+	verified: boolean('verified').notNull().default(false),
+	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 });
 
 /** Core rules, campaign rules and scenarios, one page per heading of the book. */
@@ -412,6 +456,8 @@ export const rulesPage = pgTable('rules_page', {
 	order: integer('order').notNull().default(0),
 	/** Paragraphs separated by blank lines; "### " sub-headings, "| a | b" table rows, "* " bullets. */
 	body: text('body').notNull(),
+	/** Battlefield maps cropped from the book (WebP data URLs), shown above the text. */
+	maps: jsonb('maps').$type<{ src: string; width: number; height: number }[]>().notNull().default([]),
 	source: text('source'),
 	page: text('page'),
 	verified: boolean('verified').notNull().default(false)

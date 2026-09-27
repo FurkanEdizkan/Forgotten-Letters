@@ -240,3 +240,11 @@ button.ghost:hover {
 		transition-duration: 0.01ms !important;
 	}
 }
+
+/* Trench Companion's register (the warband builder's dark pages): buttons in plain case, not printed capitals. */
+.tc button,
+.tc .button {
+	text-transform: none;
+	letter-spacing: 0;
+	font-weight: 500;
+}

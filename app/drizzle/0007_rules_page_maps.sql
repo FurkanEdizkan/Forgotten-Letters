@@ -1,0 +1,1 @@
+ALTER TABLE "rules_page" ADD COLUMN "maps" jsonb DEFAULT '[]'::jsonb NOT NULL;

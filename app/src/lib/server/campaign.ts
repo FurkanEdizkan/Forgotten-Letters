@@ -100,7 +100,7 @@ export async function campaignEvents(campaignId: string): Promise<CampaignEvent[
 export function warbandInfos(rows: { warband: Warband }[]): WarbandInfo[] {
 	return rows.map(({ warband: w }) => ({
 		id: w.id,
-		entryZone: w.entryZone,
+		entryZone: w.entryZone ?? '',
 		vision: w.visionCard ?? undefined,
 		visionLevel: w.visionProgress
 	}));

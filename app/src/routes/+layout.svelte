@@ -7,8 +7,13 @@
 	import '@fontsource/unifrakturmaguntia/400.css';
 	import '@fontsource/pirata-one/400.css';
 	import '../app.css';
+	import { registerFactions } from '$lib/custom-factions';
 
-	let { children } = $props();
+	let { children, data } = $props();
+	// Before any page renders: the Faction Studio's factions join the books' list.
+	$effect.pre(() => registerFactions(data.customFactions));
+	// svelte-ignore state_referenced_locally
+	registerFactions(data.customFactions);
 </script>
 
 <svelte:head>

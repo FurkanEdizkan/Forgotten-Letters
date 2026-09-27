@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { rulesItem, rulesKeyword, rulesPage, rulesUnit } from '$lib/server/db/schema';
-import { allKeywords, importRules, itemsOf, pagesOf, rulesSummary, unitsOf } from '$lib/server/rules-data';
+import { rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from '$lib/server/db/schema';
+import { allFactionRules, allKeywords, importRules, itemsOf, pagesOf, rulesSummary, unitsOf } from '$lib/server/rules-data';
 import { FACTIONS } from '$lib/rules/factions';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -33,7 +33,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		units: isFaction ? pick(await unitsOf(f)) : [],
 		items: isFaction ? pick(await itemsOf(f)) : [],
 		keywords: f === 'keywords' ? pick(await allKeywords()) : [],
-		pages: book ? pick(await pagesOf(book)) : []
+		pages: book ? pick(await pagesOf(book)) : [],
+		factionRules: f === 'faction-rules' ? pick(await allFactionRules()) : []
 	};
 };
 
@@ -117,6 +118,16 @@ export const actions: Actions = {
 			.set({ title: str(d, 'title', 160) ?? 'Untitled', body: str(d, 'body', 200_000) ?? '', verified: d.has('verified') })
 			.where(eq(rulesPage.slug, slug));
 		return { saved: slug };
+	},
+
+	factionRule: async ({ request }) => {
+		const d = await request.formData();
+		const id = String(d.get('id'));
+		await db
+			.update(rulesFaction)
+			.set({ text: str(d, 'text', 20_000) ?? '', verified: d.has('verified') })
+			.where(eq(rulesFaction.id, id));
+		return { saved: id };
 	},
 
 	keyword: async ({ request }) => {

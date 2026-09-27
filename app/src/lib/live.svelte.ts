@@ -8,6 +8,8 @@ import type { FxTrigger } from '$lib/fx/types';
 export function liveSnapshot(initial: PublicSnapshot) {
 	let snapshot = $state(initial);
 	let connected = $state(false);
+	/** Server time minus this device's clock, in ms (from the stream's clock events). */
+	let clockSkew = $state(0);
 	const triggerListeners = new Set<(t: FxTrigger) => void>();
 
 	$effect(() => {
@@ -15,6 +17,9 @@ export function liveSnapshot(initial: PublicSnapshot) {
 		es.addEventListener('snapshot', (e) => {
 			snapshot = JSON.parse((e as MessageEvent).data);
 			connected = true;
+		});
+		es.addEventListener('clock', (e) => {
+			clockSkew = Number((e as MessageEvent).data) - Date.now();
 		});
 		es.addEventListener('trigger', (e) => {
 			const t = JSON.parse((e as MessageEvent).data) as FxTrigger;
@@ -30,6 +35,9 @@ export function liveSnapshot(initial: PublicSnapshot) {
 		},
 		get connected() {
 			return connected;
+		},
+		get clockSkew() {
+			return clockSkew;
 		},
 		/** Listen for one-shot effects (lightning, crows…); returns an unsubscribe. */
 		onTrigger(fn: (t: FxTrigger) => void) {

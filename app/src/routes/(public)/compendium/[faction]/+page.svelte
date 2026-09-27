@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import UnitProfile from '$lib/components/UnitProfile.svelte';
 	import KeywordChips from '$lib/components/KeywordChips.svelte';
 	import Seal from '$lib/components/Seal.svelte';
@@ -21,6 +22,8 @@
 	] as const;
 	const match = (s: string) => !filter || s.toLowerCase().includes(filter.toLowerCase());
 	const variants = $derived([...new Set(data.units.map((u) => u.variant).filter(Boolean))] as string[]);
+	/** A Faction Studio faction's own description. */
+	const about = $derived((page.data.customFactions as { id: string; description: string | null }[] | undefined)?.find((f) => f.id === data.faction.id)?.description);
 </script>
 
 <svelte:head><title>{data.faction.name} · Compendium</title></svelte:head>
@@ -31,6 +34,7 @@
 		<Seal faction={data.faction.id} size={84} />
 		<h1>{data.faction.name}</h1>
 	</header>
+	{#if about}<p class="about">{about}</p>{/if}
 	<input class="filter" bind:value={filter} placeholder="Filter units and battlekit" aria-label="Filter" />
 
 	{#each CATS as [cat, label] (cat)}
@@ -178,5 +182,9 @@
 		.armoury td:nth-child(4) {
 			grid-column: 1 / -1;
 		}
+	}
+	.about {
+		max-width: 64ch;
+		white-space: pre-line;
 	}
 </style>

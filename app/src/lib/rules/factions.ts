@@ -34,8 +34,13 @@ export const FACTIONS: Faction[] = [
 		variants: ['Wrath', 'Envy', 'Lust', 'Pride', 'Sloth', 'Gluttony', 'Greed']
 	},
 	// Carcass Front makes two variants into factions of their own.
-	{ id: 'procession-of-the-sacred-affliction', name: 'Procession of the Sacred Affliction', alignment: 'faithful', variants: [] },
-	{ id: 'heretic-naval-raiders', name: 'Heretic Naval Raiders', alignment: 'fallen', variants: [] }
+	{
+		id: 'procession-of-the-sacred-affliction',
+		name: 'Procession of the Sacred Affliction',
+		alignment: 'faithful',
+		variants: ['The Knights of Saint Lazarus', 'Procession of the Blessed Flock']
+	},
+	{ id: 'heretic-naval-raiders', name: 'Heretic Naval Raiders', alignment: 'fallen', variants: ['The Drowned Choir', 'The Leviathan Shoal'] }
 ];
 
 /** Carcass Front adds three Patrons. */

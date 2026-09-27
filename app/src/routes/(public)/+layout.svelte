@@ -16,6 +16,7 @@
 		{ href: '/players', label: 'Standings' },
 		{ href: '/zones', label: 'Zones' },
 		{ href: '/compendium', label: 'Compendium' },
+		{ href: '/warbands', label: 'Warband Builder' },
 		{ href: '/history', label: 'Chronicle' }
 	];
 	const isMap = $derived(page.url.pathname === '/');
@@ -39,9 +40,6 @@
 				{#each data.user?.warbandIds ?? [] as id, i (id)}
 					<a href="/warbands/{id}" class="mine" aria-current={page.url.pathname === `/warbands/${id}` ? 'page' : undefined}>{(data.user?.warbandIds.length ?? 0) > 1 ? `My warband ${i + 1}` : 'My warband'}</a>
 				{/each}
-				{#if data.user?.role === 'player' && !data.user.warbandIds.length}
-					<a href="/warbands/new" class="mine" aria-current={page.url.pathname === '/warbands/new' ? 'page' : undefined}>Found a warband</a>
-				{/if}
 				{#if data.user}
 					<a href={data.user.role === 'cm' ? '/admin' : '/account'} class="who">{data.user.name}</a>
 				{:else}

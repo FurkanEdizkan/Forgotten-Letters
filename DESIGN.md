@@ -278,6 +278,41 @@ The seals are built from each group's own copies of the logos (`docs/Factions/`,
 ### Warband Page (the exception)
 `/warbands/<id>` follows Trench Companion's warband page on purpose (see PRODUCT.md): a left column of dark grey panels (Warband, Arsenal, Campaign — Carcass Front, Exploration), then red section bands (Elites, Troops, Mercenaries) of model rows (picture, type, custom name, kit summary, cost); a sticky right panel for the chosen model (name/type/cost/base, stat boxes, keyword chips, battlekit grouped by armoury category, the campaign fields, abilities, notes and lore). The ground is `--night` with the warband's seal enormous and out of focus, tinted by its own light. Type stays Garamond (titles in regular weight, as there), buttons use the dark red of the section bands. Every other page keeps the book.
 
+### Warband Builder
+Trench Companion's builder, in its dark register (the `.tc` class: plain-case buttons, dark panels, red bands). Everything follows the books through `lib/warband-rules.ts`, which reads its facts from the imported rules text, so a correction in Admin → Rules corrects the builder.
+
+**"Your Warbands" (menu: Warband Builder).** Cards show:
+- the seal, name and variant;
+- Ducats | Glory and the number of models;
+- "Carcass Front", or "No campaign connected" for a player's own list.
+
+There are Faction, Campaign and Sort filters. Each card's ⋮ menu offers Play Mode, Print, Duplicate, "Use for the campaign" (copies a list into your campaign warband of the same faction and variant) and Delete for lists.
+
+**The page:**
+- **Summary:** Warband, Arsenal, Campaign and Exploration panels. "⚠ The warband is not valid" expands into the issues.
+- **Sections:** Elites, Troops and Mercenaries bands, each with "+", and Fireteams (up to the faction's number).
+- **Panels:** collapsible Faction Special Rules (the faction's and variant's rules, as printed), Notes & Lore, and Advanced Options (Remove Restrictions, Open Exploration, the strongbox).
+
+**Adding:**
+- "+" on a band opens Add Elite / Troop / Mercenary: the entries the variant allows, with picture, cost, "Active x / Max y", and "Not selectable: <reason>".
+- "+" on a battlekit category opens Select Equipment: cost, warband-wide "Limit: used/max" and restrictions. Clicking an item expands its profile (range, hands, keyword chips, rule text) with "+ Add Equipment".
+- Items the model cannot take stay listed, greyed, with the reason. Trench Companion gives none; we always say why.
+
+**Menus:** ⋮ menus are native `<details>` (keyboard and no-script friendly):
+- fighter: Copy, Refund, Sell, Delete;
+- item: Move to a fighter or the arsenal, Copy, Sell, Refund, Delete;
+- warband: Play Mode, Print, Export, Rename, Duplicate, Delete list.
+
+**The model:**
+- the profile, with the Armour characteristic following worn armour and shield;
+- keywords (including those from upgrades, Fireteams and the variant's Leader);
+- Upgrades as checkboxes with a warband count ("Swiss Guard · 1/4");
+- battlekit by the seven armoury categories;
+- Campaign: Experience, Battle Scars, Advancements, Fighter Status, and Fighter Rank (Promote/Demote);
+- abilities and lore.
+
+**Play Mode** (`/warbands/<id>/play`) is a card per model: profile, weapons with range, type, keywords and rules, kit and abilities, with trackers kept on the device (Blood Markers, Down, Out, grenades used). **Print** is a book-page roster sheet.
+
 ### New Warband
 `/warbands/new` is Trench Companion's two-step creation in the warband page's dark look. **Select Faction**: one wide card per faction, with its animated seal large on smoke lit from below in the faction's own light, the name in Pirata, and, when the CM has set unit art, the leader's picture fading in from the right. Variants hang beneath as indented rows with a small seal; the chosen one gets a left rule in the faction's high colour. **Details**: name, Entry Zone, starting Ducats (700) and Glory, and Remove Restrictions, then a dark red Create Warband. The steps are one form of radio cards, so it works without script; with script, the list folds to the chosen card and the details scroll into view.
 
@@ -292,6 +327,16 @@ On the field, the two sides (standing out to either side of the zone, clear of t
 - **Rifle volleys:** staggered flashes along a firing line, with grey powder smoke left hanging.
 
 Artillery comes in between. Each shell drops out of the sky on a short arc with a thin grey trail. It lands in an additive white-hot flash, throws up a plume of earth whose clods rain back on ballistic arcs, rings the ground with a pale shockwave, and leaves low dust, a smoke column leaning with the wind and a scorched crater that fades over several seconds. Other battles on the map keep a quieter version of the same.
+
+Every screen sees the same battle. The stream sends the server's clock, time is cut into 0.35 s slots, and each slot's events are rolled from the battle's seed and the slot number. So the TV and every phone see each shell land at the same moment, in the same place, with the same character. Each shell rolls its own:
+- approach arc and flight time;
+- plume size, mirroring, speed and tilt;
+- flash colour and size;
+- shockwave (none, now and then, on soft ground);
+- crater size;
+- dust and smoke shade and height.
+
+Now and then a salvo of two or three walks across one side's ground.
 
 **The result.** When the Campaign Master records a result, every open screen plays it, driven by one anime.js timeline:
 1. A barrage scaled to the margin, walking onto the loser's ground while the winner's guns open up. Hard-fought: two shells. Decisive: four. Crushing: seven, with crows.
@@ -321,6 +366,13 @@ All are rendered in Blender (`scripts/fx/render_fx.py`: `monuments`, `trophy`, `
 The rules text (core rules, campaign, scenarios) reads as the book: a column of Garamond under a Pirata title, blood-red sub-heads, ✠ bullets, tables ruled in ink, keywords in capitals underlined with dots and linked to the glossary, and a sticky contents rail for the book on the right (stacked below on phones).
 
 Rulebook pages: unit entries as boxes with a blood-red name bar (blackletter), cost and availability, the profile as five boxed values, keyword chips that show their glossary text on hover or tap, and folding Abilities / Battlekit / Lore; armoury tables with grey header rows.
+
+### Faction Studio
+An admin register page like *Rules*:
+- **Layout.** A faction header with its seal, then text tabs underlined in blood red (Identity, Rules, Units, Armoury, Keywords, Template), and entries as folding rows with their forms in an auto-fill grid.
+- **Entry tags.** Authored entries are tagged *yours*; edited book entries are tagged *house rule* and offer *Revert to book*.
+- **Forms.** Stipulations are plain checkboxes. Names are typed with datalist suggestions from the faction's units, its armoury and the glossary.
+- **Errors.** Shown by the path of the key in the template (`units[2].category must be one of …`), so the YAML and the forms read the same.
 
 ## Do's and Don'ts
 

@@ -1,10 +1,15 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { db } from './db';
 import {
 	adjustment,
 	campaign,
+	customFaction,
+	rulesFaction,
+	rulesItem,
+	rulesKeyword,
+	rulesUnit,
 	fxState,
 	game,
 	model,
@@ -19,8 +24,8 @@ import {
 } from './db/schema';
 import { resolveUpload } from './uploads';
 
-/** v2 added lore, rosters and models (and their files); v3 adds accounts. Older backups still import. */
-export const BACKUP_VERSION = 3;
+/** v2 added lore, rosters and models (and their files); v3 accounts; v4 players' warband lists; v5 the Faction Studio's work. Older backups still import. */
+export const BACKUP_VERSION = 5;
 
 type Row = Record<string, unknown>;
 
@@ -42,6 +47,10 @@ export interface Backup {
 	unitArt?: Row[];
 	/** Accounts, with their password hashes (v3). */
 	users?: Row[];
+	/** Players' own warband lists (outside the campaign), with their models and stash. */
+	lists?: { warbands: Row[]; units: Row[]; stash: Row[] };
+	/** Faction Studio: authored factions and every custom or edited rules row (book rows come from rules.json). */
+	studio?: { factions: Row[]; units: Row[]; items: Row[]; keywords: Row[]; rules: Row[] };
 	/** Uploaded files (images and model STLs), base64, keyed by their /uploads path. */
 	images: Record<string, string>;
 }
@@ -96,6 +105,22 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 		models,
 		unitArt: art,
 		users: await db.select().from(user),
+		lists: await (async () => {
+			const warbands = await db.select().from(warband).where(and(isNull(warband.campaignId), isNotNull(warband.listOwnerId)));
+			const ids = warbands.map((w) => w.id);
+			return {
+				warbands,
+				units: ids.length ? await db.select().from(unit).where(inArray(unit.warbandId, ids)) : [],
+				stash: ids.length ? await db.select().from(warbandStash).where(inArray(warbandStash.warbandId, ids)) : []
+			};
+		})(),
+		studio: {
+			factions: await db.select().from(customFaction),
+			units: await db.select().from(rulesUnit).where(ne(rulesUnit.origin, 'book')),
+			items: await db.select().from(rulesItem).where(ne(rulesItem.origin, 'book')),
+			keywords: await db.select().from(rulesKeyword).where(ne(rulesKeyword.origin, 'book')),
+			rules: await db.select().from(rulesFaction).where(ne(rulesFaction.origin, 'book'))
+		},
 		images
 	};
 }
@@ -123,13 +148,13 @@ export async function importCampaign(raw: unknown) {
 		await tx.delete(unitArt);
 		(await tx.delete(model));
 		(await tx.delete(zoneLore));
-		(await tx.delete(warbandStash));
-		(await tx.delete(unit));
+		// Campaign rosters go with their warbands (cascade); players' lists stay unless the backup carries them.
+		if (b.lists) await tx.delete(warband).where(isNull(warband.campaignId));
 		(await tx.delete(adjustment));
 		(await tx.delete(game));
 		(await tx.delete(regionWeather));
 		(await tx.delete(fxState));
-		(await tx.delete(warband));
+		(await tx.delete(warband).where(isNotNull(warband.campaignId)));
 		(await tx.delete(player));
 		(await tx.delete(campaign));
 		// Accounts are replaced only when the backup carries them, so an older backup can't lock the CM out.
@@ -148,6 +173,24 @@ export async function importCampaign(raw: unknown) {
 		for (const r of b.stash ?? []) (await tx.insert(warbandStash).values(revive<typeof warbandStash.$inferInsert>(r)));
 		for (const r of b.models ?? []) (await tx.insert(model).values(revive<typeof model.$inferInsert>(r)));
 		for (const r of b.unitArt ?? []) await tx.insert(unitArt).values(revive<typeof unitArt.$inferInsert>(r));
+		for (const r of b.lists?.warbands ?? []) await tx.insert(warband).values(revive<typeof warband.$inferInsert>(r));
+		for (const r of b.lists?.units ?? []) await tx.insert(unit).values(revive<typeof unit.$inferInsert>(r));
+		for (const r of b.lists?.stash ?? []) await tx.insert(warbandStash).values(revive<typeof warbandStash.$inferInsert>(r));
+		// The Studio's rows replace any same-id rows (an edited book entry overwrites the book's).
+		if (b.studio) {
+			await tx.delete(customFaction);
+			for (const r of b.studio.factions) await tx.insert(customFaction).values(revive<typeof customFaction.$inferInsert>(r));
+			const upsert = async (table: typeof rulesUnit | typeof rulesItem | typeof rulesKeyword | typeof rulesFaction, rows: Row[], key: 'id' | 'name') => {
+				for (const r of rows) {
+					await tx.delete(table).where(eq((table as typeof rulesUnit)[key as 'id'], r[key] as string));
+					await tx.insert(table as typeof rulesUnit).values(r as typeof rulesUnit.$inferInsert);
+				}
+			};
+			await upsert(rulesUnit, b.studio.units, 'id');
+			await upsert(rulesItem, b.studio.items, 'id');
+			await upsert(rulesKeyword, b.studio.keywords, 'name');
+			await upsert(rulesFaction, b.studio.rules, 'id');
+		}
 	});
 
 	for (const [path, data] of Object.entries(b.images ?? {})) {

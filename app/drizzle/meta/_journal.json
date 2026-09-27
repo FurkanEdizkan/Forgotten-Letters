@@ -50,6 +50,27 @@
       "when": 1790516665127,
       "tag": "0006_rules_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790536023748,
+      "tag": "0007_rules_page_maps",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790539386990,
+      "tag": "0008_warband_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790541830738,
+      "tag": "0009_faction_studio",
+      "breakpoints": true
     }
   ]
 }

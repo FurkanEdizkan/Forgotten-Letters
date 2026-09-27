@@ -85,9 +85,9 @@ function json(data: FormData, key: string) {
 }
 
 export const load: PageServerLoad = async ({ params }) => {
-	const { warband: w, player: p } = await find(params.id);
+	const { c, warband: w, player: p } = await find(params.id);
 	const { units, stash } = await roster(w.id);
-	const art = await artIndex(w.campaignId);
+	const art = await artIndex(c.id);
 	return {
 		warband: { id: w.id, name: w.name, faction: w.faction, variant: w.variant, symbol: w.symbol, ducats: w.treasuryDucats, glory: w.treasuryGlory, notes: w.rosterNotes },
 		player: { name: p.name, portrait: p.portrait },

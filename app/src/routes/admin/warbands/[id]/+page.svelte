@@ -42,7 +42,7 @@
 				faction: w.faction,
 				variant: w.variant,
 				patron: w.patron,
-				entryZone: w.entryZone
+				entryZone: w.entryZone ?? ''
 			}}
 			errors={form?.errors ?? {}}
 			entryZones={data.entryZones}

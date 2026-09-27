@@ -129,6 +129,7 @@
 			{fxEnabled}
 			subscribeTriggers={live.onTrigger}
 			{focus}
+			clockSkew={live.clockSkew}
 			bind:project
 		/>
 	</div>
@@ -179,6 +180,7 @@
 				</button>
 				<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
 				<a class="chip" href="/zones">Zones</a>
+				<a class="chip" href="/warbands">Warband Builder</a>
 				<a class="chip" href="/history">Chronicle</a>
 				{#if page.data.user}
 					<a class="chip who" href={page.data.user.warbandIds[0] ? `/warbands/${page.data.user.warbandIds[0]}` : page.data.user.role === 'cm' ? '/admin' : '/account'}>{page.data.user.name}</a>

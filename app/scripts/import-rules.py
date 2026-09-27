@@ -17,6 +17,7 @@ It is a best effort: the Campaign Master checks and corrects entries in the app,
 mark verified are kept when a new import is loaded.
 """
 import argparse
+import os
 import html
 import json
 import re
@@ -45,7 +46,7 @@ def slug(s):
 def pages(pdf, first=None, last=None, nav_x=NAV_X, full=False):
     """Yield (page number, [(y, x, text)], footer) with the tab column and footer split off.
     Two-page spreads (wider than tall) are split into their left and right pages.
-    With `full`, lines are (y, x, text, height) and the page width comes last."""
+    With `full`, lines are (y, x, text, height, width) and the page width comes last."""
     args = ['pdftotext', '-bbox-layout']
     if first:
         args += ['-f', str(first)]
@@ -69,7 +70,7 @@ def pages(pdf, first=None, last=None, nav_x=NAV_X, full=False):
                 if y > h - (h - FOOTER_Y if w <= h else 45):
                     footer.append(text)
                 elif x >= nav_x:
-                    lines.append((y, x, text, float(m.group(4)) - y) if full else (y, x, text))
+                    lines.append((y, x, text, float(m.group(4)) - y, float(m.group(3)) - float(m.group(1)) ) if full else (y, x, text))
             lines.sort()
             name = n if len(halves) == 1 else f'{n}{"ab"[i]}'
             yield (name, lines, ' '.join(footer), right - left) if full else (name, lines, ' '.join(footer))
@@ -156,6 +157,9 @@ VARIANTS = {
     'iron-sultanate': ["Fida'i of Alamut – The Cabal of Assassins", 'The House of Wisdom', 'Defenders of the Iron Wall'],
     'heretic-legions': ['Trench Ghosts', 'Knights of Avarice', 'Naval Raiding Party'],
     'black-grail': ['Dirge of the Great Hegemon'],
+    # Carcass Front's two factions and their variants.
+    'procession-of-the-sacred-affliction': ['The Knights of Saint Lazarus', 'Procession of the Blessed Flock'],
+    'heretic-naval-raiders': ['The Drowned Choir', 'The Leviathan Shoal'],
     'seven-headed-serpent': ['Wrath', 'Envy', 'Lust', 'Pride', 'Sloth', 'Gluttony', 'Greed'],
 }
 
@@ -163,9 +167,10 @@ VARIANTS = {
 def variant_named(title):
     t = letters(title)
     t = re.sub(r'warbands?$', '', t)  # "Wrath Warbands"
+    t = re.sub(r'^the', '', t)
     for f, vs in VARIANTS.items():
         for v in vs:
-            lv = letters(v)
+            lv = re.sub(r'^the', '', letters(v))
             if t == lv or (len(t) > 8 and (lv.startswith(t) or t.startswith(lv))):
                 return f, v
     return None
@@ -254,10 +259,14 @@ def parse_book(pdf, toc_pages, nav_x=NAV_X):
     details = {}   # item rules blocks: name → {type, range, keywords, text}
     detail = None
     detail_head = None
+    chapter_key = None
     for n, lines, footer in pages(pdf, nav_x=nav_x):
         # The running footer ("Iron Sultanate-Trench Crusade") names the chapter; the contents give the variant.
         faction = faction_from_footer(footer) or faction
         variant = chapter_at(starts, n, faction) if faction else None
+        # An item description never runs into the next chapter (the next variant's lore).
+        if (faction, variant) != chapter_key:
+            detail, detail_head, chapter_key = None, None, (faction, variant)
         profile_head = None
         for y, cells in rows(lines):
             text = ' '.join(t for _, t in cells)
@@ -301,10 +310,16 @@ def parse_book(pdf, toc_pages, nav_x=NAV_X):
 
             hd = re.match(r'^(.+?)\s*\|\s*(\d+)\s*[' + DUCAT + GLORY + r']', cells[0][1])
             if hd and len(cells) == 1:
-                detail = {'faction': faction, 'name': hd.group(1).strip(), 'description': [], 'type': None, 'range': None, 'keywords': [], 'rules': []}
+                lim = re.search(r'Limit:\s*(\d+)', cells[0][1])
+                detail = {'faction': faction, 'variant': variant, 'page': n, 'name': hd.group(1).strip(), 'cost': int(hd.group(2)),
+                          'currency': currency(cells[0][1][hd.end(2):hd.end(2) + 3]), 'limit': int(lim.group(1)) if lim else None,
+                          'description': [], 'type': None, 'range': None, 'keywords': [], 'rules': []}
                 details.setdefault((faction, letters(detail['name'])), detail)
                 unit, item_cat, detail_head = None, None, None
                 continue
+            # A capitalised heading (the next variant, its special rules or armoury) ends an item's description.
+            if detail and margin and len(cells) == 1 and len(letters(text)) > 8 and text.upper() == text and not text.startswith('*') and ',' not in text:
+                detail, detail_head = None, None
             if detail and not unit:
                 heads = [letters(t) for _, t in cells]
                 if heads[:3] == ['type', 'range', 'keywords']:
@@ -423,7 +438,81 @@ def parse_book(pdf, toc_pages, nav_x=NAV_X):
             i['keywords'] = [k.upper() for k in d['keywords'] if k != '-']
             i['text'] = ' '.join(d['rules']).strip() or None
             i['description'] = ' '.join(d['description']).strip() or None
+    # A variant's own battlekit is described in full ("Name | 3 ☼ | Limit: 1") but not always in a table.
+    in_table = {(i['faction'], letters(i['name'])) for i in items}
+    for key, d in details.items():
+        if key in in_table or not d['variant'] or not d['type']:
+            continue
+        items.append({
+            'faction': d['faction'], 'variant': d['variant'], 'page': d['page'], 'category': item_category(d['type'], d['range']),
+            'name': d['name'], 'unique': True, 'cost': d['cost'], 'currency': d['currency'], 'limit': d['limit'], 'restrictions': None,
+            'type': d['type'], 'range': d['range'], 'keywords': [k.upper() for k in d['keywords'] if k != '-'],
+            'text': ' '.join(d['rules']).strip() or None, 'description': ' '.join(d['description']).strip() or None,
+        })
     return toc, starts, units, items, keywords
+
+
+def item_category(type_, range_):
+    """The armoury category of a piece of battlekit from its profile's Type and Range."""
+    t = letters(type_ or '')
+    if 'grenade' in t:
+        return 'grenade'
+    if 'armour' in t:
+        return 'armour'
+    if 'shield' in t:
+        return 'shield'
+    if 'handed' in t:
+        return 'melee' if letters(range_ or '') == 'melee' else 'ranged'
+    return 'special' if 'special' in t else 'equipment'
+
+
+SECTION_END = re.compile(r'(ARMOURY\s*&\s*BATTLEKIT|^Armoury Tables$|WARBAND ENTRIES|Warband Entries|–Warband Variants–)', re.I)
+
+
+def special_rules(pdf, starts, nav_x=NAV_X, columns=1):
+    """Each faction's "Warband Creation" block (starting money, alignment, special rules) and each variant's
+    "… SPECIAL RULES" block, as text: {faction, variant, text}. Paragraphs are split at bullets."""
+    out, cur, faction = [], None, None
+    for n, lines, footer, width in pages(pdf, nav_x=nav_x, full=True):
+        faction = faction_from_footer(footer) or faction
+        mid = width / 2 if columns == 2 else width
+        ordered = [r for col in range(columns) for r in rows([l[:3] for l in lines if (l[1] >= mid - 10) == bool(col)])]
+        for _, cells in ordered:
+            text = ' '.join(t for _, t in cells).strip()
+            if not text:
+                continue
+            # A heading may share its line with text from elsewhere in the column: look at each cell.
+            head = next((t for _, t in cells if t.strip() == 'Warband Creation' or re.match(r'^.+?\s+SPECIAL RULES$', t.strip())), None)
+            if head:
+                text = head.strip()
+            m = re.match(r'^(.+?)\s+SPECIAL RULES$', text)
+            if text == 'Warband Creation' and faction:
+                cur = {'faction': faction, 'variant': None, 'page': n, 'text': []}
+                out.append(cur)
+                continue
+            if m and faction:
+                fv = variant_named(m.group(1))
+                cur = {'faction': faction, 'variant': fv[1] if fv and fv[0] == faction else None, 'page': n, 'text': []}
+                if cur['variant'] is None:
+                    cur = None  # a faction-level rules box already captured by Warband Creation
+                else:
+                    out.append(cur)
+                continue
+            if cur is None:
+                continue
+            # The block ends at the armoury, the unit entries, or the next capitalised section heading.
+            caps = len(letters(text)) > 12 and text.upper() == text and not text.startswith('*')
+            item_head = re.match(r'^.+?\|\s*\d+\s*[' + DUCAT + GLORY + r']', text) or text.startswith('Type Range Keywords')
+            if SECTION_END.search(text) or re.match(r'^(Elite|Troops?) Warband Entr', text) or ENTRY.match(text) or caps or item_head or sum(map(len, cur['text'])) > 9000:
+                cur = None
+                continue
+            if text.startswith('*') or not cur['text']:
+                cur['text'].append(text)
+            else:
+                cur['text'][-1] += ' ' + text
+    for r in out:
+        r['text'] = '\n\n'.join(r['text']).strip()
+    return [r for r in out if len(r['text']) > 30]
 
 
 def table_row(cur, head, cells):
@@ -544,6 +633,77 @@ def page_chapter(footer, chapters):
     return None
 
 
+MAP_DPI = 150
+
+
+def find_maps(pdf, name, width, tall):
+    """Scenario maps: the rotated labels on a battlefield diagram ("DEPLOYMENT ZONE", read as very tall
+    lines) seed a box that grows over the rendered page until it meets plain paper, which finds the
+    map's whole frame (painting, borders and labels). Returns WebP data URLs with their sizes."""
+    import base64
+    import io
+    import tempfile
+    import numpy as np
+    from PIL import Image
+    if not tall:
+        return []
+    n = int(re.match(r'\d+', str(name)).group(0))
+    left = width if str(name).endswith('b') else 0
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(['pdftoppm', '-f', str(n), '-l', str(n), '-r', str(MAP_DPI), '-png', '-singlefile', pdf, f'{d}/p'], check=True)
+        page = Image.open(f'{d}/p.png').convert('RGB')
+    k = MAP_DPI / 72
+    g = np.asarray(page.convert('L')).astype(int)
+    edge = np.concatenate([g[:8].ravel(), g[-8:].ravel(), g[:, :8].ravel(), g[:, -8:].ravel()])
+    paper = int(np.median(edge))
+    ink = np.abs(g - paper) > 28
+    H, W = ink.shape
+    # Seeds: the tall labels, clustered into diagrams. Labels facing each other across one map share its
+    # height band; small diagrams stacked down a page do not, so each is cropped on its own.
+    clusters = []
+    overlap = lambda a0, a1, b0, b1: max(0, min(a1, b1) - max(a0, b0)) / max(1, min(a1 - a0, b1 - b0))
+    for l in sorted(tall, key=lambda l: (l[0], l[1])):
+        box = [l[1], l[1] + l[4], l[0], l[0] + l[3]]
+        near_one = next((c for c in clusters if overlap(box[2], box[3], c[2], c[3]) >= 0.5), None)
+        if near_one:
+            near_one[:] = [min(near_one[0], box[0]), max(near_one[1], box[1]), min(near_one[2], box[2]), max(near_one[3], box[3])]
+        else:
+            clusters.append(box)
+    lo_x, hi_x = int(left * k), int((left + width) * k)
+    out = []
+    seen = []
+    for bx0, bx1, by0, by1 in clusters:
+        x0, x1 = int((bx0 + left) * k), int((bx1 + left) * k)
+        y0, y1 = int(by0 * k), int(by1 * k)
+        # Grow while the next row or column is largely drawn, until plain paper.
+        grew = True
+        while grew:
+            grew = False
+            if y0 > 0 and ink[y0 - 1, x0:x1].mean() > 0.3:
+                y0 -= 1; grew = True
+            if y1 < H - 1 and ink[y1 + 1, x0:x1].mean() > 0.3:
+                y1 += 1; grew = True
+            if x0 > lo_x and ink[y0:y1, x0 - 1].mean() > 0.3:
+                x0 -= 1; grew = True
+            if x1 < hi_x - 1 and ink[y0:y1, x1 + 1].mean() > 0.3:
+                x1 += 1; grew = True
+        if (x1 - x0) >= 120 and (y1 - y0) >= 120:
+            seen.append((x0, y0, x1, y1))
+    # A crop lying mostly inside a bigger one is a piece of the same map.
+    area = lambda b: (b[2] - b[0]) * (b[3] - b[1])
+    inside = lambda a, b: max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1])) > 0.7 * area(a)
+    boxes = [a for a in seen if not any(b is not a and area(b) > area(a) and inside(a, b) for b in seen)]
+    for x0, y0, x1, y1 in sorted(boxes, key=lambda b: (b[1], b[0])):
+        crop = page.crop((max(0, x0 - 4), max(0, y0 - 4), min(W, x1 + 5), min(H, y1 + 5)))
+        if crop.width > 900:
+            crop = crop.resize((900, round(crop.height * 900 / crop.width)), Image.LANCZOS)
+        buf = io.BytesIO()
+        crop.save(buf, 'WEBP', quality=80, method=6)
+        out.append({'src': 'data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode(), 'width': crop.width, 'height': crop.height,
+                    'box': (x0 / k - left, y0 / k, x1 / k - left, y1 / k)})
+    return out
+
+
 def parse_pages(pdf, chapters, nav_x=NAV_X, columns=1, source=''):
     """Rules text as pages: a new page at each large heading, "### " for sub-headings, "| a | b"
     for table rows and "* " for bullets, paragraphs separated by blank lines."""
@@ -556,7 +716,11 @@ def parse_pages(pdf, chapters, nav_x=NAV_X, columns=1, source=''):
             continue
         # Reading order: down the left column, then the right.
         mid = width / 2 if columns == 2 else width
-        lines = [l for l in lines if l[3] < 40]
+        tall = [l for l in lines if l[3] >= 40 and l[4] < l[3]]
+        maps = find_maps(pdf, n, width, tall) if tall and not os.environ.get('NO_MAPS') else []
+        # The map's own labels (distances, "MIDPOINT") are part of the picture, not the text.
+        in_map = lambda l: any(b[0] - 2 <= l[1] <= b[2] and b[1] - 2 <= l[0] <= b[3] for b in (m['box'] for m in maps))
+        lines = [l for l in lines if l[3] < 40 and not in_map(l)]
         body_h = sorted(l[3] for l in lines)[len(lines) // 2] if lines else 12
         col_of = lambda l: 0 if l[1] < mid - 10 else 1
         prev_y = None
@@ -595,6 +759,11 @@ def parse_pages(pdf, chapters, nav_x=NAV_X, columns=1, source=''):
                     b.append(text)
                 else:
                     b[-1] += ' ' + text
+        # A battlefield map belongs to the scenario that starts on its page (else the one running on).
+        if maps:
+            owner = next((p for p in out if p['page'] == str(n)), cur)
+            if owner is not None:
+                owner.setdefault('maps', []).extend({k: v for k, v in m.items() if k != 'box'} for m in maps)
     for p in out:
         p['body'] = '\n\n'.join(p['body']).strip()
     out = [p for p in out if len(p['body']) > 40]
@@ -693,11 +862,13 @@ def main():
     a = ap.parse_args()
     lo, hi = (int(x) for x in a.toc.split('-'))
     toc, starts, units, items, keywords = parse_book(a.warbands, list(range(lo, hi + 1)))
+    rules_text = special_rules(a.warbands, starts)
     aliases = variant_aliases(a.warbands, starts, units)
     units += aliases
     print(f'{len(aliases)} variant units: ' + ', '.join(f"{u['name']} ({u['variant']})" for u in aliases), file=sys.stderr)
     if a.carcass:
         _, _, cu, ci, ck = parse_book(a.carcass, [], nav_x=0)
+        rules_text += special_rules(a.carcass, [], nav_x=0, columns=2)
         units += cu
         items += ci
         keywords += [k for k in ck if k['name'] not in {x['name'] for x in keywords}]
@@ -738,6 +909,7 @@ def main():
         'units': units,
         'items': items,
         'keywords': keywords,
+        'rules': rules_text,
         'pages': [],
     }
     if not a.no_pages:

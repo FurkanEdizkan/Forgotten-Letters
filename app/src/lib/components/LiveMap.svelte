@@ -20,6 +20,7 @@
 		fxEnabled = true,
 		subscribeTriggers,
 		focus = null,
+		clockSkew = 0,
 		project = $bindable()
 	}: {
 		snapshot: PublicSnapshot;
@@ -32,6 +33,8 @@
 		subscribeTriggers?: (fn: (t: FxTrigger) => void) => () => void;
 		/** A battle's zone the viewer has entered: the camera flies in and its field burns at full intensity. */
 		focus?: string | null;
+		/** Server time minus this device's clock (ms): battlefield effects are scheduled on the server's clock. */
+		clockSkew?: number;
 		/** Set by the map: a zone's position on screen (relative to the map), for DOM overlays. */
 		project?: (zoneId: string) => { x: number; y: number } | null;
 	} = $props();
@@ -56,6 +59,7 @@
 		void snapshot;
 		void fxEnabled;
 		void focus;
+		void clockSkew;
 		refx?.();
 	});
 	$effect(() => {
@@ -741,6 +745,7 @@
 			fx.worldSize = { w: W, h: H };
 			refx = () => {
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
+				fx.clockSkew = clockSkew;
 				fx.wind = snapshot.fx.wind;
 				fx.setTimeOfDay(snapshot.fx.timeOfDay, W, H);
 				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focus) : []);

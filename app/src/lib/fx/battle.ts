@@ -46,7 +46,9 @@ export class Shell implements Effect {
 	private wave?: Graphics;
 	private crater?: Graphics;
 	private plume?: Sprite;
-	private readonly FLIGHT = 0.55;
+	private readonly FLIGHT: number;
+	/** This shell's own character, rolled from the shared seed so every screen sees the same one. */
+	private v: { flip: number; plume: number; fps: number; tilt: number; glow: number; glowK: number; wave: number; crater: number; dust: number; column: number; columnK: number };
 
 	constructor(
 		private ctx: Ctx,
@@ -59,6 +61,22 @@ export class Shell implements Effect {
 		// In from high on one side, as artillery firing from behind the lines.
 		const side = r() < 0.5 ? -1 : 1;
 		this.from = { x: at.x + side * (180 + r() * 140) * k, y: at.y - (380 + r() * 120) * k };
+		this.FLIGHT = 0.45 + r() * 0.25;
+		const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)];
+		this.v = {
+			flip: r() < 0.5 ? -1 : 1,
+			plume: 0.8 + r() * 0.5,
+			fps: 15 + r() * 7,
+			tilt: (r() - 0.5) * 0.16,
+			glow: pick([0xffd29a, 0xffe6c2, 0xffb070, 0xfff0d8]),
+			glowK: 0.8 + r() * 0.5,
+			// Soft ground swallows the shockwave now and then.
+			wave: r() < 0.3 ? 0 : 0.7 + r() * 0.6,
+			crater: 0.7 + r() * 0.6,
+			dust: pick([0x7a6650, 0x8a7358, 0x6a5a48, 0x9a8264]),
+			column: pick([0x3b332c, 0x2c2621, 0x4a4038, 0x564a3e]),
+			columnK: 0.8 + r() * 0.6
+		};
 		this.shell.visible = false;
 		parent.addChild(this.trail, this.shell);
 	}
@@ -85,20 +103,20 @@ export class Shell implements Effect {
 		if (this.glow) {
 			const g = since < 0.07 ? since / 0.07 : Math.max(0, 1 - (since - 0.07) / 0.3);
 			this.glow.alpha = g;
-			this.glow.scale.set((0.35 + 0.45 * Math.min(1, since / 0.07)) * this.k);
+			this.glow.scale.set((0.35 + 0.45 * Math.min(1, since / 0.07)) * this.k * this.v.glowK);
 		}
 		if (this.wave) {
 			const w = Math.min(1, since / 0.5);
 			const ease = 1 - Math.pow(1 - w, 3);
-			this.wave.scale.set(0.15 + ease * 1.2);
+			this.wave.scale.set((0.15 + ease * 1.2) * this.v.wave);
 			this.wave.alpha = 0.7 * (1 - w);
 		}
 		if (this.plume) {
 			const frames = this.ctx.sheets.blast!;
-			const i = Math.floor(since * 18);
+			const i = Math.floor(since * this.v.fps);
 			this.plume.texture = frames[Math.min(frames.length - 1, i)];
 			// Hold the last frame a moment, then let the earth settle into the dust.
-			const over = since - frames.length / 18;
+			const over = since - frames.length / this.v.fps;
 			this.plume.alpha = over > 0 ? Math.max(0, 1 - over / 0.6) : 1;
 		}
 		if (this.crater) this.crater.alpha = 0.5 * Math.max(0, 1 - Math.max(0, since - 2) / 6);
@@ -110,36 +128,39 @@ export class Shell implements Effect {
 		const { ctx, parent, at, k } = this;
 		const { blast, smoke } = ctx.sheets;
 		// The scorched crater, under everything else.
-		this.crater = new Graphics().ellipse(0, 0, 30 * k, 12 * k).fill({ color: 0x1a120b });
+		this.crater = new Graphics().ellipse(0, 0, 30 * k * this.v.crater, 12 * k * this.v.crater).fill({ color: 0x1a120b });
 		this.crater.position.set(at.x, at.y);
 		parent.addChildAt(this.crater, 0);
 		// The ground shockwave.
-		this.wave = new Graphics().ellipse(0, 0, 90 * k, 34 * k).stroke({ width: 3, color: 0xefe3c8 });
-		this.wave.position.set(at.x, at.y);
-		parent.addChild(this.wave);
+		if (this.v.wave) {
+			this.wave = new Graphics().ellipse(0, 0, 90 * k, 34 * k).stroke({ width: 3, color: 0xefe3c8 });
+			this.wave.position.set(at.x, at.y);
+			parent.addChild(this.wave);
+		}
 		// Dust thrown out low, and the smoke column that climbs and leans with the wind.
 		if (smoke) {
 			const wind = ctx.wind() || 0.15;
 			this.kids.add(
-				new FrameSprite(smoke, parent, { x: at.x, y: at.y - 8 * k }, { scale: 0.9 * k, anchorY: 0.6, fps: 11, tint: 0x7a6650, alpha: 0.85, delay: 0.05, drift: { x: wind * 20, y: -4 } }),
-				new FrameSprite(smoke, parent, { x: at.x, y: at.y - 40 * k }, { scale: 1.15 * k, fps: 7, tint: 0x3b332c, alpha: 0.75, delay: 0.45, drift: { x: wind * 30, y: -22 } })
+				new FrameSprite(smoke, parent, { x: at.x, y: at.y - 8 * k }, { scale: 0.9 * k * this.v.plume, anchorY: 0.6, fps: 11, tint: this.v.dust, alpha: 0.85, delay: 0.05, rotation: this.v.tilt * 3, drift: { x: wind * 20, y: -4 } }),
+				new FrameSprite(smoke, parent, { x: at.x, y: at.y - 40 * k }, { scale: 1.15 * k * this.v.columnK, fps: 7, tint: this.v.column, alpha: 0.75, delay: 0.45, drift: { x: wind * 30, y: -22 * this.v.columnK } })
 			);
 		}
 		if (blast) {
 			this.plume = new Sprite(blast[0]);
 			this.plume.anchor.set(0.5, 0.8);
-			this.plume.scale.set(0.95 * k);
+			this.plume.scale.set(0.95 * k * this.v.plume * this.v.flip, 0.95 * k * this.v.plume);
+			this.plume.rotation = this.v.tilt;
 			this.plume.position.set(at.x, at.y);
 			parent.addChild(this.plume);
 		}
 		// The flash: brief, white-hot, lighting the ground round it.
 		this.glow = new Sprite(ctx.tex.blob);
 		this.glow.anchor.set(0.5);
-		this.glow.tint = 0xffd29a;
+		this.glow.tint = this.v.glow;
 		this.glow.blendMode = 'add';
 		this.glow.position.set(at.x, at.y - 10 * k);
 		parent.addChild(this.glow);
-		ctx.shake(0.3, 2 + 3 * k);
+		ctx.shake(0.3, (2 + 3 * k) * this.v.plume);
 	}
 	done = () => this.landed && this.age - this.delay - this.FLIGHT > 8 && !this.kids.live.length;
 	destroy() {
@@ -163,7 +184,8 @@ export class Burst implements Effect {
 		for (let i = 0; i < rounds; i++) {
 			const at = kind === 'mg' ? gun : { x: gun.x + (i - rounds / 2) * 14, y: gun.y + (r() - 0.5) * 10 };
 			const when = delay + (kind === 'mg' ? i * 0.075 : i * 0.11 + r() * 0.08);
-			if (flash) this.kids.add(new FrameSprite(flash, parent, at, { scale: kind === 'mg' ? 0.13 : 0.17, fps: 32, delay: when, rotation: r() * Math.PI }));
+			const spin = r() * Math.PI;
+			if (flash) this.kids.add(new FrameSprite(flash, parent, at, { scale: kind === 'mg' ? 0.13 : 0.17, fps: 32, delay: when, rotation: spin }));
 			// Rounds land a beat later, walking a little across the target.
 			const hit = { x: aim.x + (kind === 'mg' ? (i - rounds / 2) * 7 : (r() - 0.5) * 50), y: aim.y + (r() - 0.5) * 14 };
 			if (spurt) this.kids.add(new FrameSprite(spurt, parent, hit, { scale: 0.75, anchorY: 0.8, fps: 20, delay: when + 0.16 }));
@@ -184,46 +206,65 @@ export class Burst implements Effect {
 	}
 }
 
+/** A stable number for a string (a zone's id), to seed its battlefield. */
+const seedOf = (key: string) => [...key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261) >>> 0;
+
 /**
  * A battle being fought: bursts of small-arms fire traded between the two sides and shells landing among
- * them, the dust and smoke drifting over. Quiet while the viewer looks at the whole map; full when they
- * have entered it.
+ * them, the dust and smoke drifting over.
+ *
+ * Every screen plays the same battle: time on the server's clock is cut into short slots, and each slot's
+ * events (whether a shell lands, where, how it looks; who fires) are rolled from the battle's seed and the
+ * slot number, so the TV and every phone see each shell land at the same moment in the same place. Only
+ * the size follows the viewer: full when they have entered the battle, smaller on the whole map.
  */
 export class BattleField implements Effect {
+	private static SLOT = 0.35;
 	private kids = new Group();
-	private nextFire = 0.4;
-	private nextShell = 1.2;
 	private i = 0.35;
 	private at: Pt;
+	private seed: number;
+	private lastSlot: number | null = null;
 	constructor(
 		private ctx: Ctx,
-		scope: { x: number; y: number },
+		scope: { id: string; x: number; y: number },
 		private parent: Container,
 		intensity: number
 	) {
 		this.at = { x: scope.x, y: scope.y };
+		this.seed = seedOf(scope.id);
 		this.setIntensity(intensity);
 	}
 	setIntensity(i: number) {
 		this.i = i;
 	}
 	update(dt: number, t: number) {
-		const s = sides(this.at);
-		const r = Math.random;
-		this.nextFire -= dt;
-		if (this.nextFire <= 0) {
-			this.nextFire = (1.9 - 1.2 * this.i) * (0.5 + r());
-			const fromAgg = r() < 0.5;
-			this.kids.add(new Burst(this.ctx, this.parent, fromAgg ? s.aggressor : s.defender, fromAgg ? s.defender : s.aggressor, r() < 0.6 ? 'mg' : 'rifles', r));
-		}
-		this.nextShell -= dt;
-		if (this.nextShell <= 0) {
-			this.nextShell = (7 - 4.5 * this.i) * (0.6 + r() * 0.8);
-			// Shells fall on one side's ground, rarely on the centre.
-			const target = r() < 0.5 ? s.aggressor : s.defender;
-			this.kids.add(new Shell(this.ctx, this.parent, near(target, r, 60, 34), 0.55 + 0.35 * this.i, 0, r));
-		}
+		const now = this.ctx.now();
+		const cur = Math.floor(now / BattleField.SLOT);
+		// Start from now (and after a sleeping tab, catch up without replaying the backlog).
+		if (this.lastSlot === null || cur - this.lastSlot > 6) this.lastSlot = cur - 1;
+		for (let slot = this.lastSlot + 1; slot <= cur; slot++) this.plan(slot, now);
+		this.lastSlot = cur;
 		this.kids.update(dt, t);
+	}
+	/** Roll one slot's events; they start when the slot's own moment comes round on the shared clock. */
+	private plan(slot: number, now: number) {
+		const r = rng((this.seed ^ Math.imul(slot, 2654435761)) >>> 0);
+		const s = sides(this.at);
+		const when = () => Math.max(0, slot * BattleField.SLOT + r() * BattleField.SLOT - now);
+		const k = 0.55 + 0.35 * this.i;
+		const roll = r();
+		if (roll < 0.13) {
+			// A shell, now and then a salvo of two or three walking across one side's ground.
+			const target = r() < 0.5 ? s.aggressor : s.defender;
+			const salvo = r() < 0.22 ? 2 + Math.floor(r() * 2) : 1;
+			const start = when();
+			for (let n = 0; n < salvo; n++)
+				this.kids.add(new Shell(this.ctx, this.parent, near(target, r, 70, 36), k * (0.85 + r() * 0.35), start + n * (0.18 + r() * 0.3), r));
+		} else if (roll < 0.45) {
+			const fromAgg = r() < 0.5;
+			this.kids.add(new Burst(this.ctx, this.parent, fromAgg ? s.aggressor : s.defender, fromAgg ? s.defender : s.aggressor, r() < 0.6 ? 'mg' : 'rifles', r, when()));
+		}
 	}
 	destroy() {
 		this.kids.destroy();

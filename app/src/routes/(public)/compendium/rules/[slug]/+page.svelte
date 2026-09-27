@@ -29,6 +29,17 @@
 		<article>
 			<h1>{data.page.title}</h1>
 			<p class="source">{data.page.source ?? ''}{data.page.page ? `, p. ${data.page.page}` : ''}</p>
+			{#if data.page.maps.length}
+				<div class="maps" class:several={data.page.maps.length > 1}>
+					{#each data.page.maps as m, i (i)}
+						<figure>
+							<a href={m.src} target="_blank" rel="noopener" title="Open the map full size">
+								<img src={m.src} width={m.width} height={m.height} alt="Battlefield map{data.page.maps.length > 1 ? ` ${i + 1}` : ''} for {data.page.title}" loading={i ? 'lazy' : 'eager'} />
+							</a>
+						</figure>
+					{/each}
+				</div>
+			{/if}
 			{#each body as b, i (i)}
 				{#if b.kind === 'heading'}
 					<h2>{b.text}</h2>
@@ -93,6 +104,29 @@
 		color: var(--muted);
 		font-style: italic;
 		margin-top: -6px;
+	}
+	.maps {
+		margin: 0.4em 0 1.2em;
+	}
+	.maps.several {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+		gap: 14px;
+		align-items: start;
+	}
+	figure {
+		margin: 0;
+	}
+	figure a {
+		display: block;
+	}
+	figure img {
+		display: block;
+		width: 100%;
+		height: auto;
+		max-width: 36rem;
+		border: 1px solid var(--rule);
+		box-shadow: 0 2px 10px rgba(21, 19, 14, 0.12);
 	}
 	article h2 {
 		font-size: 1.15rem;

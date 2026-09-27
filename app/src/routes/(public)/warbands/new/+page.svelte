@@ -10,6 +10,17 @@
 	const chosen = $derived(data.factions.find((f) => f.id === factionId) ?? null);
 	const alignment = (a: string) => (a === 'faithful' ? 'Faithful' : 'Fallen');
 	let details = $state<HTMLElement>();
+	let where = $state<'list' | 'campaign'>('list');
+	// Starting money follows the variant's rules (Papal States: 500 Ducats and 11 Glory); the fields stay editable.
+	let ducats = $state(700);
+	let glory = $state(0);
+	$effect(() => {
+		const m = data.startMoney[pick];
+		if (m) {
+			ducats = m.ducats;
+			glory = m.glory;
+		}
+	});
 
 	function choose(value: string) {
 		pick = value;
@@ -20,7 +31,7 @@
 
 <svelte:head><title>New Warband</title></svelte:head>
 
-<div class="page">
+<div class="page tc">
 	<div class="titlebar"><div class="inner"><h1>New Warband</h1></div></div>
 
 	<form
@@ -86,17 +97,29 @@
 				<small>You can change the name of your warband at any time.</small>
 			</label>
 
-			<label>
-				Entry Zone
-				<select name="entryZone" required>
-					<option value="">Where the warband comes ashore…</option>
-					{#each data.entryZones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
-				</select>
-			</label>
+			{#if data.canFound}
+				<fieldset class="where">
+					<legend>For</legend>
+					<label><input type="radio" name="where" value="list" bind:group={where} /> <span><strong>My warband lists</strong><small>Build freely; use it for the campaign when you're ready.</small></span></label>
+					<label><input type="radio" name="where" value="campaign" bind:group={where} /> <span><strong>The Carcass Front campaign</strong><small>{data.players.length ? 'Found a campaign warband for a player.' : 'Found your campaign warband now.'}</small></span></label>
+				</fieldset>
+			{:else}
+				<input type="hidden" name="where" value="list" />
+			{/if}
+
+			{#if where === 'campaign'}
+				<label>
+					Entry Zone
+					<select name="entryZone" required>
+						<option value="">Where the warband comes ashore…</option>
+						{#each data.entryZones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
+					</select>
+				</label>
+			{/if}
 
 			<div class="money">
-				<label>Starting Ducats <input name="ducats" type="number" min="0" max="100000" value={data.startDucats} inputmode="numeric" /></label>
-				<label>Starting Glory <input name="glory" type="number" min="0" max="100000" value="0" inputmode="numeric" /></label>
+				<label>Starting Ducats <input name="ducats" type="number" min="0" max="100000" bind:value={ducats} inputmode="numeric" /></label>
+				<label>Starting Glory <input name="glory" type="number" min="0" max="100000" bind:value={glory} inputmode="numeric" /></label>
 			</div>
 
 			<label class="toggle">
@@ -107,7 +130,7 @@
 				</span>
 			</label>
 
-			{#if data.players.length}
+			{#if data.players.length && where === 'campaign'}
 					<label>
 						For player
 						<select name="for">
@@ -340,6 +363,31 @@
 		border: 1px solid rgba(236, 229, 211, 0.25);
 		padding: 8px 10px;
 		font: inherit;
+	}
+	.where {
+		display: grid;
+		gap: 6px;
+		border: 0;
+		margin: 0;
+		padding: 0;
+	}
+	.where legend {
+		margin-bottom: 4px;
+	}
+	.where label {
+		display: flex !important;
+		gap: 10px;
+		align-items: flex-start;
+		padding: 8px 10px;
+		border: 1px solid var(--line);
+		cursor: pointer;
+	}
+	.where label:has(input:checked) {
+		border-color: #b3261e;
+		background: rgba(143, 31, 24, 0.25);
+	}
+	.where span {
+		display: grid;
 	}
 	.money {
 		display: grid;

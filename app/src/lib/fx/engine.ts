@@ -132,6 +132,8 @@ export interface Ctx {
 	wind: () => number;
 	/** Shake request for tremors. */
 	shake: (seconds: number, strength: number) => void;
+	/** Seconds on the server's clock, so screens can schedule effects in step. */
+	now: () => number;
 }
 
 /** Bounds of a scope, in its own coordinate space. */
@@ -1156,7 +1158,8 @@ export class FxEngine {
 			shake: (s, k) => {
 				this.shakeLeft = s;
 				this.shakeStrength = k;
-			}
+			},
+			now: () => (Date.now() + this.clockSkew) / 1000
 		};
 		app.ticker.add(this.tick);
 		void this.loadSheets();
@@ -1185,6 +1188,9 @@ export class FxEngine {
 
 	/** Called once the sheets have loaded, so the owner can re-apply its wanted effects. */
 	onSheets?: () => void;
+
+	/** Server time minus this device's clock (ms). */
+	clockSkew = 0;
 
 	set wind(w: number) {
 		this.windValue = w;

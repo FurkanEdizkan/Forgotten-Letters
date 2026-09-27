@@ -5,6 +5,8 @@ import { player, rulesUnit, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
 import { parseWarbandForm } from '$lib/server/warbands';
 import { artFor, artIndex } from '$lib/server/unit-art';
+import { allFactionRules } from '$lib/server/rules-data';
+import { readRules } from '$lib/warband-rules';
 import { publish } from '$lib/server/hub';
 import { FACTIONS } from '$lib/rules/factions';
 import { buildGraph } from '$lib/rules/zones';
@@ -27,10 +29,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/login?next=/warbands/new');
 	const c = await currentCampaign();
 	if (!c) error(404, 'The campaign has not been founded yet');
-	if (!locals.isAdmin) {
-		const own = await ownWarband(c.id, locals.user.id);
-		if (own) redirect(303, `/warbands/${own}`);
-	}
+	// Anyone signed in builds lists; founding the campaign warband is for a player who has none (or the CM).
+	const canFound = locals.isAdmin || !(await ownWarband(c.id, locals.user.id));
 	const [art, leaders] = await Promise.all([
 		artIndex(c.id),
 		db.select({ faction: rulesUnit.faction, name: rulesUnit.name, keywords: rulesUnit.keywords }).from(rulesUnit).orderBy(asc(rulesUnit.cost))
@@ -55,7 +55,22 @@ export const load: PageServerLoad = async ({ locals }) => {
 		factions: FACTIONS.map((f) => ({ id: f.id, name: f.name, alignment: f.alignment, variants: f.variants, cover: cover(f.id) })),
 		entryZones: [...buildGraph(c.houseZones).zones.values()].filter((z) => z.type === 'entry').map((z) => ({ id: z.id, name: z.name })),
 		players: players.map((p) => ({ ...p, hasWarband: taken.has(p.id) })),
-		startDucats: START_DUCATS
+		startDucats: START_DUCATS,
+		canFound,
+		/** Each faction's and variant's starting money, from its special rules (Papal States: 500 and 11 Glory). */
+		startMoney: await (async () => {
+			const rows = await allFactionRules();
+			const out: Record<string, { ducats: number; glory: number }> = {};
+			for (const f of FACTIONS) {
+				const base = rows.find((r) => r.faction === f.id && !r.variant);
+				for (const v of [null, ...f.variants]) {
+					const vr = v ? rows.find((x) => x.faction === f.id && x.variant === v) : undefined;
+					const r = readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
+					out[`${f.id}::${v ?? ''}`] = { ducats: r.startDucats, glory: r.startGlory };
+				}
+			}
+			return out;
+		})()
 	};
 };
 
@@ -70,6 +85,28 @@ export const actions: Actions = {
 		const c = await currentCampaign();
 		if (!c) return fail(404, { message: 'No campaign' });
 		const data = await request.formData();
+
+		// A list of your own: no seat, no entry zone; it can be used for the campaign later.
+		if (data.get('where') !== 'campaign') {
+			const [faction, variant] = String(data.get('pick') ?? '').split('::');
+			const f = FACTIONS.find((x) => x.id === faction);
+			const name = String(data.get('name') ?? '').trim().slice(0, 80);
+			if (!f) return fail(400, { message: 'Choose a faction' });
+			if (!name) return fail(400, { message: 'Name the warband' });
+			const [w] = await db
+				.insert(warband)
+				.values({
+					listOwnerId: locals.user.id,
+					name,
+					faction: f.id,
+					variant: variant && f.variants.includes(variant) ? variant : null,
+					treasuryDucats: amount(data.get('ducats'), START_DUCATS),
+					treasuryGlory: amount(data.get('glory'), 0),
+					unrestricted: data.get('unrestricted') === 'on'
+				})
+				.returning({ id: warband.id });
+			redirect(303, `/warbands/${w.id}`);
+		}
 
 		// Players found their own warband; the CM may found one for any player, or a seat with no account.
 		let owner: { id: string | null; name: string } = { id: locals.user.id, name: locals.user.displayName || locals.user.username };

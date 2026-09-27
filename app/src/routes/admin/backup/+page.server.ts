@@ -1,3 +1,4 @@
+import { loadCustomFactions } from '$lib/server/factions';
 import { fail } from '@sveltejs/kit';
 import { importCampaign } from '$lib/server/backup';
 import { publish } from '$lib/server/hub';
@@ -12,6 +13,7 @@ export const actions: Actions = {
 		if (!(file instanceof File) || file.size === 0) return fail(400, { message: 'Choose a backup file.' });
 		try {
 			const id = await importCampaign(JSON.parse(await file.text()));
+			await loadCustomFactions();
 			publish(id);
 			await schedule();
 		} catch (e) {

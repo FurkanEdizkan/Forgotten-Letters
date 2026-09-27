@@ -15,6 +15,7 @@
 		{ href: '/admin/weather', label: 'Weather' },
 		{ href: '/admin/lore', label: 'Lore' },
 		{ href: '/admin/rules', label: 'Rules' },
+		{ href: '/admin/studio', label: 'Faction Studio' },
 		{ href: '/admin/visions', label: 'Visions' },
 		{ href: '/admin/backup', label: 'Backup' }
 	];

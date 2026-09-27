@@ -25,19 +25,16 @@ export async function GET({ request }) {
 			};
 
 			await snapshot();
+			// The server's time, so every screen can play synced effects (battlefield shells) at the same moment.
+			send('clock', Date.now());
 			let timer: ReturnType<typeof setTimeout> | undefined;
 			const unsubscribe = subscribe(() => {
 				clearTimeout(timer);
 				timer = setTimeout(snapshot, 100);
 			});
 			const unsubscribeTriggers = subscribeTriggers((_campaign, trigger) => send('trigger', trigger));
-			const heartbeat = setInterval(() => {
-				try {
-					controller.enqueue(encoder.encode(': keep-alive\n\n'));
-				} catch {
-					cleanup();
-				}
-			}, 25_000);
+			// Doubles as the keep-alive for proxies.
+			const heartbeat = setInterval(() => send('clock', Date.now()), 25_000);
 
 			cleanup = () => {
 				clearTimeout(timer);

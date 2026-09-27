@@ -41,6 +41,7 @@
 		</a>
 	{/each}
 	<a href={q('keywords')} aria-current={data.selected === 'keywords' ? 'page' : undefined}>Keywords <small>{data.keywordCount}</small></a>
+	<a href={q('faction-rules')} aria-current={data.selected === 'faction-rules' ? 'page' : undefined}>Faction &amp; variant rules <small>starting money, exclusions, upgrades</small></a>
 	{#each data.books as b (b.id)}
 		<a href={q(`pages-${b.id}`)} aria-current={data.selected === `pages-${b.id}` ? 'page' : undefined}>
 			{BOOKS[b.id]}
@@ -144,7 +145,7 @@
 	{#each data.pages as p (p.slug)}
 		<details class="entry" class:done={p.verified}>
 			<summary>
-				<strong>{p.title}</strong> <span class="meta">{p.chapter} · p.{p.page} · <a href="/compendium/rules/{p.slug}">view</a></span>
+				<strong>{p.title}</strong> <span class="meta">{p.chapter} · p.{p.page}{p.maps.length ? ` · ${p.maps.length} map${p.maps.length > 1 ? 's' : ''}` : ''} · <a href="/compendium/rules/{p.slug}">view</a></span>
 				{#if p.verified}<span class="tick">verified</span>{/if}
 			</summary>
 			<form method="POST" action="?/page" use:enhance={keep} class="grid">
@@ -162,7 +163,31 @@
 	{/each}
 {/if}
 
-{#if data.selected && !data.units.length && !data.items.length && !data.keywords.length && !data.pages.length}
+{#if data.factionRules.length}
+	<h2>Faction &amp; variant rules</h2>
+	<p class="lede">
+		The warband builder reads its rules from this text: "You have 500 👑 and 11 ☼", "cannot include …", "must include 1 …", "… has the LEADER
+		Keyword", "you must give the … to one model" (free), "up to 4 models … can have the … Keyword", "can only include 0-2 …". Correct the
+		wording here if the import misread it.
+	</p>
+	{#each data.factionRules as r (r.id)}
+		<details class="entry" class:done={r.verified}>
+			<summary>
+				<strong>{r.variant ?? data.factions.find((f) => f.id === r.faction)?.name ?? r.faction}</strong>
+				<span class="meta">{r.variant ? (data.factions.find((f) => f.id === r.faction)?.name ?? r.faction) : 'Faction rules'} · p.{r.page}</span>
+				{#if r.verified}<span class="tick">verified</span>{/if}
+			</summary>
+			<form method="POST" action="?/factionRule" use:enhance={keep} class="grid">
+				<input type="hidden" name="id" value={r.id} />
+				<label class="wide">Text <small>(blank line between rules)</small><textarea name="text" rows="12">{r.text}</textarea></label>
+				<label class="check"><input type="checkbox" name="verified" checked={r.verified} /> Checked against the book</label>
+				<button>Save</button>
+			</form>
+		</details>
+	{/each}
+{/if}
+
+{#if data.selected && !data.units.length && !data.items.length && !data.keywords.length && !data.pages.length && !data.factionRules.length}
 	<p class="muted"><em>{data.todo ? 'Everything here is verified.' : 'Nothing imported for this yet.'}</em></p>
 {/if}
 

@@ -77,8 +77,13 @@
 		opacity: 0;
 		transition: opacity 0.15s var(--ease-out);
 	}
+	/* Hidden tips take no room (they would otherwise widen a phone page). */
+	.tip:not(.shown) {
+		display: none;
+	}
 	li:hover .tip,
 	.tip.shown {
+		display: block;
 		visibility: visible;
 		opacity: 1;
 	}

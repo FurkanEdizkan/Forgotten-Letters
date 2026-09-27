@@ -41,7 +41,7 @@ export async function setBank(warbandId: string, ducats: number, glory: number) 
 	(await db.update(warband).set({ treasuryDucats: ducats, treasuryGlory: glory }).where(eq(warband.id, warbandId)));
 }
 
-export async function addUnit(campaignId: string, warbandId: string, u: RosterUnit, pay: boolean) {
+export async function addUnit(campaignId: string | null, warbandId: string, u: RosterUnit, pay: boolean) {
 	await db.transaction(async (tx) => {
 		const max = (await tx
 			.select({ m: sql<number>`coalesce(max(${unit.sort}), 0)` })
@@ -151,7 +151,7 @@ export async function itemOp(warbandId: string, ref: ItemRef, op: 'move' | 'sell
 }
 
 /** Replace a warband's roster and banks with an imported list. */
-export async function replaceRoster(campaignId: string, warbandId: string, data: { units: RosterUnit[]; stash: Item[]; ducats: number; glory: number }) {
+export async function replaceRoster(campaignId: string | null, warbandId: string, data: { units: RosterUnit[]; stash: Item[]; ducats: number; glory: number }) {
 	await db.transaction(async (tx) => {
 		(await tx.delete(unit).where(eq(unit.warbandId, warbandId)));
 		(await tx.delete(warbandStash).where(eq(warbandStash.warbandId, warbandId)));

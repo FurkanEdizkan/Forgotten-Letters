@@ -24,7 +24,7 @@ export async function load() {
 				faction: w.faction,
 				variant: w.variant,
 				entryZone: w.entryZone,
-				entryName: zones.get(w.entryZone)?.name ?? w.entryZone,
+				entryName: zones.get(w.entryZone ?? '')?.name ?? w.entryZone,
 				symbol: w.symbol,
 				hasVision: !!w.visionCard,
 				player: { name: p.name, seat: p.seat, portrait: p.portrait },

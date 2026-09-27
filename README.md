@@ -65,9 +65,27 @@ python3 app/scripts/import-rules.py "docs/Trench Crusade/Base/v1.0.2/Warbands-of
     --rulebook "docs/Trench Crusade/Base/v1.0.2/Trench-Crusade-Digital-Rulebook.pdf" -o rules.json
 ```
 
-then load `rules.json` in *Admin → Rules* (or drop it in the `data` volume as `/data/rules.json`
+The scenario pages carry their battlefield maps, cropped from your books into `rules.json` (like the
+text, they stay out of git). Then load `rules.json` in *Admin → Rules* (or drop it in the `data` volume as `/data/rules.json`
 before the first start). The reader is a best effort: check entries against the books in
 *Admin → Rules*, correct them, and mark them verified — verified entries survive a re-import.
+
+### Your own factions: the Faction Studio
+
+*Admin → Faction Studio* writes factions and variants the books don't have, and changes book entries as house rules.
+
+- **Template file.** Download `faction-template.yaml`, fill it in, and import it; the Studio previews what it will add or replace
+  before applying. The template is commented and lists every key:
+  - alignment, unit and item kinds, Type, currency;
+  - the armoury stipulations (*X only*, per model, Shield Combo, Bayonet Lug, Consumable, Headgear, Exploration only);
+  - the variant rules (starting money, excluded, must include, leader, caps, free items, Fireteams, keyword upgrades);
+  - unit kit (fixed items, no other armour…, nothing else, swaps) and mercenary hiring;
+  - every keyword in your glossary, and a worked example faction.
+- **Editor.** Each faction has tabs for identity (colours for its seal), rules, units, armoury, keywords and its own YAML. Any faction,
+  including a book one, can be downloaded as a template.
+- **Book entries.** A book entry edited in the Studio is marked *house rule* and kept through re-imports; *Revert to book* restores it.
+  Structured values set here win over what the builder reads from the rule text.
+- **Where it shows.** Authored factions appear in New Warband, the builder and the compendium, and go into backups.
 
 ### Viewing from outside the venue
 
@@ -83,7 +101,9 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/campaign` | everyone | The campaign: players, warbands and standings. |
 | `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
 | `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
-| `/warbands/new` | players, Campaign Master | Found a warband: pick a faction or variant, name it, starting Ducats (700), Remove Restrictions. |
+| `/warbands` (menu: Warband Builder) | signed-in users | Your warband lists and campaign warband: build, duplicate, print, play, and use a list for the campaign. |
+| `/warbands/new` | signed-in users | New list (or your campaign warband): pick a faction or variant; starting money follows its rules (e.g. Papal States 500 Ducats, 11 Glory). |
+| `/warbands/<id>` | everyone (lists: owner) | The builder: recruiting, battlekit, upgrades, Fireteams, checked against the books; `/play`, `/print`, `/export`. |
 | `/?battle=<game>` | everyone | Enter a battle being fought (click its zone); the result plays on every screen when it's recorded. |
 | `/zones`, `/zones/<id>` | everyone | Zone lore, resources, Outposts and battles fought there (each can be replayed on the map). |
 | `/history` | everyone | The chronicle of battles. |
@@ -94,7 +114,8 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/admin/factions` | Campaign Master | Default outpost and figure models per faction. |
 | `/admin/lore` | Campaign Master | Edit each zone's lore. |
 | `/admin/players` | Campaign Master | Player accounts: create, reset passwords, disable, assign seats. |
-| `/admin/rules` | Campaign Master | Load and correct the rules data from `import-rules.py`. |
+| `/admin/rules` | Campaign Master | Load and correct the rules data from `import-rules.py`, including each faction's and variant's special rules (which the builder reads). |
+| `/admin/studio` | Campaign Master | Faction Studio: author factions, variants, units and armoury (YAML template or forms); house-rule book entries. |
 | `/admin/weather` | Campaign Master | Live weather console, portents, regional weather, zeppelin events. |
 | `/admin/visions`, `/admin/backup` | Campaign Master | Deal Visions; export / restore. |
 

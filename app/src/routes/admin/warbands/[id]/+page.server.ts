@@ -124,13 +124,13 @@ export const actions: Actions = {
 	},
 
 	display: async ({ params, request }) => {
-		const { warband: w } = await find(params.id);
+		const { c, warband: w } = await find(params.id);
 		const mode = String((await request.formData()).get('displayModel'));
 		(await db.update(warband)
 			.set({ displayModel: mode === 'model' ? 'model' : 'portrait' })
 			.where(eq(warband.id, w.id))
 			);
-		publish(w.campaignId);
+		publish(c.id);
 		return { displaySaved: true };
 	},
 

@@ -104,9 +104,19 @@ export const TRIGGER_LABELS: Record<TriggerKind, string> = {
 	quake: 'Tremor'
 };
 
+/** Hell on Earth dice rolled for a battle, animated over its zone on every map. */
+export interface DiceRoll {
+	gameId: string;
+	aggressor: { id: string; name: string; dice: [number, number] };
+	defender: { id: string; name: string; dice: [number, number] };
+	/** Who picks which roll applies (fewest CVP); null = tied, roll off. */
+	chooser: string | null;
+}
+
 /** One-shot effect pushed to every viewer at once. */
 export interface FxTrigger {
-	kind: TriggerKind;
+	kind: TriggerKind | 'dice';
+	dice?: DiceRoll;
 	/** Zone to strike; null = anywhere. */
 	zone: string | null;
 	/** Deterministic seed so every screen plays the same thing. */

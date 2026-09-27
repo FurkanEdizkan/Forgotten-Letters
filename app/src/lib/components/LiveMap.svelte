@@ -13,7 +13,8 @@
 		onzone,
 		onwarband,
 		fxEnabled = true,
-		subscribeTriggers
+		subscribeTriggers,
+		project = $bindable()
 	}: {
 		snapshot: PublicSnapshot;
 		selected?: string | null;
@@ -23,6 +24,8 @@
 		fxEnabled?: boolean;
 		/** Live one-shot effects (lightning, crows…). */
 		subscribeTriggers?: (fn: (t: FxTrigger) => void) => () => void;
+		/** Set by the map: a zone's position on screen (relative to the map), for DOM overlays. */
+		project?: (zoneId: string) => { x: number; y: number } | null;
 	} = $props();
 
 	const MAP_URL = '/map/carcass-map.webp';
@@ -293,11 +296,26 @@
 					highlight.addChild(g);
 				}
 
-				// Battles in progress: pulsing rings.
+				// Battles: a pulsing ring while fought; a dashed ring with crossed swords while planned.
 				for (const game of s.active) {
 					const z = graph.zones.get(game.zone);
 					if (!z) continue;
-					const ring = new PIXI.Graphics().circle(0, 0, 80).stroke({ width: 10, color: 0xb8321f });
+					const ring = new PIXI.Graphics();
+					if (game.status === 'scheduled') {
+						for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
+							ring.arc(0, 0, 80, a, a + Math.PI / 18).stroke({ width: 8, color: 0x8b2a1d });
+						}
+						const swords = new PIXI.Text({
+							text: '⚔',
+							style: { fontFamily: 'EB Garamond', fontSize: 46, fill: 0xf1e6cb, stroke: { color: 0x231a12, width: 6 } }
+						});
+						swords.anchor.set(0.5);
+						swords.y = -96;
+						ring.addChild(swords);
+						ring.label = 'planned';
+					} else {
+						ring.circle(0, 0, 80).stroke({ width: 10, color: 0xb8321f });
+					}
 					ring.position.set(world(z).x, world(z).y);
 					battles.addChild(ring);
 				}
@@ -352,6 +370,13 @@
 				t += ticker.deltaMS / 1000;
 				const pulse = 1 + 0.08 * Math.sin(t * 4);
 				for (const r of battles.children) {
+					if (r.label === 'planned') {
+						r.scale.set(markerScale() * 0.6 + 0.4);
+						r.rotation = t * 0.15;
+						const swords = r.children[0];
+						if (swords) swords.rotation = -t * 0.15; // keep the swords upright while the ring turns
+						continue;
+					}
 					r.scale.set(pulse * markerScale() * 0.6 + 0.4);
 					r.alpha = 0.55 + 0.35 * Math.sin(t * 4);
 				}
@@ -359,6 +384,12 @@
 
 			redraw = draw;
 			draw();
+			project = (zoneId: string) => {
+				const z = graph.zones.get(zoneId);
+				if (!z) return null;
+				const p = viewport.toScreen(world(z).x, world(z).y);
+				return { x: p.x, y: p.y };
+			};
 
 			const { FxEngine } = await import('$lib/fx/engine');
 			if (destroyed) return;

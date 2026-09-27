@@ -1,24 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { and, eq, ne } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { game } from '$lib/server/db/schema';
 import { currentCampaign, loadCampaignState } from '$lib/server/campaign';
 import { publish } from '$lib/server/hub';
+import { BattleError, busyWarbands, planGame } from '$lib/server/games';
 import { regionEventFor } from '$lib/server/fx';
 import { trackerCvp } from '$lib/rules/engine';
 import { suggestAggressor, zoneOptions } from '$lib/rules/legality';
-import { weatherByRoll, weatherChooser } from '$lib/rules/weather';
+import { weatherChooser } from '$lib/rules/weather';
 import type { Actions, PageServerLoad } from './$types';
-
-/** Warbands already on the field in a game that isn't recorded yet. */
-function busyWarbands(campaignId: string) {
-	const busy = new Set<string>();
-	for (const g of db.select().from(game).where(and(eq(game.campaignId, campaignId), ne(game.status, 'done'))).all()) {
-		busy.add(g.aggressorId);
-		busy.add(g.defenderId);
-	}
-	return busy;
-}
 
 export const load: PageServerLoad = ({ url }) => {
 	const c = currentCampaign();
@@ -75,57 +63,32 @@ export const actions: Actions = {
 	default: async ({ request }) => {
 		const c = currentCampaign();
 		if (!c) return fail(404, { message: 'No campaign' });
-		const { state } = loadCampaignState(c);
 		const data = await request.formData();
 		const s = (k: string) => String(data.get(k) ?? '');
 
-		const aggressor = s('aggressor');
-		const defender = s('defender');
-		const zone = s('zone');
-		if (!state.players.has(aggressor) || !state.players.has(defender) || aggressor === defender)
-			return fail(400, { message: 'Choose two different warbands' });
-		const busy = busyWarbands(c.id);
-		if (busy.has(aggressor) || busy.has(defender))
-			return fail(400, { message: 'One of these warbands is already on the field — record or cancel that game first.' });
-		const spent = [aggressor, defender].filter((id) => state.players.get(id)!.games >= c.gamesPerPlayer);
-		if (spent.length && !data.has('override'))
-			return fail(400, {
-				message: `Already played all ${c.gamesPerPlayer} campaign games. Tick "override" to allow an extra game.`
-			});
-		const option = zoneOptions(state, aggressor, defender).find((o) => o.zone === zone);
-		if (!option) return fail(400, { message: 'Choose a zone' });
-		if (!option.legal && !data.has('override'))
-			return fail(400, { message: `${zone}: ${option.reason}. Tick "override" to allow it anyway.` });
-
-		const weatherEvent = Number(s('weatherEvent'));
 		let weatherRolls: unknown = null;
 		try {
 			weatherRolls = JSON.parse(s('weatherRolls') || 'null');
 		} catch {
 			/* ignore malformed rolls */
 		}
-
-		const g = db
-			.insert(game)
-			.values({
-				campaignId: c.id,
+		let g;
+		try {
+			g = planGame(c, {
+				aggressor: s('aggressor'),
+				defender: s('defender'),
+				zone: s('zone'),
+				override: data.has('override'),
 				status: 'in_progress',
-				zone,
-				aggressorId: aggressor,
-				defenderId: defender,
 				scenario: s('scenario') || null,
-				weatherEvent: weatherByRoll(weatherEvent) ? weatherEvent : null,
-				weatherRolls,
-				result: {
-					sides: {},
-					scenarioRandom: s('scenarioRandom') === 'true',
-					aggressorReason: ((suggested) => (suggested === aggressor ? 'fewer' : suggested === null ? 'roll-off' : 'chosen'))(
-						suggestAggressor(state, aggressor, defender)
-					)
-				}
-			})
-			.returning()
-			.get();
+				scenarioRandom: s('scenarioRandom') === 'true',
+				weatherEvent: Number(s('weatherEvent')) || null,
+				weatherRolls
+			});
+		} catch (e) {
+			if (e instanceof BattleError) return fail(400, { message: e.message });
+			throw e;
+		}
 		publish(c.id);
 		redirect(303, `/admin/games/${g.id}`);
 	}

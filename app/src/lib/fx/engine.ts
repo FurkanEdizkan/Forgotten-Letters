@@ -970,6 +970,7 @@ export class FxEngine {
 
 	/** Play a one-shot effect. `at` is in world coordinates; omit for anywhere on screen. */
 	trigger(t: FxTrigger, at?: { x: number; y: number }) {
+		if (t.kind === 'dice') return; // drawn by the page as a DOM overlay
 		const r = rng(t.seed);
 		const zone: Scope = at ? { type: 'zone', id: t.zone ?? '', x: at.x, y: at.y } : { type: 'screen' };
 		switch (t.kind) {

@@ -1,7 +1,7 @@
 import { currentCampaign } from '$lib/server/campaign';
 import { publicSnapshot } from '$lib/server/public';
 
-export function load() {
+export function load({ locals }) {
 	const c = currentCampaign();
-	return { snapshot: c ? publicSnapshot(c) : null };
+	return { snapshot: c ? publicSnapshot(c) : null, isAdmin: locals.isAdmin };
 }

@@ -3,6 +3,11 @@
 	import Portrait from '$lib/components/Portrait.svelte';
 	import ZoneFacts from '$lib/components/ZoneFacts.svelte';
 	import BattlePanel from '$lib/components/BattlePanel.svelte';
+	import BattleControls from '$lib/components/BattleControls.svelte';
+	import ArrangeBattle from '$lib/components/ArrangeBattle.svelte';
+	import Dice from '$lib/components/Dice.svelte';
+	import { page } from '$app/state';
+	import type { DiceRoll } from '$lib/fx/types';
 	import { getLive } from '$lib/context';
 	import { buildGraph } from '$lib/rules/zones';
 	import { weatherByRoll } from '$lib/rules/weather';
@@ -15,6 +20,16 @@
 	let zoneId = $state<string | null>(null);
 	let warbandId = $state<string | null>(null);
 	let showStandings = $state(false);
+	const isAdmin = $derived(!!page.data.isAdmin);
+
+	// Hell on Earth dice rolled anywhere show up on every map.
+	let project = $state<((zoneId: string) => { x: number; y: number } | null) | undefined>();
+	let dice = $state<{ roll: DiceRoll; zone: string; key: number } | null>(null);
+	$effect(() =>
+		live.onTrigger((t) => {
+			if (t.kind === 'dice' && t.dice && t.zone) dice = { roll: t.dice, zone: t.zone, key: t.seed };
+		})
+	);
 
 	// Per-viewer switch for weather effects (battery, motion sensitivity).
 	let fxEnabled = $state(true);
@@ -58,7 +73,14 @@
 		}}
 		{fxEnabled}
 		subscribeTriggers={live.onTrigger}
+		bind:project
 	/>
+
+	{#if dice}
+		{#key dice.key}
+			<Dice roll={dice.roll} zoneName={zoneName(dice.zone)} at={project?.(dice.zone) ?? null} onclose={() => (dice = null)} />
+		{/key}
+	{/if}
 
 	<header class="bar">
 		<div class="title">
@@ -92,7 +114,7 @@
 						{#if d}<Portrait name={d.player} portrait={d.portrait} symbol={d.symbol} size={30} />{/if}
 					</span>
 					<span class="txt">
-						<strong>{a?.player} vs {d?.player}</strong>
+						<strong>{a?.player} vs {d?.player}{g.status === 'scheduled' ? ' · planned' : ''}</strong>
 						<small>{zoneName(g.zone)}{g.weatherEvent ? ` · ${weatherByRoll(g.weatherEvent)?.name}` : ''}</small>
 					</span>
 				</button>
@@ -123,7 +145,11 @@
 	{#if zone && zoneGame}
 		<aside class="sheet wide">
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
-			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName} />
+			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName}>
+				{#snippet controls()}
+					{#if isAdmin}<BattleControls game={zoneGame} {zone} snapshot={s} />{/if}
+				{/snippet}
+			</BattlePanel>
 		</aside>
 	{:else if zone}
 		<aside class="sheet">
@@ -132,6 +158,7 @@
 			<h2>{zone.name}</h2>
 			<ZoneFacts {zone} snapshot={s} compact />
 			<a class="lore-link" href="/zones/{zone.id}">Read the lore →</a>
+			{#if isAdmin && zone.type !== 'entry'}<ArrangeBattle zoneId={zone.id} />{/if}
 		</aside>
 	{:else if warband}
 		<aside class="sheet">

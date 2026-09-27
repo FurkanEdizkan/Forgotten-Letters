@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, index } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, index, primaryKey } from 'drizzle-orm/sqlite-core';
 
 const id = () =>
 	text('id')
@@ -141,3 +141,20 @@ export const fxState = sqliteTable('fx_state', {
 		.notNull()
 		.$defaultFn(() => new Date())
 });
+
+/** Lore for a map zone, written by the Campaign Master (public). */
+export const zoneLore = sqliteTable(
+	'zone_lore',
+	{
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		zoneId: text('zone_id').notNull(),
+		lore: text('lore').notNull().default(''),
+		image: text('image'),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(t) => [primaryKey({ columns: [t.campaignId, t.zoneId] })]
+);

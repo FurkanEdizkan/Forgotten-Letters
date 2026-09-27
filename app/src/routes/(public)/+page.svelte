@@ -1,10 +1,9 @@
 <script lang="ts">
 	import LiveMap from '$lib/components/LiveMap.svelte';
 	import Portrait from '$lib/components/Portrait.svelte';
+	import ZoneFacts from '$lib/components/ZoneFacts.svelte';
 	import { getLive } from '$lib/context';
 	import { buildGraph } from '$lib/rules/zones';
-	import { RESOURCE_NAMES } from '$lib/rules/types';
-	import { ARCHETYPE_NAMES } from '$lib/rules/scenario';
 	import { weatherByRoll } from '$lib/rules/weather';
 
 	const live = getLive();
@@ -35,16 +34,11 @@
 		}
 	}
 	const mapWide = $derived(s.regions.find((r) => r.zones === null && r.weatherEvent));
-	const zoneRegion = $derived(
-		zoneId ? (s.regions.find((r) => r.zones?.includes(zoneId!) && r.weatherEvent) ?? mapWide) : undefined
-	);
 
 	const zone = $derived(zoneId ? graph.zones.get(zoneId) : undefined);
 	const warband = $derived(warbandId ? wb.get(warbandId) : undefined);
 	const zoneGame = $derived(zoneId ? s.active.find((g) => g.zone === zoneId) : undefined);
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
-	const holders = $derived(zoneId ? s.warbands.filter((w) => w.outposts.includes(zoneId!)) : []);
-	const scouts = $derived(zoneId ? s.warbands.filter((w) => w.scouted.includes(zoneId!)) : []);
 </script>
 
 <svelte:head><title>{s.campaign.name} · Live</title></svelte:head>
@@ -75,6 +69,7 @@
 				<span class="long">{fxEnabled ? 'Weather on' : 'Weather off'}</span><span class="short" class:off={!fxEnabled}>Weather</span>
 			</button>
 			<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
+			<a class="chip" href="/zones">Zones</a>
 			<a class="chip" href="/history">Chronicle</a>
 			<span class="dot" class:on={live.connected} title={live.connected ? 'Live' : 'Reconnecting…'}></span>
 		</nav>
@@ -129,21 +124,6 @@
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}>×</button>
 			<div class="kicker">{zone.type === 'entry' ? 'Entry Zone' : zone.type === 'special' ? 'Special Zone' : 'Zone'}{zone.house ? ' · our campaign' : ''}</div>
 			<h2>{zone.name}</h2>
-			{#if zone.resources.length}
-				<p class="res">
-					{#each zone.resources as r (r)}<span class="res-chip res-{r}">{RESOURCE_NAMES[r]}</span>{/each}
-				</p>
-			{/if}
-			{#if zone.scenario}<p>Scenario: <strong>{zone.scenario}</strong></p>{/if}
-			{#if zone.archetype}<p>Random scenario · {ARCHETYPE_NAMES[zone.archetype]}</p>{/if}
-			{#if zone.bonus}<p class="muted">Outpost bonus: {zone.bonus}</p>{/if}
-			{#if zoneRegion?.weatherEvent && !zoneGame}
-				{@const rw = weatherByRoll(zoneRegion.weatherEvent)}
-				<div class="now">
-					<strong>{zoneRegion.name ?? 'Regional weather'}:</strong> <em>{rw?.name}</em> — {rw?.effect}
-					{#if zoneRegion.gamesRemaining}<br /><small>for {zoneRegion.gamesRemaining} more game{zoneRegion.gamesRemaining > 1 ? 's' : ''}</small>{/if}
-				</div>
-			{/if}
 			{#if zoneGame}
 				{@const we = zoneGame.weatherEvent ? weatherByRoll(zoneGame.weatherEvent) : null}
 				<div class="now">
@@ -152,15 +132,8 @@
 					{#if we}<br /><em>{we.name}</em> — {we.effect}{/if}
 				</div>
 			{/if}
-			{#if holders.length}
-				<h3>Outposts</h3>
-				<div class="faces">
-					{#each holders as w (w.id)}<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} size={36} />{/each}
-				</div>
-			{/if}
-			{#if scouts.length}
-				<p class="muted">Scouted by {scouts.map((w) => w.player).join(', ')}</p>
-			{/if}
+			<ZoneFacts {zone} snapshot={s} compact />
+			<a class="lore-link" href="/zones/{zone.id}">Read the lore →</a>
 		</aside>
 	{:else if warband}
 		<aside class="sheet">
@@ -366,12 +339,6 @@
 		margin: 0 0 6px;
 		font-size: 1.8rem;
 	}
-	.sheet h3 {
-		margin: 8px 0 4px;
-		font-variant-caps: small-caps;
-		color: var(--blood);
-		font-size: 1rem;
-	}
 	.sheet p {
 		margin: 4px 0;
 	}
@@ -388,39 +355,17 @@
 		color: var(--ink);
 		border: none;
 	}
-	.res {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-	}
-	.res-chip {
-		padding: 1px 8px;
-		color: var(--paper);
-		font-size: 0.85rem;
-		font-weight: 600;
-	}
-	.res-F {
-		background: var(--favour);
-	}
-	.res-R {
-		background: var(--relics);
-	}
-	.res-S {
-		background: var(--supplies);
-	}
-	.res-T {
-		background: var(--territories);
-	}
 	.now {
 		margin-top: 8px;
 		padding: 8px 10px;
 		background: var(--parchment);
 		border-left: 3px solid var(--blood-bright);
 	}
-	.faces {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
+	.lore-link {
+		display: inline-block;
+		margin-top: 10px;
+		font-variant-caps: small-caps;
+		letter-spacing: 0.04em;
 	}
 	.who-head {
 		display: flex;

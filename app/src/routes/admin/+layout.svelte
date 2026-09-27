@@ -9,6 +9,7 @@
 		{ href: '/admin/warbands', label: 'Warbands' },
 		{ href: '/admin/adjustments', label: 'Adjustments' },
 		{ href: '/admin/weather', label: 'Weather' },
+		{ href: '/admin/lore', label: 'Lore' },
 		{ href: '/admin/visions', label: 'Visions' },
 		{ href: '/admin/backup', label: 'Backup' }
 	];

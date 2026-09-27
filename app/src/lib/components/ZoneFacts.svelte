@@ -1,0 +1,116 @@
+<script lang="ts">
+	import Portrait from './Portrait.svelte';
+	import { RESOURCE_NAMES, type Zone } from '$lib/rules/types';
+	import { ARCHETYPE_NAMES } from '$lib/rules/scenario';
+	import { weatherByRoll } from '$lib/rules/weather';
+	import type { PublicSnapshot } from '$lib/snapshot';
+
+	/** The facts about a zone that the map sheet and the lore page share. */
+	let { zone, snapshot, compact = false }: { zone: Zone; snapshot: PublicSnapshot; compact?: boolean } = $props();
+
+	const holders = $derived(snapshot.warbands.filter((w) => w.outposts.includes(zone.id)));
+	const scouts = $derived(snapshot.warbands.filter((w) => w.scouted.includes(zone.id)));
+	const region = $derived(
+		snapshot.regions.find((r) => r.zones?.includes(zone.id) && r.weatherEvent) ??
+			snapshot.regions.find((r) => r.zones === null && r.weatherEvent)
+	);
+	const regionWeather = $derived(region?.weatherEvent ? weatherByRoll(region.weatherEvent) : undefined);
+</script>
+
+<div class="facts" class:compact>
+	{#if zone.resources.length}
+		<p class="res">
+			{#each zone.resources as r (r)}<span class="res-chip res-{r}">{RESOURCE_NAMES[r]}</span>{/each}
+		</p>
+	{/if}
+	{#if zone.scenario}<p>Scenario: <strong>{zone.scenario}</strong></p>{/if}
+	{#if zone.archetype}<p>Random scenario · {ARCHETYPE_NAMES[zone.archetype]}</p>{/if}
+	{#if zone.bonus}<p class="muted">Outpost bonus: {zone.bonus}</p>{/if}
+
+	{#if regionWeather}
+		<div class="weather">
+			<strong>{region?.name ?? 'Regional weather'}:</strong> <em>{regionWeather.name}</em> — {regionWeather.effect}
+			{#if region?.gamesRemaining}<br /><small>for {region.gamesRemaining} more game{region.gamesRemaining > 1 ? 's' : ''}</small>{/if}
+		</div>
+	{/if}
+
+	{#if holders.length}
+		<h3>Outposts</h3>
+		<div class="faces">
+			{#each holders as w (w.id)}
+				<a href="/players/{w.id}" class="holder" class:supplied={w.supplied.includes(zone.id)} title={w.supplied.includes(zone.id) ? 'Supplied' : 'Cut off from the Entry Zone'}>
+					<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} size={compact ? 36 : 44} />
+					{#if !compact}<span>{w.player}</span>{/if}
+				</a>
+			{/each}
+		</div>
+	{/if}
+	{#if scouts.length}
+		<p class="muted">Scouted by {scouts.map((w) => w.player).join(', ')}</p>
+	{/if}
+</div>
+
+<style>
+	.facts p {
+		margin: 4px 0;
+	}
+	h3 {
+		margin: 10px 0 4px;
+		font-variant-caps: small-caps;
+		color: var(--blood);
+		font-size: 1rem;
+	}
+	.res {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+	.res-chip {
+		padding: 1px 8px;
+		color: var(--paper);
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+	.res-F {
+		background: var(--favour);
+	}
+	.res-R {
+		background: var(--relics);
+	}
+	.res-S {
+		background: var(--supplies);
+	}
+	.res-T {
+		background: var(--territories);
+	}
+	.weather {
+		margin-top: 8px;
+		padding: 8px 10px;
+		background: var(--parchment);
+		border-left: 3px solid var(--territories);
+	}
+	.faces {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.holder {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: inherit;
+		text-decoration: none;
+		padding: 2px 8px 2px 2px;
+		border: 1px solid transparent;
+	}
+	.holder.supplied {
+		border-color: var(--supplies);
+	}
+	.compact .holder {
+		padding: 0;
+	}
+	.muted,
+	small {
+		color: var(--muted);
+	}
+</style>

@@ -8,20 +8,21 @@ export const uploadsDir = () => resolve(env.UPLOADS_DIR ?? 'data/uploads');
 const MAX_BYTES = 10 * 1024 * 1024;
 
 /**
- * Re-encode an uploaded image to a square-ish WebP and store it under the campaign.
+ * Re-encode an uploaded image to WebP (square-cropped, or fitted inside `size`) and store it under the campaign.
  * Returns the public path (served by /uploads/[...path]), or null for no file.
  */
 export async function saveImage(
 	campaignId: string,
 	file: FormDataEntryValue | null,
-	size: number
+	size: number,
+	fit: 'cover' | 'inside' = 'cover'
 ): Promise<string | null> {
 	if (!(file instanceof File) || file.size === 0) return null;
 	if (file.size > MAX_BYTES) throw new Error('Image is larger than 10 MB');
 	const input = Buffer.from(await file.arrayBuffer());
 	const output = await sharp(input)
 		.rotate()
-		.resize(size, size, { fit: 'cover', position: 'attention' })
+		.resize(size, size, fit === 'cover' ? { fit, position: 'attention' } : { fit, withoutEnlargement: true })
 		.webp({ quality: 85 })
 		.toBuffer();
 	const name = `${crypto.randomUUID()}.webp`;

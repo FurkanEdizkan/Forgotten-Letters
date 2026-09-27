@@ -12,6 +12,7 @@
 	const links = [
 		{ href: '/', label: 'Map' },
 		{ href: '/players', label: 'Standings' },
+		{ href: '/zones', label: 'Zones' },
 		{ href: '/history', label: 'Chronicle' }
 	];
 	const isMap = $derived(page.url.pathname === '/');
@@ -29,7 +30,7 @@
 			<a class="brand" href="/">{live.current.campaign.name}</a>
 			<nav>
 				{#each links as l (l.href)}
-					<a href={l.href} aria-current={page.url.pathname === l.href ? 'page' : undefined}>{l.label}</a>
+					<a href={l.href} aria-current={(l.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}>{l.label}</a>
 				{/each}
 			</nav>
 		</header>

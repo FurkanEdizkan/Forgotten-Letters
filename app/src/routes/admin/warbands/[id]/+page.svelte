@@ -2,6 +2,8 @@
 	import { enhance } from '$app/forms';
 	import Portrait from '$lib/components/Portrait.svelte';
 	import WarbandFields from '$lib/components/WarbandFields.svelte';
+	import ModelStudio from '$lib/components/ModelStudio.svelte';
+	import { FACTIONS } from '$lib/rules/factions';
 	import { VISIONS, VISION_CVP } from '$lib/rules/visions';
 	import { suggestedEntry } from '$lib/seating';
 
@@ -13,6 +15,7 @@
 	// svelte-ignore state_referenced_locally
 	let visionCard = $state(data.warband.visionCard ?? '');
 	const card = $derived(VISIONS.find((v) => v.id === visionCard));
+	const factionName = $derived(FACTIONS.find((f) => f.id === w.faction)?.name ?? w.faction);
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -52,6 +55,40 @@
 		{#if form?.saved}<span class="ok">Recorded.</span>{/if}
 		{#if form?.message}<span class="error">{form.message}</span>{/if}
 	</form>
+</section>
+
+<section>
+	<h2>Map models</h2>
+	<form method="POST" action="?/display" use:enhance={keep} class="inline">
+		<label>
+			Map marker
+			<select name="displayModel" value={w.displayModel} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+				<option value="portrait">Portrait disc</option>
+				<option value="model">Figure token (portrait as a badge)</option>
+			</select>
+		</label>
+		{#if form?.displaySaved}<span class="ok">Updated.</span>{/if}
+	</form>
+	<p class="note">
+		Upload an STL of the warband's leader or its outpost; it is rendered once into a token for the map. Without
+		one, the {factionName} default from <a href="/admin/factions">Factions</a> is used, then the stock token.
+	</p>
+	<ModelStudio
+		kind="figure"
+		ownerType="warband"
+		ownerId={w.id}
+		title="Figure"
+		current={data.models.figure}
+		fallback={data.models.factionFigure ? `the ${factionName} figure` : 'the portrait'}
+	/>
+	<ModelStudio
+		kind="outpost"
+		ownerType="warband"
+		ownerId={w.id}
+		title="Outpost"
+		current={data.models.outpost}
+		fallback={data.models.factionOutpost ? `the ${factionName} outpost` : 'the stock redoubt'}
+	/>
 </section>
 
 <section class="secret">
@@ -161,6 +198,9 @@
 	}
 	.note {
 		margin: 0;
+	}
+	form.inline {
+		margin-bottom: 8px;
 	}
 	.danger {
 		background: var(--blood);

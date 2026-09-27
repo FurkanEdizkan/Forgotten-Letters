@@ -1,11 +1,24 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { db } from './db';
-import { adjustment, campaign, fxState, game, player, regionWeather, warband } from './db/schema';
+import {
+	adjustment,
+	campaign,
+	fxState,
+	game,
+	model,
+	player,
+	regionWeather,
+	unit,
+	warband,
+	warbandStash,
+	zoneLore
+} from './db/schema';
 import { resolveUpload } from './uploads';
 
-export const BACKUP_VERSION = 1;
+/** v2 adds lore, rosters and models (and their files); v1 backups still import. */
+export const BACKUP_VERSION = 2;
 
 type Row = Record<string, unknown>;
 
@@ -20,7 +33,11 @@ export interface Backup {
 	adjustments: Row[];
 	regions: Row[];
 	fx: Row[];
-	/** Uploaded images, base64, keyed by their /uploads path. */
+	lore?: Row[];
+	units?: Row[];
+	stash?: Row[];
+	models?: Row[];
+	/** Uploaded files (images and model STLs), base64, keyed by their /uploads path. */
 	images: Record<string, string>;
 }
 
@@ -31,8 +48,20 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 	const players = db.select().from(player).where(eq(player.campaignId, campaignId)).all();
 	const warbands = db.select().from(warband).where(eq(warband.campaignId, campaignId)).all();
 
+	const ids = warbands.map((w) => w.id);
+	const lore = db.select().from(zoneLore).where(eq(zoneLore.campaignId, campaignId)).all();
+	const units = ids.length ? db.select().from(unit).where(inArray(unit.warbandId, ids)).all() : [];
+	const stash = ids.length ? db.select().from(warbandStash).where(inArray(warbandStash.warbandId, ids)).all() : [];
+	const models = db.select().from(model).where(eq(model.campaignId, campaignId)).all();
+
 	const images: Record<string, string> = {};
-	for (const path of [...players.map((p) => p.portrait), ...warbands.map((w) => w.symbol)]) {
+	for (const path of [
+		...players.map((p) => p.portrait),
+		...warbands.map((w) => w.symbol),
+		...lore.map((l) => l.image),
+		...units.map((u) => u.photo),
+		...models.flatMap((m) => [m.token, m.stl])
+	]) {
 		const full = path ? resolveUpload(path) : null;
 		if (!path || !full) continue;
 		try {
@@ -53,6 +82,10 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 		adjustments: db.select().from(adjustment).where(eq(adjustment.campaignId, campaignId)).all(),
 		regions: db.select().from(regionWeather).where(eq(regionWeather.campaignId, campaignId)).all(),
 		fx: db.select().from(fxState).where(eq(fxState.campaignId, campaignId)).all(),
+		lore,
+		units,
+		stash,
+		models,
 		images
 	};
 }
@@ -77,6 +110,10 @@ export async function importCampaign(raw: unknown) {
 	if (b.version > BACKUP_VERSION) throw new Error('This backup is from a newer version of the app');
 
 	db.transaction((tx) => {
+		tx.delete(model).run();
+		tx.delete(zoneLore).run();
+		tx.delete(warbandStash).run();
+		tx.delete(unit).run();
 		tx.delete(adjustment).run();
 		tx.delete(game).run();
 		tx.delete(regionWeather).run();
@@ -92,11 +129,15 @@ export async function importCampaign(raw: unknown) {
 		for (const r of b.adjustments ?? []) tx.insert(adjustment).values(revive<typeof adjustment.$inferInsert>(r)).run();
 		for (const r of b.regions ?? []) tx.insert(regionWeather).values(revive<typeof regionWeather.$inferInsert>(r)).run();
 		for (const r of b.fx ?? []) tx.insert(fxState).values(revive<typeof fxState.$inferInsert>(r)).run();
+		for (const r of b.lore ?? []) tx.insert(zoneLore).values(revive<typeof zoneLore.$inferInsert>(r)).run();
+		for (const r of b.units ?? []) tx.insert(unit).values(revive<typeof unit.$inferInsert>(r)).run();
+		for (const r of b.stash ?? []) tx.insert(warbandStash).values(revive<typeof warbandStash.$inferInsert>(r)).run();
+		for (const r of b.models ?? []) tx.insert(model).values(revive<typeof model.$inferInsert>(r)).run();
 	});
 
 	for (const [path, data] of Object.entries(b.images ?? {})) {
 		const full = resolveUpload(path);
-		if (!full || !full.endsWith('.webp')) continue;
+		if (!full || !/\.(webp|stl)$/.test(full)) continue;
 		await mkdir(dirname(full), { recursive: true });
 		await writeFile(full, Buffer.from(data, 'base64'));
 	}

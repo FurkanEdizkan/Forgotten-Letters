@@ -41,6 +41,8 @@ SPECS = {
     'smoke': (192, 8, 'normal'),
     'biplane': (128, 8, 'normal'),
     'zeppelin': (384, 4, 'normal'),
+    # One frame per faction, in render_fx.OUTPOST_FACTIONS order (last is neutral).
+    'outposts': (128, 4, 'normal'),
 }
 # Aircraft also get a soft ground shadow (an extra frame, animation "shadow").
 SHADOWS = {'biplane', 'zeppelin'}

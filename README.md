@@ -54,15 +54,23 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | --- | --- | --- |
 | `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Weather on/off* per device. |
 | `/players`, `/players/<id>` | everyone | Standings and each warband's digital Campaign Tracker. |
+| `/zones`, `/zones/<id>` | everyone | Zone lore, resources, Outposts and battles fought there. |
 | `/history` | everyone | The chronicle of battles. |
 | `/admin` | Campaign Master | Campaign settings, final-reckoning preview, Vision reveal. |
 | `/admin/games` | Campaign Master | Arrange a game → record its result. Up to 8 games at once. |
 | `/admin/adjustments` | Campaign Master | Glory→CVP trades, Tithe Ducats, corrections. |
-| `/admin/weather` | Campaign Master | Live weather console, portents, regional weather. |
+| `/admin/warbands/<id>` | Campaign Master | Muster roll, roster builder, map models (STL → token), Vision. |
+| `/admin/factions` | Campaign Master | Default outpost and figure models per faction. |
+| `/admin/lore` | Campaign Master | Edit each zone's lore. |
+| `/admin/weather` | Campaign Master | Live weather console, portents, regional weather, zeppelin events. |
 | `/admin/visions`, `/admin/backup` | Campaign Master | Deal Visions; export / restore. |
 
 Vision cards stay secret: no public page or live update contains them until the Campaign
 Master ticks *Reveal Vision cards* on the campaign page.
+
+Map models: upload an STL on a warband's page (or a faction default on *Factions*), pose it,
+and *Save token*. The browser renders it once to a transparent image, so the live map stays
+light on phones; the STL is kept for re-rendering but never served publicly.
 
 ### Rulings built in (all from the book unless noted)
 
@@ -88,8 +96,8 @@ npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run
 
 ### Blender (effect sprites)
 
-Lightning strikes, hellfire bursts, crows and smoke puffs on the live map are rendered in
-Blender and packed into sprite sheets in `app/static/fx/`; the map falls back to drawn
+Lightning strikes, hellfire bursts, crows, smoke puffs, the biplane, the zeppelin and the
+default outpost tokens on the live map are rendered in Blender and packed into sprite sheets in `app/static/fx/`; the map falls back to drawn
 effects if they fail to load. To regenerate them (headless, about a minute; your open Blender
 session is not touched):
 

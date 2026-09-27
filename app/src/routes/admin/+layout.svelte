@@ -7,6 +7,7 @@
 		{ href: '/admin', label: 'Campaign' },
 		{ href: '/admin/games', label: 'Games' },
 		{ href: '/admin/warbands', label: 'Warbands' },
+		{ href: '/admin/factions', label: 'Factions' },
 		{ href: '/admin/adjustments', label: 'Adjustments' },
 		{ href: '/admin/weather', label: 'Weather' },
 		{ href: '/admin/lore', label: 'Lore' },

@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, index, primaryKey } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, index, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 const id = () =>
 	text('id')
@@ -239,3 +239,39 @@ export const warbandStash = sqliteTable(
 	},
 	(t) => [index('stash_warband_idx').on(t.warbandId)]
 );
+
+/**
+ * A 3D model uploaded as STL and rendered to a map token in the browser.
+ * Owned by a faction (the campaign default for that faction) or by one warband.
+ */
+export const model = sqliteTable(
+	'model',
+	{
+		id: id(),
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		kind: text('kind', { enum: ['outpost', 'figure'] }).notNull(),
+		ownerType: text('owner_type', { enum: ['faction', 'warband'] }).notNull(),
+		/** Faction id or warband id, depending on ownerType. */
+		ownerId: text('owner_id').notNull(),
+		/** Private path of the source STL (served to the Campaign Master only). */
+		stl: text('stl'),
+		/** Public /uploads path of the rendered WebP token. */
+		token: text('token').notNull(),
+		params: text('params', { mode: 'json' }).$type<ModelParams>().notNull().default({}),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(t) => [uniqueIndex('model_owner_idx').on(t.campaignId, t.kind, t.ownerType, t.ownerId)]
+);
+
+export interface ModelParams {
+	yaw?: number;
+	pitch?: number;
+	scale?: number;
+	tint?: string;
+	/** Rotate Z-up files (most miniature STLs) to Y-up. */
+	zUp?: boolean;
+}

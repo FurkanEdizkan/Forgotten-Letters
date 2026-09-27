@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Container, Graphics, Texture } from 'pixi.js';
+	import type { Container, Graphics, Spritesheet, Texture } from 'pixi.js';
 	import { buildGraph } from '$lib/rules/zones';
 	import type { Zone } from '$lib/rules/types';
 	import type { PublicSnapshot, PublicWarband } from '$lib/snapshot';
 	import type { FxTrigger } from '$lib/fx/types';
 	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
+	import { outpostFrame } from '$lib/models';
 
 	let {
 		snapshot,
@@ -221,6 +222,78 @@
 				if (!textures.has(url)) textures.set(url, PIXI.Assets.load<Texture>(url));
 				return textures.get(url)!;
 			};
+			// Default outpost tokens (Blender-rendered, one per faction): map content, so loaded even without effects.
+			const outpostSheet = PIXI.Assets.load<Spritesheet>('/fx/outposts.json').catch(() => null);
+
+			/** A sprite that fills in once its texture arrives, sized to `width` and anchored at its feet. */
+			function tokenSprite(parent: Container, source: Promise<Texture | null | undefined>, width: number, at = 0, y = 0) {
+				source.then((t) => {
+					if (!t || parent.destroyed) return;
+					const s = new PIXI.Sprite(t);
+					s.anchor.set(0.5, 0.85);
+					s.scale.set(width / t.width);
+					s.y = y;
+					parent.addChildAt(s, Math.min(at, parent.children.length));
+				});
+			}
+
+			/** Small round badge with an image (symbol or portrait), at (x, y). */
+			function badge(url: string | null, r: number, x: number, y: number, ring = 0x231a12) {
+				const b = new PIXI.Container();
+				b.position.set(x, y);
+				b.addChild(new PIXI.Graphics().circle(0, 0, r + 2.5).fill({ color: ring }));
+				b.addChild(new PIXI.Graphics().circle(0, 0, r).fill({ color: 0xefe6d0 }));
+				if (url)
+					tex(url).then((t) => {
+						if (b.destroyed) return;
+						const s = new PIXI.Sprite(t);
+						s.anchor.set(0.5);
+						s.width = s.height = r * 2;
+						const mask = new PIXI.Graphics().circle(0, 0, r).fill({ color: 0xffffff });
+						s.mask = mask;
+						b.addChild(mask, s);
+					});
+				return b;
+			}
+
+			/** Outpost token: uploaded model, else the faction's default redoubt; supply shown by the base ring. */
+			function outpostMarker(w: PublicWarband, supplied: boolean) {
+				const c = new PIXI.Container();
+				c.addChild(
+					new PIXI.Graphics()
+						.ellipse(0, 0, 24, 9)
+						.fill({ color: 0x231a12, alpha: 0.35 })
+						.stroke({ width: 3, color: supplied ? 0x5f7f2a : 0x231a12, alpha: supplied ? 1 : 0.6 })
+				);
+				tokenSprite(
+					c,
+					w.outpostToken
+						? tex(w.outpostToken)
+						: outpostSheet.then((sheet) => sheet?.textures[outpostFrame(w.faction)]),
+					60,
+					1
+				);
+				if (w.symbol) c.addChild(badge(w.symbol, 8, 22, -4, supplied ? 0x5f7f2a : 0x231a12));
+				return c;
+			}
+
+			/** Warband shown as its figure token standing on a coloured base, with the portrait as a badge. */
+			function figureMarker(w: PublicWarband, r: number, ring: number) {
+				const c = new PIXI.Container();
+				c.addChild(new PIXI.Graphics().ellipse(0, r * 0.55, r * 0.95, r * 0.38).fill({ color: ring }).stroke({ width: 3, color: 0x231a12 }));
+				// Feet of the token sit on the base.
+				tokenSprite(c, tex(w.figureToken!), r * 2.3, 1, r * 0.55);
+				c.addChild(badge(w.portrait, r * 0.36, -r * 0.8, r * 0.55, ring));
+				if (w.symbol) c.addChild(badge(w.symbol, r * 0.3, r * 0.8, r * 0.55));
+				c.eventMode = 'static';
+				c.cursor = 'pointer';
+				c.hitArea = new PIXI.Rectangle(-r, -r * 1.6, r * 2, r * 2.6);
+				c.on('pointertap', (e) => {
+					e.stopPropagation();
+					if (!dragging) onwarband?.(w.id);
+				});
+				return c;
+			}
 
 			/** Portrait disc with faction badge, radius r, drawn at the container origin. */
 			function portraitMarker(w: PublicWarband, r: number, ring: number) {
@@ -320,7 +393,7 @@
 					battles.addChild(ring);
 				}
 
-				// Outposts: small faction flags under each zone.
+				// Outposts: a redoubt token per holder above the zone, supplied ones on a green base.
 				const holders = new Map<string, PublicWarband[]>();
 				for (const w of s.warbands) for (const z of w.outposts) holders.set(z, [...(holders.get(z) ?? []), w]);
 				for (const [zid, ws] of holders) {
@@ -329,9 +402,9 @@
 					const g = new PIXI.Container();
 					g.position.set(world(z).x, world(z).y);
 					ws.forEach((w, i) => {
-						const flag = portraitMarker({ ...w, portrait: w.symbol ?? w.portrait, symbol: null }, 11, w.supplied.includes(zid) ? 0x5f7f2a : 0x231a12);
-						flag.position.set((i - (ws.length - 1) / 2) * 30, -62);
-						g.addChild(flag);
+						const m = outpostMarker(w, w.supplied.includes(zid));
+						m.position.set((i - (ws.length - 1) / 2) * 56, -50);
+						g.addChild(m);
 					});
 					g.scale.set(k);
 					groups.push(g);
@@ -350,7 +423,8 @@
 					const radius = n === 1 ? 0 : 34 + n * 7;
 					ws.forEach((w, i) => {
 						const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-						const m = portraitMarker(w, 30, w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12);
+						const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12;
+						const m = w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring);
 						m.position.set(Math.cos(a) * radius, Math.sin(a) * radius);
 						g.addChild(m);
 					});

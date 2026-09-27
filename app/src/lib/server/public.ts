@@ -9,6 +9,8 @@ import type { PublicSnapshot } from '$lib/snapshot';
 import { activeRegions, getFx } from './fx';
 import { activeUnitsByWarband } from './roster';
 import type { GameResult } from './campaign';
+import { listModels } from './models';
+import { resolveTokens } from '$lib/models';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
@@ -33,6 +35,7 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 		.all();
 
 	const unitsBy = activeUnitsByWarband(c.id);
+	const models = listModels(c.id);
 	const playing = new Map<string, string>();
 	for (const g of active) {
 		playing.set(g.aggressorId, g.zone);
@@ -78,6 +81,8 @@ export function publicSnapshot(c: Campaign): PublicSnapshot {
 				scouted: s.scouted,
 				outposts: s.outposts,
 				supplied: suppliedOutposts(state, s).zones,
+				displayModel: w.displayModel,
+				...resolveTokens(models, w),
 				omens: s.omens,
 				apocrypha: s.apocrypha,
 				vision: reveal && w.visionCard ? (visionById(w.visionCard)?.name ?? null) : null,

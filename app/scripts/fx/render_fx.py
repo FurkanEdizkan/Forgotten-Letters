@@ -668,7 +668,121 @@ def zeppelin():
             pv.keyframe_insert("rotation_euler", frame=f)
     render()
 
-EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin)}
+
+# ---------------------------------------------------------------- outpost tokens (3/4 view, one frame per faction)
+
+# Pennant colours per faction (same order as OUTPOST_ORDER in the app); the last is neutral.
+OUTPOST_FACTIONS = [
+    ("new-antioch", (0.12, 0.22, 0.55), (0.9, 0.85, 0.7)),
+    ("trench-pilgrims", (0.85, 0.8, 0.66), (0.55, 0.05, 0.04)),
+    ("iron-sultanate", (0.1, 0.35, 0.2), (0.85, 0.65, 0.2)),
+    ("heretic-legions", (0.08, 0.06, 0.06), (0.6, 0.05, 0.04)),
+    ("black-grail", (0.3, 0.38, 0.1), (0.3, 0.08, 0.3)),
+    ("seven-headed-serpent", (0.5, 0.03, 0.06), (0.85, 0.65, 0.2)),
+    ("neutral", (0.45, 0.42, 0.36), (0.25, 0.23, 0.2)),
+]
+
+
+def outposts():
+    """A sandbagged redoubt with a dugout, wire stakes and a faction pennant; frame n = faction n."""
+    reset()
+    frames = len(OUTPOST_FACTIONS)
+    s = setup("outposts", 256, 256, frames, light=False, ortho_scale=3.5)
+    s.render.use_motion_blur = False
+    cam = s.camera
+    tilt = math.radians(46)
+    lift = 0.3  # nudge the frame up so the pennant fits
+    cam.location = (0, -6.5 + lift * math.cos(tilt), 6.2 + lift * math.sin(tilt))
+    cam.rotation_euler = (tilt, 0, 0)
+    bg = s.world.node_tree.nodes["Background"]
+    bg.inputs["Strength"].default_value = 0.5
+    bg.inputs["Color"].default_value = (0.8, 0.76, 0.68, 1)
+    sun_d = bpy.data.lights.new("Sun", "SUN")
+    sun_d.energy = 3.4
+    sun_d.angle = math.radians(8)
+    sun = bpy.data.objects.new("Sun", sun_d)
+    s.collection.objects.link(sun)
+    sun.rotation_euler = (math.radians(40), math.radians(-25), math.radians(35))
+
+    sand = _fabric("Sandbag", (0.46, 0.38, 0.25), rough=0.95)
+    earth = _fabric("Earth", (0.2, 0.16, 0.11), rough=1.0)
+    wood = _fabric("Timber", (0.22, 0.14, 0.08), rough=0.85)
+    iron = _fabric("Iron", (0.12, 0.12, 0.12), rough=0.5)
+    flag_a = _fabric("FlagField", (1, 1, 1), rough=0.7)
+    flag_b = _fabric("FlagStripe", (1, 1, 1), rough=0.7)
+
+    # Earthen mound
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=40, ring_count=16, radius=1)
+    mound = bpy.context.active_object
+    mound.name = "Mound"
+    mound.scale = (1.35, 1.35, 0.28)
+    mound.location = (0, 0, -0.12)
+    bpy.ops.object.shade_smooth()
+    mound.data.materials.append(earth)
+
+    # Ring of sandbags in two courses, with a gap for the entrance at the front.
+    for course, (radius, z) in enumerate(((1.05, 0.14), (1.0, 0.3))):
+        n = 20
+        for i in range(n):
+            a = i / n * math.tau + (course * math.pi / n)
+            if abs(math.atan2(math.sin(a + math.pi / 2), math.cos(a + math.pi / 2))) < 0.35:
+                continue  # entrance faces the camera
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=1,
+                                                 location=(math.cos(a) * radius, math.sin(a) * radius, z))
+            bag = bpy.context.active_object
+            bag.scale = (0.2, 0.12, 0.09)
+            bag.rotation_euler = (0, 0, a + math.pi / 2)
+            bpy.ops.object.shade_smooth()
+            bag.data.materials.append(sand)
+
+    # Timber-roofed dugout at the back, sunk into the mound.
+    _box("Dugout", (0.9, 0.55, 0.32), (0, 0.35, 0.22), wood, bevel=0.03)
+    _box("Roof", (1.05, 0.7, 0.07), (0, 0.35, 0.42), wood, bevel=0.02)
+    _box("Door", (0.26, 0.04, 0.22), (0, 0.06, 0.2), iron)
+
+    # Wire stakes outside the ring
+    for i in range(7):
+        a = i / 7 * math.tau + 0.3
+        _box(f"Stake{i}", (0.04, 0.04, 0.32), (math.cos(a) * 1.3, math.sin(a) * 1.3, 0.1), wood)
+
+    # Pennant: pole plus a two-colour swallowtail flag (colours keyed per frame).
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.03, depth=1.5, location=(0.55, 0.45, 0.9))
+    bpy.context.active_object.data.materials.append(wood)
+    field = flat_flag("FlagFieldMesh", [(0, 0), (0.62, 0.02), (0.5, -0.17), (0.62, -0.36), (0, -0.34)], flag_a)
+    stripe = flat_flag("FlagStripeMesh", [(0, -0.12), (0.56, -0.13), (0.56, -0.21), (0, -0.22)], flag_b)
+    for ob in (field, stripe):
+        ob.location = (0.58, 0.45, 1.62)
+        ob.rotation_euler = (math.radians(90), 0, math.radians(-12))
+    stripe.location.y -= 0.005
+
+    for f, (_, a, b) in enumerate(OUTPOST_FACTIONS, start=1):
+        for mat, col in ((flag_a, a), (flag_b, b)):
+            inp = mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"]
+            inp.default_value = (*col, 1)
+            inp.keyframe_insert("default_value", frame=f)
+    for mat in (flag_a, flag_b):
+        for fc in getattr(mat.node_tree.animation_data.action, "fcurves", []):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "CONSTANT"
+    render()
+
+
+def flat_flag(name, outline, mat, thickness=0.01):
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    face = bm.faces.new([bm.verts.new((x, 0, y)) for x, y in outline])
+    ext = bmesh.ops.extrude_face_region(bm, geom=[face])
+    for v in [g for g in ext["geom"] if isinstance(g, bmesh.types.BMVert)]:
+        v.co.y += thickness
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(mat)
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin, outposts)}
 
 if __name__ == "__main__":
     # Optional names after the output dir render only those effects.

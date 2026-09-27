@@ -25,6 +25,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^24",
+		"@types/three": "^0.186.0",
 		"drizzle-kit": "^0.31.10",
 		"drizzle-orm": "^0.45.2",
 		"prettier": "^3.8.3",
@@ -41,6 +42,7 @@
 		"better-sqlite3": "^13.0.2",
 		"pixi-viewport": "^6.0.3",
 		"pixi.js": "^8.21.0",
-		"sharp": "^0.35.4"
+		"sharp": "^0.35.4",
+		"three": "^0.186.1"
 	}
 }

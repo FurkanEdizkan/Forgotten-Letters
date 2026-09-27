@@ -35,6 +35,10 @@ export interface PublicWarband {
 	scouted: string[];
 	outposts: string[];
 	supplied: string[];
+	/** Map marker preference, and the rendered model tokens to use (null: defaults). */
+	displayModel: 'portrait' | 'model';
+	outpostToken: string | null;
+	figureToken: string | null;
 	omens: number;
 	apocrypha: number;
 	/** Only after the reveal. */

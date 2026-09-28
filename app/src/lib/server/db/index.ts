@@ -10,6 +10,9 @@ const url = env.DATABASE_URL ?? 'postgres://carcass:carcass@localhost:5432/carca
 const client = postgres(url, { max: 10, onnotice: () => {} });
 
 export const db = drizzle(client, { schema });
+
+// server.js emits this once the HTTP server has closed (on SIGTERM / SIGINT).
+process.on('sveltekit:shutdown', () => void client.end({ timeout: 5 }));
 export type Db = typeof db;
 /** A database handle or an open transaction: anything queries can run on. */
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0] | Db;

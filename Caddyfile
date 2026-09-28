@@ -1,0 +1,3 @@
+{$DOMAIN} {
+	reverse_proxy carcass-front:3000
+}

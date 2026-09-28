@@ -362,10 +362,32 @@ A draw raises a cairn. With reduced motion, only the final state shows.
 
 All are rendered in Blender (`scripts/fx/render_fx.py`: `monuments`, `trophy`, `corpses`, `flash`, `blast`, `spurt`) with the outposts' camera and light, so they sit on the painted map.
 
+### Sky (live map)
+- **Clouds.** Map-wide rain, storms and blood rain are clouds, not a curtain over the screen: soft cells drift across the map on the wind, over the map art but under the tokens, with a shadow on the ground.
+  - Some only pass over. Others rain for a stretch of their crossing, with thin slanted streaks and splash rings beneath them.
+  - Thunderheads are darker and strike lightning where they are.
+  - Each cell is seeded from its slot on the server's clock, so every screen sees the same sky.
+- **Light of the hour.** Day, dawn, dusk, night and blood moon are a multiply grade over the map, which keeps the art's colours. After dark, lanterns glow at every outpost and battle.
+  - *Day cycle* runs day → dusk → night → dawn over a length the Campaign Master sets (default 30 minutes), at the same moment on every screen.
+- **The UI stays readable.** Markers, labels and the page's own UI always sit above the weather.
+
 ### Compendium
 The rules text (core rules, campaign, scenarios) reads as the book: a column of Garamond under a Pirata title, blood-red sub-heads, ✠ bullets, tables ruled in ink, keywords in capitals underlined with dots and linked to the glossary, and a sticky contents rail for the book on the right (stacked below on phones).
 
 Rulebook pages: unit entries as boxes with a blood-red name bar (blackletter), cost and availability, the profile as five boxed values, keyword chips that show their glossary text on hover or tap, and folding Abilities / Battlekit / Lore; armoury tables with grey header rows.
+
+### Map Studio
+The admin register, widened for work.
+- **Layout.** The map uses the screen's width (not the reading column), with the zone panel to its right on desktop and below it on phones.
+- **Tools.** Move, Link and Add are joined square toggles showing their keys (M, L, A). One hint line says what the chosen tool does, and in Link mode which zone you are linking from.
+- **Once-per-campaign actions.** Uploading the image, zone files and the Carcass Front preset sit apart in a folded "Map image and zone files" section. Every action that replaces the map asks first and names what it will replace.
+- **Zones.** Discs coloured as on the live map: ink for entry zones, blood red for special, bone for basic.
+  - Every disc has a 44 px target, whatever the map's size on screen.
+  - With a map image, only the selected zone, its neighbours and the house zones are labelled, because the image prints the rest.
+  - The selected zone has a gold ring and its neighbours a pale red one. Keyboard focus is a dashed blood ring, distinct from selection.
+- **Panel.** A zone opens under an "All zones" back link; Escape also goes back. Moving between the list and a zone moves focus with it.
+- **Unsaved work.** A save bar rises from the bottom edge (2px blood top edge, the sheet shadow) with the number of unsaved changes, *Discard changes* and *Save the map* (Ctrl S). Leaving the page with unsaved changes asks first.
+- **Live map without an image.** A plain parchment field inside a thin red frame, with every zone drawn the way house zones are.
 
 ### Faction Studio
 An admin register page like *Rules*:

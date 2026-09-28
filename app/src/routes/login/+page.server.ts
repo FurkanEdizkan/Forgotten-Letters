@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { SESSION_COOKIE, authenticate, createSession, loginLimiter } from '$lib/server/auth';
+import { FORGET_COOKIE, SESSION_COOKIE, authenticate, createSession, loginLimiter } from '$lib/server/auth';
 import { normaliseUsername } from '$lib/server/passwords';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -22,13 +22,12 @@ export const actions: Actions = {
 		if (!u) return fail(401, { username, message: 'That username and password do not match, or the account is disabled.' });
 		loginLimiter.clear(`user:${username}`);
 		const { token, maxAge } = await createSession(u.id, request.headers.get('user-agent'));
-		cookies.set(SESSION_COOKIE, token, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: url.protocol === 'https:',
-			maxAge
-		});
+		// "Remember me": a cookie that lasts the session's 30 days; otherwise one that ends when the browser closes.
+		const remember = data.has('remember');
+		const opts = { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:' } as const;
+		cookies.set(SESSION_COOKIE, token, remember ? { ...opts, maxAge } : opts);
+		if (remember) cookies.delete(FORGET_COOKIE, { path: '/' });
+		else cookies.set(FORGET_COOKIE, '1', opts);
 		if (u.mustChangePassword) redirect(303, '/account?first=1');
 		redirect(303, safeNext(url.searchParams.get('next')) ?? (u.role === 'cm' ? '/admin' : '/'));
 	}

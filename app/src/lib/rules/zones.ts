@@ -1,6 +1,6 @@
 import type { Zone } from './types';
 
-/** Base map image the normalised anchors refer to (assets/carcass-map.png). */
+/** The Carcass Front map image the preset's normalised anchors were measured on. */
 export const MAP_SIZE = { w: 1199, h: 802 };
 const px = (x: number, y: number) => ({ x: x / MAP_SIZE.w, y: y / MAP_SIZE.h });
 
@@ -195,8 +195,23 @@ export interface ZoneGraph {
 	adj: Map<string, Set<string>>;
 }
 
+/** The Carcass Front map's zones and our house additions: the preset a new campaign starts from. */
+export const PRESET_ZONES: Zone[] = [...BOOK_ZONES, ...HOUSE_ZONES];
+export const BOOK_ZONE_IDS = new Set(BOOK_ZONES.map((z) => z.id));
+
+/**
+ * The campaign's zones as placed in the Map Studio. Replaced in place (setZones) when they are loaded or edited,
+ * so every module that imports it sees the current map. Starts as the preset.
+ */
+export const ALL_ZONES: Zone[] = [...PRESET_ZONES];
+
+export function setZones(list: Zone[]) {
+	ALL_ZONES.splice(0, ALL_ZONES.length, ...list);
+}
+
+/** The zones and their (symmetric) links; `houseZones` off leaves out the zones marked as house additions. */
 export function buildGraph(houseZones = true): ZoneGraph {
-	const list = houseZones ? [...BOOK_ZONES, ...HOUSE_ZONES] : BOOK_ZONES;
+	const list = houseZones ? ALL_ZONES : ALL_ZONES.filter((z) => !z.house);
 	const zones = new Map(list.map((z) => [z.id, z]));
 	const adj = new Map<string, Set<string>>(list.map((z) => [z.id, new Set<string>()]));
 	for (const z of list) {
@@ -208,6 +223,3 @@ export function buildGraph(houseZones = true): ZoneGraph {
 	}
 	return { zones, adj };
 }
-
-export const ALL_ZONES: Zone[] = [...BOOK_ZONES, ...HOUSE_ZONES];
-export const BOOK_ZONE_IDS = new Set(BOOK_ZONES.map((z) => z.id));

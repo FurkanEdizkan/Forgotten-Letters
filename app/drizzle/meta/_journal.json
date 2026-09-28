@@ -71,6 +71,13 @@
       "when": 1790541830738,
       "tag": "0009_faction_studio",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790615019451,
+      "tag": "0010_map_studio",
+      "breakpoints": true
     }
   ]
 }

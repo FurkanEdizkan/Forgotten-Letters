@@ -24,6 +24,7 @@
 		<h1>Sign in</h1>
 		<label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required value={form?.username ?? ''} /></label>
 		<label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+		<label class="remember"><input type="checkbox" name="remember" checked /> Remember me on this device</label>
 		{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}
 		<button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
 		<p class="hint">Accounts are made by the Campaign Master. Ask them if you have none, or have forgotten your password.</p>
@@ -76,5 +77,11 @@
 	}
 	.back:hover {
 		color: var(--bone);
+	}
+	.remember {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-weight: 400;
 	}
 </style>

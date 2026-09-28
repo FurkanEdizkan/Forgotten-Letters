@@ -1,6 +1,7 @@
 import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
 import { BattleField, BattleResult } from './battle';
-import { DEFAULT_PARAMS, TIME_OF_DAY, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
+import { Clouds, Sky } from './sky';
+import { DEFAULT_PARAMS, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
 
 /**
  * Weather & atmosphere for the live map.
@@ -601,7 +602,7 @@ function drawBolt(g: Graphics, from: { x: number; y: number }, to: { x: number; 
 }
 
 /** One lightning strike: bolt + flash, fades out. */
-class Strike implements Effect {
+export class Strike implements Effect {
 	g = new Graphics();
 	bolt: FrameSprite | null = null;
 	global = new Graphics();
@@ -1125,7 +1126,10 @@ interface Running {
 export class FxEngine {
 	private tex: Textures;
 	private running = new Map<string, Running>();
-	private grade = new Graphics();
+	private sky: Sky;
+	/** Clouds and their shadows: over the map art, under the markers and the light of the hour. */
+	private cloudBase = new Container();
+	private cloudMask = new Graphics();
 	private oneShots: Effect[] = [];
 	private screenLayer = new Container();
 	private worldBack = new Container();
@@ -1145,7 +1149,6 @@ export class FxEngine {
 		quality: number
 	) {
 		this.tex = makeTextures();
-		this.worldBack.addChild(this.grade);
 		worldBackParent.addChild(this.worldBack);
 		worldFrontParent.addChild(this.worldFront);
 		screen.addChild(this.screenLayer);
@@ -1161,6 +1164,9 @@ export class FxEngine {
 			},
 			now: () => (Date.now() + this.clockSkew) / 1000
 		};
+		this.worldBack.addChild(this.cloudBase, this.cloudMask);
+		this.cloudBase.mask = this.cloudMask;
+		this.sky = new Sky(this.ctx, this.worldBack);
 		app.ticker.add(this.tick);
 		void this.loadSheets();
 	}
@@ -1212,12 +1218,19 @@ export class FxEngine {
 		r.holder.destroy({ children: true });
 	}
 
-	/** Colour grade over the map (under the markers): day, dusk, night, blood moon. */
-	setTimeOfDay(tod: TimeOfDay, worldW: number, worldH: number) {
-		const g = TIME_OF_DAY[tod] ?? TIME_OF_DAY.day;
-		this.grade.clear();
-		if (g.alpha > 0) this.grade.rect(0, 0, worldW, worldH).fill({ color: g.color, alpha: g.alpha });
+	/** The light over the map (under the markers): a fixed hour, or the day cycle. */
+	setTimeOfDay(tod: TimeOfDay, worldW: number, worldH: number, cycleMinutes = 30) {
+		this.sky.set(tod, worldW, worldH, cycleMinutes);
+		this.cloudMask.clear().rect(0, 0, worldW, worldH).fill({ color: 0xffffff });
 	}
+
+	/** Lanterns after dark: outposts and battles, in world coordinates. */
+	setLights(points: Pt[]) {
+		this.sky.setLights(points);
+	}
+
+	/** Map-wide rain and storms are clouds drifting over the map, not a curtain over the screen. */
+	private static CLOUDS = new Set<Wanted['kind']>(['rain', 'bloodRain', 'storm']);
 
 	/** Opacity, tint and size apply to the effect's holder; speed to its clock. */
 	private applyParams(r: Running) {
@@ -1245,9 +1258,11 @@ export class FxEngine {
 		const back = holder;
 		const i = w.intensity;
 		const particles = (spec: ParticleSpec) => (ctx.q > 0 ? new Particles(ctx, w.scope, spec, layer, i) : null);
+		if (w.scope.type === 'screen' && FxEngine.CLOUDS.has(w.kind))
+			return new Clouds(ctx, w.kind as 'rain' | 'bloodRain' | 'storm', holder, this.cloudBase, this.worldSize, this.screenLayer, i);
 		switch (w.kind) {
 			case 'rain':
-				return particles(rainSpec(0xb8c6d8, 0.45));
+				return particles(rainSpec(0xb8c6d8, 0.38));
 			case 'bloodRain':
 				return particles(rainSpec(0x9e1010, 0.75));
 			case 'storm':
@@ -1309,7 +1324,13 @@ export class FxEngine {
 				continue;
 			}
 			const parent =
-				w.scope.type === 'screen' ? this.screenLayer : FxEngine.BACK.has(w.kind) ? this.worldBack : this.worldFront;
+				w.scope.type === 'screen' && FxEngine.CLOUDS.has(w.kind)
+					? this.worldFront
+					: w.scope.type === 'screen'
+						? this.screenLayer
+						: FxEngine.BACK.has(w.kind)
+							? this.worldBack
+							: this.worldFront;
 			const holder = new Container();
 			parent.addChild(holder);
 			const effect = this.make(w, holder);
@@ -1520,6 +1541,7 @@ export class FxEngine {
 			}
 			r.effect.update(d, r.t);
 		}
+		this.sky.update(this.t);
 		for (const e of this.oneShots) e.update(dt, this.t);
 		this.oneShots = this.oneShots.filter((e) => (e.done?.() ? (e.destroy(), false) : true));
 		if (this.shakeLeft > 0) {
@@ -1534,6 +1556,7 @@ export class FxEngine {
 		this.app.ticker.remove(this.tick);
 		for (const r of this.running.values()) this.dispose(r);
 		for (const e of this.oneShots) e.destroy();
+		this.sky.destroy();
 		this.running.clear();
 		this.oneShots = [];
 	}

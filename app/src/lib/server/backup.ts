@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { db } from './db';
 import {
+	mapZone,
 	adjustment,
 	campaign,
 	customFaction,
@@ -24,8 +25,8 @@ import {
 } from './db/schema';
 import { resolveUpload } from './uploads';
 
-/** v2 added lore, rosters and models (and their files); v3 accounts; v4 players' warband lists; v5 the Faction Studio's work. Older backups still import. */
-export const BACKUP_VERSION = 5;
+/** v2 added lore, rosters and models (and their files); v3 accounts; v4 players' warband lists; v5 the Faction Studio's work; v6 the map and its zones. Older backups still import. */
+export const BACKUP_VERSION = 6;
 
 type Row = Record<string, unknown>;
 
@@ -51,6 +52,8 @@ export interface Backup {
 	lists?: { warbands: Row[]; units: Row[]; stash: Row[] };
 	/** Faction Studio: authored factions and every custom or edited rules row (book rows come from rules.json). */
 	studio?: { factions: Row[]; units: Row[]; items: Row[]; keywords: Row[]; rules: Row[] };
+	/** The map's zones (Map Studio). */
+	zones?: Row[];
 	/** Uploaded files (images and model STLs), base64, keyed by their /uploads path. */
 	images: Record<string, string>;
 }
@@ -71,6 +74,7 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 
 	const images: Record<string, string> = {};
 	for (const path of [
+		c.mapImage,
 		...players.map((p) => p.portrait),
 		...warbands.map((w) => w.symbol),
 		...warbands.flatMap((w) => [w.seal?.custom?.base, w.seal?.custom?.light, w.seal?.custom?.source]),
@@ -104,6 +108,7 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 		stash,
 		models,
 		unitArt: art,
+		zones: await db.select().from(mapZone).where(eq(mapZone.campaignId, campaignId)),
 		users: await db.select().from(user),
 		lists: await (async () => {
 			const warbands = await db.select().from(warband).where(and(isNull(warband.campaignId), isNotNull(warband.listOwnerId)));
@@ -162,6 +167,7 @@ export async function importCampaign(raw: unknown) {
 
 		for (const r of b.users ?? []) await tx.insert(user).values(revive<typeof user.$inferInsert>(r));
 		(await tx.insert(campaign).values(revive<typeof campaign.$inferInsert>(b.campaign)));
+		for (const r of b.zones ?? []) await tx.insert(mapZone).values(r as typeof mapZone.$inferInsert);
 		for (const r of b.players ?? []) (await tx.insert(player).values(revive<typeof player.$inferInsert>(r)));
 		for (const r of b.warbands ?? []) (await tx.insert(warband).values(revive<typeof warband.$inferInsert>(r)));
 		for (const r of b.games ?? []) (await tx.insert(game).values(revive<typeof game.$inferInsert>(r)));

@@ -18,6 +18,17 @@
 
 <h1>{c ? c.name : 'Found a Campaign'}</h1>
 
+{#if data.setup}
+	<section class="setup" aria-label="Setting up">
+		<h2>Setting up</h2>
+		<ol>
+			{#each data.setup as s (s.href)}
+				<li class:done={s.done}><a href={s.href}>{s.label}</a>{#if s.done} <span>done</span>{/if}</li>
+			{/each}
+		</ol>
+	</section>
+{/if}
+
 <form method="POST" action={c ? '?/update' : '?/create'} use:enhance={() => ({ update }) => update({ reset: false })}>
 	<fieldset>
 		<legend>The campaign</legend>
@@ -185,5 +196,28 @@
 	.error {
 		color: var(--blood);
 		margin-left: 10px;
+	}
+	.setup {
+		margin: 12px 0 24px;
+		padding: 10px 16px;
+		border-left: 3px solid var(--blood);
+		background: rgba(139, 42, 29, 0.05);
+	}
+	.setup h2 {
+		margin: 0 0 6px;
+	}
+	.setup ol {
+		margin: 0;
+		padding-left: 1.4em;
+		display: grid;
+		gap: 4px;
+	}
+	.setup li.done a {
+		color: var(--muted);
+		text-decoration: line-through;
+	}
+	.setup li span {
+		color: var(--supplies);
+		font-size: 0.85rem;
 	}
 </style>

@@ -8,6 +8,8 @@
 __pycache__/
 graphify-out/
 .impeccable/review/
-app/src/lib/assets/sigils/
-app/assets/blender/seals/
 rules.json
+
+# Deployment: settings with passwords, and database dumps
+/.env
+/backups/

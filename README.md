@@ -17,41 +17,64 @@ from their own phone or browser.
 
 ## Run it
 
-Requires Docker.
+Requires Docker with the compose plugin (v2). Works on any Linux server, a Mac or a Windows machine with Docker.
 
-1. **Extract the map.** The map art belongs to the Carcass Front book, so it isn't in the repo.
-   Generate it from your copy (needs `pdfimages` from poppler-utils and Python Pillow):
+```sh
+git clone git@github.com:FurkanEdizkan/Forgotten-Letters.git && cd Forgotten-Letters
+./build_and_update.sh
+```
 
-   ```sh
-   python3 app/scripts/extract-map.py "docs/Trench Crusade/Carcass Front/Carcass Front.pdf"
-   ```
+The first run writes `.env` with random passwords and prints the Campaign Master's password.
 
-2. **Start it**, choosing the Campaign Master's password (and, optionally, the database's):
+1. Open **http://localhost:3000/admin**, sign in as `cm` (you'll be asked to choose your own password), and found the
+   campaign: number of players, games per player, house zones and house rules. A *Setting up* checklist then shows what's
+   left:
+   - **the map** (*Admin → Map*, see below);
+   - **the rules** (*Admin → Rules*, or your own factions in the *Faction Studio*);
+   - **the players.**
+2. Players open **http://&lt;this machine's address&gt;:3000**, e.g. `http://192.168.1.20:3000` on a LAN.
+3. **Make the players' accounts** in *Players*: create each account with a username and a generated password, and tick
+   the seat they play. Players sign in at `/login`, choose their own password, and can then edit their own warband's
+   seal, pictures and roster. The same page resets passwords, disables accounts and signs players out everywhere.
 
-   ```sh
-   ADMIN_PASSWORD='something-secret' POSTGRES_PASSWORD='another-secret' docker compose up -d --build
-   ```
+### Deploy, update, stop
 
-   This runs two containers: the app and PostgreSQL.
+| Command | What it does |
+| --- | --- |
+| `./build_and_update.sh` | Builds the image, backs up the database to `backups/`, starts or updates the stack and waits until it is healthy. If the new version fails its health check, it rolls back to the previous one. `--pull` does a `git pull` first. |
+| `./stop.sh` | Backs up the database, then stops every container cleanly. Data stays in its volumes. `--no-backup` skips the dump. |
 
-3. Open **http://localhost:3000/admin**, log in, and found the campaign: number of players,
-   games per player, house zones and house rules. Then muster the warbands (portrait and
-   faction symbol uploads), deal the Visions, and arrange the first game.
+- **Settings** live in `.env` (see `.env.example`): passwords, `PORT`, and `IMAGE` (the image name, if one machine runs
+  several deployments).
+- **HTTPS:** point a domain at the server, open ports 80 and 443, and set `DOMAIN=campaign.example.com` and
+  `COMPOSE_PROFILES=https` in `.env`. The next `./build_and_update.sh` starts Caddy with automatic certificates.
+- **The image** runs as an unprivileged user and holds no book content. The map and rules are uploaded at run time.
+- **Backups.** `backups/` keeps the last 10 database dumps. To restore one:
+  `docker compose exec -T db pg_restore -U carcass -d carcass --clean < backups/<file>.dump`.
+  **Backup** in the admin menu downloads the whole campaign, uploads included, as one JSON file; keep one after each
+  game night.
+- **Where data lives.** Campaign data is in PostgreSQL (the `pgdata` volume); the uploaded map, portraits, symbols,
+  seals and models are in the `data` volume. `docker compose down -v` deletes both, and all data with them.
+- **Older installs.** A SQLite campaign (`/data/campaign.db`) is copied into Postgres on first start, and the old file
+  is kept as `campaign.db.imported`.
 
-4. Players open **http://&lt;this machine's LAN address&gt;:3000** on the same network, e.g.
-   `http://192.168.1.20:3000` (`ip -4 addr` or `hostname -I` shows it).
+### The map: Admin → Map
 
-5. **Make the players' accounts.** Sign in as `cm` with `ADMIN_PASSWORD` (you'll be asked to choose
-   your own password), then open *Players* in the admin menu: create each player's account with
-   a username, let a password be generated, and tick the seat they play. They sign in at `/login`,
-   choose their own password, and can then edit their own warband's seal, pictures and roster. The
-   *Players* page also resets passwords, disables accounts and signs them out everywhere.
+The map art belongs to its book, so it isn't in the repository or the image; each campaign uploads its own.
 
-Campaign data lives in PostgreSQL (the `pgdata` volume); uploaded portraits, symbols, seals
-and models live in the `data` volume. Both survive restarts and rebuilds. An older install's
-SQLite campaign (`/data/campaign.db`) is copied into Postgres automatically on first start and
-the old file is kept as `campaign.db.imported`. **Backup** in the admin menu downloads everything as one JSON file —
-keep one after each game night. `docker compose down -v` deletes the volumes and all data.
+- **Image.** *Upload a map image* in *Admin → Map*. For Carcass Front, make it from your copy of the book (needs
+  `pdfimages` from poppler-utils and Python Pillow):
+
+  ```sh
+  python3 app/scripts/extract-map.py "docs/Trench Crusade/Carcass Front/Carcass Front.pdf" carcass-map.webp
+  ```
+
+- **Zones.** A new campaign starts with the Carcass Front zones. In the Map Studio you can:
+  - drag zones into place, add zones, and link neighbours;
+  - set each zone's type, resources, scenario, Outpost bonus and Omen;
+  - mark zones the image doesn't show, which the app then draws.
+- **Other maps.** Upload any image and place your own zones. Without an image the map is plain parchment with every
+  zone drawn. Zones can be downloaded and imported as YAML.
 
 ### Rules: the compendium and the warband builder
 
@@ -116,6 +139,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/admin/players` | Campaign Master | Player accounts: create, reset passwords, disable, assign seats. |
 | `/admin/rules` | Campaign Master | Load and correct the rules data from `import-rules.py`, including each faction's and variant's special rules (which the builder reads). |
 | `/admin/studio` | Campaign Master | Faction Studio: author factions, variants, units and armoury (YAML template or forms); house-rule book entries. |
+| `/admin/map` | Campaign Master | Map Studio: upload the map image, place and link zones, zones as YAML. |
 | `/admin/weather` | Campaign Master | Live weather console, portents, regional weather, zeppelin events. |
 | `/admin/visions`, `/admin/backup` | Campaign Master | Deal Visions; export / restore. |
 
@@ -142,7 +166,7 @@ light on phones; the STL is kept for re-rendering but never served publicly.
 ```sh
 cd app
 npm install
-docker compose up -d db   # from the repo root: Postgres on the compose network
+docker compose -f compose.yaml -f compose.dev.yaml up -d db   # from the repo root: Postgres on localhost:5432
 npm run dev          # http://localhost:5173 (app/.env: DATABASE_URL=postgres://…, ADMIN_PASSWORD)
 npm test             # rules-engine tests
 npm run check        # type-check

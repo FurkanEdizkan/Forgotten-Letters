@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
-import { SESSION_COOKIE, endAllSessions, createSession, setPassword } from '$lib/server/auth';
+import { FORGET_COOKIE, SESSION_COOKIE, endAllSessions, createSession, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, verifyPassword } from '$lib/server/passwords';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,7 +27,7 @@ export const actions: Actions = {
 		// Sign out every other device, keep this one.
 		await endAllSessions(u.id);
 		const { token, maxAge } = await createSession(u.id, request.headers.get('user-agent'));
-		cookies.set(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', maxAge });
+		cookies.set(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', ...(cookies.get(FORGET_COOKIE) ? {} : { maxAge }) });
 		redirect(303, u.role === 'cm' ? '/admin' : '/');
 	}
 };

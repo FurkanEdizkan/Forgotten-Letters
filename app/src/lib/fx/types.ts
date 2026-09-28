@@ -108,12 +108,15 @@ export function layerParams(l: FxLayer | undefined): FxParams {
 	};
 }
 
-export type TimeOfDay = 'day' | 'dusk' | 'night' | 'blood-moon';
-export const TIME_OF_DAY: Record<TimeOfDay, { label: string; color: number; alpha: number }> = {
-	day: { label: 'Day', color: 0x000000, alpha: 0 },
-	dusk: { label: 'Dusk', color: 0x8a3b12, alpha: 0.22 },
-	night: { label: 'Night', color: 0x0b1330, alpha: 0.48 },
-	'blood-moon': { label: 'Blood moon', color: 0x5a0606, alpha: 0.4 }
+/** A fixed light, or `cycle`: day, dusk, night and dawn in turn, in step on every screen. */
+export type TimeOfDay = 'day' | 'dawn' | 'dusk' | 'night' | 'blood-moon' | 'cycle';
+export const TIME_OF_DAY: Record<TimeOfDay, { label: string }> = {
+	day: { label: 'Day' },
+	dawn: { label: 'Dawn' },
+	dusk: { label: 'Dusk' },
+	night: { label: 'Night' },
+	'blood-moon': { label: 'Blood moon' },
+	cycle: { label: 'Day cycle' }
 };
 
 export interface WeatherPreset {
@@ -136,6 +139,8 @@ export interface FxConfig {
 	/** Victory monuments (and the fallen) left on the zones where battles were won. */
 	monuments: boolean;
 	timeOfDay: TimeOfDay;
+	/** Length of one full day in the day cycle, in minutes. */
+	cycleMinutes: number;
 	presets: WeatherPreset[];
 }
 
@@ -147,6 +152,7 @@ export const DEFAULT_FX: FxConfig = {
 	battleWeather: true,
 	monuments: true,
 	timeOfDay: 'day',
+	cycleMinutes: 30,
 	presets: []
 };
 
@@ -242,6 +248,7 @@ export function normaliseFx(raw: unknown): FxConfig {
 		layers: normaliseLayers(c.layers),
 		random: { ...DEFAULT_FX.random, ...(c.random ?? {}) },
 		timeOfDay: tod,
+		cycleMinutes: typeof c.cycleMinutes === 'number' && isFinite(c.cycleMinutes) ? Math.round(Math.min(240, Math.max(4, c.cycleMinutes))) : 30,
 		presets: (Array.isArray(c.presets) ? c.presets : [])
 			.filter((p) => p && typeof p.name === 'string' && p.name.trim())
 			.slice(0, 40)

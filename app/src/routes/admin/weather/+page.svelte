@@ -114,6 +114,12 @@
 					<button type="button" class="seg" class:on={fx.timeOfDay === k} onclick={() => (fx.timeOfDay = k as TimeOfDay)}>{t.label}</button>
 				{/each}
 			</div>
+			{#if fx.timeOfDay === 'cycle'}
+				<label class="cycle">
+					A full day takes <input type="number" min="4" max="240" step="1" bind:value={fx.cycleMinutes} /> minutes
+					<small>(day, dusk, night and dawn; the same moment on every screen)</small>
+				</label>
+			{/if}
 
 			<div class="layers">
 				{#each AMBIENT_KINDS as kind (kind)}
@@ -371,6 +377,20 @@
 		flex-wrap: wrap;
 		gap: 0;
 		margin-bottom: 10px;
+	}
+	.cycle {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px 8px;
+		margin: -4px 0 12px;
+		font-size: 0.9rem;
+	}
+	.cycle input {
+		width: 5rem;
+	}
+	.cycle small {
+		color: var(--muted);
 	}
 	.seg {
 		background: var(--paper);

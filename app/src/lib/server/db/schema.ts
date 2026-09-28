@@ -1,6 +1,7 @@
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
+import type { Zone } from '$lib/rules/types';
 
 const id = () =>
 	text('id')
@@ -25,8 +26,27 @@ export const campaign = pgTable('campaign', {
 	houseRazing: boolean('house_razing').notNull().default(false),
 	houseOutpostLevy: boolean('house_outpost_levy').notNull().default(false),
 	visionsRevealed: boolean('visions_revealed').notNull().default(false),
+	/** The campaign map, uploaded in Admin → Map (/uploads path), and its size in pixels. Null: a plain parchment. */
+	mapImage: text('map_image'),
+	mapWidth: integer('map_width'),
+	mapHeight: integer('map_height'),
 	createdAt: createdAt()
 });
+
+/** The map's zones, placed in the Map Studio (seeded from the Carcass Front preset). Fields as `Zone`. */
+export const mapZone = pgTable(
+	'map_zone',
+	{
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		id: text('id').notNull(),
+		/** Order on the map (numbering of drawn zones). */
+		order: integer('order').notNull().default(0),
+		zone: jsonb('zone').$type<Zone>().notNull()
+	},
+	(t) => [primaryKey({ columns: [t.campaignId, t.id] })]
+);
 
 export const player = pgTable(
 	'player',

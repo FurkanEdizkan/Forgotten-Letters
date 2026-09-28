@@ -5,6 +5,8 @@ import { player, session, user, warband } from './db/schema';
 import { hashPassword, newToken, rateLimiter, tokenHash, verifyPassword, normaliseUsername } from './passwords';
 
 export const SESSION_COOKIE = 'cf_session';
+/** Set when "Remember me" was left unticked: the session cookie then ends with the browser. */
+export const FORGET_COOKIE = 'cf_forget';
 const SESSION_DAYS = 30;
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -22,20 +24,21 @@ export interface SessionUser {
 export const loginLimiter = rateLimiter(5, 60_000);
 
 /**
- * First start: create the Campaign Master's account from ADMIN_PASSWORD (username `cm`),
+ * First start: create the Campaign Master's account from ADMIN_USERNAME (default `cm`) and ADMIN_PASSWORD,
  * to be changed at first sign-in. Does nothing once any CM account exists.
  */
 export async function ensureCmAccount() {
 	const [cm] = await db.select({ id: user.id }).from(user).where(eq(user.role, 'cm')).limit(1);
 	if (cm) return;
+	const username = normaliseUsername(env.ADMIN_USERNAME || 'cm').slice(0, 32);
 	await db.insert(user).values({
-		username: 'cm',
+		username,
 		displayName: 'Campaign Master',
 		role: 'cm',
 		passwordHash: await hashPassword(env.ADMIN_PASSWORD ?? 'changeme'),
 		mustChangePassword: true
 	});
-	console.log('Created the Campaign Master account "cm" (password from ADMIN_PASSWORD; change it at first sign-in).');
+	console.log(`Created the Campaign Master account "${username}" (password from ADMIN_PASSWORD; change it at first sign-in).`);
 }
 
 /** Check a username and password; the user row on success. Disabled accounts cannot sign in. */

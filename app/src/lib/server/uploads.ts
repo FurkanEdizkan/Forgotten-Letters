@@ -15,10 +15,11 @@ export async function saveImage(
 	campaignId: string,
 	file: FormDataEntryValue | null,
 	size: number,
-	fit: 'cover' | 'inside' = 'cover'
+	fit: 'cover' | 'inside' = 'cover',
+	maxBytes = MAX_BYTES
 ): Promise<string | null> {
 	if (!(file instanceof File) || file.size === 0) return null;
-	if (file.size > MAX_BYTES) throw new Error('Image is larger than 10 MB');
+	if (file.size > maxBytes) throw new Error(`Image is larger than ${maxBytes / 1024 / 1024} MB`);
 	const input = Buffer.from(await file.arrayBuffer());
 	const output = await sharp(input)
 		.rotate()

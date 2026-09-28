@@ -1,12 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, count, eq, inArray, or } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { campaign, game, warband } from '$lib/server/db/schema';
+import { campaign, game, player, rulesUnit, warband } from '$lib/server/db/schema';
 import { currentCampaign, loadCampaignState } from '$lib/server/campaign';
 import { standings } from '$lib/rules/scoring';
 import { visionById } from '$lib/rules/visions';
 import { publish } from '$lib/server/hub';
 import { ALL_ZONES } from '$lib/rules/zones';
+import { loadZones } from '$lib/server/map';
 import { EXTENDED_MAX_PLAYERS } from '$lib/seating';
 import type { Actions } from './$types';
 
@@ -34,10 +35,18 @@ function settings(data: FormData) {
 /** CM-only preview of the final reckoning, Visions included. */
 export async function load() {
 	const c = await currentCampaign();
-	if (!c) return { reckoning: null };
+	if (!c) return { reckoning: null, setup: null };
+	// First steps of a new deployment: what is still missing, with where to do it.
+	const [{ units }] = await db.select({ units: count() }).from(rulesUnit);
+	const setup = [
+		{ done: !!c.mapImage, label: 'Upload the campaign map and place its zones', href: '/admin/map' },
+		{ done: units > 0, label: 'Load the rules (rules.json from your books) or write factions in the Faction Studio', href: '/admin/rules' },
+		{ done: (await db.select({ id: player.id }).from(player).where(eq(player.campaignId, c.id)).limit(1)).length > 0, label: 'Add the players', href: '/admin/players' }
+	];
 	const { rows, infos, state } = await loadCampaignState(c);
 	const byId = new Map(rows.map((r) => [r.warband.id, r]));
 	return {
+		setup: setup.every((s) => s.done) ? null : setup,
 		reckoning: standings(state, infos, { revealVisions: true, final: true }).map((s) => {
 			const r = byId.get(s.id)!;
 			return {
@@ -54,6 +63,7 @@ export const actions: Actions = {
 	create: async ({ request }) => {
 		if (await currentCampaign()) return fail(400, { message: 'A campaign already exists' });
 		(await db.insert(campaign).values(settings(await request.formData())));
+		await loadZones();
 		return { saved: true };
 	},
 	update: async ({ request }) => {

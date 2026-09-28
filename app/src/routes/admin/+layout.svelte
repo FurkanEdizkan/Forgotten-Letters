@@ -13,6 +13,7 @@
 		{ href: '/admin/factions', label: 'Factions' },
 		{ href: '/admin/adjustments', label: 'Adjustments' },
 		{ href: '/admin/weather', label: 'Weather' },
+		{ href: '/admin/map', label: 'Map' },
 		{ href: '/admin/lore', label: 'Lore' },
 		{ href: '/admin/rules', label: 'Rules' },
 		{ href: '/admin/studio', label: 'Faction Studio' },

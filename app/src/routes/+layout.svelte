@@ -8,12 +8,19 @@
 	import '@fontsource/pirata-one/400.css';
 	import '../app.css';
 	import { registerFactions } from '$lib/custom-factions';
+	import { setZones } from '$lib/rules/zones';
 
 	let { children, data } = $props();
 	// Before any page renders: the Faction Studio's factions join the books' list.
-	$effect.pre(() => registerFactions(data.customFactions));
+	// The same for the Map Studio's zones.
+	$effect.pre(() => {
+		registerFactions(data.customFactions);
+		setZones(data.zones);
+	});
 	// svelte-ignore state_referenced_locally
 	registerFactions(data.customFactions);
+	// svelte-ignore state_referenced_locally
+	setZones(data.zones);
 </script>
 
 <svelte:head>

@@ -1,17 +1,29 @@
+# Production stack. Start, update and stop it with ./build_and_update.sh and ./stop.sh.
+# Settings come from .env (see .env.example; build_and_update.sh creates it on first run).
 services:
   carcass-front:
     build: ./app
+    image: ${IMAGE:-forgotten-letters}:${TAG:-latest}
+    init: true # tini as PID 1: signals reach node, zombies are reaped
     ports:
-      - '3000:3000'
+      - '${PORT:-3000}:3000'
     environment:
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-cm}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       DATABASE_URL: postgres://carcass:${POSTGRES_PASSWORD:-carcass}@db:5432/carcass
     volumes:
-      # Uploaded portraits, symbols, seals and models; also where an old SQLite campaign is picked up from.
+      # Uploaded maps, portraits, symbols, seals and models; also where an old SQLite campaign is picked up from.
       - data:/data
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 5
+    stop_grace_period: 20s
     restart: unless-stopped
 
   db:
@@ -20,9 +32,6 @@ services:
       POSTGRES_USER: carcass
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-carcass}
       POSTGRES_DB: carcass
-    ports:
-      # Only this machine (for `npm run dev`); players never talk to the database.
-      - '127.0.0.1:5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,8 +39,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    # Time for a clean checkpoint on shutdown.
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+  # HTTPS with automatic certificates: set DOMAIN and COMPOSE_PROFILES=https in .env.
+  caddy:
+    image: caddy:2-alpine
+    profiles: [https]
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - carcass-front
     restart: unless-stopped
 
 volumes:
   data:
   pgdata:
+  caddy_data:
+  caddy_config:

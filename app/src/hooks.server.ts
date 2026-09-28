@@ -1,4 +1,5 @@
 import { loadCustomFactions } from '$lib/server/factions';
+import { loadZones } from '$lib/server/map';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { SESSION_COOKIE, ensureCmAccount, pruneSessions, sessionUser } from '$lib/server/auth';
 import { schedule } from '$lib/server/fx';
@@ -13,6 +14,7 @@ export const init: ServerInit = async () => {
 	await ensureCmAccount();
 	await loadRulesFileIfEmpty();
 	await loadCustomFactions();
+	await loadZones();
 	await pruneSessions();
 	await schedule();
 };

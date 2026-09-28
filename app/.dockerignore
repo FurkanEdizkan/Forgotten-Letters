@@ -8,3 +8,6 @@ data
 .env.*
 !.env.example
 .vscode
+assets/blender
+scripts/__pycache__
+static/map

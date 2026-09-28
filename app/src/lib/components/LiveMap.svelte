@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import type { Container, Graphics, Spritesheet, Texture } from 'pixi.js';
 	import { buildGraph } from '$lib/rules/zones';
 	import type { Zone } from '$lib/rules/types';
@@ -39,9 +40,13 @@
 		project?: (zoneId: string) => { x: number; y: number } | null;
 	} = $props();
 
-	const MAP_URL = '/map/carcass-map.webp';
+	// The campaign's map (Admin → Map): the world is 2398 wide and takes the image's shape. Without an image the
+	// map is plain parchment and every zone is drawn by the app.
+	const mapInfo = (page.data.map as { src: string | null; width: number; height: number } | undefined) ?? { src: null, width: 1199, height: 802 };
 	const W = 2398;
-	const H = 1604;
+	const H = Math.round((W * mapInfo.height) / mapInfo.width);
+	/** Zones the image doesn't show (house additions, or every zone on a blank map). */
+	const drawn = (z: Zone) => !!z.house || !mapInfo.src;
 	const RES_COLORS = { F: 0xc8741e, R: 0x9b2a1c, S: 0x5f7f2a, T: 0x2f6770 } as const;
 
 	let host: HTMLDivElement;
@@ -109,8 +114,9 @@
 			// Landscape: show the whole map. Portrait (phones): fill the height and centre on the
 			// battlefield; the right third of the image is the manual's text panel.
 			if (host.clientHeight > host.clientWidth) {
+				const xs = [...buildGraph(snapshot.campaign.houseZones).zones.values()].map((z) => z.pos?.x ?? 0.5);
 				viewport.setZoom(host.clientHeight / H, true);
-				viewport.moveCenter(W * 0.36, H / 2);
+				viewport.moveCenter(xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2) * W : W / 2, H / 2);
 			} else {
 				viewport.fit(true, W, H);
 				viewport.moveCenter(W / 2, H / 2);
@@ -129,11 +135,20 @@
 			const ro = new ResizeObserver(onResize);
 			ro.observe(host);
 
-			const mapTexture = await PIXI.Assets.load<Texture>(MAP_URL);
-			const map = new PIXI.Sprite(mapTexture);
-			map.width = W;
-			map.height = H;
-			viewport.addChild(map);
+			if (mapInfo.src) {
+				const map = new PIXI.Sprite(await PIXI.Assets.load<Texture>(mapInfo.src));
+				map.width = W;
+				map.height = H;
+				viewport.addChild(map);
+			} else {
+				viewport.addChild(
+					new PIXI.Graphics()
+						.rect(0, 0, W, H)
+						.fill({ color: 0xd9c9a3 })
+						.rect(18, 18, W - 36, H - 36)
+						.stroke({ width: 6, color: 0x8b2a1d, alpha: 0.5 })
+				);
+			}
 
 			const graph = buildGraph(snapshot.campaign.houseZones);
 			const world = (z: Zone) => ({ x: (z.pos?.x ?? 0.5) * W, y: (z.pos?.y ?? 0.5) * H });
@@ -154,16 +169,17 @@
 			};
 			const links = new PIXI.Graphics();
 			for (const z of graph.zones.values()) {
-				if (!z.house) continue;
+				if (!drawn(z)) continue;
 				for (const l of z.links) {
 					const other = graph.zones.get(l);
-					if (other) dashed(links, world(z), world(other), 46, other.house ? 46 : 60);
+					if (other) dashed(links, world(z), world(other), 46, drawn(other) ? 46 : 60);
 				}
 			}
 			links.stroke({ width: 6, color: 0x8b2a1d, cap: 'round' });
 			house.addChild(links);
+			const numbered = [...graph.zones.values()].filter((z) => drawn(z) && z.type !== 'entry');
 			for (const z of graph.zones.values()) {
-				if (!z.house) continue;
+				if (!drawn(z)) continue;
 				const p = world(z);
 				const c = new PIXI.Container();
 				c.position.set(p.x, p.y);
@@ -174,7 +190,7 @@
 						.fill({ color: entry ? 0x231a12 : 0xf1e6cb })
 						.stroke({ width: 6, color: 0x8b2a1d })
 				);
-				const label = entry ? z.id : String(['rudolfs-folly', 'hermits-stair', 'amoudet-seawall', 'stylite-row', 'corpse-rail-terminus', 'melessin-causeway'].indexOf(z.id) + 1);
+				const label = entry ? (z.id.length <= 2 ? z.id : z.name.replace(/^The /, '')[0]) : String(numbered.indexOf(z) + 1);
 				const num = new PIXI.Text({
 					text: label,
 					style: { fontFamily: 'EB Garamond', fontWeight: '700', fontSize: 50, fill: entry ? 0xf1e6cb : 0x8b2a1d }
@@ -747,7 +763,10 @@
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
 				fx.clockSkew = clockSkew;
 				fx.wind = snapshot.fx.wind;
-				fx.setTimeOfDay(snapshot.fx.timeOfDay, W, H);
+				fx.setTimeOfDay(snapshot.fx.timeOfDay, W, H, snapshot.fx.cycleMinutes);
+				// Lanterns after dark: every outpost, and the fields where battles are being fought.
+				const lit = new Set([...snapshot.warbands.flatMap((w) => w.outposts), ...snapshot.active.filter((g) => g.status === 'in_progress').map((g) => g.zone)]);
+				fx.setLights([...lit].flatMap((id) => (graph.zones.has(id) ? [world(graph.zones.get(id)!)] : [])));
 				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focus) : []);
 			};
 			refx();

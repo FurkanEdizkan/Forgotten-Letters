@@ -174,6 +174,10 @@ light on phones; the STL is kept for re-rendering but never served publicly.
 
 ## Develop
 
+Agent skills (design, PixiJS, Svelte, commit conventions) are listed in `skills-lock.json` and are not in git. After cloning, run
+`./install_skills.sh` to download them into `.agents/skills` and link them into `.claude/skills`. Add a skill with
+`npx skills add <owner/repo>`; it updates the lock file, which is committed.
+
 ```sh
 cd app
 npm install

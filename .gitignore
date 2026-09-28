@@ -13,3 +13,7 @@ rules.json
 # Deployment: settings with passwords, and database dumps
 /.env
 /backups/
+
+# Agent skills: listed in skills-lock.json, downloaded by ./install_skills.sh
+/.agents/skills/
+/.claude/skills/

@@ -10,6 +10,7 @@ import { currentCampaign } from './campaign';
 import { publish } from './hub';
 import { removeImage, resolveUpload, saveImage } from './uploads';
 import { PRESET_ZONES, setZones } from '$lib/rules/zones';
+import { starter } from './starter';
 import type { Zone } from '$lib/rules/types';
 
 export interface MapInfo {
@@ -36,8 +37,9 @@ export async function loadZones(): Promise<Zone[]> {
 	if (!c) return [];
 	let zones = await zonesOf(c.id);
 	if (!zones.length) {
-		await writeZones(c.id, PRESET_ZONES);
-		zones = PRESET_ZONES;
+		// A new campaign starts from the starter pack's layout, else the Carcass Front preset.
+		zones = starter()?.zones.length ? starter()!.zones : PRESET_ZONES;
+		await writeZones(c.id, zones);
 	}
 	setZones(zones);
 	return zones;

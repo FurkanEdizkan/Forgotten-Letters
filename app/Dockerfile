@@ -28,6 +28,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json /app/server.js ./
 COPY --from=build /app/build ./build
 COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/seed ./seed
 RUN mkdir -p /data/uploads && chown -R node:node /data
 USER node
 VOLUME /data

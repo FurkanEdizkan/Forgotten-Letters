@@ -8,6 +8,7 @@ import { visionById } from '$lib/rules/visions';
 import { publish } from '$lib/server/hub';
 import { ALL_ZONES } from '$lib/rules/zones';
 import { loadZones } from '$lib/server/map';
+import { applyStarter } from '$lib/server/starter';
 import { EXTENDED_MAX_PLAYERS } from '$lib/seating';
 import type { Actions } from './$types';
 
@@ -62,8 +63,9 @@ export async function load() {
 export const actions: Actions = {
 	create: async ({ request }) => {
 		if (await currentCampaign()) return fail(400, { message: 'A campaign already exists' });
-		(await db.insert(campaign).values(settings(await request.formData())));
+		const [created] = await db.insert(campaign).values(settings(await request.formData())).returning({ id: campaign.id });
 		await loadZones();
+		await applyStarter(created.id);
 		return { saved: true };
 	},
 	update: async ({ request }) => {

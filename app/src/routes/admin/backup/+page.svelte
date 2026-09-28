@@ -16,6 +16,16 @@
 	<p class="muted">It contains the secret Vision cards — don't share it with players.</p>
 </section>
 
+<section>
+	<h2>Starter pack</h2>
+	<p>
+		What a fresh install starts from: the zone layout, weather presets, regional weather set-ups and your Faction Studio factions. It
+		never holds the book's map, rules or lore, accounts, players or uploads, so it is safe to share. Save it as
+		<code>app/seed/starter.json</code> and commit it to give new clones the same start.
+	</p>
+	<a class="button ghost" href="/admin/backup/starter" download>Download starter pack</a>
+</section>
+
 <section class="danger">
 	<h2>Restore</h2>
 	<p>Replaces the current campaign with the backup. Anything not in the file is lost.</p>

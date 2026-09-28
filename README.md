@@ -58,6 +58,17 @@ The first run writes `.env` with random passwords and prints the Campaign Master
 - **Older installs.** A SQLite campaign (`/data/campaign.db`) is copied into Postgres on first start, and the old file
   is kept as `campaign.db.imported`.
 
+### Starter pack
+
+`app/seed/starter.json` is what a fresh install starts from. When a new campaign is founded it brings:
+- the zone layout;
+- the weather presets;
+- the regional weather set-ups, switched off;
+- any Faction Studio factions of our own.
+
+It never holds the book's map, rules or lore, or accounts, players and uploads, so it is safe to commit. To refresh it after changing
+zones or presets, open *Admin → Backup → Download starter pack*, replace the file, and commit.
+
 ### The map: Admin → Map
 
 The map art belongs to its book, so it isn't in the repository or the image; each campaign uploads its own.

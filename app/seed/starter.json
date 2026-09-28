@@ -1,0 +1,933 @@
+{
+	"app": "carcass-front-starter",
+	"version": 1,
+	"zones": [
+		{
+			"id": "A",
+			"pos": {
+				"x": 0.3711426188490409,
+				"y": 0.08977556109725686
+			},
+			"name": "Blighted Ruins",
+			"type": "entry",
+			"links": [
+				"domus-demetrius",
+				"sacred-plains"
+			],
+			"resources": []
+		},
+		{
+			"id": "B",
+			"pos": {
+				"x": 0.0817347789824854,
+				"y": 0.513715710723192
+			},
+			"name": "Derelict Port",
+			"type": "entry",
+			"links": [
+				"sword-of-god",
+				"syrian-gate"
+			],
+			"resources": []
+		},
+		{
+			"id": "C",
+			"pos": {
+				"x": 0.5963302752293578,
+				"y": 0.57356608478803
+			},
+			"name": "Ancient Railway",
+			"type": "entry",
+			"links": [
+				"basarfuth-castle",
+				"ruins-of-nineveh-novus"
+			],
+			"resources": []
+		},
+		{
+			"id": "D",
+			"pos": {
+				"x": 0.20016680567139283,
+				"y": 0.9451371571072319
+			},
+			"name": "Secluded Tunnels",
+			"type": "entry",
+			"links": [
+				"guillaume-basin",
+				"steel-necropolis"
+			],
+			"resources": []
+		},
+		{
+			"id": "altar-of-leviathan",
+			"pos": {
+				"x": 0.17097581317764804,
+				"y": 0.3054862842892768
+			},
+			"name": "Altar of Leviathan",
+			"type": "special",
+			"bonus": "Special rules apply to games here. Only as both players’ last game, and only if both hold at least 1 Omen of Leviathan.",
+			"links": [
+				"milya-outskirts",
+				"carrion-coast"
+			],
+			"scenario": "Altar of Leviathan",
+			"resources": [
+				"F",
+				"R",
+				"S"
+			]
+		},
+		{
+			"id": "baghras-fortress",
+			"pos": {
+				"x": 0.1834862385321101,
+				"y": 0.7980049875311721
+			},
+			"name": "Baghras Fortress",
+			"type": "special",
+			"bonus": "In the next Quartermaster Step, Mercenaries cost half their Glory (rounded up).",
+			"links": [
+				"syrian-gate",
+				"risen-ruins"
+			],
+			"scenario": "Fields of Glory",
+			"resources": [
+				"R",
+				"T"
+			]
+		},
+		{
+			"id": "basarfuth-castle",
+			"pos": {
+				"x": 0.5170975813177648,
+				"y": 0.685785536159601
+			},
+			"name": "Basarfuth Castle",
+			"type": "basic",
+			"links": [
+				"kyrrhos-city",
+				"fields-of-green-flame",
+				"lost-shih-al-hadid",
+				"scavenger-town",
+				"C",
+				"ruins-of-nineveh-novus"
+			],
+			"scenario": "Supply Raid",
+			"resources": [
+				"R",
+				"S"
+			]
+		},
+		{
+			"id": "botfly-valley",
+			"pos": {
+				"x": 0.24186822351959966,
+				"y": 0.2119700748129676
+			},
+			"name": "Botfly Valley",
+			"type": "basic",
+			"links": [
+				"domus-demetrius",
+				"milya-outskirts"
+			],
+			"archetype": "trench-lines",
+			"resources": [
+				"R"
+			]
+		},
+		{
+			"id": "carrion-coast",
+			"pos": {
+				"x": 0.21851542952460384,
+				"y": 0.4239401496259352
+			},
+			"name": "Carrion Coast",
+			"type": "basic",
+			"links": [
+				"altar-of-leviathan",
+				"milya-outskirts",
+				"holy-choked-path",
+				"pillar-of-jonah"
+			],
+			"archetype": "derelict-ruins",
+			"resources": [
+				"F"
+			]
+		},
+		{
+			"id": "cathedral-of-wire",
+			"pos": {
+				"x": 0.44203502919099247,
+				"y": 0.4551122194513716
+			},
+			"name": "Cathedral of Wire",
+			"type": "basic",
+			"links": [
+				"holy-choked-path",
+				"north-amanus-trenches",
+				"shadow-of-old-saints",
+				"vivarium",
+				"fields-of-green-flame"
+			],
+			"aliases": [
+				"Mosque of Wire"
+			],
+			"archetype": "derelict-ruins",
+			"resources": [
+				"R"
+			]
+		},
+		{
+			"id": "desolate-trapesac",
+			"pos": {
+				"x": 0.2877397831526272,
+				"y": 0.5798004987531172
+			},
+			"name": "Desolate Trapesac",
+			"type": "basic",
+			"links": [
+				"pillar-of-jonah",
+				"holy-choked-path",
+				"vivarium",
+				"south-amanus-trenches",
+				"geist-spires"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"S"
+			]
+		},
+		{
+			"id": "domus-demetrius",
+			"pos": {
+				"x": 0.32777314428690574,
+				"y": 0.2119700748129676
+			},
+			"name": "Domus Demetrius",
+			"omen": "first",
+			"type": "special",
+			"bonus": "The first player to place an Outpost here gains 1 Omen of Leviathan. The Outpost counts as 2 zones for the Largest Enclave.",
+			"links": [
+				"A",
+				"botfly-valley",
+				"sacred-plains",
+				"milya-outskirts",
+				"holy-choked-path",
+				"north-amanus-trenches"
+			],
+			"scenario": "Domus Demetrius",
+			"resources": [
+				"F",
+				"S",
+				"T"
+			],
+			"enclaveWeight": 2
+		},
+		{
+			"id": "fields-of-green-flame",
+			"pos": {
+				"x": 0.4920767306088407,
+				"y": 0.5610972568578554
+			},
+			"name": "Fields of Green Flame",
+			"type": "basic",
+			"links": [
+				"shadow-of-old-saints",
+				"cathedral-of-wire",
+				"kyrrhos-city",
+				"vivarium",
+				"lost-shih-al-hadid",
+				"basarfuth-castle"
+			],
+			"archetype": "trench-lines",
+			"resources": [
+				"S"
+			]
+		},
+		{
+			"id": "geist-spires",
+			"pos": {
+				"x": 0.34612176814011675,
+				"y": 0.685785536159601
+			},
+			"name": "Geist Spires",
+			"type": "basic",
+			"links": [
+				"desolate-trapesac",
+				"vivarium",
+				"south-amanus-trenches",
+				"guillaume-basin",
+				"lost-shih-al-hadid",
+				"little-jahannam"
+			],
+			"scenario": "Supply Raid",
+			"resources": [
+				"S",
+				"T"
+			]
+		},
+		{
+			"id": "guillaume-basin",
+			"pos": {
+				"x": 0.2877397831526272,
+				"y": 0.7793017456359103
+			},
+			"name": "Guillaume Basin",
+			"type": "basic",
+			"links": [
+				"south-amanus-trenches",
+				"geist-spires",
+				"little-jahannam",
+				"D",
+				"steel-necropolis"
+			],
+			"archetype": "trench-lines",
+			"resources": [
+				"T"
+			]
+		},
+		{
+			"id": "holy-choked-path",
+			"pos": {
+				"x": 0.3085904920767306,
+				"y": 0.4613466334164589
+			},
+			"name": "Holy Choked Path",
+			"type": "basic",
+			"links": [
+				"milya-outskirts",
+				"domus-demetrius",
+				"carrion-coast",
+				"north-amanus-trenches",
+				"cathedral-of-wire",
+				"vivarium",
+				"desolate-trapesac",
+				"pillar-of-jonah"
+			],
+			"scenario": "Claim No Man's Land",
+			"resources": [
+				"F",
+				"T"
+			]
+		},
+		{
+			"id": "house-of-pillars",
+			"pos": {
+				"x": 0.47956630525437866,
+				"y": 0.09975062344139651
+			},
+			"name": "House of Pillars",
+			"type": "special",
+			"bonus": "+1 DICE to Morale Check Success Rolls.",
+			"links": [
+				"sacred-plains",
+				"pilgrimage-of-stone"
+			],
+			"scenario": "Relic Hunt",
+			"resources": [
+				"R",
+				"S"
+			]
+		},
+		{
+			"id": "kurd-dagh",
+			"pos": {
+				"x": 0.5879899916597164,
+				"y": 0.3117206982543641
+			},
+			"name": "Kurd Dagh",
+			"type": "special",
+			"bonus": "Re-roll 1 Promotion roll in each Promotions & Experience Step.",
+			"links": [
+				"pilgrimage-of-stone",
+				"shadow-of-old-saints",
+				"kyrrhos-city"
+			],
+			"scenario": "The High Ground",
+			"resources": [
+				"F",
+				"R",
+				"T"
+			]
+		},
+		{
+			"id": "kyrrhos-city",
+			"pos": {
+				"x": 0.554628857381151,
+				"y": 0.4551122194513716
+			},
+			"name": "Kyrrhos City",
+			"type": "basic",
+			"links": [
+				"kurd-dagh",
+				"shadow-of-old-saints",
+				"fields-of-green-flame",
+				"basarfuth-castle"
+			],
+			"aliases": [
+				"Kyrros City"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"F"
+			]
+		},
+		{
+			"id": "little-jahannam",
+			"pos": {
+				"x": 0.3711426188490409,
+				"y": 0.8104738154613467
+			},
+			"name": "Little Jahannam",
+			"type": "basic",
+			"links": [
+				"geist-spires",
+				"guillaume-basin",
+				"lost-shih-al-hadid",
+				"martyrs-crossing",
+				"steel-necropolis"
+			],
+			"archetype": "derelict-ruins",
+			"resources": [
+				"R"
+			]
+		},
+		{
+			"id": "lost-shih-al-hadid",
+			"pos": {
+				"x": 0.42952460383653046,
+				"y": 0.7231920199501247
+			},
+			"name": "Lost Shih-al-Hadid",
+			"type": "basic",
+			"links": [
+				"vivarium",
+				"fields-of-green-flame",
+				"geist-spires",
+				"little-jahannam",
+				"martyrs-crossing",
+				"basarfuth-castle"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"T"
+			]
+		},
+		{
+			"id": "martyrs-crossing",
+			"pos": {
+				"x": 0.45454545454545453,
+				"y": 0.8478802992518704
+			},
+			"name": "Martyr's Crossing",
+			"type": "basic",
+			"links": [
+				"little-jahannam",
+				"lost-shih-al-hadid",
+				"scavenger-town"
+			],
+			"scenario": "Claim No Man's Land",
+			"resources": [
+				"F",
+				"S"
+			]
+		},
+		{
+			"id": "milya-outskirts",
+			"pos": {
+				"x": 0.27105921601334443,
+				"y": 0.33042394014962595
+			},
+			"name": "Mi'ilya Outskirts",
+			"type": "basic",
+			"links": [
+				"botfly-valley",
+				"domus-demetrius",
+				"altar-of-leviathan",
+				"carrion-coast",
+				"holy-choked-path"
+			],
+			"aliases": [
+				"Milya Outskirts"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"T"
+			]
+		},
+		{
+			"id": "north-amanus-trenches",
+			"pos": {
+				"x": 0.3669724770642202,
+				"y": 0.3802992518703242
+			},
+			"name": "North Amanus Trenches",
+			"type": "basic",
+			"links": [
+				"domus-demetrius",
+				"sacred-plains",
+				"shadow-of-old-saints",
+				"holy-choked-path",
+				"cathedral-of-wire"
+			],
+			"archetype": "trench-lines",
+			"resources": [
+				"F"
+			]
+		},
+		{
+			"id": "pilgrimage-of-stone",
+			"pos": {
+				"x": 0.5212677231025855,
+				"y": 0.21820448877805487
+			},
+			"name": "Pilgrimage of Stone",
+			"type": "basic",
+			"links": [
+				"house-of-pillars",
+				"sacred-plains",
+				"shadow-of-old-saints",
+				"kurd-dagh"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"S"
+			]
+		},
+		{
+			"id": "pillar-of-jonah",
+			"pos": {
+				"x": 0.1793160967472894,
+				"y": 0.529925187032419
+			},
+			"name": "Pillar of Jonah",
+			"type": "special",
+			"bonus": "In games here or in a linked zone, your opponent starts with 2 BLOOD MARKERS (both ways if both players hold an Outpost here).",
+			"links": [
+				"carrion-coast",
+				"holy-choked-path",
+				"desolate-trapesac"
+			],
+			"scenario": "Trench Warfare",
+			"resources": [
+				"R",
+				"S",
+				"T"
+			]
+		},
+		{
+			"id": "risen-ruins",
+			"pos": {
+				"x": 0.08757297748123437,
+				"y": 0.8416458852867831
+			},
+			"name": "Risen Ruins",
+			"type": "basic",
+			"links": [
+				"sword-of-god",
+				"baghras-fortress"
+			],
+			"archetype": "derelict-ruins",
+			"resources": [
+				"R"
+			]
+		},
+		{
+			"id": "ruins-of-nineveh-novus",
+			"pos": {
+				"x": 0.6255212677231026,
+				"y": 0.7107231920199502
+			},
+			"name": "Ruins of Nineveh Novus",
+			"omen": "first",
+			"type": "special",
+			"bonus": "The first player to place an Outpost here gains 1 Omen of Leviathan. You can add or subtract 1 from Exploration Rolls.",
+			"links": [
+				"C",
+				"basarfuth-castle",
+				"scavenger-town"
+			],
+			"scenario": "Ruins of Nineveh Novus",
+			"resources": [
+				"F",
+				"R",
+				"T"
+			]
+		},
+		{
+			"id": "sacred-plains",
+			"pos": {
+				"x": 0.43369474562135113,
+				"y": 0.22443890274314215
+			},
+			"name": "Sacred Plains",
+			"type": "basic",
+			"links": [
+				"A",
+				"house-of-pillars",
+				"domus-demetrius",
+				"pilgrimage-of-stone",
+				"north-amanus-trenches",
+				"shadow-of-old-saints"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"R"
+			]
+		},
+		{
+			"id": "scavenger-town",
+			"pos": {
+				"x": 0.5254378648874062,
+				"y": 0.8104738154613467
+			},
+			"name": "Scavenger Towns",
+			"type": "basic",
+			"links": [
+				"martyrs-crossing",
+				"basarfuth-castle",
+				"ruins-of-nineveh-novus"
+			],
+			"aliases": [
+				"Scavenger Town"
+			],
+			"scenario": "Claim No Man's Land",
+			"resources": [
+				"S"
+			]
+		},
+		{
+			"id": "shadow-of-old-saints",
+			"pos": {
+				"x": 0.47122602168473726,
+				"y": 0.33665835411471323
+			},
+			"name": "Shadow of Old Saints",
+			"type": "basic",
+			"links": [
+				"sacred-plains",
+				"pilgrimage-of-stone",
+				"kurd-dagh",
+				"north-amanus-trenches",
+				"cathedral-of-wire",
+				"fields-of-green-flame",
+				"kyrrhos-city"
+			],
+			"scenario": "Hunt for Heroes",
+			"resources": [
+				"F",
+				"R"
+			]
+		},
+		{
+			"id": "south-amanus-trenches",
+			"pos": {
+				"x": 0.2543786488740617,
+				"y": 0.6920199501246883
+			},
+			"name": "South Amanus Trenches",
+			"type": "basic",
+			"links": [
+				"syrian-gate",
+				"desolate-trapesac",
+				"geist-spires",
+				"guillaume-basin"
+			],
+			"scenario": "Hunt for Heroes",
+			"resources": [
+				"F",
+				"T"
+			]
+		},
+		{
+			"id": "steel-necropolis",
+			"pos": {
+				"x": 0.3127606338615513,
+				"y": 0.9226932668329177
+			},
+			"name": "Steel Necropolis",
+			"omen": "first",
+			"type": "special",
+			"bonus": "In the next Quartermaster Step, Armour and Shields cost half price in Ducats. The first player to place an Outpost here gains 1 Omen of Leviathan.",
+			"links": [
+				"D",
+				"guillaume-basin",
+				"little-jahannam"
+			],
+			"scenario": "Steel Necropolis",
+			"resources": [
+				"F",
+				"S",
+				"T"
+			]
+		},
+		{
+			"id": "syrian-gate",
+			"pos": {
+				"x": 0.17514595496246874,
+				"y": 0.6795511221945137
+			},
+			"name": "Syrian Gate",
+			"type": "basic",
+			"links": [
+				"B",
+				"sword-of-god",
+				"south-amanus-trenches",
+				"baghras-fortress"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"T"
+			]
+		},
+		{
+			"id": "sword-of-god",
+			"pos": {
+				"x": 0.08340283569641367,
+				"y": 0.6795511221945137
+			},
+			"name": "The Sword of God",
+			"omen": "first",
+			"type": "special",
+			"bonus": "In the next Quartermaster Step, Ranged Weapons cost half price in Ducats. The first player to place an Outpost here gains 1 Omen of Leviathan.",
+			"links": [
+				"B",
+				"syrian-gate",
+				"risen-ruins"
+			],
+			"scenario": "The Sword of God",
+			"resources": [
+				"F",
+				"S",
+				"T"
+			]
+		},
+		{
+			"id": "vivarium",
+			"pos": {
+				"x": 0.3919933277731443,
+				"y": 0.5486284289276808
+			},
+			"name": "The Vivarium",
+			"type": "special",
+			"bonus": "Re-roll 1 Trauma roll in each Outcome Phase.",
+			"links": [
+				"holy-choked-path",
+				"cathedral-of-wire",
+				"desolate-trapesac",
+				"fields-of-green-flame",
+				"geist-spires",
+				"lost-shih-al-hadid"
+			],
+			"scenario": "Dragon Hunt",
+			"resources": [
+				"F",
+				"R",
+				"S"
+			]
+		},
+		{
+			"id": "E",
+			"pos": {
+				"x": 0.043369474562135114,
+				"y": 0.3740648379052369
+			},
+			"name": "The Drowned Anchorage",
+			"type": "entry",
+			"house": true,
+			"links": [
+				"amoudet-seawall",
+				"altar-of-leviathan"
+			],
+			"resources": []
+		},
+		{
+			"id": "F",
+			"pos": {
+				"x": 0.6672226855713094,
+				"y": 0.8753117206982544
+			},
+			"name": "The Salt Caravan Road",
+			"type": "entry",
+			"house": true,
+			"links": [
+				"ruins-of-nineveh-novus",
+				"scavenger-town",
+				"corpse-rail-terminus"
+			],
+			"resources": []
+		},
+		{
+			"id": "rudolfs-folly",
+			"pos": {
+				"x": 0.6213511259382819,
+				"y": 0.22194513715710723
+			},
+			"name": "Rudolf's Folly",
+			"type": "special",
+			"bonus": "Once per campaign, an Aerial Bombardment or Strafing Run at no Glory cost.",
+			"house": true,
+			"links": [
+				"house-of-pillars",
+				"pilgrimage-of-stone",
+				"kurd-dagh"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"R",
+				"T"
+			]
+		},
+		{
+			"id": "hermits-stair",
+			"pos": {
+				"x": 0.3002502085070892,
+				"y": 0.0773067331670823
+			},
+			"name": "Hermit's Stair",
+			"type": "basic",
+			"house": true,
+			"links": [
+				"A",
+				"botfly-valley",
+				"domus-demetrius"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"F"
+			]
+		},
+		{
+			"id": "amoudet-seawall",
+			"pos": {
+				"x": 0.12343619683069225,
+				"y": 0.42144638403990026
+			},
+			"name": "Amoudet Seawall",
+			"omen": "each",
+			"type": "special",
+			"bonus": "Gain 1 Omen of Leviathan.",
+			"house": true,
+			"links": [
+				"E",
+				"B",
+				"carrion-coast",
+				"pillar-of-jonah"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"F",
+				"T"
+			]
+		},
+		{
+			"id": "stylite-row",
+			"pos": {
+				"x": 0.6488740617180984,
+				"y": 0.48877805486284287
+			},
+			"name": "The Stylite Row",
+			"type": "basic",
+			"house": true,
+			"links": [
+				"kurd-dagh",
+				"kyrrhos-city",
+				"C"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"F",
+				"S"
+			]
+		},
+		{
+			"id": "corpse-rail-terminus",
+			"pos": {
+				"x": 0.5104253544620517,
+				"y": 0.9600997506234414
+			},
+			"name": "Corpse Rail Terminus",
+			"type": "basic",
+			"house": true,
+			"links": [
+				"martyrs-crossing",
+				"scavenger-town",
+				"F"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"S",
+				"R"
+			]
+		},
+		{
+			"id": "melessin-causeway",
+			"pos": {
+				"x": 0.05170975813177648,
+				"y": 0.9625935162094763
+			},
+			"name": "Melessin Causeway",
+			"type": "basic",
+			"house": true,
+			"links": [
+				"risen-ruins",
+				"D"
+			],
+			"archetype": "no-mans-land",
+			"resources": [
+				"S",
+				"T"
+			]
+		}
+	],
+	"presets": [
+		{
+			"name": "Red Night",
+			"layers": {
+				"fog": {
+					"on": true,
+					"intensity": 0.6,
+					"speed": 1,
+					"scale": 2.2,
+					"opacity": 1,
+					"tint": "#b03020"
+				}
+			},
+			"wind": 0.2,
+			"timeOfDay": "night"
+		}
+	],
+	"regions": [
+		{
+			"name": "Vivarium blaze",
+			"zones": [
+				"vivarium"
+			],
+			"weatherEvent": null,
+			"fx": {
+				"embers": {
+					"on": true,
+					"tint": null,
+					"scale": 1,
+					"speed": 1,
+					"opacity": 1,
+					"intensity": 0.9
+				}
+			}
+		},
+		{
+			"name": "The Red Tide",
+			"zones": null,
+			"weatherEvent": 11,
+			"fx": null
+		}
+	],
+	"studio": {
+		"factions": [],
+		"units": [],
+		"items": [],
+		"keywords": [],
+		"rules": []
+	}
+}

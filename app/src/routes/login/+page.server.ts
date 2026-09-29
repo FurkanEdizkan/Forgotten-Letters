@@ -28,7 +28,7 @@ export const actions: Actions = {
 		cookies.set(SESSION_COOKIE, token, remember ? { ...opts, maxAge } : opts);
 		if (remember) cookies.delete(FORGET_COOKIE, { path: '/' });
 		else cookies.set(FORGET_COOKIE, '1', opts);
-		if (u.mustChangePassword) redirect(303, '/account?first=1');
+		if (u.mustChangePassword) redirect(303, '/settings?first=1');
 		redirect(303, safeNext(url.searchParams.get('next')) ?? (u.role === 'cm' ? '/admin' : '/'));
 	}
 };

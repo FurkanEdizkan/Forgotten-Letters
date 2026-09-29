@@ -1,118 +1,53 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import Lockup from '$lib/components/Lockup.svelte';
-	import Mark from '$lib/components/Mark.svelte';
+	import NavPanel from '$lib/components/NavPanel.svelte';
 
 	let { data, children } = $props();
 
-	const links = [
-		{ href: '/admin', label: 'Campaign' },
-		{ href: '/admin/games', label: 'Games' },
-		{ href: '/admin/players', label: 'Players' },
-		{ href: '/admin/warbands', label: 'Warbands' },
-		{ href: '/admin/factions', label: 'Factions' },
-		{ href: '/admin/adjustments', label: 'Adjustments' },
-		{ href: '/admin/weather', label: 'Weather' },
-		{ href: '/admin/map', label: 'Map' },
-		{ href: '/admin/lore', label: 'Lore' },
-		{ href: '/admin/rules', label: 'Rules' },
-		{ href: '/admin/studio', label: 'Faction Studio' },
-		{ href: '/admin/visions', label: 'Visions' },
-		{ href: '/admin/backup', label: 'Backup' }
-	];
+	// svelte-ignore state_referenced_locally
+	let navOpen = $state(data.navOpen);
 </script>
 
 {#if data.campaign !== undefined}
-	<header>
-		<Lockup name="Campaign Master" href="/admin" compact />
-		{#if data.campaign}
-			<nav>
-				{#each links as l (l.href)}
-					<a href={l.href} aria-current={(l.href === '/admin' ? page.url.pathname === l.href : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}>{l.label}</a>
-				{/each}
-				<a href="/" class="out">Live map <Mark name="external" size="0.8em" /></a>
-			</nav>
-		{/if}
-		<form method="POST" action="/logout"><button class="ghost">Sign out</button></form>
-	</header>
+	<a class="skip" href="#main">Skip to content</a>
+	<NavPanel bind:open={navOpen} title={data.campaign?.name ?? 'Campaign Master'} />
+	<div class="shell" class:beside={navOpen}>
+		<main id="main" tabindex="-1">
+			{@render children()}
+		</main>
+	</div>
 {/if}
 
-<main>
-	{@render children()}
-</main>
-
 <style>
-	header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px 28px;
-		padding: 10px clamp(16px, 4vw, 40px);
-		background: var(--night);
-		border-bottom: 2px solid var(--blood);
-	}
-	nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px 18px;
-		flex: 1;
-	}
-	nav a {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 4px 0;
-		color: var(--bone-dim);
-		text-decoration: none;
-		font-family: var(--font-title);
-		font-size: 1rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-	nav a:hover {
-		color: var(--bone);
-	}
-	nav a[aria-current='page'] {
-		color: var(--bone);
-	}
-	nav a[aria-current='page']::after {
-		content: '';
+	.skip {
 		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		height: 2px;
-		background: var(--blood-bright);
-	}
-	nav .out {
-		color: var(--ember);
-	}
-	.ghost {
-		background: transparent;
-		border-color: rgba(236, 229, 211, 0.35);
+		left: -9999px;
+		z-index: 7;
+		padding: 8px 14px;
+		background: var(--night);
 		color: var(--bone);
-		padding: 4px 12px;
 	}
-	.ghost:hover {
-		background: transparent;
-		border-color: var(--ember);
-		color: #fff;
+	.skip:focus {
+		left: 8px;
+		top: 8px;
 	}
-	@media (max-width: 40rem) {
-		header {
-			justify-content: space-between;
-		}
-		nav {
-			order: 3;
-			flex-basis: 100%;
-			gap: 2px 14px;
-		}
-		nav a {
-			font-size: 0.9rem;
+	main:focus {
+		outline: none;
+	}
+	/* Snaps rather than animates: see the note in the public layout. */
+	/* With the panel shut the handle floats over the page: keep its corner clear. */
+	.shell:not(.beside) {
+		padding-top: 46px;
+	}
+	.shell.beside {
+		padding-left: 17rem;
+	}
+	@media (max-width: 60rem) {
+		.shell.beside {
+			padding-left: 0;
 		}
 	}
 	main {
+		min-width: 0;
 		max-width: 64rem;
 		margin: 0 auto;
 		padding: 28px clamp(16px, 4vw, 40px) 64px;

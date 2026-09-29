@@ -2,13 +2,17 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
-import { FORGET_COOKIE, SESSION_COOKIE, endAllSessions, createSession, setPassword } from '$lib/server/auth';
+import { FORGET_COOKIE, SESSION_COOKIE, createSession, endAllSessions, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, verifyPassword } from '$lib/server/passwords';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, url }) => {
-	if (!locals.user) redirect(303, '/login?next=/account');
-	return { first: url.searchParams.has('first') || locals.user.mustChangePassword };
+	if (!locals.user) redirect(303, '/login?next=/settings');
+	return {
+		/** A password the Campaign Master handed over: nothing else is reachable until it is changed. */
+		first: url.searchParams.has('first') || locals.user.mustChangePassword,
+		isAdmin: locals.isAdmin
+	};
 };
 
 export const actions: Actions = {
@@ -28,6 +32,6 @@ export const actions: Actions = {
 		await endAllSessions(u.id);
 		const { token, maxAge } = await createSession(u.id, request.headers.get('user-agent'));
 		cookies.set(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', ...(cookies.get(FORGET_COOKIE) ? {} : { maxAge }) });
-		redirect(303, u.role === 'cm' ? '/admin' : '/');
+		redirect(303, '/settings');
 	}
 };

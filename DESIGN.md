@@ -201,9 +201,9 @@ A paper-and-ink palette with a single blood red, a smoky night set for the map, 
 
 ## Layout
 
-Page-register screens are single centred columns under a full-width night masthead. The column width follows the content: 52rem for the chronicle, 60rem for the standings ledger, 64rem for zones, player pages and admin. Every column and masthead uses the same side gutter (clamp 16px to 40px) and 28px of top padding. Grids are intrinsic: `auto-fill` / `auto-fit` columns with minimums of 15–18rem for unit cards, gazetteer entries and battle sides, and two columns for the resource quadrants of the tracker.
+Page-register screens are single centred columns beside the night navigation panel. The column width follows the content: 52rem for the chronicle, 60rem for the standings ledger, 64rem for zones, player pages and admin. Every column and masthead uses the same side gutter (clamp 16px to 40px) and 28px of top padding. Grids are intrinsic: `auto-fill` / `auto-fit` columns with minimums of 15–18rem for unit cards, gazetteer entries and battle sides, and two columns for the resource quadrants of the tracker.
 
-Lists are ruled, not boxed. A list or table opens with a 2px ink rule, rows are divided by 1px hairlines, and ledgers close with another 2px rule. The live map is full-bleed and fixed. A night band across the top carries the lockup, the nav chips and a horizontally scrolling strip of battle tabs, and the map plate fills the rest. Book-page sheets pin to the right edge (27rem, or 54rem when wide) with 14px of inset.
+Lists are ruled, not boxed. A list or table opens with a 2px ink rule, rows are divided by 1px hairlines, and ledgers close with another 2px rule. The live map is full-bleed and fixed. A night band across the top carries the lockup, the map's own chips and a horizontally scrolling strip of battle tabs, and the map plate fills the rest; the navigation panel covers the map's left edge only when opened. Book-page sheets pin to the right edge (27rem, or 54rem when wide) with 14px of inset.
 
 Breakpoints are content-driven, around 34rem, 36rem and 40rem. At phone width the sheets become bottom sheets (up to 62% of the height, 8px inset), nav chips shorten their labels, ledger columns collapse, profile tables stack label and value, and the tracker's twelve-box rows wrap to six.
 
@@ -246,9 +246,10 @@ Printed labels: solid, square and uppercase.
 The book's callout, used for entry and scouted zones, battle weather, chronicle notices and admin fieldsets: a Grey Wash fill inside a 1px blood hairline, with a sub-head at the top. Admin fieldsets use the same box with a bold capital legend on paper.
 
 ### Navigation
-- **Masthead:** a Smoke Black band with a 2px blood rule under it. The cover lockup sits on the left. Nav links are Pirata One capitals in Dim Bone that turn Bone on hover. The current page is Bone with a 2px Fresh Blood underline. At phone width the admin nav wraps onto its own row.
+- **Navigation panel:** one panel on the left, 17rem wide, carrying every link for player and Campaign Master alike (changed at the user's direction, 2026-09-29; it replaces the masthead and the map chip nav, which had drifted into three disagreeing lists). Smoke Black ground with a 2px blood rule down its right edge. The cover lockup sits at the top. Links are Pirata One capitals in Dim Bone that turn Bone on hover; the current page is Bone on Smoke Black with a 3px Fresh Blood edge at its left. Sections are separated by blackletter heads in Fresh Blood. It is open by default and remembered in a cookie, so the first paint is already the right width.
+- **Panel handle:** a square night mark in the top-left corner, always present. It closes the panel and opens it again. Reading pages sit beside the panel; the live map, which is full-bleed, is covered by it instead, and there the panel starts closed. Below 60rem it always covers, over a scrim, and Escape closes it.
 - **Cover lockup:** a small, widely tracked "Trench ✠ Crusade" line in Dim Bone with a Fresh Blood cross, above the campaign name in large Pirata One capitals.
-- **Map chips:** square night chips (translucent Smoke Black, bone hairline, Pirata One capitals). Hover turns the border ember. Unpressed toggles fade to Dim Bone.
+- **Map chips:** square night chips (translucent Smoke Black, bone hairline, Pirata One capitals). Hover turns the border ember. Unpressed toggles fade to Dim Bone. They now carry only what is local to the map — the weather switch, the standings toggle and the live dot — never navigation.
 
 ### Running Footer
 Blackletter chapter name at the end of a full-width 1px ink hairline, closing every page-register screen and every book-page sheet.
@@ -407,7 +408,7 @@ An admin register page like *Rules*:
 - **Do** switch to lining tabular figures wherever numbers are compared.
 
 ### Don't:
-- **Don't** use the cream-parchment fantasy look or a dark dashboard on UI surfaces. Paper is white, and the only dark surface is the night register.
+- **Don't** use the cream-parchment fantasy look, or let a dark dashboard's habits (cards, fills, elevation, rounded chrome) onto UI surfaces. Paper is white. The dark surfaces are the night register and the navigation panel, which is night by the same rule as the masthead it replaced.
 - **Don't** round rectangles. Radius is 0 everywhere, and circles are only for discs, portraits and dots.
 - **Don't** put drop or ambient shadows on page-register surfaces. On paper, box-shadow is only a 1px ring or a printed inner line.
 - **Don't** introduce new hues on paper. The resource colours are the only non-red hues, used for resources and their established extensions (unit kit marks, glory cost, supplied or OK).

@@ -46,8 +46,10 @@
 		return () => clearTimeout(t);
 	});
 
-	// The preview map shows this console's settings immediately.
-	const preview = $derived({ ...data.snapshot, fx });
+	// The preview map shows this console's settings immediately. $state.snapshot reads the config
+	// deeply, so tuning a layer re-runs this; spreading `fx` alone would only read the reference,
+	// leaving the preview on the settings the page loaded with.
+	const preview = $derived({ ...data.snapshot, fx: $state.snapshot(fx) as FxConfig });
 
 	function allOff() {
 		for (const k of AMBIENT_KINDS) fx.layers[k]!.on = false;

@@ -22,7 +22,7 @@ export const init: ServerInit = async () => {
 };
 
 /** Pages a signed-in user can reach before choosing their own password. */
-const OPEN_WHILE_TEMPORARY = ['/account', '/logout', '/login', '/health', '/api/stream'];
+const OPEN_WHILE_TEMPORARY = ['/settings', '/logout', '/login', '/health', '/api/stream'];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const user = await sessionUser(event.cookies.get(SESSION_COOKIE));
@@ -30,9 +30,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.isAdmin = user?.role === 'cm';
 
 	const path = event.url.pathname;
+	// Account settings moved into /settings; keep old links and bookmarks working.
+	if (path === '/account' || path.startsWith('/account/')) redirect(308, `/settings${event.url.search}`);
 	if (user?.mustChangePassword && !OPEN_WHILE_TEMPORARY.some((p) => path === p || path.startsWith(p + '/')) && !path.startsWith('/_app/') && !path.startsWith('/uploads/'))
-		redirect(303, '/account?first=1');
-	if (path.startsWith('/admin') && !event.locals.isAdmin) {
+		redirect(303, '/settings?first=1');
+	// /settings/admin is not under /admin, so it needs naming here too.
+	if ((path.startsWith('/admin') || path.startsWith('/settings/admin')) && !event.locals.isAdmin) {
 		redirect(303, `/login?next=${encodeURIComponent(path)}`);
 	}
 

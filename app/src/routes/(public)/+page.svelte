@@ -179,14 +179,6 @@
 					>
 				</button>
 				<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
-				<a class="chip" href="/zones">Zones</a>
-				<a class="chip" href="/warbands">Warband Builder</a>
-				<a class="chip" href="/history">Chronicle</a>
-				{#if page.data.user}
-					<a class="chip who" href={page.data.user.warbandIds[0] ? `/warbands/${page.data.user.warbandIds[0]}` : page.data.user.role === 'cm' ? '/admin' : '/account'}>{page.data.user.name}</a>
-				{:else}
-					<a class="chip who" href="/login">Sign in</a>
-				{/if}
 				<span
 					class="dot"
 					class:on={live.connected}
@@ -385,6 +377,8 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 10px;
+		/* The navigation handle floats in this corner. */
+		padding-left: 2.75rem;
 	}
 	nav {
 		display: flex;
@@ -413,9 +407,6 @@
 		background: rgba(21, 19, 14, 0.9);
 		border-color: var(--ember);
 		color: #fff;
-	}
-	.chip.who {
-		color: var(--ember);
 	}
 	.chip[aria-pressed='false'] {
 		color: var(--bone-dim);

@@ -17,3 +17,10 @@ rules.json
 # Agent skills: listed in skills-lock.json, downloaded by ./install_skills.sh
 /.agents/skills/
 /.claude/skills/
+
+# Local secrets and build output
+.env.local
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+next-env.d.ts

@@ -24,3 +24,16 @@ node_modules/
 .next/
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# Agent skill copies and links, restored from skills-lock.json
+/skills/
+/agent/skills/
+/.github/skills/
+
+# Personal Claude Code settings
+.claude/settings.local.json
+
+# Design-system sync and design lab: generated bundles, deps and build output
+/.ds-sync/
+/ds-bundle/
+/design-lab/

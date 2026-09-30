@@ -21,12 +21,11 @@ import {
 	unit,
 	warband,
 	warbandStash,
-	zoneLore
-} from './db/schema';
+	zoneLore, round, roundEntry, invite } from './db/schema';
 import { resolveUpload } from './uploads';
 
 /** v2 added lore, rosters and models (and their files); v3 accounts; v4 players' warband lists; v5 the Faction Studio's work; v6 the map and its zones. Older backups still import. */
-export const BACKUP_VERSION = 6;
+export const BACKUP_VERSION = 7;
 
 type Row = Record<string, unknown>;
 
@@ -54,6 +53,10 @@ export interface Backup {
 	studio?: { factions: Row[]; units: Row[]; items: Row[]; keywords: Row[]; rules: Row[] };
 	/** The map's zones (Map Studio). */
 	zones?: Row[];
+	/** Rounds of battles, their entries, and the seats' invite links (v7). */
+	rounds?: Row[];
+	roundEntries?: Row[];
+	invites?: Row[];
 	/** Uploaded files (images and model STLs), base64, keyed by their /uploads path. */
 	images: Record<string, string>;
 }
@@ -100,6 +103,15 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 		players,
 		warbands,
 		games: (await db.select().from(game).where(eq(game.campaignId, campaignId))),
+		// Rounds of battles (games point at them), their entries, and the seats' invite links.
+		rounds: await db.select().from(round).where(eq(round.campaignId, campaignId)),
+		roundEntries: await db
+			.select({ e: roundEntry })
+			.from(roundEntry)
+			.innerJoin(round, eq(round.id, roundEntry.roundId))
+			.where(eq(round.campaignId, campaignId))
+			.then((rows) => rows.map((r) => r.e)),
+		invites: await db.select().from(invite).where(eq(invite.campaignId, campaignId)),
 		adjustments: (await db.select().from(adjustment).where(eq(adjustment.campaignId, campaignId))),
 		regions: (await db.select().from(regionWeather).where(eq(regionWeather.campaignId, campaignId))),
 		fx: (await db.select().from(fxState).where(eq(fxState.campaignId, campaignId))),
@@ -130,12 +142,13 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 	};
 }
 
-const DATE_FIELDS = ['createdAt', 'committedAt', 'updatedAt', 'lastSignInAt'];
-
-/** JSON turned Dates into strings; turn them back. */
-function revive<T extends Row>(row: Row): T {
+/**
+ * JSON turned Dates into strings; turn them back. Every timestamp column is named `…At` (createdAt, lastSeenAt,
+ * closedAt, expiresAt…), so the rule covers tables and columns added later without a list to keep up to date.
+ */
+export function revive<T extends Row>(row: Row): T {
 	const out: Row = { ...row };
-	for (const k of DATE_FIELDS) if (typeof out[k] === 'string' || typeof out[k] === 'number') out[k] = new Date(out[k] as string);
+	for (const [k, v] of Object.entries(out)) if (k.endsWith('At') && (typeof v === 'string' || typeof v === 'number')) out[k] = new Date(v);
 	return out as T;
 }
 
@@ -170,6 +183,9 @@ export async function importCampaign(raw: unknown) {
 		for (const r of b.zones ?? []) await tx.insert(mapZone).values(r as typeof mapZone.$inferInsert);
 		for (const r of b.players ?? []) (await tx.insert(player).values(revive<typeof player.$inferInsert>(r)));
 		for (const r of b.warbands ?? []) (await tx.insert(warband).values(revive<typeof warband.$inferInsert>(r)));
+		for (const r of b.rounds ?? []) await tx.insert(round).values(revive<typeof round.$inferInsert>(r));
+		for (const r of b.roundEntries ?? []) await tx.insert(roundEntry).values(revive<typeof roundEntry.$inferInsert>(r));
+		for (const r of b.invites ?? []) await tx.insert(invite).values(revive<typeof invite.$inferInsert>(r));
 		for (const r of b.games ?? []) (await tx.insert(game).values(revive<typeof game.$inferInsert>(r)));
 		for (const r of b.adjustments ?? []) (await tx.insert(adjustment).values(revive<typeof adjustment.$inferInsert>(r)));
 		for (const r of b.regions ?? []) (await tx.insert(regionWeather).values(revive<typeof regionWeather.$inferInsert>(r)));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { battlePlacement, battleSpots } from './map-battles';
+import { battlePlacement, battleSpots, markerSpots } from './map-battles';
 
 const round = (p: { x: number; y: number }) => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
@@ -38,5 +38,22 @@ describe('battlePlacement', () => {
 		expect(round(at.get('g3')!)).toEqual({ x: 0, y: 50 });
 		expect(at.get('g2')).toEqual({ x: 500, y: 0 });
 		expect(at.has('g4')).toBe(false);
+	});
+});
+
+describe('markerSpots', () => {
+	it("keeps every warband marker off the zone's own tap target, at any zoom", () => {
+		for (const k of [1, 2, 3.5])
+			for (const n of [1, 2, 5]) {
+				const spots = markerSpots(n, k, { clear: 70, markerR: 35 });
+				expect(spots).toHaveLength(n);
+				// In the map's units a spot sits k times further out (the marker group is scaled by k).
+				for (const p of spots) expect(Math.hypot(p.x, p.y) * k - 35 * k, `n=${n} k=${k}`).toBeGreaterThanOrEqual(70);
+			}
+	});
+	it('puts a lone warband up and to the right of its zone', () => {
+		const [p] = markerSpots(1, 1, { clear: 70, markerR: 35 });
+		expect(p.x).toBeGreaterThan(0);
+		expect(p.y).toBeLessThan(0);
 	});
 });

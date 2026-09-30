@@ -55,6 +55,8 @@ export function describeEffect(e: Effect, zoneName: (id: string) => string = (id
 			return `${sign(e.n)} Ducats`;
 		case 'fill':
 			return `+${RESOURCE_NAMES[e.track]} box`;
+		case 'unfill':
+			return `−${RESOURCE_NAMES[e.track]} box`;
 		case 'omen':
 			return `${sign(e.n)} Omen`;
 		case 'apocrypha':

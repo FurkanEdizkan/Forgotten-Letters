@@ -272,3 +272,22 @@ describe('secrecy', () => {
 		expect(trackerCvp(cs.players.get('a')!)).toBe(1 + 3);
 	});
 });
+
+describe('penalty deductions', () => {
+	it('takes CVP, Glory and Ducats away, and removes resource boxes without going below empty', () => {
+		const events: CampaignEvent[] = [
+			{ kind: 'adjustment', id: 'f1', at: 1, warband: 'a', effects: [{ t: 'fill', track: 'F' }, { t: 'fill', track: 'F' }] },
+			{
+				kind: 'adjustment', id: 'pen', at: 2, warband: 'a',
+				effects: [{ t: 'cvp', n: -3 }, { t: 'glory', n: -2 }, { t: 'ducats', n: -50 }, { t: 'unfill', track: 'F' }, { t: 'unfill', track: 'R' }]
+			}
+		];
+		const cs = replay([wb('a', 'A'), wb('b', 'B')], events);
+		const p = cs.players.get('a')!;
+		expect(p.tracks.F).toBe(1);
+		expect(p.tracks.R).toBe(0);
+		expect(p.cvp.other).toBe(-3);
+		expect(p.gloryPoints).toBe(-2);
+		expect(p.ducats).toBe(-50);
+	});
+});

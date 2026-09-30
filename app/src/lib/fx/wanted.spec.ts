@@ -31,3 +31,19 @@ describe('wantedEffects for battles', () => {
 		]);
 	});
 });
+
+describe('wantedEffects zoomed out', () => {
+	it('shows one Hell on Earth per zone, the battle being fought first, merged by place', () => {
+		// g1 planned with Raining Blood, g2 being fought with Hemorrhage Eclipse, both on zone a.
+		const s = snap([game('g1', 11, 'scheduled'), game('g2', 3)]);
+		const out = wantedEffects(s, new Map([['a', zone]]), () => ({ x: 0, y: 0 }), null, false);
+		expect(out.some((w) => w.key.startsWith('battle:'))).toBe(false);
+		expect(out.map((w) => w.key)).toContain('zone:a:eclipse');
+		expect(out.map((w) => w.key)).not.toContain('zone:a:bloodRain');
+	});
+	it('lets the stronger of a regional and a battle effect of the same kind win at the zone', () => {
+		const s = { ...snap([game('g1', 11)]), regions: [{ zones: ['a'], weatherEvent: null, layers: { bloodRain: { on: true, intensity: 0.3 } } }] } as unknown as PublicSnapshot;
+		const rain = wantedEffects(s, new Map([['a', zone]]), () => ({ x: 0, y: 0 }), null, false).filter((w) => w.kind === 'bloodRain');
+		expect(rain.map((w) => [w.key, w.intensity])).toEqual([['zone:a:bloodRain', 1]]);
+	});
+});

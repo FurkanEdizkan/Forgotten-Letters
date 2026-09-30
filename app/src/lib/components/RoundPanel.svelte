@@ -51,7 +51,31 @@
 	const myEntries = $derived(r ? r.entries.filter((e) => mine.includes(e.warbandId)) : []);
 	const toRoll = $derived(r?.step === 'rolling' ? myEntries.filter((e) => r.waiting.includes(e.warbandId) || r.reroll.includes(e.warbandId)) : []);
 	const myPick = $derived(r?.step === 'pairing' && r.picker && mine.includes(r.picker) ? r.picker : null);
-	const myBattles = $derived(snapshot.active.filter((g) => g.roundId === r?.id && (mine.includes(g.aggressor) || mine.includes(g.defender))));
+	// Every battle of mine still to be fought: round ones and arranged ones alike.
+	const myBattles = $derived(snapshot.active.filter((g) => mine.includes(g.aggressor) || mine.includes(g.defender)));
+	const incoming = $derived(snapshot.challenges.filter((x) => mine.includes(x.defender)));
+	const outgoing = $derived(snapshot.challenges.filter((x) => mine.includes(x.aggressor)));
+	const lead = $derived(Math.max(0, ...snapshot.warbands.filter((w) => w.gamesLeft > 0).map((w) => w.round)));
+	const roundOf = (id: string) => wb.get(id)?.round ?? 0;
+
+	// Arranging a battle of my own, at any time: who I may challenge and where.
+	const busyIds = $derived(new Set([...snapshot.active.flatMap((g) => [g.aggressor, g.defender]), ...snapshot.challenges.flatMap((x) => [x.aggressor, x.defender])]));
+	const canArrange = $derived(mine.filter((id) => !busyIds.has(id) && (wb.get(id)?.gamesLeft ?? 0) > 0));
+	let arranging = $state<string | null>(null);
+	let arrangeOptions = $state<{ aggressor: string; opponents: { id: string; round: number; zones: string[] }[] } | null>(null);
+	let arrangeWith = $state<string | null>(null);
+	async function startArranging(id: string) {
+		arranging = id;
+		arrangeWith = null;
+		arrangeOptions = await fetch(`/api/round?for=${encodeURIComponent(id)}`).then((res) => (res.ok ? res.json() : null));
+	}
+	async function challengeNow(zone: string) {
+		if (arranging && arrangeWith && (await act({ op: 'challenge', aggressor: arranging, defender: arrangeWith, zone }))) {
+			arranging = null;
+			arrangeWith = null;
+			arrangeOptions = null;
+		}
+	}
 
 	// Picking: the free opponents and the battlefields open against each (asked of the server when it's my turn).
 	let options = $state<{ picker: string; opponents: { id: string; zones: string[] }[] } | null>(null);
@@ -84,19 +108,42 @@
 	const sum = (d: number[] | null | undefined) => (d ? d[0] + d[1] : null);
 </script>
 
-{#if r && r.step !== 'closed'}
-	<section class="round" aria-label="Round {r.number}">
+{#if (r && r.step !== 'closed') || incoming.length || outgoing.length || myBattles.length || canArrange.length}
+	<section class="round" aria-label={r && r.step !== 'closed' ? `Round planning ${r.number}` : 'Battles'}>
 		<header>
-			<strong>Round {r.number}</strong>
-			<span>{STEP[r.step]}</span>
+			<strong>{r && r.step !== 'closed' ? `Round planning ${r.number}` : 'Battles'}</strong>
+			<span>{r && r.step !== 'closed' ? STEP[r.step] : ''}</span>
 		</header>
+		{#if mine.length}
+			<p class="mine-round">
+				{#each mine as id (id)}
+					<span>{mine.length > 1 ? `${name(id)}: ` : 'You are on '}<strong>round {roundOf(id)}</strong>{roundOf(id) < lead ? ' · behind' : ''}</span>
+				{/each}
+			</p>
+		{/if}
+
+		{#if incoming.length || outgoing.length}
+			<div class="turn" role="status">
+				{#each incoming as x (x.id)}
+					<p><strong>{name(x.aggressor)}</strong> challenges {mine.length > 1 ? name(x.defender) : 'you'} at <strong>{zoneName(x.zone)}</strong>.</p>
+					<div class="choices">
+						<button disabled={busy} onclick={() => act({ op: 'answer', challenge: x.id, accept: true })}>Accept</button>
+						<button class="ghost" disabled={busy} onclick={() => act({ op: 'answer', challenge: x.id, accept: false })}>Decline</button>
+					</div>
+				{/each}
+				{#each outgoing as x (x.id)}
+					<p class="hint">Waiting for <strong>{name(x.defender)}</strong> to answer your challenge at {zoneName(x.zone)}.</p>
+					<button class="link" disabled={busy} onclick={() => act({ op: 'withdraw', challenge: x.id })}>Withdraw the challenge</button>
+				{/each}
+			</div>
+		{/if}
 
 		{#if toRoll.length || myPick || myBattles.length}
 			<div class="turn" role="status">
 				<p class="your">Your turn</p>
 				{#each toRoll as e (e.warbandId)}
 					<button disabled={busy} onclick={() => act({ op: 'roll', warband: e.warbandId })}>
-						{r.reroll.includes(e.warbandId) ? 'Tied: roll again' : 'Roll for Aggressor'}{mine.length > 1 ? ` · ${name(e.warbandId)}` : ''}
+						{r?.reroll.includes(e.warbandId) ? 'Tied: roll again' : 'Roll for Aggressor'}{mine.length > 1 ? ` · ${name(e.warbandId)}` : ''}
 					</button>
 				{/each}
 
@@ -107,6 +154,9 @@
 							{#each options.opponents as o (o.id)}
 								<button class="ghost" onclick={() => (opponent = o.id)}>{name(o.id)}</button>
 							{/each}
+						</div>
+						<p class="hint">They accept or decline; declined, you pick again.</p>
+						<div class="choices">
 						</div>
 					{:else}
 						<p>Against <strong>{name(opponent)}</strong> — pick the battlefield (or tap it on the map):</p>
@@ -160,16 +210,49 @@
 			</div>
 		{/if}
 
+		{#if canArrange.length && !myPick}
+			<div class="arrange">
+				{#if !arranging}
+					{#each canArrange as id (id)}
+						<button class="ghost" onclick={() => startArranging(id)}>Challenge a warband{canArrange.length > 1 ? ` · ${name(id)}` : ''}</button>
+					{/each}
+				{:else if arrangeOptions && !arrangeWith}
+					<p>Challenge whom?</p>
+					<div class="choices">
+						{#each arrangeOptions.opponents as o (o.id)}
+							<button class="ghost" onclick={() => (arrangeWith = o.id)}>{name(o.id)} <small>rd {o.round}</small></button>
+						{:else}
+							<p class="hint">Nobody is free to be challenged now.</p>
+						{/each}
+					</div>
+					<button class="link" onclick={() => (arranging = null)}>Cancel</button>
+				{:else if arrangeOptions && arrangeWith}
+					<p>Against <strong>{name(arrangeWith)}</strong> — where?</p>
+					<div class="choices">
+						{#each arrangeOptions.opponents.find((o) => o.id === arrangeWith)?.zones ?? [] as z (z)}
+							<button class="ghost" disabled={busy} onclick={() => challengeNow(z)}>{zoneName(z)}</button>
+						{:else}
+							<p class="hint">No battlefield is open against them.</p>
+						{/each}
+					</div>
+					<button class="link" onclick={() => (arrangeWith = null)}>← another opponent</button>
+				{/if}
+			</div>
+		{/if}
+
+		{#if r && r.step !== 'closed'}
 		<ol class="entries">
 			{#each r.entries as e (e.warbandId)}
 				<li class:me={mine.includes(e.warbandId)} class:agg={e.role === 'aggressor'} class:turn={r.picker === e.warbandId}>
 					<span class="who">{name(e.warbandId)}</span>
 					<span class="dice">{e.rolls.length ? e.rolls.join(' · ') : r.step === 'rolling' ? '…' : ''}</span>
-					<span class="role">{e.role === 'aggressor' ? `Aggressor ${e.pickOrder}` : e.role === 'bye' ? 'Sits out' : e.role === 'defender' ? '' : ''}</span>
+					<span class="role">{e.role === 'aggressor' ? `Aggressor ${e.pickOrder}` : e.role === 'bye' ? 'Waits' : e.role === 'passed' ? 'Passed' : ''}</span>
+					<span class="rd" title="Its own round">rd {e.playerRound}</span>
 				</li>
 			{/each}
 		</ol>
-		{#if r.battles.length}
+		{/if}
+		{#if r && r.step !== 'closed' && r.battles.length}
 			<ul class="battles">
 				{#each r.battles as g (g.id)}
 					<li>{name(g.aggressor)} <span class="vs">vs</span> {name(g.defender)} <small>{zoneName(g.zone)}{g.status === 'in_progress' ? ' · fighting' : g.status === 'done' ? ' · done' : ''}</small></li>
@@ -270,9 +353,33 @@
 		margin: 0;
 		padding: 0;
 	}
+	.mine-round {
+		display: grid;
+		gap: 2px;
+		margin: 0;
+		color: var(--bone-dim);
+	}
+	.mine-round strong {
+		color: var(--bone);
+	}
+	.arrange {
+		display: grid;
+		gap: 6px;
+	}
+	.arrange > .ghost {
+		justify-self: start;
+		color: var(--bone);
+		border-color: rgba(236, 229, 211, 0.4);
+		background: none;
+	}
+	.rd {
+		color: var(--bone-dim);
+		font-size: 0.8em;
+		font-variant-numeric: lining-nums tabular-nums;
+	}
 	.entries li {
 		display: grid;
-		grid-template-columns: 1fr auto auto;
+		grid-template-columns: 1fr auto auto auto;
 		gap: 8px;
 		padding: 3px 0;
 		border-bottom: 1px solid rgba(236, 229, 211, 0.12);

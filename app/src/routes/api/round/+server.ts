@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { game, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
 import { BattleError, rollScenario, rollWeatherSide, setWeather, startGame } from '$lib/server/games';
-import { RoundError, openRoundOf, pickOpponent, pickOptions, rollForAggressor } from '$lib/server/rounds';
+import { RoundError, answerChallenge, anytimeOptions, challengeAnytime, findChallenge, openRoundOf, pickOpponent, pickOptions, rollForAggressor, withdrawChallenge } from '$lib/server/rounds';
 import { publish, sendTrigger } from '$lib/server/hub';
 import { auditAuth } from '$lib/server/audit';
 import { buildGraph } from '$lib/rules/zones';
@@ -25,9 +25,17 @@ async function need() {
 
 const nameOf = async (id: string) => (await db.select({ name: warband.name }).from(warband).where(eq(warband.id, id)))[0]?.name ?? 'A warband';
 
-/** For the Aggressor whose turn it is: the free opponents and the battlefields open against each. */
+/**
+ * For the Aggressor whose turn it is: the free opponents and the battlefields open against each. With `?for=`, the
+ * same for a warband arranging a battle of its own at any time.
+ */
 export async function GET(event) {
 	const c = await need();
+	const anytime = event.url.searchParams.get('for');
+	if (anytime) {
+		mayActFor(event, anytime);
+		return json(await anytimeOptions(c, anytime));
+	}
 	const r = await openRoundOf(c);
 	if (!r) return json(null);
 	const options = await pickOptions(c, r.id);
@@ -57,6 +65,26 @@ export async function POST(event) {
 				auditAuth(event, 'round.pick', { targetType: 'warband', targetId: str('aggressor'), detail: { round: r.number, defender: str('defender'), zone: str('zone') } });
 				return json({ ok: true });
 			}
+		}
+
+		// Challenges: made by the Aggressor, answered by the opponent (the Campaign Master may do either).
+		if (body.op === 'challenge' || body.op === 'answer' || body.op === 'withdraw') {
+			if (body.op === 'challenge') {
+				mayActFor(event, str('aggressor'));
+				await challengeAnytime(c, str('aggressor'), str('defender'), str('zone'), event.locals.isAdmin && body.override === true);
+			} else {
+				const x = await findChallenge(c, str('challenge'));
+				if (!x) error(404, 'No such challenge');
+				if (body.op === 'answer') {
+					mayActFor(event, x.defenderId);
+					await answerChallenge(c, x.id, body.accept === true);
+				} else {
+					mayActFor(event, x.aggressorId);
+					await withdrawChallenge(c, x.id);
+				}
+			}
+			auditAuth(event, `challenge.${body.op}${body.op === 'answer' ? (body.accept === true ? '.accept' : '.decline') : ''}`, { targetType: 'challenge', detail: { aggressor: str('aggressor'), defender: str('defender'), zone: str('zone') } });
+			return json({ ok: true });
 		}
 
 		// Battle steps: the battle's own players (or the Campaign Master).

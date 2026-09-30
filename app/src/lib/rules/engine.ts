@@ -252,6 +252,9 @@ class Engine {
 			case 'fill':
 				this.fill(p, e.track, ch);
 				break;
+			case 'unfill':
+				p.tracks[e.track] = Math.max(0, p.tracks[e.track] - 1);
+				break;
 			case 'omen':
 				p.omens += e.n;
 				break;

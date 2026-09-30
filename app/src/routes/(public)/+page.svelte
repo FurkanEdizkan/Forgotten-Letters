@@ -113,7 +113,7 @@
 			return;
 		}
 		warbandId = null;
-		peekZone = null;
+		// The zone close-up stays: leaving the battle comes back to it, and Back (or Esc) to where the viewer was.
 		if (g.status === 'in_progress' && g.id !== battleId) {
 			zoneId = null;
 			enterBattle(g.id);
@@ -366,7 +366,7 @@
 							<Portrait name={w.player} faction={w.faction} size={34} />
 						{/if}
 						<a href="/players/{w.id}" class="who"><strong>{w.player}</strong><small>{w.name}</small></a>
-						<span class="score"><strong>{row.total}</strong><small>{w.games}/{s.campaign.gamesPerPlayer}</small></span>
+						<span class="score"><strong>{row.total}</strong><small>{w.gamesLeft > 0 ? `rd ${w.round} · ` : ''}{w.games}/{s.campaign.gamesPerPlayer}</small></span>
 					</li>
 				{/if}
 			{/each}

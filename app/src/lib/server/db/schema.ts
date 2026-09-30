@@ -34,6 +34,14 @@ export const campaign = pgTable('campaign', {
 	stage: text('stage', { enum: ['setup', 'mustering', 'underway', 'ended'] })
 		.notNull()
 		.default('underway'),
+	/**
+	 * What a warband loses when the Campaign Master passes it for a round it failed to plan without telling anyone:
+	 * CVP, Glory and Ducats taken away, and boxes off resource tracks. The pass counts as a game played.
+	 */
+	passPenalty: jsonb('pass_penalty')
+		.$type<{ cvp: number; glory: number; ducats: number; boxes: Partial<Record<'F' | 'R' | 'S' | 'T', number>> }>()
+		.notNull()
+		.default({ cvp: 0, glory: 0, ducats: 0, boxes: {} }),
 	/** The campaign map, uploaded in Admin → Map (/uploads path), and its size in pixels. Null: a plain parchment. */
 	mapImage: text('map_image'),
 	mapWidth: integer('map_width'),
@@ -406,13 +414,45 @@ export const roundEntry = pgTable(
 			.references(() => warband.id, { onDelete: 'cascade' }),
 		/** Times Aggressor before this round (frozen when the round opens). */
 		aggressions: integer('aggressions').notNull().default(0),
+		/** The warband's own round when this round opened: warbands are paired only within the same round. */
+		playerRound: integer('player_round').notNull().default(1),
 		/** D6 rolls: the first, then any re-rolls. */
 		rolls: jsonb('rolls').$type<number[]>().notNull().default([]),
-		role: text('role', { enum: ['aggressor', 'defender', 'bye'] }),
+		role: text('role', { enum: ['aggressor', 'defender', 'bye', 'passed'] }),
 		/** Aggressors' picking order (1 = first). */
 		pickOrder: integer('pick_order')
 	},
 	(t) => [primaryKey({ columns: [t.roundId, t.warbandId] })]
+);
+
+/**
+ * A challenge: an Aggressor names an opponent and a battlefield, and the opponent accepts (the battle goes on the
+ * map) or declines. From a round's picking (roundId set) or arranged by the players at any time (roundId null).
+ */
+export const challenge = pgTable(
+	'challenge',
+	{
+		id: id(),
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		roundId: text('round_id').references((): AnyPgColumn => round.id, { onDelete: 'cascade' }),
+		aggressorId: text('aggressor_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		defenderId: text('defender_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		zone: text('zone').notNull(),
+		status: text('status', { enum: ['pending', 'accepted', 'declined', 'withdrawn'] })
+			.notNull()
+			.default('pending'),
+		/** The battle it became, once accepted. */
+		gameId: text('game_id').references((): AnyPgColumn => game.id, { onDelete: 'set null' }),
+		createdAt: createdAt(),
+		answeredAt: timestamp('answered_at', { withTimezone: true, mode: 'date' })
+	},
+	(t) => [index('challenge_campaign_idx').on(t.campaignId, t.status)]
 );
 
 /** An invitation to take one seat: the link carries a random token, only its hash is kept. Single use, expires. */

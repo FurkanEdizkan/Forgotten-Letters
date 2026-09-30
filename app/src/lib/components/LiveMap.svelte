@@ -764,6 +764,10 @@
 			redraw = draw;
 			draw();
 
+			// Battle weather per battle once zoomed in past this; merged per zone further out.
+			const DETAIL_SCALE = 1.2;
+			let detailed = viewport.scale.x >= DETAIL_SCALE;
+
 			// Entering a battle: fly the camera in; leaving: fly back to where the viewer was.
 			let home: { x: number; y: number; scale: number } | null = null;
 			let flownTo: string | null = null;
@@ -786,6 +790,12 @@
 			viewport.on('moved', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
+				// Close enough to tell battles on one zone apart: each shows its own weather (see wantedEffects).
+				const d = viewport.scale.x >= DETAIL_SCALE;
+				if (d !== detailed) {
+					detailed = d;
+					refx?.();
+				}
 			});
 			fly(focus);
 			project = (zoneId: string) => {
@@ -807,7 +817,7 @@
 				// Lanterns after dark: every outpost, and the fields where battles are being fought.
 				const lit = new Set([...snapshot.warbands.flatMap((w) => w.outposts), ...snapshot.active.filter((g) => g.status === 'in_progress').map((g) => g.zone)]);
 				fx.setLights([...lit].flatMap((id) => (graph.zones.has(id) ? [world(graph.zones.get(id)!)] : [])));
-				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focusGame) : []);
+				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focusGame, detailed) : []);
 			};
 			refx();
 			fx.onSheets = () => refx?.();

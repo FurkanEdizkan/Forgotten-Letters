@@ -14,7 +14,12 @@ export function wantedEffects(
 	zones: Map<string, Zone>,
 	world: (z: Zone) => { x: number; y: number },
 	/** The battle the viewer has entered: its field burns at full intensity. */
-	focusGame: string | null = null
+	focusGame: string | null = null,
+	/**
+	 * Close enough to tell battles apart: each shows its own effects at its own spot. Zoomed out, a zone shows one
+	 * battle's Hell on Earth (the one being fought first) and it merges with the zone's other weather, stronger wins.
+	 */
+	detail = true
 ): Wanted[] {
 	const out = new Map<string, Wanted>();
 	// The strongest source of an effect at a place wins (with its tuning).
@@ -73,13 +78,29 @@ export function wantedEffects(
 		out.set(key, { key, kind, scope: { type: 'zone', id: zoneId, x: p.x, y: p.y }, intensity });
 	};
 
-	// Every battle being fought smokes and flashes; the one being watched most of all.
-	for (const g of s.active) if (g.status === 'in_progress') addBattle(g.id, g.zone, 'battlefield', g.id === focusGame ? 1 : 0.35);
-
-	if (s.fx.battleWeather) {
-		for (const g of s.active) {
-			const ev = g.weatherEvent ? weatherByRoll(g.weatherEvent) : undefined;
-			if (ev) for (const kind of PRESET_FX[ev.fx]) addBattle(g.id, g.zone, kind, 1);
+	if (detail) {
+		// Every battle being fought smokes and flashes; the one being watched most of all.
+		for (const g of s.active) if (g.status === 'in_progress') addBattle(g.id, g.zone, 'battlefield', g.id === focusGame ? 1 : 0.35);
+		if (s.fx.battleWeather) {
+			for (const g of s.active) {
+				const ev = g.weatherEvent ? weatherByRoll(g.weatherEvent) : undefined;
+				if (ev) for (const kind of PRESET_FX[ev.fx]) addBattle(g.id, g.zone, kind, 1);
+			}
+		}
+	} else {
+		for (const g of s.active) if (g.status === 'in_progress') add('battlefield', g.zone, g.id === focusGame ? 1 : 0.35);
+		if (s.fx.battleWeather) {
+			// One battle per zone speaks for it: the one being fought, else the first planned.
+			const byZone = new Map<string, (typeof s.active)[number]>();
+			for (const g of s.active) {
+				if (!g.weatherEvent) continue;
+				const prev = byZone.get(g.zone);
+				if (!prev || (prev.status !== 'in_progress' && g.status === 'in_progress')) byZone.set(g.zone, g);
+			}
+			for (const g of byZone.values()) {
+				const ev = weatherByRoll(g.weatherEvent!);
+				if (ev) for (const kind of PRESET_FX[ev.fx]) add(kind, g.zone, 1);
+			}
 		}
 	}
 

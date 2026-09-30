@@ -17,7 +17,8 @@ import { outcome } from '$lib/battle-outcome';
 import { createSnapshotCache } from './snapshot-cache';
 import { kv } from './redis';
 import { subscribe } from './hub';
-import { roundBoard } from './rounds';
+import { passCounts, pendingChallenges, roundBoard } from './rounds';
+import { playerRound } from '$lib/rules/round';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
@@ -49,6 +50,7 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 	const factionOf = new Map(rows.map(({ warband: w }) => [w.id, w.faction]));
 
 	const unitsBy = await activeUnitsByWarband(c.id);
+	const passes = await passCounts(c.id);
 	const models = await listModels(c.id);
 	const art = await artIndex(c.id);
 	const playing = new Map<string, string>();
@@ -81,6 +83,8 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 				position: playing.get(w.id) ?? s.lastZone ?? w.entryZone ?? '',
 				playing: playing.has(w.id),
 				games: s.games,
+				round: playerRound(s.games, passes.get(w.id) ?? 0),
+				gamesLeft: c.gamesPerPlayer - s.games - (passes.get(w.id) ?? 0),
 				wins: s.wins,
 				cvp: trackerCvp(s),
 				cvpBreakdown: s.cvp,
@@ -171,6 +175,7 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 		fx: await getFx(c.id),
 		regions: await activeRegions(c.id),
 		round: await roundBoard(c),
+		challenges: await pendingChallenges(c),
 		updatedAt: Date.now()
 	};
 }

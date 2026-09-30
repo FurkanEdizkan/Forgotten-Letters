@@ -3,7 +3,9 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { RoundError, openRound, openRoundOf, pickOpponent, pickOptions, roundBoard, rollForAggressor } from '$lib/server/rounds';
+import { RoundError, answerChallenge, campaignStanding, openRound, openRoundOf, passWarband, pendingChallenges, penaltyEffects, pickOpponent, pickOptions, roundBoard, rollForAggressor } from '$lib/server/rounds';
+import { describeEffect } from '$lib/effects';
+import { auditAuth } from '$lib/server/audit';
 import { buildGraph } from '$lib/rules/zones';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -22,7 +24,18 @@ export const load: PageServerLoad = async () => {
 		(await db.select({ id: warband.id, name: warband.name }).from(warband).where(eq(warband.campaignId, c.id))).map((w) => [w.id, w.name])
 	);
 	const zones = Object.fromEntries([...buildGraph(c.houseZones).zones.values()].map((z) => [z.id, z.name]));
-	return { stage: c.stage, board, names, zones, options: open ? await pickOptions(c, open.id) : null };
+	const { rows } = await campaignStanding(c);
+	return {
+		stage: c.stage,
+		board,
+		names,
+		zones,
+		options: open ? await pickOptions(c, open.id) : null,
+		challenges: await pendingChallenges(c),
+		// Every warband's own round, so a late one shows, and what a penalised pass takes.
+		standing: rows.sort((a, b) => a.round - b.round),
+		penalty: penaltyEffects(c).map((e) => describeEffect(e))
+	};
 };
 
 const run = async (f: () => Promise<unknown>, done: string) => {
@@ -36,6 +49,25 @@ const run = async (f: () => Promise<unknown>, done: string) => {
 };
 
 export const actions: Actions = {
+	pass: async (event) => {
+		const c = await need();
+		const data = await event.request.formData();
+		const id = String(data.get('warband'));
+		const excused = data.has('excused');
+		try {
+			const r = await passWarband(c, id, { excused, note: String(data.get('note') ?? '').trim().slice(0, 200) || null });
+			auditAuth(event, 'round.pass', { targetType: 'warband', targetId: id, detail: { round: r.round, excused } });
+			return { message: `${data.get('name') ?? 'The warband'} passed round ${r.round}${excused ? ' (excused)' : r.effects.length ? ' with the penalty' : ''}.` };
+		} catch (e) {
+			if (e instanceof RoundError) return fail(400, { message: e.message });
+			throw e;
+		}
+	},
+	answer: async ({ request }) => {
+		const c = await need();
+		const data = await request.formData();
+		return run(() => answerChallenge(c, String(data.get('challenge')), data.get('accept') === 'yes'), data.get('accept') === 'yes' ? 'Accepted: the battle is on the map.' : 'Declined.');
+	},
 	open: async () => {
 		const c = await need();
 		return run(async () => {

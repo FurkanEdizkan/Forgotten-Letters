@@ -29,7 +29,13 @@ function settings(data: FormData) {
 			| 'none',
 		houseZones: data.has('houseZones'),
 		houseRazing: data.has('houseRazing'),
-		houseOutpostLevy: data.has('houseOutpostLevy')
+		houseOutpostLevy: data.has('houseOutpostLevy'),
+		passPenalty: {
+			cvp: int('penCvp', 0, 50, 0),
+			glory: int('penGlory', 0, 50, 0),
+			ducats: int('penDucats', 0, 1000, 0),
+			boxes: { F: int('penF', 0, 15, 0), R: int('penR', 0, 15, 0), S: int('penS', 0, 15, 0), T: int('penT', 0, 15, 0) }
+		}
 	};
 }
 

@@ -5,6 +5,7 @@ import { player, session, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
 import { endAllSessions, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, USERNAME, hashPassword, normaliseUsername, temporaryPassword } from '$lib/server/passwords';
+import { approveSignup, declineRequest, listRequests, resolveReset } from '$lib/server/requests';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -34,7 +35,8 @@ export const load: PageServerLoad = async () => {
 			devices: live.find((l) => l.userId === u.id)?.n ?? 0,
 			seats: seats.filter((s) => s.userId === u.id)
 		})),
-		seats
+		seats,
+		requests: await listRequests()
 	};
 };
 
@@ -68,6 +70,23 @@ export const actions: Actions = {
 			.returning({ id: user.id });
 		await assign(u.id, data.getAll('players').map(String));
 		return { issued: { username, password, why: 'created' } };
+	},
+
+	approve: async ({ request }) => {
+		const r = await approveSignup(String((await request.formData()).get('id')));
+		if (!r.ok) return fail(409, { message: r.message });
+		return { message: `Account "${r.username}" approved. Give it a seat below.` };
+	},
+
+	decline: async ({ request }) => {
+		await declineRequest(String((await request.formData()).get('id')));
+		return { message: 'Request removed.' };
+	},
+
+	resolveReset: async ({ request }) => {
+		const r = await resolveReset(String((await request.formData()).get('id')));
+		if (!r.ok) return fail(409, { message: r.message });
+		return { issued: { username: r.username, password: r.password, why: 'reset' as const } };
 	},
 
 	reset: async ({ request }) => {

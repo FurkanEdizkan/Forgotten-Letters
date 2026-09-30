@@ -149,6 +149,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Clear skies / Satellite view* per device. |
 | `/join/<link>` | anyone with an invite | Take a seat: create an account already tied to it, then build a warband. |
 | `/muster` | signed-in players | Your mustering checklist: account, warband (landing at your seat's Entry Zone), Vision (keep one of the two dealt). |
+| `/` (round panel) | everyone; players act | Each round: everyone rolls for Aggressor (fewer times Aggressor first, then the higher D6; ties that decide anything re-roll), Aggressors in turn pick an opponent and a battlefield (tap it on the map or pick from the list), then each battle's players roll Hell on Earth, the chooser picks, the Aggressor rolls a random scenario, and they start. Every roll is made on the server and shown on every map. The last recorded battle closes the round and opens the next. |
 | `/players`, `/players/<id>` | everyone | Standings (with the campaign at a glance; `/campaign` redirects here) and each warband's digital Campaign Tracker. |
 | `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
 | `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
@@ -160,6 +161,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/history` | everyone | The chronicle of battles. |
 | `/admin` | Campaign Master | Campaign settings, final-reckoning preview, Vision reveal. |
 | `/admin/muster` | Campaign Master | The campaign's stages (Setup → Mustering → Underway → Ended): seats, invite links (one per seat, 7 days, single use), warbands, Entry Zones, dealing Visions, starting the campaign. |
+| `/admin/round` | Campaign Master | The round of battles: every roll, rank and role, whose turn it is; roll or pick for an absent player (with an override for an illegal battlefield); open the next round. |
 | `/admin/games` | Campaign Master | Arrange a game → record its result. Up to 8 games at once. |
 | `/admin/adjustments` | Campaign Master | Glory→CVP trades, Tithe Ducats, corrections. |
 | `/admin/warbands/<id>` | Campaign Master | Muster roll, roster builder, map models (STL → token), Vision. |

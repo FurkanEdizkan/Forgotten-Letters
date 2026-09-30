@@ -11,6 +11,8 @@
 	import Lockup from '$lib/components/Lockup.svelte';
 	import Mark from '$lib/components/Mark.svelte';
 	import BattleHud from '$lib/components/BattleHud.svelte';
+	import RoundPanel from '$lib/components/RoundPanel.svelte';
+	import RollToasts from '$lib/components/RollToasts.svelte';
 	import ResultBanner from '$lib/components/ResultBanner.svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
@@ -35,6 +37,10 @@
 	// Visitors who haven't signed in see the map, the standings and a way to sign in; nothing else.
 	const signedIn = $derived(!!page.data.user);
 	const signInHref = $derived(`/login?next=${encodeURIComponent(page.url.pathname + page.url.search)}`);
+	// The round of battles: the viewer's warbands, and map taps routed to the round panel while picking a battlefield.
+	const mine = $derived(((page.data.user as { warbandIds?: string[] } | null)?.warbandIds ?? []) as string[]);
+	let roundPicking = $state(false);
+	let pickZone = $state<string | null>(null);
 
 	// Hell on Earth dice rolled anywhere show up on every map.
 	let project = $state<((zoneId: string) => { x: number; y: number } | null) | undefined>();
@@ -129,6 +135,10 @@
 			snapshot={s}
 			selected={warbandId}
 			onzone={(id) => {
+				if (roundPicking) {
+					pickZone = id;
+					return;
+				}
 				zoneId = id;
 				warbandId = null;
 				// Clicking a battle being fought enters it (without covering it with the panel).
@@ -258,6 +268,11 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if s.campaign.stage === 'underway' && !battle}
+		<div class="round-dock"><RoundPanel snapshot={s} zones={graph.zones} {mine} bind:pickZone bind:picking={roundPicking} /></div>
+	{/if}
+	<RollToasts subscribe={live.onTrigger} />
 
 	<!-- One switch, top-left of the map: clear the sky to read the plain battle map, then back to the battlefield as it stands. -->
 	<button
@@ -522,6 +537,20 @@
 			transform: translate(-50%, -14px);
 			filter: blur(4px);
 		}
+	}
+	/* The round of battles, under the sky switch on the left. */
+	.round-dock {
+		position: absolute;
+		z-index: 2;
+		top: calc(var(--band) + 60px);
+		left: 14px;
+		bottom: 60px;
+		display: flex;
+		align-items: flex-start;
+		pointer-events: none;
+	}
+	.round-dock > :global(*) {
+		pointer-events: auto;
 	}
 	.muster-banner {
 		position: absolute;

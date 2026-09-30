@@ -17,6 +17,7 @@ import { outcome } from '$lib/battle-outcome';
 import { createSnapshotCache } from './snapshot-cache';
 import { kv } from './redis';
 import { subscribe } from './hub';
+import { roundBoard } from './rounds';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
@@ -127,6 +128,7 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 			const rolls = (g.weatherRolls ?? null) as { aggressor?: [number, number] | null; defender?: [number, number] | null; chooser?: string | null } | null;
 			return {
 				id: g.id,
+				roundId: g.roundId ?? null,
 				zone: g.zone,
 				aggressor: g.aggressorId,
 				defender: g.defenderId,
@@ -139,6 +141,7 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 		}),
 		recent: recent.map((g) => ({
 			id: g.id,
+			roundId: g.roundId ?? null,
 			zone: g.zone,
 			aggressor: g.aggressorId,
 			defender: g.defenderId,
@@ -167,6 +170,7 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 		omensTaken: [...state.omensTaken],
 		fx: await getFx(c.id),
 		regions: await activeRegions(c.id),
+		round: await roundBoard(c),
 		updatedAt: Date.now()
 	};
 }

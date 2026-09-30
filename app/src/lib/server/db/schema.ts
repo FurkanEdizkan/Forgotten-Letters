@@ -129,6 +129,8 @@ export const game = pgTable(
 			.notNull()
 			.default('scheduled'),
 		zone: text('zone').notNull(),
+		/** The round of battles this game belongs to; null for a battle the Campaign Master arranged by hand. */
+		roundId: text('round_id').references((): AnyPgColumn => round.id, { onDelete: 'set null' }),
 		aggressorId: text('aggressor_id')
 			.notNull()
 			.references(() => warband.id),
@@ -370,6 +372,48 @@ export const user = pgTable('user', {
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 });
+
+/**
+ * A round of battles. Every eligible warband rolls (the Aggressors are decided), each Aggressor in turn picks an
+ * opponent and a battlefield, the battles are fought and recorded, and the round closes.
+ */
+export const round = pgTable(
+	'round',
+	{
+		id: id(),
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		number: integer('number').notNull(),
+		step: text('step', { enum: ['rolling', 'pairing', 'battles', 'closed'] })
+			.notNull()
+			.default('rolling'),
+		createdAt: createdAt(),
+		closedAt: timestamp('closed_at', { withTimezone: true, mode: 'date' })
+	},
+	(t) => [uniqueIndex('round_campaign_number_idx').on(t.campaignId, t.number)]
+);
+
+/** One warband in a round: its rolls for the Aggressor roll-off, and the role it ended with. */
+export const roundEntry = pgTable(
+	'round_entry',
+	{
+		roundId: text('round_id')
+			.notNull()
+			.references(() => round.id, { onDelete: 'cascade' }),
+		warbandId: text('warband_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		/** Times Aggressor before this round (frozen when the round opens). */
+		aggressions: integer('aggressions').notNull().default(0),
+		/** D6 rolls: the first, then any re-rolls. */
+		rolls: jsonb('rolls').$type<number[]>().notNull().default([]),
+		role: text('role', { enum: ['aggressor', 'defender', 'bye'] }),
+		/** Aggressors' picking order (1 = first). */
+		pickOrder: integer('pick_order')
+	},
+	(t) => [primaryKey({ columns: [t.roundId, t.warbandId] })]
+);
 
 /** An invitation to take one seat: the link carries a random token, only its hash is kept. Single use, expires. */
 export const invite = pgTable(

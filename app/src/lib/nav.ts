@@ -22,6 +22,7 @@ export const PLAY: NavItem[] = [
 export const OPERATE: NavItem[] = [
 	{ href: '/admin', label: 'Campaign', match: 'exact' },
 	{ href: '/admin/muster', label: 'Muster' },
+	{ href: '/admin/round', label: 'Round' },
 	{ href: '/admin/games', label: 'Games' },
 	{ href: '/admin/players', label: 'Players' },
 	{ href: '/admin/log', label: 'Log' },

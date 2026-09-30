@@ -1352,7 +1352,7 @@ export class FxEngine {
 
 	/** Play a one-shot effect. `at` is in world coordinates; omit for anywhere on screen. */
 	trigger(t: FxTrigger, at?: { x: number; y: number }, onDone?: () => void) {
-		if (t.kind === 'dice') return; // drawn by the page as a DOM overlay
+		if (t.kind === 'dice' || t.kind === 'roll') return; // drawn by the page as a DOM overlay
 		if (t.kind === 'battle-result') {
 			// Without effects (or a place), there is nothing to play: the monument just stands.
 			if (!t.battle || !at || this.ctx.q <= 0) return onDone?.();

@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { openRound } from './rounds';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
 import { campaign, invite, player, user, warband } from './db/schema';
@@ -163,6 +164,8 @@ export async function advanceStage(c: Campaign, override = false): Promise<{ ok:
 		if (!check.ok) return check;
 	}
 	await db.update(campaign).set({ stage: next }).where(eq(campaign.id, c.id));
+	// Under way: the first round of battles opens at once.
+	if (next === 'underway') await openRound({ ...c, stage: next });
 	publish(c.id);
 	return { ok: true, stage: next };
 }

@@ -92,6 +92,10 @@
 		zoneId ? (s.active.find((g) => g.id === gameId && g.zone === zoneId) ?? s.active.find((g) => g.zone === zoneId)) : undefined
 	);
 	const peekCount = $derived(peekZone ? s.active.filter((g) => g.zone === peekZone).length : 0);
+	// Once the zone holds fewer than two battles there is nothing left to pick between: back out.
+	$effect(() => {
+		if (peekZone && peekCount < 2) peekZone = null;
+	});
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
 
 	// Active battle mode: /?battle=<game> flies into a battle being fought (shareable, so the TV can sit in it).
@@ -103,6 +107,11 @@
 	function openBattle(id: string) {
 		const g = s.active.find((x) => x.id === id);
 		if (!g) return;
+		// Choosing a battlefield: a battle's marker stands for its zone (joining a zone already fought over).
+		if (roundPicking) {
+			pickZone = g.zone;
+			return;
+		}
 		warbandId = null;
 		peekZone = null;
 		if (g.status === 'in_progress' && g.id !== battleId) {

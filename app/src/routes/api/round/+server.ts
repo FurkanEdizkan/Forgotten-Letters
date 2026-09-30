@@ -7,6 +7,7 @@ import { BattleError, rollScenario, rollWeatherSide, setWeather, startGame } fro
 import { RoundError, openRoundOf, pickOpponent, pickOptions, rollForAggressor } from '$lib/server/rounds';
 import { publish, sendTrigger } from '$lib/server/hub';
 import { auditAuth } from '$lib/server/audit';
+import { buildGraph } from '$lib/rules/zones';
 import type { RequestEvent } from './$types';
 
 /** A player acts for a warband they play; the Campaign Master may act for anyone (someone absent, say). */
@@ -66,7 +67,7 @@ export async function POST(event) {
 				const side = str('warband') === g.aggressorId ? 'aggressor' : str('warband') === g.defenderId ? 'defender' : null;
 				if (!side) error(400, 'That warband is not in this battle');
 				mayActFor(event, str('warband'));
-				const rolls = await rollWeatherSide(c, g, side);
+				const rolls = await rollWeatherSide(c, g.id, side);
 				sendTrigger(c.id, {
 					kind: 'roll',
 					zone: g.zone,
@@ -76,6 +77,8 @@ export async function POST(event) {
 				break;
 			}
 			case 'weather-choose': {
+				if (g.status !== 'scheduled') error(400, 'The weather is chosen before the battle starts');
+				if (g.weatherEvent && !event.locals.isAdmin) error(400, 'Hell on Earth is already settled for this battle');
 				const rolls = g.weatherRolls as { aggressor: number[] | null; defender: number[] | null; chooser: string | null } | null;
 				if (!rolls?.aggressor || !rolls.defender) error(400, 'Both sides roll first');
 				// The chooser picks; on a tie in CVP it is a roll-off, which the Campaign Master settles.
@@ -87,6 +90,9 @@ export async function POST(event) {
 			}
 			case 'scenario': {
 				mayActFor(event, g.aggressorId);
+				if (g.status !== 'scheduled') error(400, 'The scenario is rolled before the battle starts');
+				// One roll: the Aggressor can't roll again for a better one (the Campaign Master can correct it).
+				if (g.scenario && !event.locals.isAdmin) error(400, 'The scenario is already rolled');
 				const s = await rollScenario(c, g);
 				sendTrigger(c.id, {
 					kind: 'roll',
@@ -100,6 +106,8 @@ export async function POST(event) {
 				if (!event.locals.isAdmin && !event.locals.user?.warbandIds.some((w) => w === g.aggressorId || w === g.defenderId)) error(403, 'Not your battle');
 				// The weather is part of the battle: players settle it first (the Campaign Master may start regardless).
 				if (!event.locals.isAdmin && !g.weatherEvent) error(400, 'Settle Hell on Earth first: both roll, then the chooser picks.');
+				if (!event.locals.isAdmin && !g.scenario && buildGraph(c.houseZones).zones.get(g.zone)?.archetype)
+					error(400, 'The Aggressor rolls the scenario first.');
 				await startGame(g);
 				break;
 			}

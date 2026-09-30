@@ -231,21 +231,28 @@ export async function rollWeather(c: Campaign, g: Game): Promise<WeatherRolls> {
  * One side rolls its 2D6 for Hell on Earth (each player on their own phone). The chooser — fewer tracker CVP —
  * is worked out as soon as both have rolled; until then the event stays open.
  */
-export async function rollWeatherSide(c: Campaign, g: Game, side: 'aggressor' | 'defender'): Promise<WeatherRolls> {
-	if (g.status === 'done') throw new BattleError('This battle is already recorded');
-	const prev = (g.weatherRolls ?? null) as Partial<WeatherRolls> | null;
-	if (prev?.[side]) throw new BattleError('That side has rolled already');
+export async function rollWeatherSide(c: Campaign, gameId: string, side: 'aggressor' | 'defender'): Promise<WeatherRolls> {
 	const { state } = await loadCampaignState(c);
-	const cvp = (id: string) => trackerCvp(state.players.get(id)!);
-	const rolls: WeatherRolls = {
-		aggressor: prev?.aggressor ?? null,
-		defender: prev?.defender ?? null,
-		chooser: weatherChooser({ id: g.aggressorId, cvp: cvp(g.aggressorId) }, { id: g.defenderId, cvp: cvp(g.defenderId) }),
-		rolledAt: Date.now()
-	};
-	rolls[side] = [serverD6(), serverD6()];
-	await db.update(game).set({ weatherRolls: rolls, weatherEvent: null }).where(eq(game.id, g.id));
-	return rolls;
+	// The battle's row is locked while this side's dice go in, so both sides rolling at once keep both rolls.
+	return db.transaction(async (tx) => {
+		const [g] = await tx.select().from(game).where(eq(game.id, gameId)).for('update');
+		if (!g) throw new BattleError('No such battle');
+		if (g.status !== 'scheduled') throw new BattleError('Hell on Earth is rolled before the battle starts');
+		// Set already — chosen, or pre-set by the regional weather over this zone.
+		if (g.weatherEvent) throw new BattleError('Hell on Earth is already settled for this battle');
+		const prev = (g.weatherRolls ?? null) as Partial<WeatherRolls> | null;
+		if (prev?.[side]) throw new BattleError('That side has rolled already');
+		const cvp = (id: string) => trackerCvp(state.players.get(id)!);
+		const rolls: WeatherRolls = {
+			aggressor: prev?.aggressor ?? null,
+			defender: prev?.defender ?? null,
+			chooser: weatherChooser({ id: g.aggressorId, cvp: cvp(g.aggressorId) }, { id: g.defenderId, cvp: cvp(g.defenderId) }),
+			rolledAt: Date.now()
+		};
+		rolls[side] = [serverD6(), serverD6()];
+		await tx.update(game).set({ weatherRolls: rolls }).where(eq(game.id, g.id));
+		return rolls;
+	});
 }
 
 export async function setWeather(g: Game, event: number | null) {

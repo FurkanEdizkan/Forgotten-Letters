@@ -3,6 +3,7 @@ import type { Zone } from '$lib/rules/types';
 import type { PublicSnapshot } from '$lib/snapshot';
 import { PRESET_FX, layerParams, type FxKind, type FxParams } from './types';
 import type { Wanted } from './engine';
+import { battlePlacement } from '$lib/map-battles';
 
 /**
  * Everything that should be on screen for this snapshot:
@@ -13,7 +14,7 @@ export function wantedEffects(
 	zones: Map<string, Zone>,
 	world: (z: Zone) => { x: number; y: number },
 	/** The battle the viewer has entered: its field burns at full intensity. */
-	focusZone: string | null = null
+	focusGame: string | null = null
 ): Wanted[] {
 	const out = new Map<string, Wanted>();
 	// The strongest source of an effect at a place wins (with its tuning).
@@ -59,13 +60,26 @@ export function wantedEffects(
 	// Rudolf's Folly: once anyone holds an Outpost at the airfield, a biplane circles it.
 	if (s.warbands.some((w) => w.outposts.includes('rudolfs-folly'))) add('aircraft', 'rudolfs-folly', 0.6);
 
+	// Battles are placed one by one: several on a zone fan out round it (map-battles.ts), and each carries its own
+	// smoke and its own Hell on Earth there, so two battles in one zone show two different skies.
+	const spots = battlePlacement(s.active, (id) => {
+		const z = zones.get(id);
+		return z ? world(z) : null;
+	});
+	const addBattle = (gameId: string, zoneId: string, kind: Wanted['kind'], intensity: number) => {
+		const p = spots.get(gameId);
+		if (!p) return;
+		const key = `battle:${gameId}:${kind}`;
+		out.set(key, { key, kind, scope: { type: 'zone', id: zoneId, x: p.x, y: p.y }, intensity });
+	};
+
 	// Every battle being fought smokes and flashes; the one being watched most of all.
-	for (const g of s.active) if (g.status === 'in_progress') add('battlefield', g.zone, g.zone === focusZone ? 1 : 0.35);
+	for (const g of s.active) if (g.status === 'in_progress') addBattle(g.id, g.zone, 'battlefield', g.id === focusGame ? 1 : 0.35);
 
 	if (s.fx.battleWeather) {
 		for (const g of s.active) {
 			const ev = g.weatherEvent ? weatherByRoll(g.weatherEvent) : undefined;
-			if (ev) for (const kind of PRESET_FX[ev.fx]) add(kind, g.zone, 1);
+			if (ev) for (const kind of PRESET_FX[ev.fx]) addBattle(g.id, g.zone, kind, 1);
 		}
 	}
 

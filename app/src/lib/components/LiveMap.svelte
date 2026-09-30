@@ -9,6 +9,7 @@
 	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
 	import { outpostFrame } from '$lib/models';
 	import { hexToNumber, sigilFor } from '$lib/sigils';
+	import { battlePlacement } from '$lib/map-battles';
 	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
 	import { CAIRN_FRAME, TIER_SCALE, hexNum, monumentFrame } from '$lib/monuments';
 	import type { Monument } from '$lib/snapshot';
@@ -18,6 +19,9 @@
 		selected = null,
 		onzone,
 		onwarband,
+		onbattle,
+		focusGame = null,
+		focusScale = 3,
 		fxEnabled = true,
 		subscribeTriggers,
 		focus = null,
@@ -28,6 +32,12 @@
 		selected?: string | null;
 		onzone?: (id: string) => void;
 		onwarband?: (id: string) => void;
+		/** A battle's own marker was tapped (several on one zone fan out round it, each with its own target). */
+		onbattle?: (gameId: string) => void;
+		/** The battle the viewer has entered: its field burns hardest. */
+		focusGame?: string | null;
+		/** How close the camera flies to `focus`: 3 inside a battle; less to look over several battles on one zone. */
+		focusScale?: number;
 		/** Viewer's own switch for weather effects. */
 		fxEnabled?: boolean;
 		/** Live one-shot effects (lightning, crows…). */
@@ -52,7 +62,7 @@
 	let host: HTMLDivElement;
 	let redraw: (() => void) | null = null;
 	let refx: (() => void) | null = null;
-	let fly: ((zoneId: string | null) => void) | null = null;
+	let fly: ((zoneId: string | null, scale?: number) => void) | null = null;
 
 	// Re-draw dynamic layers whenever the snapshot or selection changes.
 	$effect(() => {
@@ -64,6 +74,7 @@
 		void snapshot;
 		void fxEnabled;
 		void focus;
+		void focusGame;
 		void clockSkew;
 		refx?.();
 	});
@@ -71,7 +82,8 @@
 		// Read focus first: while the map is still loading `fly` is null, and `fly?.(focus)` would then never
 		// read focus, leaving this effect with nothing to re-run on.
 		const zone = focus;
-		fly?.(zone);
+		const scale = focusScale;
+		fly?.(zone, scale);
 	});
 
 	onMount(() => {
@@ -231,9 +243,11 @@
 			const outposts = new PIXI.Container();
 			const markers = new PIXI.Container();
 			const hits = new PIXI.Container();
+			// Battles' own tap targets sit above the zones', so a battle on a shared zone can be picked out.
+			const battleHits = new PIXI.Container();
 			const fxBack = new PIXI.Container();
 			const fxFront = new PIXI.Container();
-			viewport.addChild(fxBack, highlight, battles, monumentLayer, outposts, hits, markers, fxFront);
+			viewport.addChild(fxBack, highlight, battles, monumentLayer, outposts, hits, battleHits, markers, fxFront);
 			monumentLayer.eventMode = 'none';
 
 			// Screen-space overlay above the map, for weather.
@@ -597,7 +611,7 @@
 			const groups: Container[] = [];
 
 			function draw() {
-				for (const layer of [highlight, battles, monumentLayer, outposts, markers]) {
+				for (const layer of [highlight, battles, battleHits, monumentLayer, outposts, markers]) {
 					for (const child of layer.removeChildren()) child.destroy({ children: true });
 				}
 				groups.length = 0;
@@ -621,14 +635,22 @@
 					highlight.addChild(g);
 				}
 
-				// Battles: a pulsing ring while fought; a dashed ring with crossed swords while planned.
+				// Battles: a pulsing ring while fought; a dashed ring with crossed swords while planned. Several on one
+				// zone fan out round it (smaller rings), each at its own spot with its own tap target.
+				const spots = battlePlacement(s.active, (id) => {
+					const z = graph.zones.get(id);
+					return z ? world(z) : null;
+				});
+				const sharing = new Map<string, number>();
+				for (const g of s.active) sharing.set(g.zone, (sharing.get(g.zone) ?? 0) + 1);
 				for (const game of s.active) {
-					const z = graph.zones.get(game.zone);
-					if (!z) continue;
+					const spot = spots.get(game.id);
+					if (!spot) continue;
+					const r = (sharing.get(game.zone) ?? 1) > 1 ? 56 : 80;
 					const ring = new PIXI.Graphics();
 					if (game.status === 'scheduled') {
 						for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
-							ring.arc(0, 0, 80, a, a + Math.PI / 18).stroke({ width: 8, color: 0xa3170f });
+							ring.arc(0, 0, r, a, a + Math.PI / 18).stroke({ width: 8, color: 0xa3170f });
 						}
 						// Crossed swords, drawn in ink on a bone ground (a planned battle).
 						const swords = new PIXI.Graphics()
@@ -641,14 +663,26 @@
 							.moveTo(3, 12).lineTo(12, 3)
 							.moveTo(-3, 12).lineTo(-12, 3)
 							.stroke({ width: 4, color: 0xa3170f, cap: 'square' });
-						swords.y = -96;
+						swords.y = -r - 16;
 						ring.addChild(swords);
 						ring.label = 'planned';
 					} else {
-						ring.circle(0, 0, 80).stroke({ width: 10, color: 0xc8231a });
+						ring.circle(0, 0, r).stroke({ width: 10, color: 0xc8231a });
 					}
-					ring.position.set(world(z).x, world(z).y);
+					ring.position.set(spot.x, spot.y);
 					battles.addChild(ring);
+					if (onbattle) {
+						const hit = new PIXI.Container();
+						hit.hitArea = new PIXI.Circle(0, 0, r + 12);
+						hit.eventMode = 'static';
+						hit.cursor = 'pointer';
+						hit.position.set(spot.x, spot.y);
+						hit.on('pointertap', (e) => {
+							e.stopPropagation();
+							if (!dragging) onbattle?.(game.id);
+						});
+						battleHits.addChild(hit);
+					}
 				}
 
 				if (s.fx.monuments) drawMonuments(s.monuments, k);
@@ -733,14 +767,17 @@
 			// Entering a battle: fly the camera in; leaving: fly back to where the viewer was.
 			let home: { x: number; y: number; scale: number } | null = null;
 			let flownTo: string | null = null;
-			fly = (zoneId) => {
-				if (zoneId === flownTo) return;
+			let flownScale = 0;
+			fly = (zoneId, scale = 3) => {
+				// The same place at the same distance: nothing to do (a closer look at the same zone still flies).
+				if (zoneId === flownTo && (!zoneId || scale === flownScale)) return;
 				flownTo = zoneId;
+				flownScale = scale;
 				const z = zoneId ? graph.zones.get(zoneId) : undefined;
 				const time = reduceMotion ? 0 : 1400;
 				if (z) {
 					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
-					viewport.animate({ position: world(z), scale: 3, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					viewport.animate({ position: world(z), scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 				} else if (home) {
 					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 					home = null;
@@ -770,7 +807,7 @@
 				// Lanterns after dark: every outpost, and the fields where battles are being fought.
 				const lit = new Set([...snapshot.warbands.flatMap((w) => w.outposts), ...snapshot.active.filter((g) => g.status === 'in_progress').map((g) => g.zone)]);
 				fx.setLights([...lit].flatMap((id) => (graph.zones.has(id) ? [world(graph.zones.get(id)!)] : [])));
-				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focus) : []);
+				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focusGame) : []);
 			};
 			refx();
 			fx.onSheets = () => refx?.();

@@ -30,6 +30,10 @@
 
 	let zoneId = $state<string | null>(null);
 	let warbandId = $state<string | null>(null);
+	/** A battle picked out of several on one zone (its details sheet shows that one, not the zone's first). */
+	let gameId = $state<string | null>(null);
+	/** A zone holding several battles, zoomed into so they can be told apart and tapped. */
+	let peekZone = $state<string | null>(null);
 	let showStandings = $state(false);
 	// Height of the smoke band that holds the chrome; the map plate starts below it.
 	let bandH = $state(64);
@@ -84,13 +88,31 @@
 
 	const zone = $derived(zoneId ? graph.zones.get(zoneId) : undefined);
 	const warband = $derived(warbandId ? wb.get(warbandId) : undefined);
-	const zoneGame = $derived(zoneId ? s.active.find((g) => g.zone === zoneId) : undefined);
+	const zoneGame = $derived(
+		zoneId ? (s.active.find((g) => g.id === gameId && g.zone === zoneId) ?? s.active.find((g) => g.zone === zoneId)) : undefined
+	);
+	const peekCount = $derived(peekZone ? s.active.filter((g) => g.zone === peekZone).length : 0);
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
 
 	// Active battle mode: /?battle=<game> flies into a battle being fought (shareable, so the TV can sit in it).
 	const battleId = $derived(page.url.searchParams.get('battle'));
 	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status === 'in_progress') : undefined);
-	const focus = $derived(battle?.zone ?? result?.zone ?? null);
+	const focus = $derived(battle?.zone ?? result?.zone ?? peekZone ?? null);
+
+	/** A battle's own marker: one being fought is entered (again: its details); a planned one opens its details. */
+	function openBattle(id: string) {
+		const g = s.active.find((x) => x.id === id);
+		if (!g) return;
+		warbandId = null;
+		peekZone = null;
+		if (g.status === 'in_progress' && g.id !== battleId) {
+			zoneId = null;
+			enterBattle(g.id);
+			return;
+		}
+		gameId = g.id;
+		zoneId = g.zone;
+	}
 	const enterBattle = (id: string) => goto(`?battle=${id}`, { noScroll: true, keepFocus: true });
 	const leaveBattle = () => {
 		zoneId = null;
@@ -121,6 +143,10 @@
 <svelte:window
 	onkeydown={(e) => {
 		// In a battle, Esc steps back one level: the details page first, then out of the battle.
+		if (e.key === 'Escape' && !battle && peekZone) {
+			peekZone = null;
+			return;
+		}
 		if (e.key !== 'Escape' || !battle) return;
 		if (zoneId || warbandId) {
 			zoneId = null;
@@ -139,15 +165,23 @@
 					pickZone = id;
 					return;
 				}
+				const here = s.active.filter((g) => g.zone === id);
+				// Several battles on this zone: fly closer so they fan apart, then the player taps the one they want.
+				if (here.length > 1 && !battle) {
+					zoneId = null;
+					warbandId = null;
+					peekZone = id;
+					return;
+				}
+				if (here.length === 1) return openBattle(here[0].id);
+				peekZone = null;
+				gameId = null;
 				zoneId = id;
 				warbandId = null;
-				// Clicking a battle being fought enters it (without covering it with the panel).
-				const fought = s.active.find((g) => g.zone === id && g.status === 'in_progress');
-				if (fought && fought.id !== battleId) {
-					zoneId = null;
-					enterBattle(fought.id);
-				}
 			}}
+			onbattle={openBattle}
+			focusGame={battle?.id ?? null}
+			focusScale={battle || result ? 3 : 1.5}
 			onwarband={(id) => {
 				warbandId = warbandId === id ? null : id;
 				zoneId = null;
@@ -237,8 +271,7 @@
 								}
 								return;
 							}
-							zoneId = g.zone;
-							warbandId = null;
+							openBattle(g.id);
 						}}
 					>
 						<span class="pair">
@@ -273,6 +306,12 @@
 		<div class="round-dock"><RoundPanel snapshot={s} zones={graph.zones} {mine} bind:pickZone bind:picking={roundPicking} /></div>
 	{/if}
 	<RollToasts subscribe={live.onTrigger} />
+	{#if peekZone && peekCount > 1}
+		<div class="peek" role="status">
+			{peekCount} battles at {zoneName(peekZone)} — tap one
+			<button class="ghost small" onclick={() => (peekZone = null)}>Back</button>
+		</div>
+	{/if}
 
 	<!-- One switch, top-left of the map: clear the sky to read the plain battle map, then back to the battlefield as it stands. -->
 	<button
@@ -551,6 +590,25 @@
 	}
 	.round-dock > :global(*) {
 		pointer-events: auto;
+	}
+	.peek {
+		position: absolute;
+		z-index: 3;
+		left: 50%;
+		bottom: 14px;
+		transform: translateX(-50%);
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 6px 8px 6px 16px;
+		background: rgba(21, 19, 14, 0.92);
+		color: var(--bone);
+		border-top: 2px solid var(--blood-bright);
+	}
+	.peek button {
+		color: var(--bone);
+		border-color: rgba(236, 229, 211, 0.4);
+		background: none;
 	}
 	.muster-banner {
 		position: absolute;

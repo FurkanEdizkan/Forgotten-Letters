@@ -1,17 +1,20 @@
 <script lang="ts">
 	import NavPanel from '$lib/components/NavPanel.svelte';
+	import { page } from '$app/state';
 
 	let { data, children } = $props();
 
 	// svelte-ignore state_referenced_locally
 	let navOpen = $state(data.navOpen);
+	// Consoles that pair a live map with their controls need more room than a reading column.
+	const wide = $derived(page.url.pathname.startsWith('/admin/weather'));
 </script>
 
 {#if data.campaign !== undefined}
 	<a class="skip" href="#main">Skip to content</a>
 	<NavPanel bind:open={navOpen} title={data.campaign?.name ?? 'Campaign Master'} />
 	<div class="shell" class:beside={navOpen}>
-		<main id="main" tabindex="-1">
+		<main id="main" tabindex="-1" class:wide>
 			{@render children()}
 		</main>
 	</div>
@@ -45,6 +48,9 @@
 		.shell.beside {
 			padding-left: 0;
 		}
+	}
+	main.wide {
+		max-width: 92rem;
 	}
 	main {
 		min-width: 0;

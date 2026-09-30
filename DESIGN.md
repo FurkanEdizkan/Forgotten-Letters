@@ -397,6 +397,13 @@ The admin register, widened for work.
 - **Unsaved work.** A save bar rises from the bottom edge (2px blood top edge, the sheet shadow) with the number of unsaved changes, *Discard changes* and *Save the map* (Ctrl S). Leaving the page with unsaved changes asks first.
 - **Live map without an image.** A plain parchment field inside a thin red frame, with every zone drawn the way house zones are.
 
+### Weather Console
+The admin register, widened for work (up to 92rem).
+- **Layout.** The live preview on the left, large and sticky, with a **Now** line under it saying in words what every viewer sees (time of day, the layers running with their strength, the wind, random portents, and the regions in force) next to *Clear skies*. The console on the right in five tabs: Sky, Portents, Regions, Display, Presets. Below 56rem the preview goes on top. A status pill (supply-green dot) says *Live on every map*, *Sending…* or, in blood, that a change did not go out.
+- **Cards.** Each group is a parchment card whose legend is a small blood Pirata capital line; nothing is bigger than it needs to be.
+- **Tiles.** Choices that switch on (a weather layer, a strike, a random portent) are square paper tiles; pressed tiles are ink with parchment text. Off layers wait as *+ Rain* tiles; running ones become rows with a strength slider, *Tune* (speed, size, opacity, colour) and a stop ×.
+- **Regions.** The regions in force come first as a ruled list (lifted ones dimmed, with a *lifted* tag), then *New region*. Its zones come from the groups, an *Add a zone…* list, or clicking them on the preview while *Pick zones on the map* is on (the preview gets a 3px blood outline and a note of how many are picked); picked zones are removable chips.
+
 ### Faction Studio
 An admin register page like *Rules*:
 - **Layout.** A faction header with its seal, then text tabs underlined in blood red (Identity, Rules, Units, Armoury, Keywords, Template), and entries as folding rows with their forms in an auto-fill grid.

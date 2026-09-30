@@ -9,7 +9,7 @@
 	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
 	import { outpostFrame } from '$lib/models';
 	import { hexToNumber, sigilFor } from '$lib/sigils';
-	import { battlePlacement, markerSpots } from '$lib/map-battles';
+	import { battleFlanks, battlePlacement, markerSpots } from '$lib/map-battles';
 	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
 	import { CAIRN_FRAME, TIER_SCALE, hexNum, monumentFrame } from '$lib/monuments';
 	import type { Monument } from '$lib/snapshot';
@@ -608,13 +608,16 @@
 			}
 
 			const markerScale = () => Math.min(3.5, Math.max(1, 0.7 / viewport.scale.x));
-			// Warband markers stand on a ring clear of the zone's tap target (radius 70), re-placed as the zoom changes
-			// their size, so a zone with warbands on it can still be tapped.
-			const placeMarkers = (g: Container, k: number) =>
-				markerSpots(g.children.length, k, { clear: 70, markerR: 35 }).forEach((p, i) => g.children[i].position.set(p.x, p.y));
+			// Warband markers are re-placed as the zoom changes their size: at camp they hug the camp's circle (radius 42);
+			// in a battle the pair stands on that battle's ring, so each warband reads as standing where it is and nowhere else.
+			type Placed = { g: Container; place: (k: number) => void };
+			const placeCamp = (g: Container) => (k: number) =>
+				markerSpots(g.children.length, k, { clear: 42, markerR: 35 }).forEach((p, i) => g.children[i].position.set(p.x, p.y));
+			const placeFlanks = (g: Container, ringR: number) => (k: number) =>
+				battleFlanks(ringR, k).forEach((p, i) => g.children[i]?.position.set(p.x, p.y));
 			const groups: Container[] = [];
 			/** The warband marker groups among them (monuments and outposts keep their own layout). */
-			const warbandGroups: Container[] = [];
+			const warbandGroups: Placed[] = [];
 
 			function draw() {
 				for (const layer of [highlight, battles, battleHits, monumentLayer, outposts, markers]) {
@@ -648,12 +651,14 @@
 					const z = graph.zones.get(id);
 					return z ? world(z) : null;
 				});
+				const ringOf = new Map<string, number>();
 				const sharing = new Map<string, number>();
 				for (const g of s.active) sharing.set(g.zone, (sharing.get(g.zone) ?? 0) + 1);
 				for (const game of s.active) {
 					const spot = spots.get(game.id);
 					if (!spot) continue;
 					const r = (sharing.get(game.zone) ?? 1) > 1 ? 56 : 80;
+					ringOf.set(game.id, r);
 					const ring = new PIXI.Graphics();
 					if (game.status === 'scheduled') {
 						for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
@@ -712,30 +717,45 @@
 					outposts.addChild(g);
 				}
 
-				// Warband markers, fanned around their zone.
+				// Warband markers. A warband stands at its camp (its Entry Zone) until a battle is set; then it stands at that
+				// battle, the Aggressor left of the ring and the Defender right.
+				const marker = (w: PublicWarband) => {
+					const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12;
+					return w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring);
+				};
+				const addGroup = (at: { x: number; y: number }, ws: PublicWarband[], place: (g: Container) => (k: number) => void) => {
+					const g = new PIXI.Container();
+					g.position.set(at.x, at.y);
+					for (const w of ws) g.addChild(marker(w));
+					const placed = { g, place: place(g) };
+					g.scale.set(k);
+					placed.place(k);
+					groups.push(g);
+					warbandGroups.push(placed);
+					markers.addChild(g);
+				};
+				const byId = new Map(s.warbands.map((w) => [w.id, w]));
+				const fighting = new Set<string>();
+				for (const game of s.active) {
+					const spot = spots.get(game.id);
+					if (!spot) continue;
+					const pair = [byId.get(game.aggressor), byId.get(game.defender)].filter((w) => w && !fighting.has(w.id)) as PublicWarband[];
+					if (pair.length < 2) continue;
+					for (const w of pair) fighting.add(w.id);
+					addGroup(spot, pair, (g) => placeFlanks(g, ringOf.get(game.id) ?? 80));
+				}
 				const byZone = new Map<string, PublicWarband[]>();
-				for (const w of s.warbands) byZone.set(w.position, [...(byZone.get(w.position) ?? []), w]);
+				for (const w of s.warbands) if (!fighting.has(w.id)) byZone.set(w.position, [...(byZone.get(w.position) ?? []), w]);
 				for (const [zid, ws] of byZone) {
 					const z = graph.zones.get(zid);
-					if (!z) continue;
-					const g = new PIXI.Container();
-					g.position.set(world(z).x, world(z).y);
-					ws.forEach((w) => {
-						const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12;
-						g.addChild(w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring));
-					});
-					g.scale.set(k);
-					placeMarkers(g, k);
-					groups.push(g);
-					warbandGroups.push(g);
-					markers.addChild(g);
+					if (z) addGroup(world(z), ws, placeCamp);
 				}
 			}
 
 			viewport.on('zoomed', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
-				for (const g of warbandGroups) placeMarkers(g, k);
+				for (const p of warbandGroups) p.place(k);
 			});
 
 			let t = 0;
@@ -795,7 +815,7 @@
 			viewport.on('moved', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
-				for (const g of warbandGroups) placeMarkers(g, k);
+				for (const p of warbandGroups) p.place(k);
 				// Close enough to tell battles on one zone apart: each shows its own weather (see wantedEffects).
 				const d = viewport.scale.x >= DETAIL_SCALE;
 				if (d !== detailed) {

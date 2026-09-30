@@ -36,3 +36,16 @@ export function markerSpots(n: number, k: number, { clear, markerR }: { clear: n
 		return { x: Math.cos(a) * r, y: Math.sin(a) * r };
 	});
 }
+
+/**
+ * Where a battle's two warbands stand, in their marker group's own units (scaled by `k` with the zoom): on the battle's
+ * ring, the Aggressor on its left and the Defender on its right, so the pair reads as fighting there and reaches no
+ * further out than it must (neighbouring zones can be close).
+ */
+export function battleFlanks(ringR: number, k: number): [Point, Point] {
+	const x = ringR / k;
+	return [
+		{ x: -x, y: 0 },
+		{ x, y: 0 }
+	];
+}

@@ -80,7 +80,8 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 				variant: w.variant,
 				patron: w.patron,
 				entryZone: w.entryZone ?? '',
-				position: playing.get(w.id) ?? s.lastZone ?? w.entryZone ?? '',
+				// A warband stands at its camp (its Entry Zone) between battles and at its battle once one is set.
+				position: playing.get(w.id) ?? (w.entryZone || s.lastZone) ?? '',
 				playing: playing.has(w.id),
 				games: s.games,
 				round: playerRound(s.games, passes.get(w.id) ?? 0),

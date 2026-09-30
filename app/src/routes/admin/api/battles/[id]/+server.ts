@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { afterGameCancelled } from '$lib/server/rounds';
 import { rosters } from '$lib/server/campaign';
 import {
 	BattleError,
@@ -55,6 +56,8 @@ export async function POST({ params, request }) {
 				break;
 			case 'cancel':
 				await cancelGame(g);
+				// A battle of a round: its Aggressor gets the turn back to pick again.
+				if (g.roundId) await afterGameCancelled(g.roundId);
 				break;
 			default:
 				error(400, 'Unknown action');

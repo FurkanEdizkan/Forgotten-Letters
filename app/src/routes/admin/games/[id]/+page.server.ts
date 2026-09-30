@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { afterGameRecorded } from '$lib/server/rounds';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { game } from '$lib/server/db/schema';
@@ -69,6 +70,8 @@ export const actions: Actions = {
 		publish(c.id);
 		// Every open map plays the result: the fallen, then the winner's monument.
 		await announceResult(c, g.id);
+		// The last battle of a round closes it and opens the next.
+		if (firstCommit) await afterGameRecorded(c, g.id);
 		// On to the roster aftermath (injuries, promotions) when either side keeps a roster.
 		const hasRoster = (await Promise.all([g.aggressorId, g.defenderId].map(roster))).some((r) => r.units.length);
 		redirect(303, hasRoster ? `/admin/games/${g.id}/aftermath` : '/admin/games');

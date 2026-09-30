@@ -82,10 +82,27 @@ export interface PublicGame {
 	weatherEvent: number | null;
 	/** Planned (not started) or being fought. */
 	status: 'scheduled' | 'in_progress' | 'done';
+	/** The round of battles it belongs to (null: arranged by hand). */
+	roundId: string | null;
 	/** Why this side is the Aggressor. */
 	aggressorReason: 'fewer' | 'roll-off' | 'chosen' | null;
 	/** Hell on Earth 2D6 rolls, once rolled. */
 	weatherRolls: { aggressor: [number, number] | null; defender: [number, number] | null; chooser: string | null } | null;
+}
+
+/** The round of battles in progress (or the last one): public, since every roll and pick is made in the open. */
+export interface PublicRound {
+	id: string;
+	number: number;
+	step: 'rolling' | 'pairing' | 'battles' | 'closed';
+	/** In rank order (fewer times Aggressor, then the higher roll). */
+	entries: { warbandId: string; aggressions: number; rolls: number[]; role: 'aggressor' | 'defender' | 'bye' | null; pickOrder: number | null }[];
+	/** Still to roll, and tied players who must roll again. */
+	waiting: string[];
+	reroll: string[];
+	/** The Aggressor whose turn it is to pick. */
+	picker: string | null;
+	battles: { id: string; zone: string; aggressor: string; defender: string; status: 'scheduled' | 'in_progress' | 'done' }[];
 }
 
 export interface Monument {
@@ -118,5 +135,6 @@ export interface PublicSnapshot {
 	omensTaken: string[];
 	fx: FxConfig;
 	regions: PublicRegion[];
+	round: PublicRound | null;
 	updatedAt: number;
 }

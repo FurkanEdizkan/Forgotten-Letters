@@ -187,7 +187,18 @@ export interface DiceRoll {
 	chooser: string | null;
 }
 
-/** One-shot effect pushed to every viewer at once. */
+/** A player's roll during a round, shown on every map as it lands. */
+export interface PlayerRoll {
+	warbandId: string;
+	who: string;
+	dice: number[];
+	/** What the roll decides. */
+	purpose: 'aggressor' | 'weather' | 'scenario';
+	/** A short caption: "Roll for Aggressor", "Hell on Earth", "Scenario". */
+	label: string;
+	gameId?: string;
+}
+
 /** A battle's result, played on every screen when the Campaign Master records it. */
 export interface BattleResultEvent {
 	gameId: string;
@@ -198,8 +209,9 @@ export interface BattleResultEvent {
 }
 
 export interface FxTrigger {
-	kind: TriggerKind | 'dice' | 'zeppelin' | 'battle-result';
+	kind: TriggerKind | 'dice' | 'roll' | 'zeppelin' | 'battle-result';
 	dice?: DiceRoll;
+	roll?: PlayerRoll;
 	zeppelin?: ZeppelinEvent;
 	battle?: BattleResultEvent;
 	/** Zone to strike; null = anywhere. */

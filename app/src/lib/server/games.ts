@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { error } from '@sveltejs/kit';
 import { and, eq, ne } from 'drizzle-orm';
 import { db } from './db';
@@ -5,7 +6,7 @@ import { game } from './db/schema';
 import { campaignEvents, currentCampaign, loadCampaignState, rosters, rulesConfig, warbandInfos, type Campaign, type Game, type GameResult } from './campaign';
 import { regionEventFor } from './fx';
 import { suggestAggressor, zoneOptions } from '$lib/rules/legality';
-import { d6, weatherByRoll, weatherChooser } from '$lib/rules/weather';
+import { weatherByRoll, weatherChooser } from '$lib/rules/weather';
 import { randomScenario } from '$lib/rules/scenario';
 import { buildGraph } from '$lib/rules/zones';
 import { replay, suppliedOutposts, trackerCvp, type PlayerState } from '$lib/rules/engine';
@@ -153,7 +154,13 @@ export interface PlanInput {
 	scenarioRandom?: boolean;
 	weatherEvent?: number | null;
 	weatherRolls?: unknown;
+	/** A battle of a round of battles, and why its Aggressor is the Aggressor (the round's roll-off decided it). */
+	roundId?: string;
+	aggressorReason?: 'fewer' | 'roll-off' | 'chosen';
 }
+
+/** A fair die rolled on the server (crypto random), so nobody's screen decides a roll. */
+export const serverD6 = () => randomInt(1, 7);
 
 /** Validate and create a battle: legal zone, warbands free and with games left (unless overridden). */
 export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
@@ -176,7 +183,7 @@ export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
 	const result: GameResult = {
 		sides: {},
 		scenarioRandom: !!input.scenarioRandom,
-		aggressorReason: suggested === aggressor ? 'fewer' : suggested === null ? 'roll-off' : 'chosen'
+		aggressorReason: input.aggressorReason ?? (suggested === aggressor ? 'fewer' : suggested === null ? 'roll-off' : 'chosen')
 	};
 	const zoneDef = state.graph.zones.get(zone)!;
 	return (await db
@@ -185,6 +192,7 @@ export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
 			campaignId: c.id,
 			status: input.status ?? 'scheduled',
 			zone,
+			roundId: input.roundId ?? null,
 			aggressorId: aggressor,
 			defenderId: defender,
 			scenario: input.scenario ?? zoneDef.scenario ?? null,
@@ -210,12 +218,33 @@ export async function rollWeather(c: Campaign, g: Game): Promise<WeatherRolls> {
 	const { state } = await loadCampaignState(c);
 	const cvp = (id: string) => trackerCvp(state.players.get(id)!);
 	const rolls: WeatherRolls = {
-		aggressor: [d6(), d6()],
-		defender: [d6(), d6()],
+		aggressor: [serverD6(), serverD6()],
+		defender: [serverD6(), serverD6()],
 		chooser: weatherChooser({ id: g.aggressorId, cvp: cvp(g.aggressorId) }, { id: g.defenderId, cvp: cvp(g.defenderId) }),
 		rolledAt: Date.now()
 	};
 	(await db.update(game).set({ weatherRolls: rolls, weatherEvent: null }).where(eq(game.id, g.id)));
+	return rolls;
+}
+
+/**
+ * One side rolls its 2D6 for Hell on Earth (each player on their own phone). The chooser — fewer tracker CVP —
+ * is worked out as soon as both have rolled; until then the event stays open.
+ */
+export async function rollWeatherSide(c: Campaign, g: Game, side: 'aggressor' | 'defender'): Promise<WeatherRolls> {
+	if (g.status === 'done') throw new BattleError('This battle is already recorded');
+	const prev = (g.weatherRolls ?? null) as Partial<WeatherRolls> | null;
+	if (prev?.[side]) throw new BattleError('That side has rolled already');
+	const { state } = await loadCampaignState(c);
+	const cvp = (id: string) => trackerCvp(state.players.get(id)!);
+	const rolls: WeatherRolls = {
+		aggressor: prev?.aggressor ?? null,
+		defender: prev?.defender ?? null,
+		chooser: weatherChooser({ id: g.aggressorId, cvp: cvp(g.aggressorId) }, { id: g.defenderId, cvp: cvp(g.defenderId) }),
+		rolledAt: Date.now()
+	};
+	rolls[side] = [serverD6(), serverD6()];
+	await db.update(game).set({ weatherRolls: rolls, weatherEvent: null }).where(eq(game.id, g.id));
 	return rolls;
 }
 
@@ -227,7 +256,7 @@ export async function setWeather(g: Game, event: number | null) {
 export async function rollScenario(c: Campaign, g: Game) {
 	const zone = buildGraph(c.houseZones).zones.get(g.zone);
 	if (!zone?.archetype) throw new BattleError('This zone has a fixed scenario');
-	const s = randomScenario(zone.archetype, d6(), d6(), c.randomScenarioTurns);
+	const s = randomScenario(zone.archetype, serverD6(), serverD6(), c.randomScenarioTurns);
 	const prev = (g.result ?? { sides: {} }) as GameResult;
 	(await db.update(game)
 		.set({ scenario: s.name, result: { ...prev, scenarioRandom: true } })

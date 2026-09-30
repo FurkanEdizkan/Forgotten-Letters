@@ -1,0 +1,170 @@
+<script lang="ts">
+	import { enhance } from '$app/forms';
+
+	let { data, form } = $props();
+	const b = $derived(data.board);
+	const name = (id: string) => data.names[id] ?? id;
+	const zone = (id: string) => data.zones[id] ?? id;
+	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
+	const STEP: Record<string, string> = { rolling: 'Rolling for Aggressor', pairing: 'Aggressors pick opponents', battles: 'Battles', closed: 'Closed' };
+	let opponent = $state('');
+	const zonesFor = $derived(data.options?.opponents.find((o) => o.id === opponent)?.zones ?? []);
+</script>
+
+<svelte:head><title>Round · Admin</title></svelte:head>
+
+<h1>{b ? `Round ${b.number}` : 'Rounds'}</h1>
+
+{#if data.stage !== 'underway'}
+	<p class="lede">Rounds begin once the campaign is under way (<a href="/admin/muster">Muster</a>).</p>
+{:else if !b || b.step === 'closed'}
+	<form method="POST" action="?/open" use:enhance={keep}>
+		<p class="lede">{b ? `Round ${b.number} is closed.` : 'No round yet.'}</p>
+		<button>Open {b ? `round ${b.number + 1}` : 'the first round'}</button>
+	</form>
+{/if}
+{#if form?.message}<p class="note" role="status">{form.message}</p>{/if}
+
+{#if b}
+	<p class="step"><strong>{STEP[b.step]}</strong>{#if b.step === 'rolling' && b.reroll.length} · tie: {b.reroll.map(name).join(', ')} roll again{/if}</p>
+
+	<div class="scroll">
+		<table class="ledger">
+			<thead><tr><th>#</th><th>Warband</th><th class="num">Times Aggressor</th><th class="num">Rolls</th><th>Role</th><th></th></tr></thead>
+			<tbody>
+				{#each b.entries as e, i (e.warbandId)}
+					<tr class:turn={b.picker === e.warbandId}>
+						<td class="num">{i + 1}</td>
+						<td>{name(e.warbandId)}</td>
+						<td class="num">{e.aggressions}</td>
+						<td class="num">{e.rolls.join(' · ') || '—'}</td>
+						<td>{e.role === 'aggressor' ? `Aggressor · picks ${e.pickOrder}` : e.role === 'defender' ? 'Non-Aggressor' : e.role === 'bye' ? 'Sits out' : ''}</td>
+						<td>
+							{#if b.step === 'rolling' && (b.waiting.includes(e.warbandId) || b.reroll.includes(e.warbandId))}
+								<form method="POST" action="?/roll" use:enhance={keep}><input type="hidden" name="warband" value={e.warbandId} /><button class="ghost small">Roll for them</button></form>
+							{:else if b.picker === e.warbandId}
+								<span class="turn-tag">Picking now</span>
+							{/if}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+
+	{#if b.step === 'pairing' && data.options}
+		<form method="POST" action="?/pick" class="pick rules-box" use:enhance={keep}>
+			<h2>Pick for {name(data.options.picker)}</h2>
+			<input type="hidden" name="aggressor" value={data.options.picker} />
+			<label>Opponent
+				<select name="defender" bind:value={opponent} required>
+					<option value="">Choose…</option>
+					{#each data.options.opponents as o (o.id)}<option value={o.id}>{name(o.id)}</option>{/each}
+				</select>
+			</label>
+			<label>Battlefield
+				<select name="zone" required disabled={!opponent}>
+					<option value="">Choose…</option>
+					{#each zonesFor as z (z)}<option value={z}>{zone(z)}</option>{/each}
+				</select>
+			</label>
+			<label class="inline"><input type="checkbox" name="override" /> Allow a zone the rules don't (override)</label>
+			<button>Plan the battle</button>
+		</form>
+	{/if}
+
+	{#if b.battles.length}
+		<h2>Battles</h2>
+		<ul class="battles">
+			{#each b.battles as g (g.id)}
+				<li>
+					<strong>{name(g.aggressor)}</strong> <span class="vs">vs</span> <strong>{name(g.defender)}</strong> · {zone(g.zone)}
+					<small>{g.status === 'scheduled' ? 'planned' : g.status === 'in_progress' ? 'being fought' : 'recorded'}</small>
+					{#if g.status !== 'done'}<a href="/admin/games/{g.id}">Record →</a>{/if}
+				</li>
+			{/each}
+		</ul>
+	{/if}
+{/if}
+
+<style>
+	.lede,
+	.step {
+		color: var(--ink-soft);
+	}
+	.note {
+		font-weight: 600;
+	}
+	.scroll {
+		overflow-x: auto;
+	}
+	.ledger {
+		width: 100%;
+		border-collapse: collapse;
+		border-top: 2px solid var(--ink);
+		border-bottom: 2px solid var(--ink);
+	}
+	.ledger th {
+		text-align: left;
+		font-size: 0.78rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+		padding: 6px 10px 4px 0;
+		border-bottom: 1px solid var(--rule);
+	}
+	.ledger td {
+		padding: 6px 10px 6px 0;
+		border-bottom: 1px solid var(--rule);
+	}
+	.num {
+		text-align: right;
+		font-variant-numeric: lining-nums tabular-nums;
+	}
+	tr.turn td {
+		background: var(--parchment);
+	}
+	.turn-tag {
+		color: var(--blood);
+		font-weight: 700;
+	}
+	.pick {
+		display: grid;
+		gap: 10px;
+		margin-top: 16px;
+		max-width: 32rem;
+	}
+	.pick h2 {
+		margin: 0;
+	}
+	.pick label {
+		display: grid;
+		gap: 4px;
+		font-weight: 600;
+	}
+	.pick label.inline {
+		display: flex;
+		gap: 8px;
+		font-weight: 400;
+	}
+	.battles {
+		list-style: none;
+		padding: 0;
+		border-top: 2px solid var(--ink);
+	}
+	.battles li {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 10px;
+		align-items: baseline;
+		padding: 6px 0;
+		border-bottom: 1px solid var(--rule);
+	}
+	.vs {
+		font-family: var(--font-display);
+		color: var(--blood);
+	}
+	small {
+		color: var(--muted);
+	}
+</style>

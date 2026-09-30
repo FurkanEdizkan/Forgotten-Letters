@@ -5,8 +5,26 @@
 	import { RESOURCE_NAMES, type Zone } from '$lib/rules/types';
 	import type { PublicGame, PublicSnapshot } from '$lib/snapshot';
 
-	/** The active battle's overlay: the stamp, the two warbands facing each other (purse and roster), and a way out. */
-	let { game, zone, snapshot, onleave }: { game: PublicGame; zone: Zone | undefined; snapshot: PublicSnapshot; onleave: () => void } = $props();
+	/**
+	 * The active battle's overview: the stamp, the two warbands pinned to either edge (who, purse, roster), the brief
+	 * between them, and ways on (details) and out. While the details page is open (`stepped`), everything but the way
+	 * out steps back so the page stands alone over the map. Esc is the page's to handle: it closes details first.
+	 */
+	let {
+		game,
+		zone,
+		snapshot,
+		stepped = false,
+		ondetails,
+		onleave
+	}: {
+		game: PublicGame;
+		zone: Zone | undefined;
+		snapshot: PublicSnapshot;
+		stepped?: boolean;
+		ondetails: () => void;
+		onleave: () => void;
+	} = $props();
 
 	const a = $derived(snapshot.warbands.find((w) => w.id === game.aggressor));
 	const d = $derived(snapshot.warbands.find((w) => w.id === game.defender));
@@ -26,16 +44,11 @@
 				.add(root.querySelector('.side.right')!, { x: ['120%', '0%'], opacity: [0, 1], duration: 600, ease: 'outCubic' }, 450)
 				.add(root.querySelector('.brief-wrap')!, { opacity: [0, 1], y: [8, 0], duration: 500 }, 700);
 		});
-		const esc = (e: KeyboardEvent) => e.key === 'Escape' && onleave();
-		addEventListener('keydown', esc);
-		return () => {
-			tl?.pause();
-			removeEventListener('keydown', esc);
-		};
+		return () => tl?.pause();
 	});
 </script>
 
-<div class="hud" bind:this={root}>
+<div class="hud" class:stepped bind:this={root}>
 	<div class="vignette" aria-hidden="true"></div>
 	<div class="top">
 		<p class="stamp" role="status">Battle joined</p>
@@ -121,6 +134,7 @@
 			</section>
 		{/if}
 	{/each}
+	<button class="details" onclick={ondetails} tabindex={stepped ? -1 : undefined}>Battle details ›</button>
 	<button class="leave" onclick={onleave}>Leave the battlefield <kbd>Esc</kbd></button>
 </div>
 
@@ -163,7 +177,7 @@
 	.brief-wrap {
 		display: grid;
 		justify-items: center;
-		width: min(30rem, calc(100% - 2 * (min(22rem, 44vw) + 28px)));
+		width: min(30rem, calc(100% - 2 * (min(20rem, 30vw) + 28px)));
 	}
 	.brief-toggle {
 		display: none;
@@ -280,17 +294,17 @@
 			max-height: calc(100vh - var(--band, 0px) - 200px);
 		}
 	}
-	/* Each warband as a night page: who they are, their purse, and the models they field. It grows up
-	   from the bottom corner and stops short of the Leave and sky buttons in the top-left. */
+	/* Each warband as a night column pinned to its edge, both starting on the same line under the top
+	   row: who they are and their purse at the head, the models they field running down, scrolling inside. */
 	.side {
 		pointer-events: auto;
 		position: absolute;
-		bottom: 18px;
+		top: 64px;
+		bottom: 14px;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		width: min(22rem, 44vw);
-		max-height: calc(100% - 128px);
+		width: min(20rem, 30vw);
 		padding: 8px 14px 10px 8px;
 		background: rgba(21, 19, 14, 0.86);
 		border-top: 3px solid #8f1f18;
@@ -386,6 +400,43 @@
 		color: var(--bone-dim);
 		font-variant-numeric: lining-nums tabular-nums;
 	}
+	/* The second step: the full paper page for this battle. */
+	.details {
+		pointer-events: auto;
+		position: absolute;
+		bottom: 18px;
+		left: 50%;
+		transform: translateX(-50%);
+		padding: 7px 16px;
+		background: #8f1f18;
+		color: var(--bone);
+		border: 1px solid #b3261e;
+		font-family: var(--font-title);
+		font-size: 1rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.details:hover {
+		background: #a3170f;
+	}
+	/* Details open: the overview steps back behind the page; only the way out stays. */
+	.top,
+	.side,
+	.details,
+	.vignette {
+		transition:
+			opacity 0.25s var(--ease-out),
+			visibility 0.25s;
+	}
+	.hud.stepped .top,
+	.hud.stepped .side,
+	.hud.stepped .details,
+	.hud.stepped .vignette {
+		opacity: 0;
+		visibility: hidden;
+	}
 	.leave {
 		pointer-events: auto;
 		position: absolute;
@@ -412,10 +463,20 @@
 		.top {
 			top: 58px;
 		}
+		/* A phone keeps two slim cards low on either side; rosters and the brief live in the details. */
 		.side {
+			top: auto;
 			bottom: 10px;
 			width: 46vw;
+			/* Equal cards, so the two start on one line whatever their names. */
+			min-height: 124px;
 			padding: 6px;
+		}
+		.brief-wrap {
+			display: none;
+		}
+		.details {
+			bottom: 146px;
 		}
 		/* Two rosters would bury the battlefield on a phone: keep who and their purse. */
 		.side :global(.portrait),

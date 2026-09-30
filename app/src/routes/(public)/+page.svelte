@@ -112,6 +112,17 @@
 
 <svelte:head><title>{s.campaign.name} · Live</title></svelte:head>
 
+<svelte:window
+	onkeydown={(e) => {
+		// In a battle, Esc steps back one level: the details page first, then out of the battle.
+		if (e.key !== 'Escape' || !battle) return;
+		if (zoneId || warbandId) {
+			zoneId = null;
+			warbandId = null;
+		} else leaveBattle();
+	}}
+/>
+
 <div class="stage" style:--band="{bandH}px">
 	<div class="plate">
 		<LiveMap
@@ -141,7 +152,17 @@
 
 	{#if battle}
 		{#key battle.id}
-			<BattleHud game={battle} zone={graph.zones.get(battle.zone)} snapshot={s} onleave={leaveBattle} />
+			<BattleHud
+				game={battle}
+				zone={graph.zones.get(battle.zone)}
+				snapshot={s}
+				stepped={!!(zone || warband)}
+				ondetails={() => {
+					zoneId = battle.zone;
+					warbandId = null;
+				}}
+				onleave={leaveBattle}
+			/>
 		{/key}
 	{/if}
 
@@ -196,9 +217,14 @@
 						class:planned={g.status === 'scheduled'}
 						onclick={() => {
 							// A battle being fought is entered, as from the map; a planned one opens its zone's page.
+							// Clicked again from inside that battle, it opens the details.
 							if (g.status === 'in_progress') {
-								zoneId = null;
-								if (g.id !== battleId) enterBattle(g.id);
+								warbandId = null;
+								if (g.id === battleId) zoneId = g.zone;
+								else {
+									zoneId = null;
+									enterBattle(g.id);
+								}
 								return;
 							}
 							zoneId = g.zone;
@@ -286,7 +312,7 @@
 	{/if}
 
 	{#if zone && zoneGame}
-		<aside class="sheet wide" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet wide" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
@@ -301,7 +327,7 @@
 			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if zone}
-		<aside class="sheet" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
@@ -319,7 +345,7 @@
 			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if warband}
-		<aside class="sheet" transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (warbandId = null)}
 				><Mark name="close" /></button
 			>
@@ -441,10 +467,11 @@
 		top: calc(var(--band) + 14px);
 		left: 14px;
 	}
-	/* Inside a battle the HUD's Leave button takes that corner; the switch steps down below it, above the HUD. */
+	/* Inside a battle the HUD's Leave button takes that corner: the switch moves to the other end of the top row, above the HUD. */
 	.sky.in-battle {
 		z-index: 5;
-		top: calc(var(--band) + 62px);
+		left: auto;
+		right: 14px;
 	}
 	.dot {
 		width: 9px;
@@ -674,6 +701,10 @@
 	}
 	.sheet.wide {
 		width: min(54rem, calc(100% - 28px));
+	}
+	/* In a battle the details page sits under the top row, so Leave and the sky switch stay reachable. */
+	.sheet.in-battle {
+		top: calc(var(--band) + 62px);
 	}
 	.close {
 		position: absolute;

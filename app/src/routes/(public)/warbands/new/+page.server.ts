@@ -12,6 +12,7 @@ import { FACTIONS } from '$lib/rules/factions';
 import { buildGraph } from '$lib/rules/zones';
 import type { Actions, PageServerLoad } from './$types';
 import { seatOf } from '$lib/server/muster';
+import { forgetUserSessions } from '$lib/server/auth';
 import { suggestedEntry } from '$lib/seating';
 
 /** The book's starting strongbox. */
@@ -158,6 +159,8 @@ export const actions: Actions = {
 				.returning({ id: warband.id });
 			return w.id;
 		});
+		// The owner's cached session lists the warbands they play: refresh it now, not in a minute.
+		if (owner.id) await forgetUserSessions(owner.id);
 		publish(c.id);
 		// While mustering, a player goes back to their checklist (the Vision comes next).
 		redirect(303, c.stage === 'mustering' && !locals.isAdmin ? '/muster' : `/warbands/${id}`);

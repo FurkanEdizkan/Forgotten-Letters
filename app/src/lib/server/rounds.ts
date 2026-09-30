@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from './db';
 import { campaign, game, round, roundEntry, warband } from './db/schema';
 import { loadCampaignState, type Campaign } from './campaign';
@@ -8,6 +8,18 @@ import { zoneOptions } from '$lib/rules/legality';
 import { aggressorCount, byes, eligibleForRound, nextPicker, rankEntries, rollOffNeeded } from '$lib/rules/round';
 
 export class RoundError extends Error {}
+
+/**
+ * One step of a round at a time: a transaction holds a Postgres advisory lock named after the round while the step
+ * re-reads the round and acts, so a double tap, or a player and the Campaign Master at once, can't both roll or
+ * both pick on the same stale state. (The step's own writes commit on their own; the lock only orders the steps.)
+ */
+function withRoundLock<T>(roundId: string, step: () => Promise<T>): Promise<T> {
+	return db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${'round:' + roundId}))`);
+		return step();
+	});
+}
 
 export type Round = typeof round.$inferSelect;
 
@@ -55,6 +67,10 @@ async function entriesOf(roundId: string) {
 
 /** The warband rolls its D6 for the Aggressor roll-off (first roll, or a re-roll when tied). */
 export async function rollForAggressor(c: Campaign, roundId: string, warbandId: string) {
+	return withRoundLock(roundId, () => rollForAggressorLocked(c, roundId, warbandId));
+}
+
+async function rollForAggressorLocked(c: Campaign, roundId: string, warbandId: string) {
 	const [r] = await db.select().from(round).where(and(eq(round.id, roundId), eq(round.campaignId, c.id)));
 	if (!r || r.step !== 'rolling') throw new RoundError('The roll-off is over');
 	const entries = await entriesOf(r.id);
@@ -127,6 +143,10 @@ export async function pickOptions(c: Campaign, roundId: string) {
  * even one another battle already uses). When the last Aggressor has picked, the unpicked sit out and the battles begin.
  */
 export async function pickOpponent(c: Campaign, roundId: string, aggressorId: string, defenderId: string, zone: string, override = false) {
+	return withRoundLock(roundId, () => pickOpponentLocked(c, roundId, aggressorId, defenderId, zone, override));
+}
+
+async function pickOpponentLocked(c: Campaign, roundId: string, aggressorId: string, defenderId: string, zone: string, override: boolean) {
 	const [r] = await db.select().from(round).where(and(eq(round.id, roundId), eq(round.campaignId, c.id)));
 	if (!r || r.step !== 'pairing') throw new RoundError('Opponents are not being picked now');
 	const p = await pairing(r.id);
@@ -140,7 +160,8 @@ export async function pickOpponent(c: Campaign, roundId: string, aggressorId: st
 			zone,
 			override,
 			roundId: r.id,
-			aggressorReason: me.rolls.length > 1 || p.entries.some((e) => e.aggressions === me.aggressions && e.warbandId !== aggressorId) ? 'roll-off' : 'fewer'
+			// Fewer times Aggressor than this opponent: the book's rule decided it; the same count: the roll did.
+			aggressorReason: me.aggressions < (p.entries.find((e) => e.warbandId === defenderId)?.aggressions ?? 0) ? 'fewer' : 'roll-off'
 		});
 	} catch (e) {
 		if (e instanceof BattleError) throw new RoundError(e.message);
@@ -157,22 +178,37 @@ export async function pickOpponent(c: Campaign, roundId: string, aggressorId: st
 
 /** A battle of the round was cancelled: back to picking, the Aggressor's turn again. */
 export async function afterGameCancelled(roundId: string) {
-	const [r] = await db.select().from(round).where(eq(round.id, roundId));
-	if (!r || r.step !== 'battles') return;
-	await db.update(roundEntry).set({ role: 'defender' }).where(and(eq(roundEntry.roundId, roundId), eq(roundEntry.role, 'bye')));
-	await db.update(round).set({ step: 'pairing' }).where(eq(round.id, roundId));
+	await withRoundLock(roundId, async () => {
+		const [r] = await db.select().from(round).where(eq(round.id, roundId));
+		if (!r || r.step !== 'battles') return;
+		await db.update(roundEntry).set({ role: 'defender' }).where(and(eq(roundEntry.roundId, roundId), eq(roundEntry.role, 'bye')));
+		await db.update(round).set({ step: 'pairing' }).where(eq(round.id, roundId));
+	});
 }
 
 /** After a battle is recorded: close its round once all of the round's battles are, and open the next one. */
 export async function afterGameRecorded(c: Campaign, gameId: string) {
 	const [g] = await db.select({ roundId: game.roundId }).from(game).where(eq(game.id, gameId));
-	if (!g?.roundId) return;
-	const games = await db.select({ status: game.status }).from(game).where(eq(game.roundId, g.roundId));
-	const [r] = await db.select().from(round).where(eq(round.id, g.roundId));
-	if (!r || r.step !== 'battles' || games.some((x) => x.status !== 'done')) return;
-	await db.update(round).set({ step: 'closed', closedAt: new Date() }).where(eq(round.id, r.id));
-	const [fresh] = await db.select().from(campaign).where(eq(campaign.id, c.id));
-	await openRound(fresh);
+	if (g?.roundId) await closeRoundIfDone(c, g.roundId);
+}
+
+/** Close the round once every one of its battles is recorded (or gone), and open the next. Safe to call again. */
+export async function closeRoundIfDone(c: Campaign, roundId: string) {
+	await withRoundLock(roundId, async () => {
+		const games = await db.select({ status: game.status }).from(game).where(eq(game.roundId, roundId));
+		if (games.some((x) => x.status !== 'done')) return;
+		// Only the request that actually closes the round opens the next one (two results recorded at once).
+		const closed = await db
+			.update(round)
+			.set({ step: 'closed', closedAt: new Date() })
+			.where(and(eq(round.id, roundId), eq(round.step, 'battles')))
+			.returning({ id: round.id });
+		if (!closed.length) return;
+		const [fresh] = await db.select().from(campaign).where(eq(campaign.id, c.id));
+		await openRound(fresh).catch((e) => {
+			if (!(e instanceof RoundError)) throw e;
+		});
+	});
 	publish(c.id);
 }
 

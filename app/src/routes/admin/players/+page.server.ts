@@ -92,12 +92,26 @@ export const actions: Actions = {
 		if (!r.ok) return fail(409, { message: r.message });
 		// Give a free seat at once if the Campaign Master picked one on the request.
 		const seat = String(data.get('seat') ?? '');
+		let seated = false;
 		if (seat) {
 			const c = await currentCampaign();
-			if (c) await db.update(player).set({ userId: r.userId }).where(and(eq(player.id, seat), eq(player.campaignId, c.id), isNull(player.userId)));
+			if (c)
+				seated = !!(
+					await db
+						.update(player)
+						.set({ userId: r.userId })
+						.where(and(eq(player.id, seat), eq(player.campaignId, c.id), isNull(player.userId)))
+						.returning({ id: player.id })
+				).length;
 		}
 		auditAuth(event, 'signup.approved', { targetType: 'user', detail: { username: r.username } });
-		return { message: seat ? `Account "${r.username}" approved and seated.` : `Account "${r.username}" approved. Give it a seat below.` };
+		return {
+			message: seated
+				? `Account "${r.username}" approved and seated.`
+				: seat
+					? `Account "${r.username}" approved, but that seat was taken meanwhile: give it one below.`
+					: `Account "${r.username}" approved. Give it a seat below.`
+		};
 	},
 
 	decline: async (event) => {

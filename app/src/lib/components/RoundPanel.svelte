@@ -32,12 +32,19 @@
 
 	let busy = $state(false);
 	let problem = $state<string | null>(null);
-	async function act(body: Record<string, unknown>) {
+	/** Send one step; true when it went through (a second tap while one is in flight is ignored). */
+	async function act(body: Record<string, unknown>): Promise<boolean> {
+		if (busy) return false;
 		busy = true;
 		problem = null;
 		const res = await fetch('/api/round', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
 		if (!res?.ok) problem = ((await res?.json().catch(() => null)) as { message?: string } | null)?.message ?? 'That did not go through.';
 		busy = false;
+		return !!res?.ok;
+	}
+	/** Pick the opponent and battlefield; keep the opponent chosen if it fails, so only the zone needs choosing again. */
+	async function pick(zone: string) {
+		if (myPick && opponent && (await act({ op: 'pick', aggressor: myPick, defender: opponent, zone }))) opponent = null;
 	}
 
 	// My warbands in this round, and what each has to do.
@@ -67,10 +74,10 @@
 	});
 	// A tap on the map picks a battlefield if it is one of the open ones.
 	$effect(() => {
-		if (pickZone && opponent && myPick && openZones.includes(pickZone)) {
+		if (pickZone && opponent && myPick && openZones.includes(pickZone) && !busy) {
 			const z = pickZone;
 			pickZone = null;
-			void act({ op: 'pick', aggressor: myPick, defender: opponent, zone: z }).then(() => (opponent = null));
+			void pick(z);
 		} else if (pickZone) pickZone = null;
 	});
 
@@ -105,7 +112,7 @@
 						<p>Against <strong>{name(opponent)}</strong> — pick the battlefield (or tap it on the map):</p>
 						<div class="choices">
 							{#each openZones as z (z)}
-								<button class="ghost" disabled={busy} onclick={() => act({ op: 'pick', aggressor: myPick, defender: opponent, zone: z }).then(() => (opponent = null))}>{zoneName(z)}</button>
+								<button class="ghost" disabled={busy} onclick={() => pick(z)}>{zoneName(z)}</button>
 							{:else}
 								<p class="hint">No battlefield is open against them: ask the Campaign Master.</p>
 							{/each}
@@ -122,9 +129,9 @@
 					<div class="battle">
 						<p><strong>{name(g.aggressor)}</strong> <span class="vs">vs</span> <strong>{name(g.defender)}</strong> · {zoneName(g.zone)}</p>
 						{#if g.status === 'scheduled'}
-							{#if !rolls?.[side]}
+							{#if !event && !rolls?.[side]}
 								<button disabled={busy} onclick={() => act({ op: 'weather-roll', game: g.id, warband: me })}>Roll Hell on Earth</button>
-							{:else if !event && rolls.aggressor && rolls.defender}
+							{:else if !event && rolls?.aggressor && rolls.defender}
 								{#if rolls.chooser === me}
 									<p>You choose the weather:</p>
 									<div class="choices">

@@ -117,7 +117,10 @@ export async function redeemInvite(token: string, input: SignupInput): Promise<{
 		const [u] = await tx
 			.insert(user)
 			.values({ username, displayName, email, passwordHash, role: 'player', mustChangePassword: false })
+			.onConflictDoNothing()
 			.returning({ id: user.id });
+		// Someone took the username (or email) in the moment since the check above.
+		if (!u) return { ok: false as const, message: 'That username or email was just taken. Choose another.' };
 		// The seat takes the player's name unless the Campaign Master named it already.
 		const seatName = /^Seat \d+$/.test(row.p.name) ? (displayName ?? username) : row.p.name;
 		await tx.update(player).set({ userId: u.id, name: seatName }).where(eq(player.id, row.p.id));
@@ -147,7 +150,13 @@ export async function chooseVision(c: Campaign, warbandId: string, card: string)
 	if (!w) return { ok: false as const, message: 'No such warband.' };
 	if (w.visionCard) return { ok: false as const, message: 'This warband has chosen its Vision already.' };
 	if (!w.visionOffer?.includes(card)) return { ok: false as const, message: 'That card was not offered to this warband.' };
-	await db.update(warband).set({ visionCard: card, visionProgress: 0 }).where(eq(warband.id, w.id));
+	// Only while still unchosen: a double tap can't keep two cards.
+	const kept = await db
+		.update(warband)
+		.set({ visionCard: card, visionProgress: 0 })
+		.where(and(eq(warband.id, w.id), isNull(warband.visionCard)))
+		.returning({ id: warband.id });
+	if (!kept.length) return { ok: false as const, message: 'This warband has chosen its Vision already.' };
 	return { ok: true as const };
 }
 

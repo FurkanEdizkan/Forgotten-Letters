@@ -321,9 +321,9 @@ There are Faction, Campaign and Sort filters. Each card's ⋮ menu offers Play M
 `/warbands/new` is Trench Companion's two-step creation in the warband page's dark look. **Select Faction**: one wide card per faction, with its animated seal large on smoke lit from below in the faction's own light, the name in Pirata, and, when the CM has set unit art, the leader's picture fading in from the right. Variants hang beneath as indented rows with a small seal; the chosen one gets a left rule in the faction's high colour. **Details**: name, Entry Zone, starting Ducats (700) and Glory, and Remove Restrictions, then a dark red Create Warband. The steps are one form of radio cards, so it works without script; with script, the list folds to the chosen card and the details scroll into view.
 
 ### Battlefield
-**Active mode.** Clicking a zone with a battle in progress (or *Enter the battle* on its panel) opens `/?battle=<game>`, a shareable URL the TV can sit on. The camera flies in to 2.2×, a vignette closes round the field, and a HUD sets the scene:
+**Active mode.** Clicking a zone with a battle in progress, its tab in the battle strip, or *Enter the battle* on its panel opens `/?battle=<game>`, a shareable URL the TV can sit on. The camera flies in to 3×, a vignette closes round the field, and a HUD sets the scene:
 - a "Battle joined" stamp in Pirata on dark red, slammed in by anime.js, then settling at −3°;
-- the two sides' plaques low left and right;
+- the two warbands as night pages low left and right, growing upward and stopping short of the Leave and sky buttons: portrait, role, warband and player, a ruled purse line (Ducats and Glory, tabular figures), then the roster — leader first, each model's name, type and cost — scrolling inside the page. Below 640px the roster folds away and the purse stays. The visitors' docked standings and the map-wide omen step aside while a battle is open;
 - *Leave the battlefield* (or Esc) to go back.
 
 On the field, the two sides (standing out to either side of the zone, clear of the warbands' markers) trade small-arms fire. There are no drawn tracer lines:

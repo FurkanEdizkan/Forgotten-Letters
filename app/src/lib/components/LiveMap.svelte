@@ -68,7 +68,10 @@
 		refx?.();
 	});
 	$effect(() => {
-		fly?.(focus);
+		// Read focus first: while the map is still loading `fly` is null, and `fly?.(focus)` would then never
+		// read focus, leaving this effect with nothing to re-run on.
+		const zone = focus;
+		fly?.(zone);
 	});
 
 	onMount(() => {
@@ -109,7 +112,7 @@
 				.pinch()
 				.wheel({ smooth: 4 })
 				.decelerate({ friction: 0.92 })
-				.clampZoom({ minScale: fitScale() * 0.9, maxScale: 2.5 })
+				.clampZoom({ minScale: fitScale() * 0.9, maxScale: 3 })
 				.clamp({ direction: 'all', underflow: 'center' });
 			// Landscape: show the whole map. Portrait (phones): fill the height and centre on the
 			// battlefield; the right third of the image is the manual's text panel.
@@ -130,7 +133,7 @@
 
 			const onResize = () => {
 				viewport.resize(host.clientWidth, host.clientHeight, W, H);
-				viewport.clampZoom({ minScale: fitScale() * 0.9, maxScale: 2.5 });
+				viewport.clampZoom({ minScale: fitScale() * 0.9, maxScale: 3 });
 			};
 			const ro = new ResizeObserver(onResize);
 			ro.observe(host);
@@ -737,7 +740,7 @@
 				const time = reduceMotion ? 0 : 1400;
 				if (z) {
 					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
-					viewport.animate({ position: world(z), scale: 2.2, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					viewport.animate({ position: world(z), scale: 3, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 				} else if (home) {
 					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 					home = null;

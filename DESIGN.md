@@ -323,6 +323,7 @@ There are Faction, Campaign and Sort filters. Each card's ⋮ menu offers Play M
 ### Battlefield
 **Active mode.** Clicking a zone with a battle in progress, its tab in the battle strip, or *Enter the battle* on its panel opens `/?battle=<game>`, a shareable URL the TV can sit on. The camera flies in to 3×, a vignette closes round the field, and a HUD sets the scene:
 - a "Battle joined" stamp in Pirata on dark red, slammed in by anime.js, then settling at −3°;
+- under it the battle brief, a night page in the gap between the two warbands: **Battlefield** (zone, kind, resource discs, outpost bonus, who holds outposts there, regional weather), **Scenario** (archetype, then Deployment and Victory for a rolled one; a fixed one by name; else "To be rolled"), and **Hell on Earth** (the event and its effect, each side's 2D6 and who chose; else "Not yet rolled"). Below 60rem it folds behind a *Battle brief* button and opens over the warband pages;
 - the two warbands as night pages low left and right, growing upward and stopping short of the Leave and sky buttons: portrait, role, warband and player, a ruled purse line (Ducats and Glory, tabular figures), then the roster — leader first, each model's name, type and cost — scrolling inside the page. Below 640px the roster folds away and the purse stays. The visitors' docked standings and the map-wide omen step aside while a battle is open;
 - *Leave the battlefield* (or Esc) to go back.
 

@@ -4,9 +4,10 @@ import { accountRequest, user } from '$lib/server/db/schema';
 import { endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { hashPassword, normaliseUsername, rateLimiter, temporaryPassword } from '$lib/server/passwords';
 import { MAX_PENDING_SIGNUPS, checkSignup, type SignupInput } from '$lib/server/request-rules';
+import { kv } from '$lib/server/redis';
 
 /** Both public forms share it, per client address: five requests every ten minutes. */
-export const requestLimiter = rateLimiter(5, 10 * 60_000);
+export const requestLimiter = rateLimiter('requests', 5, 10 * 60_000, kv);
 
 export interface PendingRequest {
 	id: string;
@@ -27,7 +28,7 @@ export async function requestSignup(
 ): Promise<{ ok: true } | { ok: false; status: 400 | 429; message: string }> {
 	const checked = checkSignup(input);
 	if (!checked.ok) return { ok: false, status: 400, message: checked.message };
-	if (!requestLimiter.take(limitKey))
+	if (!(await requestLimiter.take(limitKey)))
 		return { ok: false, status: 429, message: 'Too many requests from here. Wait a few minutes and try again.' };
 	const { username, displayName, email, password } = checked.value;
 	const [taken] = await db.select({ id: user.id }).from(user).where(eq(user.username, username));

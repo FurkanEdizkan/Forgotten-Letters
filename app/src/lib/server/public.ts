@@ -1,6 +1,6 @@
 import { desc, eq, and, ne } from 'drizzle-orm';
 import { db } from './db';
-import { game } from './db/schema';
+import { campaign as campaignTable, game } from './db/schema';
 import { loadCampaignState, type Campaign } from './campaign';
 import { suppliedOutposts, trackerCvp } from '$lib/rules/engine';
 import { standings } from '$lib/rules/scoring';
@@ -14,6 +14,9 @@ import { artFor, artIndex } from './unit-art';
 import { resolveTokens } from '$lib/models';
 import { sealLook } from '$lib/seals';
 import { outcome } from '$lib/battle-outcome';
+import { createSnapshotCache } from './snapshot-cache';
+import { kv } from './redis';
+import { subscribe } from './hub';
 
 /**
  * The only campaign view that leaves the server for players. Vision cards,
@@ -165,4 +168,32 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 		regions: await activeRegions(c.id),
 		updatedAt: Date.now()
 	};
+}
+
+let snapshots: ReturnType<typeof createSnapshotCache<PublicSnapshot>> | undefined;
+
+/**
+ * The public snapshot, built once per change and shared by every live screen and every app instance (see
+ * snapshot-cache.ts). Any change — here or on another instance, through the hub — marks it stale.
+ */
+export function cachedPublicSnapshot(c: Campaign): Promise<PublicSnapshot> {
+	return snapshotCache().get(c.id);
+}
+
+/** Mark a campaign's snapshot stale without telling live screens (for changes that don't publish). */
+export async function snapshotStale(campaignId: string) {
+	await snapshotCache().changed(campaignId);
+}
+
+function snapshotCache() {
+	if (!snapshots) {
+		const cache = createSnapshotCache<PublicSnapshot>(kv(), async (id) => {
+			const [fresh] = await db.select().from(campaignTable).where(eq(campaignTable.id, id));
+			if (!fresh) throw new Error(`campaign ${id} is gone`);
+			return publicSnapshot(fresh);
+		});
+		subscribe((id) => void cache.changed(id).catch((e) => console.error('snapshot cache:', e)));
+		snapshots = cache;
+	}
+	return snapshots;
 }

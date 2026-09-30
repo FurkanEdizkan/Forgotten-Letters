@@ -2,7 +2,7 @@ import { loadCustomFactions } from '$lib/server/factions';
 import { loadZones } from '$lib/server/map';
 import { fail } from '@sveltejs/kit';
 import { importCampaign } from '$lib/server/backup';
-import { publish } from '$lib/server/hub';
+import { publish, announceReload } from '$lib/server/hub';
 import { schedule } from '$lib/server/fx';
 import type { Actions } from './$types';
 
@@ -16,6 +16,8 @@ export const actions: Actions = {
 			const id = await importCampaign(JSON.parse(await file.text()));
 			await loadCustomFactions();
 			await loadZones();
+			announceReload('factions');
+			announceReload('zones');
 			publish(id);
 			await schedule();
 		} catch (e) {

@@ -5,7 +5,7 @@ import { campaign, game, player, rulesUnit, warband } from '$lib/server/db/schem
 import { currentCampaign, loadCampaignState } from '$lib/server/campaign';
 import { standings } from '$lib/rules/scoring';
 import { visionById } from '$lib/rules/visions';
-import { publish } from '$lib/server/hub';
+import { publish, announceReload } from '$lib/server/hub';
 import { ALL_ZONES } from '$lib/rules/zones';
 import { loadZones } from '$lib/server/map';
 import { applyStarter } from '$lib/server/starter';
@@ -65,6 +65,7 @@ export const actions: Actions = {
 		if (await currentCampaign()) return fail(400, { message: 'A campaign already exists' });
 		const [created] = await db.insert(campaign).values(settings(await request.formData())).returning({ id: campaign.id });
 		await loadZones();
+		announceReload('zones');
 		await applyStarter(created.id);
 		return { saved: true };
 	},

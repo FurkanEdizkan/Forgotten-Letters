@@ -167,17 +167,6 @@
 		<header class="bar">
 			<Lockup name={s.campaign.name} href="/players" compact />
 			<nav>
-				<button
-					class="chip"
-					onclick={toggleFx}
-					aria-pressed={fxEnabled}
-					title="Weather effects on this device"
-				>
-					<span class="long">{fxEnabled ? 'Weather on' : 'Weather off'}</span><span
-						class="short"
-						class:off={!fxEnabled}>Weather</span
-					>
-				</button>
 				<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
 				<span
 					class="dot"
@@ -226,6 +215,15 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- One switch, top-left of the map: clear the sky to read the plain battle map, then back to the battlefield as it stands. -->
+	<button
+		class="chip sky"
+		onclick={toggleFx}
+		title={fxEnabled ? 'Hide weather and animations: the plain battle map' : 'Show the battlefield as it stands now, weather and all'}
+	>
+		{fxEnabled ? 'Clear skies' : 'Satellite view'}
+	</button>
 
 	{#if mapWide?.weatherEvent}
 		{@const we = weatherByRoll(mapWide.weatherEvent)}
@@ -408,8 +406,12 @@
 		border-color: var(--ember);
 		color: #fff;
 	}
-	.chip[aria-pressed='false'] {
-		color: var(--bone-dim);
+	/* Floats on the map plate itself, clear of the navigation handle over the band. */
+	.sky {
+		position: absolute;
+		z-index: 2;
+		top: calc(var(--band) + 14px);
+		left: 14px;
 	}
 	.dot {
 		width: 9px;
@@ -653,13 +655,6 @@
 	.muted {
 		color: var(--muted);
 	}
-	.short {
-		display: none;
-	}
-	.short.off {
-		text-decoration: line-through;
-		opacity: 0.6;
-	}
 	@media (max-width: 34rem) {
 		.band {
 			padding: 8px;
@@ -679,12 +674,6 @@
 			padding: 3px 6px;
 			font-size: 0.74rem;
 			letter-spacing: 0.04em;
-		}
-		.long {
-			display: none;
-		}
-		.short {
-			display: inline;
 		}
 		.drawer {
 			top: calc(var(--band) + 8px);

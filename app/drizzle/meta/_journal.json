@@ -78,6 +78,13 @@
       "when": 1790615019451,
       "tag": "0010_map_studio",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790749866594,
+      "tag": "0011_account_requests",
+      "breakpoints": true
     }
   ]
 }

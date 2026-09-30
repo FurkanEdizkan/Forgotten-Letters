@@ -230,6 +230,7 @@
 	<!-- One switch, top-left of the map: clear the sky to read the plain battle map, then back to the battlefield as it stands. -->
 	<button
 		class="chip sky"
+		class:in-battle={!!battle}
 		onclick={toggleFx}
 		title={fxEnabled ? 'Hide weather and animations: the plain battle map' : 'Show the battlefield as it stands now, weather and all'}
 	>
@@ -243,7 +244,7 @@
 		</div>
 	{/if}
 
-	{#snippet standingsList()}
+	{#snippet standingsList(symbolOnly: boolean)}
 		<h2>Standings</h2>
 		<ol>
 			{#each s.standings as row, i (row.id)}
@@ -251,8 +252,10 @@
 				{#if w}
 					<li>
 						<span class="rank">{i + 1}</span>
-						<!-- The faction's symbol, never the player's portrait: its seal, else the warband's own symbol. -->
-						{#if w.seal ?? sealLook(w.faction)}
+						{#if !symbolOnly}
+							<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} faction={w.faction} seal={w.seal} size={34} />
+						<!-- Visitors see the faction's symbol, never the player's portrait: its seal, else the warband's own symbol. -->
+						{:else if w.seal ?? sealLook(w.faction)}
 							<Seal look={w.seal} faction={w.faction} size={34} label={w.name} />
 						{:else if w.symbol}
 							<img class="symbol" src={w.symbol} alt="" width="34" height="34" />
@@ -269,10 +272,10 @@
 	{/snippet}
 
 	{#if !signedIn}
-		<aside class="dock" aria-label="Standings">{@render standingsList()}</aside>
+		<aside class="dock" aria-label="Standings">{@render standingsList(true)}</aside>
 	{/if}
 	{#if showStandings}
-		<aside class="drawer">{@render standingsList()}</aside>
+		<aside class="drawer">{@render standingsList(!signedIn)}</aside>
 	{/if}
 
 	{#if zone && zoneGame}
@@ -430,6 +433,11 @@
 		z-index: 2;
 		top: calc(var(--band) + 14px);
 		left: 14px;
+	}
+	/* Inside a battle the HUD's Leave button takes that corner; the switch steps down below it, above the HUD. */
+	.sky.in-battle {
+		z-index: 5;
+		top: calc(var(--band) + 62px);
 	}
 	.dot {
 		width: 9px;

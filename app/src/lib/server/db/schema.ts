@@ -334,7 +334,7 @@ export const unitArt = pgTable(
 	(t) => [primaryKey({ columns: [t.campaignId, t.faction, t.typeKey] })]
 );
 
-/** Accounts: the Campaign Master and the players. Created by the CM; nobody signs up. */
+/** Accounts: the Campaign Master and the players. Made by the CM, or requested at sign-in and approved by the CM. */
 export const user = pgTable('user', {
 	id: id(),
 	/** Lowercase, unique. */
@@ -350,6 +350,23 @@ export const user = pgTable('user', {
 	lastSignInAt: timestamp('last_sign_in_at', { withTimezone: true, mode: 'date' }),
 	createdAt: createdAt()
 });
+
+/** Sign-up and password-reset requests from the sign-in page, waiting for the Campaign Master. */
+export const accountRequest = pgTable(
+	'account_request',
+	{
+		id: id(),
+		kind: text('kind', { enum: ['signup', 'reset'] }).notNull(),
+		/** Lowercase, as in `user`. */
+		username: text('username').notNull(),
+		/** Sign-ups only. */
+		displayName: text('display_name'),
+		/** Sign-ups only: the password the player chose, already hashed. */
+		passwordHash: text('password_hash'),
+		createdAt: createdAt()
+	},
+	(t) => [uniqueIndex('account_request_kind_username_idx').on(t.kind, t.username)]
+);
 
 /** Signed-in devices. The cookie holds a random token; only its hash is kept here. */
 export const session = pgTable(

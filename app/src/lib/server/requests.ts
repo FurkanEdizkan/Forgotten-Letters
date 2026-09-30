@@ -1,7 +1,7 @@
 import { and, asc, count, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { accountRequest, user } from '$lib/server/db/schema';
-import { endAllSessions, setPassword } from '$lib/server/auth';
+import { endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { hashPassword, normaliseUsername, rateLimiter, temporaryPassword } from '$lib/server/passwords';
 import { MAX_PENDING_SIGNUPS, checkSignup, type SignupInput } from '$lib/server/request-rules';
 
@@ -49,6 +49,8 @@ export async function requestSignup(
 /** A visitor has forgotten their password. Stored only for an enabled account; the caller answers the same either way. */
 export async function requestReset(rawUsername: string) {
 	const username = normaliseUsername(rawUsername).slice(0, 32);
+	// The .env admin's password lives in .env: a reset from the Campaign Master would not survive a restart.
+	if (username === envAdminUsername()) return;
 	const [u] = await db.select({ disabled: user.disabled }).from(user).where(eq(user.username, username));
 	if (!u || u.disabled) return;
 	await db.insert(accountRequest).values({ kind: 'reset', username }).onConflictDoNothing();

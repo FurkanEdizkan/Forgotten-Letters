@@ -182,11 +182,15 @@ Agent skills (design, PixiJS, Svelte, commit conventions) are listed in `skills-
 cd app
 npm install
 docker compose -f compose.yaml -f compose.dev.yaml up -d db   # from the repo root: Postgres on localhost:5432
-npm run dev          # http://localhost:5173 (app/.env: DATABASE_URL=postgres://…, ADMIN_PASSWORD)
+npm run dev          # http://localhost:5173; reads the repo-root .env (sign in as ADMIN_USERNAME / ADMIN_PASSWORD)
 npm test             # rules-engine tests
 npm run check        # type-check
 npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run on start)
 ```
+
+The Campaign Master account is defined by `ADMIN_USERNAME` / `ADMIN_PASSWORD` in the repo-root `.env`, in development and
+in production alike: every start creates or restores it and re-applies the password when it changed (signing that account
+out everywhere). To point the dev server at another database, set `DATABASE_URL` in `.env` or on the command line.
 
 ### Blender (effect sprites)
 

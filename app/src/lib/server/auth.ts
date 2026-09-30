@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private';
 import { db } from './db';
 import { player, session, user, warband } from './db/schema';
 import { hashPassword, newToken, rateLimiter, tokenHash, verifyPassword, normaliseUsername } from './passwords';
+import { adminSyncPlan } from './admin-sync';
 
 export const SESSION_COOKIE = 'cf_session';
 /** Set when "Remember me" was left unticked: the session cookie then ends with the browser. */
@@ -23,22 +24,47 @@ export interface SessionUser {
 /** Five tries a minute per username and per address. */
 export const loginLimiter = rateLimiter(5, 60_000);
 
+/** The account .env defines (ADMIN_USERNAME, default `cm`), or null when ADMIN_PASSWORD is unset. */
+export function envAdminUsername(): string | null {
+	return env.ADMIN_PASSWORD ? normaliseUsername(env.ADMIN_USERNAME || 'cm').slice(0, 32) : null;
+}
+
 /**
- * First start: create the Campaign Master's account from ADMIN_USERNAME (default `cm`) and ADMIN_PASSWORD,
- * to be changed at first sign-in. Does nothing once any CM account exists.
+ * Every start: the account named in .env is a working Campaign Master with the .env password (ADMIN_USERNAME,
+ * ADMIN_PASSWORD). The password is re-applied only when it no longer matches, which also signs that account
+ * out everywhere. Without ADMIN_PASSWORD, only make sure some Campaign Master exists, as before.
  */
-export async function ensureCmAccount() {
-	const [cm] = await db.select({ id: user.id }).from(user).where(eq(user.role, 'cm')).limit(1);
-	if (cm) return;
-	const username = normaliseUsername(env.ADMIN_USERNAME || 'cm').slice(0, 32);
-	await db.insert(user).values({
-		username,
-		displayName: 'Campaign Master',
-		role: 'cm',
-		passwordHash: await hashPassword(env.ADMIN_PASSWORD ?? 'changeme'),
-		mustChangePassword: true
-	});
-	console.log(`Created the Campaign Master account "${username}" (password from ADMIN_PASSWORD; change it at first sign-in).`);
+export async function syncAdminAccount() {
+	const username = envAdminUsername();
+	if (!username) {
+		const [cm] = await db.select({ id: user.id }).from(user).where(eq(user.role, 'cm')).limit(1);
+		if (cm) return;
+		console.warn('ADMIN_PASSWORD is not set: creating Campaign Master "cm" with password "changeme". Set ADMIN_PASSWORD in .env.');
+		await db.insert(user).values({ username: 'cm', displayName: 'Campaign Master', role: 'cm', passwordHash: await hashPassword('changeme') });
+		return;
+	}
+	const password = env.ADMIN_PASSWORD!;
+	const [u] = await db.select().from(user).where(eq(user.username, username));
+	const plan = adminSyncPlan(
+		u ? { role: u.role, disabled: u.disabled, mustChangePassword: u.mustChangePassword, passwordMatches: await verifyPassword(password, u.passwordHash) } : null
+	);
+	if (plan.kind === 'create') {
+		await db.insert(user).values({
+			username,
+			displayName: 'Campaign Master',
+			role: 'cm',
+			passwordHash: await hashPassword(password),
+			mustChangePassword: false
+		});
+		console.log(`Created the Campaign Master account "${username}" from .env.`);
+	} else if (plan.kind === 'update' && u) {
+		await db
+			.update(user)
+			.set({ ...plan.fields, ...(plan.rehash ? { passwordHash: await hashPassword(password) } : {}) })
+			.where(eq(user.id, u.id));
+		if (plan.rehash) await endAllSessions(u.id);
+		console.log(`Brought the Campaign Master account "${username}" in line with .env${plan.rehash ? ' (new password)' : ''}.`);
+	}
 }
 
 /** Check a username and password; the user row on success. Disabled accounts cannot sign in. */

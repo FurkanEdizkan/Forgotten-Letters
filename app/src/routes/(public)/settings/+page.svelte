@@ -29,6 +29,9 @@
 
 	<section>
 		<h2>Your account</h2>
+		{#if data.envManaged}
+			<p class="hint">This account's password is set in <code>.env</code> (<code>ADMIN_PASSWORD</code>) and re-applied at every start. Change it there and restart.</p>
+		{:else}
 		<form method="POST" action="?/password" class="fields" use:enhance>
 			<label>Current password <input name="current" type="password" autocomplete="current-password" required /></label>
 			<label>New password <small>(at least 8 characters)</small> <input name="next" type="password" autocomplete="new-password" minlength="8" required /></label>
@@ -37,6 +40,7 @@
 			<button>Save password</button>
 			<p class="hint">Saving signs you out on every other device.</p>
 		</form>
+		{/if}
 	</section>
 
 	{#if data.isAdmin}

@@ -3,7 +3,7 @@ import { and, asc, count, eq, gt, inArray, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { player, session, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { endAllSessions, setPassword } from '$lib/server/auth';
+import { endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, USERNAME, hashPassword, normaliseUsername, temporaryPassword } from '$lib/server/passwords';
 import { approveSignup, declineRequest, listRequests, resolveReset } from '$lib/server/requests';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,6 +31,8 @@ export const load: PageServerLoad = async () => {
 			role: u.role,
 			disabled: u.disabled,
 			mustChangePassword: u.mustChangePassword,
+			/** Defined by .env: its password, role and enabled state are re-applied at every start. */
+			envManaged: u.username === envAdminUsername(),
 			lastSignInAt: u.lastSignInAt,
 			devices: live.find((l) => l.userId === u.id)?.n ?? 0,
 			seats: seats.filter((s) => s.userId === u.id)
@@ -45,6 +47,8 @@ async function target(id: FormDataEntryValue | null) {
 	if (!u) error(404, 'No such account');
 	return u;
 }
+
+const ENV_MANAGED = 'This account is defined in .env (ADMIN_USERNAME / ADMIN_PASSWORD); change it there and restart.';
 
 /** Give these player seats to the account (and take any others it had away). */
 async function assign(userId: string, playerIds: string[]) {
@@ -91,6 +95,7 @@ export const actions: Actions = {
 
 	reset: async ({ request }) => {
 		const u = await target((await request.formData()).get('id'));
+		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		const password = temporaryPassword();
 		await setPassword(u.id, password, true);
 		await endAllSessions(u.id);
@@ -99,6 +104,7 @@ export const actions: Actions = {
 
 	toggle: async ({ request, locals }) => {
 		const u = await target((await request.formData()).get('id'));
+		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		if (u.id === locals.user?.id) return fail(400, { message: 'You cannot disable your own account.' });
 		await db.update(user).set({ disabled: !u.disabled }).where(eq(user.id, u.id));
 		if (!u.disabled) await endAllSessions(u.id);
@@ -120,6 +126,7 @@ export const actions: Actions = {
 
 	remove: async ({ request, locals }) => {
 		const u = await target((await request.formData()).get('id'));
+		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		if (u.id === locals.user?.id) return fail(400, { message: 'You cannot delete your own account.' });
 		if (u.role === 'cm') {
 			const [{ n }] = await db.select({ n: count() }).from(user).where(and(eq(user.role, 'cm'), ne(user.id, u.id)));

@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
-import { FORGET_COOKIE, SESSION_COOKIE, createSession, endAllSessions, setPassword } from '$lib/server/auth';
+import { FORGET_COOKIE, SESSION_COOKIE, createSession, endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, verifyPassword } from '$lib/server/passwords';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -11,13 +11,17 @@ export const load: PageServerLoad = ({ locals, url }) => {
 	return {
 		/** A password the Campaign Master handed over: nothing else is reachable until it is changed. */
 		first: url.searchParams.has('first') || locals.user.mustChangePassword,
-		isAdmin: locals.isAdmin
+		isAdmin: locals.isAdmin,
+		/** This account's password comes from .env and is re-applied at every start. */
+		envManaged: locals.user.username === envAdminUsername()
 	};
 };
 
 export const actions: Actions = {
 	password: async ({ request, locals, cookies, url }) => {
 		if (!locals.user) redirect(303, '/login');
+		if (locals.user.username === envAdminUsername())
+			return fail(400, { message: "This account's password is set in .env (ADMIN_PASSWORD). Change it there and restart." });
 		const data = await request.formData();
 		const current = String(data.get('current') ?? '');
 		const next = String(data.get('next') ?? '');

@@ -11,6 +11,8 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// The project's .env lives at the repo root (compose reads it too), not in app/.
+			env: { dir: '..' },
 			typescript: {
 				config: (config) => {
 					config.include.push('../drizzle.config.ts');

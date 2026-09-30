@@ -2,7 +2,7 @@ import { loadCustomFactions } from '$lib/server/factions';
 import { loadZones } from '$lib/server/map';
 import { seedStudio } from '$lib/server/starter';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
-import { SESSION_COOKIE, ensureCmAccount, pruneSessions, sessionUser } from '$lib/server/auth';
+import { SESSION_COOKIE, syncAdminAccount, pruneSessions, sessionUser } from '$lib/server/auth';
 import { schedule } from '$lib/server/fx';
 import { migrateDb } from '$lib/server/db';
 import { importLegacySqlite } from '$lib/server/db/legacy';
@@ -12,7 +12,7 @@ import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
 export const init: ServerInit = async () => {
 	await migrateDb();
 	await importLegacySqlite();
-	await ensureCmAccount();
+	await syncAdminAccount();
 	await loadRulesFileIfEmpty();
 	await seedStudio();
 	await loadCustomFactions();

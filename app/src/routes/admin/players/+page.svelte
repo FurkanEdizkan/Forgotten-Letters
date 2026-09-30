@@ -107,10 +107,14 @@
 				</div>
 				<div class="tools">
 					<button type="button" class="ghost small" onclick={() => (editing = editing === u.id ? null : u.id)} aria-expanded={editing === u.id}>Seats</button>
-					<form method="POST" action="?/reset" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small">Reset password</button></form>
+					{#if !u.envManaged}<form method="POST" action="?/reset" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small">Reset password</button></form>{/if}
 					<form method="POST" action="?/signOut" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small">Sign out everywhere</button></form>
-					<form method="POST" action="?/toggle" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small">{u.disabled ? 'Enable' : 'Disable'}</button></form>
-					<form method="POST" action="?/remove" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small danger">Delete</button></form>
+					{#if u.envManaged}
+						<small class="muted">Defined in .env</small>
+					{:else}
+						<form method="POST" action="?/toggle" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small">{u.disabled ? 'Enable' : 'Disable'}</button></form>
+						<form method="POST" action="?/remove" use:enhance={keep}><input type="hidden" name="id" value={u.id} /><button class="ghost small danger">Delete</button></form>
+					{/if}
 				</div>
 				{#if editing === u.id}
 					<form method="POST" action="?/assign" class="assign" use:enhance={keep}>

@@ -12,7 +12,7 @@
 
 <h1>Players</h1>
 <p class="lede">
-	Accounts are made here; nobody signs up. Give each player a username and a password (or let one be generated), and the
+	Accounts are made here, or requested from the sign-in page and approved below. Give each player a username and a password (or let one be generated), and the
 	seat they play: they can then edit that warband's seal, pictures and roster. A new or reset password must be changed at
 	first sign-in.
 </p>
@@ -30,6 +30,33 @@
 	</div>
 {/if}
 {#if form?.message}<p class="note-line">{form.message}</p>{/if}
+
+{#if data.requests.length}
+	<section>
+		<h2>Requests</h2>
+		<ul class="accounts">
+			{#each data.requests as r (r.id)}
+				<li>
+					<div class="who">
+						<strong>{r.kind === 'signup' ? (r.displayName ?? r.username) : r.username}</strong>
+						<small>
+							{r.kind === 'signup' ? `${r.username} · asks for an account` : 'forgot their password'} · {when(r.createdAt)}
+						</small>
+					</div>
+					<div class="tools">
+						{#if r.kind === 'signup'}
+							<form method="POST" action="?/approve" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="small">Approve</button></form>
+							<form method="POST" action="?/decline" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="ghost small danger">Decline</button></form>
+						{:else}
+							<form method="POST" action="?/resolveReset" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="small">Issue temporary password</button></form>
+							<form method="POST" action="?/decline" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="ghost small">Dismiss</button></form>
+						{/if}
+					</div>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
 
 <section>
 	<h2>New account</h2>

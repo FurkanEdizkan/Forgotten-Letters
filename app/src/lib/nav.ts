@@ -12,7 +12,6 @@ export interface NavItem {
 /** The campaign as everyone reads it, players and Campaign Master alike. */
 export const PLAY: NavItem[] = [
 	{ href: '/', label: 'Live map', match: 'exact' },
-	{ href: '/campaign', label: 'Campaign' },
 	{ href: '/players', label: 'Standings' },
 	{ href: '/zones', label: 'Zones' },
 	{ href: '/compendium', label: 'Compendium' },

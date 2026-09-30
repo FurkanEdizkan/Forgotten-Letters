@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto';
 import { error } from '@sveltejs/kit';
 import { and, eq, ne } from 'drizzle-orm';
 import { db } from './db';
-import { game } from './db/schema';
+import { game, adjustment } from './db/schema';
 import { campaignEvents, currentCampaign, loadCampaignState, rosters, rulesConfig, warbandInfos, type Campaign, type Game, type GameResult } from './campaign';
 import { regionEventFor } from './fx';
 import { suggestAggressor, zoneOptions } from '$lib/rules/legality';
@@ -134,6 +134,17 @@ export async function findGame(id: string) {
 
 export class BattleError extends Error {}
 
+/** Passed rounds per warband: each is an adjustment of kind `round-pass` (deleting it undoes the pass). */
+export async function passCounts(campaignId: string) {
+	const rows = await db
+		.select({ w: adjustment.warbandId })
+		.from(adjustment)
+		.where(and(eq(adjustment.campaignId, campaignId), eq(adjustment.kind, 'round-pass')));
+	const out = new Map<string, number>();
+	for (const r of rows) out.set(r.w, (out.get(r.w) ?? 0) + 1);
+	return out;
+}
+
 /** Warbands already on the field in a game that isn't recorded yet. */
 export async function busyWarbands(campaignId: string) {
 	const busy = new Set<string>();
@@ -172,7 +183,9 @@ export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
 	const busy = await busyWarbands(c.id);
 	if (busy.has(aggressor) || busy.has(defender))
 		throw new BattleError('One of these warbands is already on the field — record or cancel that game first.');
-	const spent = [aggressor, defender].filter((id) => state.players.get(id)!.games >= c.gamesPerPlayer);
+	// A passed round counts as a game played.
+	const passes = await passCounts(c.id);
+	const spent = [aggressor, defender].filter((id) => state.players.get(id)!.games + (passes.get(id) ?? 0) >= c.gamesPerPlayer);
 	if (spent.length && !input.override)
 		throw new BattleError(`Already played all ${c.gamesPerPlayer} campaign games. Tick "override" to allow an extra game.`);
 	const option = zoneOptions(state, aggressor, defender).find((o) => o.zone === zone);

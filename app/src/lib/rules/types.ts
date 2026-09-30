@@ -60,6 +60,8 @@ export type Effect =
 	| { t: 'glory'; n: number }
 	| { t: 'ducats'; n: number }
 	| { t: 'fill'; track: Resource }
+	/** Take a box off a resource track (a penalty); never below empty, and the box's reward is not taken back. */
+	| { t: 'unfill'; track: Resource }
 	| { t: 'omen'; n: number }
 	| { t: 'apocrypha'; n: number }
 	| { t: 'die' }

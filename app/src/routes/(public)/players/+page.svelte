@@ -12,6 +12,8 @@
 	const players = $derived(new Set(s.warbands.map((w) => w.player)).size);
 	const fought = $derived(s.warbands.reduce((n, w) => n + w.games, 0) / 2);
 	const planned = $derived((s.campaign.gamesPerPlayer * s.warbands.length) / 2);
+	// The round most warbands are on: anyone below it is behind.
+	const lead = $derived(Math.max(0, ...s.warbands.filter((w) => w.gamesLeft > 0).map((w) => w.round)));
 </script>
 
 <svelte:head><title>Standings · {s.campaign.name}</title></svelte:head>
@@ -44,6 +46,7 @@
 						</span>
 					</span>
 					<span role="cell" class="bits">
+						{#if w.gamesLeft > 0}<span title="The round it plays next" class:behind={w.round < lead}>Round {w.round}{w.round < lead ? ' · behind' : ''}</span>{/if}
 						<span title="Games played">{w.games}/{s.campaign.gamesPerPlayer} games</span>
 						<span title="Outposts"><Mark name="pennant" /> {w.outposts.length}</span>
 						{#if w.omens}<span title="Omens of Leviathan">{w.omens} Omen{w.omens > 1 ? 's' : ''}</span>{/if}
@@ -62,6 +65,10 @@
 </main>
 
 <style>
+	.behind {
+		color: var(--blood);
+		font-weight: 700;
+	}
 	.meta {
 		margin: -6px 0 6px;
 		color: var(--ink-soft);

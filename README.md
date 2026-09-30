@@ -150,6 +150,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/join/<link>` | anyone with an invite | Take a seat: create an account already tied to it, then build a warband. |
 | `/muster` | signed-in players | Your mustering checklist: account, warband (landing at your seat's Entry Zone), Vision (keep one of the two dealt). |
 | `/` (round panel) | everyone; players act | Each round: everyone rolls for Aggressor (fewer times Aggressor first, then the higher D6; ties that decide anything re-roll), Aggressors in turn pick an opponent and a battlefield (tap it on the map or pick from the list), then each battle's players roll Hell on Earth, the chooser picks, the Aggressor rolls a random scenario, and they start. Every roll is made on the server and shown on every map. The last recorded battle closes the round and opens the next. |
+| `/` (challenges) | players | Any time, a player may challenge any free warband with games left on a legal battlefield; the opponent accepts (the battle goes on the map) or declines. In a round the Aggressor's pick is such a challenge too; declined, they pick again (not the same opponent). Each warband has its own round (battles + passes + 1), shown on the map and the standings; rounds pair warbands only within the same round, and one that is behind can arrange a battle with anyone. |
 | `/players`, `/players/<id>` | everyone | Standings (with the campaign at a glance; `/campaign` redirects here) and each warband's digital Campaign Tracker. |
 | `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
 | `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
@@ -161,7 +162,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/history` | everyone | The chronicle of battles. |
 | `/admin` | Campaign Master | Campaign settings, final-reckoning preview, Vision reveal. |
 | `/admin/muster` | Campaign Master | The campaign's stages (Setup → Mustering → Underway → Ended): seats, invite links (one per seat, 7 days, single use), warbands, Entry Zones, dealing Visions, starting the campaign. |
-| `/admin/round` | Campaign Master | The round of battles: every roll, rank and role, whose turn it is; roll or pick for an absent player (with an override for an illegal battlefield); open the next round. |
+| `/admin/round` | Campaign Master | The round of battles: every roll, rank and role, whose turn it is; roll or pick for an absent player (with an override for an illegal battlefield); open the next round. Every warband's own round; pass one that failed to plan its round (counts as a game and takes the penalty set in Campaign → Round pass penalty unless ticked Excused; recorded as an adjustment, so deleting it undoes it); answer challenges for an absent player. |
 | `/admin/games` | Campaign Master | Arrange a game → record its result. Up to 8 games at once. |
 | `/admin/adjustments` | Campaign Master | Glory→CVP trades, Tithe Ducats, corrections. |
 | `/admin/warbands/<id>` | Campaign Master | Muster roll, roster builder, map models (STL → token), Vision. |

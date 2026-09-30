@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggressorCount, byes, eligibleForRound, nextPicker, rankEntries, rollOffNeeded } from './round';
+import { aggressorCount, assignRoles, byes, eligibleForRound, freeOpponents, nextPicker, playerRound, rankEntries, rollOffByGroup, rollOffNeeded } from './round';
 
 const e = (id: string, aggressions: number, ...rolls: number[]) => ({ id, aggressions, rolls });
 
@@ -57,5 +57,48 @@ describe('picking', () => {
 	});
 	it('sits out the non-Aggressors nobody picked', () => {
 		expect(byes(['c', 'd', 'e'], new Set(['c', 'e']))).toEqual(['d']);
+	});
+});
+
+const g = (id: string, round: number, aggressions: number, ...rolls: number[]) => ({ id, round, aggressions, rolls });
+
+describe('playerRound', () => {
+	it('is the next round to play: battles fought plus rounds passed, plus one', () => {
+		expect(playerRound(0, 0)).toBe(1);
+		expect(playerRound(3, 1)).toBe(5);
+	});
+});
+
+describe('round groups', () => {
+	it('checks ties only within a group', () => {
+		// Round 2: a and b tie for the only Aggressor place; round 3 is decided.
+		const entries = [g('a', 2, 0, 4), g('b', 2, 0, 4), g('c', 3, 0, 6), g('d', 3, 0, 1)];
+		expect(rollOffByGroup(entries)).toEqual({ waiting: [], reroll: ['a', 'b'] });
+	});
+	it('gives each group its Aggressors; groups behind pick first; a lone warband waits', () => {
+		const entries = [g('a', 3, 0, 6), g('b', 3, 0, 1), g('c', 2, 1, 5), g('d', 2, 0, 2), g('e', 4, 0, 3)];
+		const roles = assignRoles(entries);
+		expect(roles.get('d')).toEqual({ role: 'aggressor', pickOrder: 1 }); // round 2, fewer times Aggressor
+		expect(roles.get('c')).toEqual({ role: 'defender', pickOrder: null });
+		expect(roles.get('a')).toEqual({ role: 'aggressor', pickOrder: 2 });
+		expect(roles.get('b')).toEqual({ role: 'defender', pickOrder: null });
+		expect(roles.get('e')).toEqual({ role: 'defender', pickOrder: null }); // alone on round 4
+	});
+});
+
+describe('freeOpponents', () => {
+	const entries = [g('a', 2, 0, 6), g('b', 2, 0, 1), g('c', 2, 0, 3), g('d', 3, 0, 2)];
+	const roles = new Map([
+		['a', { role: 'aggressor' as const, pickOrder: 1 }],
+		['b', { role: 'defender' as const, pickOrder: null }],
+		['c', { role: 'defender' as const, pickOrder: null }],
+		['d', { role: 'defender' as const, pickOrder: null }]
+	]);
+	it('offers the non-Aggressors of the same round nobody has taken or been challenged by', () => {
+		expect(freeOpponents('a', entries, roles, { taken: new Set(), declined: new Set() })).toEqual(['b', 'c']);
+		expect(freeOpponents('a', entries, roles, { taken: new Set(['b']), declined: new Set() })).toEqual(['c']);
+	});
+	it('leaves out whoever declined this Aggressor this round', () => {
+		expect(freeOpponents('a', entries, roles, { taken: new Set(), declined: new Set(['a>c']) })).toEqual(['b']);
 	});
 });

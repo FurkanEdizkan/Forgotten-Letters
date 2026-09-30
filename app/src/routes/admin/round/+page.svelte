@@ -30,15 +30,16 @@
 
 	<div class="scroll">
 		<table class="ledger">
-			<thead><tr><th>#</th><th>Warband</th><th class="num">Times Aggressor</th><th class="num">Rolls</th><th>Role</th><th></th></tr></thead>
+			<thead><tr><th>#</th><th>Warband</th><th class="num">Its round</th><th class="num">Times Aggressor</th><th class="num">Rolls</th><th>Role</th><th></th></tr></thead>
 			<tbody>
 				{#each b.entries as e, i (e.warbandId)}
 					<tr class:turn={b.picker === e.warbandId}>
 						<td class="num">{i + 1}</td>
 						<td>{name(e.warbandId)}</td>
+						<td class="num">{e.playerRound}</td>
 						<td class="num">{e.aggressions}</td>
 						<td class="num">{e.rolls.join(' · ') || '—'}</td>
-						<td>{e.role === 'aggressor' ? `Aggressor · picks ${e.pickOrder}` : e.role === 'defender' ? 'Non-Aggressor' : e.role === 'bye' ? 'Sits out' : ''}</td>
+						<td>{e.role === 'aggressor' ? `Aggressor · picks ${e.pickOrder}` : e.role === 'defender' ? 'Non-Aggressor' : e.role === 'bye' ? 'Waits (no opponent)' : e.role === 'passed' ? 'Passed' : ''}</td>
 						<td>
 							{#if b.step === 'rolling' && (b.waiting.includes(e.warbandId) || b.reroll.includes(e.warbandId))}
 								<form method="POST" action="?/roll" use:enhance={keep}><input type="hidden" name="warband" value={e.warbandId} /><button class="ghost small">Roll for them</button></form>
@@ -73,6 +74,23 @@
 		</form>
 	{/if}
 
+	{#if data.challenges.length}
+		<h2>Challenges waiting for an answer</h2>
+		<ul class="battles">
+			{#each data.challenges as x (x.id)}
+				<li>
+					<strong>{name(x.aggressor)}</strong> challenges <strong>{name(x.defender)}</strong> · {zone(x.zone)}
+					<small>{x.roundId ? 'round pick' : 'arranged'}</small>
+					<form method="POST" action="?/answer" use:enhance={keep} class="inline-f">
+						<input type="hidden" name="challenge" value={x.id} />
+						<button class="ghost small" name="accept" value="yes">Accept for them</button>
+						<button class="ghost small" name="accept" value="no">Decline</button>
+					</form>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
 	{#if b.battles.length}
 		<h2>Battles</h2>
 		<ul class="battles">
@@ -86,6 +104,38 @@
 		</ul>
 	{/if}
 {/if}
+
+<h2>Every warband's round</h2>
+<p class="lede">
+	A warband's round is its battles fought plus rounds passed, plus one. One that is behind can arrange a battle with anyone, or
+	be passed here. Passing counts as a game played; unless excused it takes {data.penalty.length ? data.penalty.join(', ') : 'nothing (no penalty is set: Campaign → Round pass penalty)'}.
+</p>
+<div class="scroll">
+	<table class="ledger">
+		<thead><tr><th>Warband</th><th class="num">Round</th><th class="num">Games left</th><th>Now</th><th></th></tr></thead>
+		<tbody>
+			{#each data.standing as w (w.id)}
+				<tr>
+					<td>{name(w.id)}</td>
+					<td class="num">{w.left > 0 ? w.round : '—'}</td>
+					<td class="num">{w.left}</td>
+					<td>{w.busy ? 'In a battle' : w.challenged ? 'In a challenge' : w.left > 0 ? 'Free' : 'Done'}</td>
+					<td>
+						{#if w.left > 0 && !w.busy && !w.challenged}
+							<form method="POST" action="?/pass" class="inline-f" use:enhance={keep}>
+								<input type="hidden" name="warband" value={w.id} />
+								<input type="hidden" name="name" value={name(w.id)} />
+								<input name="note" placeholder="Note (why)" aria-label="Note" class="note-in" />
+								<label class="inline"><input type="checkbox" name="excused" /> Excused</label>
+								<button class="ghost small danger">Pass round {w.round}</button>
+							</form>
+						{/if}
+					</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</div>
 
 <style>
 	.lede,
@@ -146,6 +196,15 @@
 		display: flex;
 		gap: 8px;
 		font-weight: 400;
+	}
+	.inline-f {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		align-items: center;
+	}
+	.note-in {
+		width: 10rem;
 	}
 	.battles {
 		list-style: none;

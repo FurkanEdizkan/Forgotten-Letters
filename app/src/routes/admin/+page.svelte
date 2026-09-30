@@ -81,6 +81,23 @@
 		</label>
 	</fieldset>
 
+	<fieldset>
+		<legend>Round pass penalty</legend>
+		<p class="muted">
+			Taken from a warband the Campaign Master passes for a round it failed to plan without telling anyone (Admin → Round). The
+			pass counts as a game played. A warband that warned it would be late can be passed as excused, without this.
+		</p>
+		<div class="penalty">
+			<label>CVP <input name="penCvp" type="number" min="0" max="50" value={c?.passPenalty.cvp ?? 0} /></label>
+			<label>Glory <input name="penGlory" type="number" min="0" max="50" value={c?.passPenalty.glory ?? 0} /></label>
+			<label>Ducats <input name="penDucats" type="number" min="0" max="1000" step="5" value={c?.passPenalty.ducats ?? 0} /></label>
+			<label>Favour boxes <input name="penF" type="number" min="0" max="15" value={c?.passPenalty.boxes?.F ?? 0} /></label>
+			<label>Relics boxes <input name="penR" type="number" min="0" max="15" value={c?.passPenalty.boxes?.R ?? 0} /></label>
+			<label>Supplies boxes <input name="penS" type="number" min="0" max="15" value={c?.passPenalty.boxes?.S ?? 0} /></label>
+			<label>Territories boxes <input name="penT" type="number" min="0" max="15" value={c?.passPenalty.boxes?.T ?? 0} /></label>
+		</div>
+	</fieldset>
+
 	{#if c}
 		<fieldset class="danger">
 			<legend>Endgame</legend>
@@ -122,6 +139,15 @@
 </form>
 
 <style>
+	.penalty {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+		gap: 8px 12px;
+	}
+	.penalty label {
+		display: grid;
+		gap: 2px;
+	}
 	form {
 		display: grid;
 		gap: 18px;

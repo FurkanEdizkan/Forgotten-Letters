@@ -64,6 +64,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		startDucats: START_DUCATS,
 		canFound,
 		suggestedEntry: mySeat ? suggestedEntry(mySeat.seat, c.expectedPlayers, c.houseZones) : null,
+		/** Players can't choose: their seat decides (the Campaign Master can move them in Admin → Muster). */
+		entryLocked: !locals.isAdmin,
 		/** Each faction's and variant's starting money, from its special rules (Papal States: 500 and 11 Glory). */
 		startMoney: await (async () => {
 			const rows = await allFactionRules();
@@ -126,6 +128,12 @@ export const actions: Actions = {
 		if (owner.id && (await ownWarband(c.id, owner.id)))
 			return fail(400, { message: locals.isAdmin ? 'That player already has a warband in this campaign.' : 'You already have a warband.' });
 		data.set('playerName', owner.name);
+		// Players land at their seat's Entry Zone; only the Campaign Master places a warband elsewhere.
+		if (!locals.isAdmin) {
+			const seat = await seatOf(c, locals.user.id);
+			const [{ top }] = await db.select({ top: max(player.seat) }).from(player).where(eq(player.campaignId, c.id));
+			data.set('entryZone', suggestedEntry(seat?.seat ?? (top ?? 0) + 1, c.expectedPlayers, c.houseZones));
+		}
 		// The picker sends "faction::variant" from one set of radio cards.
 		const [faction, variant] = String(data.get('pick') ?? '').split('::');
 		data.set('faction', faction ?? '');

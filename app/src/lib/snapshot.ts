@@ -20,6 +20,9 @@ export interface PublicWarband {
 	position: string;
 	playing: boolean;
 	games: number;
+	/** The round this warband plays next (battles fought + rounds passed + 1), and games it has left. */
+	round: number;
+	gamesLeft: number;
 	wins: number;
 	cvp: number;
 	cvpBreakdown: Record<CvpSource, number>;
@@ -96,7 +99,15 @@ export interface PublicRound {
 	number: number;
 	step: 'rolling' | 'pairing' | 'battles' | 'closed';
 	/** In rank order (fewer times Aggressor, then the higher roll). */
-	entries: { warbandId: string; aggressions: number; rolls: number[]; role: 'aggressor' | 'defender' | 'bye' | null; pickOrder: number | null }[];
+	/** Behind first, then by standing. `playerRound` is the warband's own round (it is paired only within it). */
+	entries: {
+		warbandId: string;
+		aggressions: number;
+		rolls: number[];
+		role: 'aggressor' | 'defender' | 'bye' | 'passed' | null;
+		pickOrder: number | null;
+		playerRound: number;
+	}[];
 	/** Still to roll, and tied players who must roll again. */
 	waiting: string[];
 	reroll: string[];
@@ -136,5 +147,7 @@ export interface PublicSnapshot {
 	fx: FxConfig;
 	regions: PublicRegion[];
 	round: PublicRound | null;
+	/** Challenges waiting for the opponent's answer (from a round's picking, or arranged at any time). */
+	challenges: { id: string; roundId: string | null; aggressor: string; defender: string; zone: string }[];
 	updatedAt: number;
 }

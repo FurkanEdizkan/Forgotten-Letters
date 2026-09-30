@@ -108,6 +108,12 @@
 			{/if}
 
 			{#if where === 'campaign'}
+				{#if data.entryLocked}
+					<p class="entry-fixed">
+						Comes ashore at <strong>{data.entryZones.find((z) => z.id === data.suggestedEntry)?.name ?? `Entry Zone ${data.suggestedEntry ?? ''}`}</strong>,
+						your seat's Entry Zone. Only the Campaign Master can move it.
+					</p>
+				{:else}
 				<label>
 					Entry Zone
 					<select name="entryZone" required value={data.suggestedEntry ?? ''}>
@@ -115,6 +121,7 @@
 						{#each data.entryZones as z (z.id)}<option value={z.id}>{z.name}{z.id === data.suggestedEntry ? ' (your seat)' : ''}</option>{/each}
 					</select>
 				</label>
+				{/if}
 			{/if}
 
 			<div class="money">

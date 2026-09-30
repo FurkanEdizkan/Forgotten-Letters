@@ -34,8 +34,14 @@
 	</main>
 {:else}
 	<a class="skip" href="#main">Skip to content</a>
-	<NavPanel bind:open={navOpen} title={live?.current.campaign.name ?? 'Carcass Front'} />
-	<div class="shell" class:beside={navOpen && !isMap}>
+	{#if data.user}
+		<NavPanel bind:open={navOpen} title={live?.current.campaign.name ?? 'Carcass Front'} />
+	{/if}
+	<div class="shell" class:beside={navOpen && !isMap && !!data.user} class:guest={!data.user}>
+		{#if !data.user && !isMap}
+			<!-- Visitors have no panel: a way back from the pages the map links to. -->
+			<a class="to-map" href="/">← The live map</a>
+		{/if}
 		<main id="main" tabindex="-1">
 			{@render children()}
 		</main>
@@ -87,6 +93,24 @@
 	}
 	.shell.beside {
 		padding-left: 17rem;
+	}
+	/* No handle to keep clear for visitors. */
+	.shell.guest {
+		padding-top: 0;
+	}
+	.to-map {
+		display: block;
+		max-width: 72rem;
+		margin-inline: auto;
+		padding: 14px clamp(16px, 4vw, 40px) 0;
+		color: var(--ink-soft);
+		font-family: var(--font-title);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		text-decoration: none;
+	}
+	.to-map:hover {
+		color: var(--blood);
 	}
 	@media (max-width: 60rem) {
 		.shell.beside {

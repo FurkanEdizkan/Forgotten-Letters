@@ -9,7 +9,7 @@
 	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
 	import { outpostFrame } from '$lib/models';
 	import { hexToNumber, sigilFor } from '$lib/sigils';
-	import { battlePlacement } from '$lib/map-battles';
+	import { battlePlacement, markerSpots } from '$lib/map-battles';
 	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
 	import { CAIRN_FRAME, TIER_SCALE, hexNum, monumentFrame } from '$lib/monuments';
 	import type { Monument } from '$lib/snapshot';
@@ -608,13 +608,20 @@
 			}
 
 			const markerScale = () => Math.min(3.5, Math.max(1, 0.7 / viewport.scale.x));
+			// Warband markers stand on a ring clear of the zone's tap target (radius 70), re-placed as the zoom changes
+			// their size, so a zone with warbands on it can still be tapped.
+			const placeMarkers = (g: Container, k: number) =>
+				markerSpots(g.children.length, k, { clear: 70, markerR: 35 }).forEach((p, i) => g.children[i].position.set(p.x, p.y));
 			const groups: Container[] = [];
+			/** The warband marker groups among them (monuments and outposts keep their own layout). */
+			const warbandGroups: Container[] = [];
 
 			function draw() {
 				for (const layer of [highlight, battles, battleHits, monumentLayer, outposts, markers]) {
 					for (const child of layer.removeChildren()) child.destroy({ children: true });
 				}
 				groups.length = 0;
+				warbandGroups.length = 0;
 				sigils.length = 0;
 				studs.length = 0;
 				const s = snapshot;
@@ -713,17 +720,14 @@
 					if (!z) continue;
 					const g = new PIXI.Container();
 					g.position.set(world(z).x, world(z).y);
-					const n = ws.length;
-					const radius = n === 1 ? 0 : 34 + n * 7;
-					ws.forEach((w, i) => {
-						const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+					ws.forEach((w) => {
 						const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12;
-						const m = w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring);
-						m.position.set(Math.cos(a) * radius, Math.sin(a) * radius);
-						g.addChild(m);
+						g.addChild(w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring));
 					});
 					g.scale.set(k);
+					placeMarkers(g, k);
 					groups.push(g);
+					warbandGroups.push(g);
 					markers.addChild(g);
 				}
 			}
@@ -731,6 +735,7 @@
 			viewport.on('zoomed', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
+				for (const g of warbandGroups) placeMarkers(g, k);
 			});
 
 			let t = 0;
@@ -790,6 +795,7 @@
 			viewport.on('moved', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
+				for (const g of warbandGroups) placeMarkers(g, k);
 				// Close enough to tell battles on one zone apart: each shows its own weather (see wantedEffects).
 				const d = viewport.scale.x >= DETAIL_SCALE;
 				if (d !== detailed) {

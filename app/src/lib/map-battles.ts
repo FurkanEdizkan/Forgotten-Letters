@@ -23,3 +23,16 @@ export function battlePlacement(games: { id: string; zone: string }[], centreOf:
 	}
 	return at;
 }
+
+/**
+ * Where a zone's warband markers stand, in the marker group's own units (the group is scaled by `k` with the zoom):
+ * on a ring clear of the zone's tap target, so the zone itself can always be tapped (to arrange a battle there).
+ * A lone warband stands up and to the right; several spread round the ring from there.
+ */
+export function markerSpots(n: number, k: number, { clear, markerR }: { clear: number; markerR: number }): Point[] {
+	const r = clear / k + markerR + (n > 1 ? n * 4 : 0);
+	return Array.from({ length: n }, (_, i) => {
+		const a = -Math.PI / 4 + (i / n) * Math.PI * 2;
+		return { x: Math.cos(a) * r, y: Math.sin(a) * r };
+	});
+}

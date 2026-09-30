@@ -1,6 +1,8 @@
 <script lang="ts">
 	import LiveMap from '$lib/components/LiveMap.svelte';
 	import Portrait from '$lib/components/Portrait.svelte';
+	import Seal from '$lib/components/Seal.svelte';
+	import { sealLook } from '$lib/seals';
 	import ZoneFacts from '$lib/components/ZoneFacts.svelte';
 	import BattlePanel from '$lib/components/BattlePanel.svelte';
 	import BattleControls from '$lib/components/BattleControls.svelte';
@@ -30,6 +32,9 @@
 	// Height of the smoke band that holds the chrome; the map plate starts below it.
 	let bandH = $state(64);
 	const isAdmin = $derived(!!page.data.isAdmin);
+	// Visitors who haven't signed in see the map, the standings and a way to sign in; nothing else.
+	const signedIn = $derived(!!page.data.user);
+	const signInHref = $derived(`/login?next=${encodeURIComponent(page.url.pathname + page.url.search)}`);
 
 	// Hell on Earth dice rolled anywhere show up on every map.
 	let project = $state<((zoneId: string) => { x: number; y: number } | null) | undefined>();
@@ -164,10 +169,16 @@
 	{/if}
 
 	<div class="band" bind:clientHeight={bandH}>
-		<header class="bar">
+		<header class="bar" class:guest={!signedIn}>
 			<Lockup name={s.campaign.name} href="/players" compact />
 			<nav>
-				<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
+				{#if signedIn}
+					<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
+				{:else}
+					<!-- On a phone the docked standings would cover the map, so they fold into this chip. -->
+					<button class="chip phone-only" onclick={() => (showStandings = !showStandings)}>Standings</button>
+					<a class="chip" href={signInHref}>Sign in</a>
+				{/if}
 				<span
 					class="dot"
 					class:on={live.connected}
@@ -232,29 +243,36 @@
 		</div>
 	{/if}
 
+	{#snippet standingsList()}
+		<h2>Standings</h2>
+		<ol>
+			{#each s.standings as row, i (row.id)}
+				{@const w = wb.get(row.id)}
+				{#if w}
+					<li>
+						<span class="rank">{i + 1}</span>
+						<!-- The faction's symbol, never the player's portrait: its seal, else the warband's own symbol. -->
+						{#if w.seal ?? sealLook(w.faction)}
+							<Seal look={w.seal} faction={w.faction} size={34} label={w.name} />
+						{:else if w.symbol}
+							<img class="symbol" src={w.symbol} alt="" width="34" height="34" />
+						{:else}
+							<Portrait name={w.player} faction={w.faction} size={34} />
+						{/if}
+						<a href="/players/{w.id}" class="who"><strong>{w.player}</strong><small>{w.name}</small></a>
+						<span class="score"><strong>{row.total}</strong><small>{w.games}/{s.campaign.gamesPerPlayer}</small></span>
+					</li>
+				{/if}
+			{/each}
+		</ol>
+		<a href="/players">Full standings →</a>
+	{/snippet}
+
+	{#if !signedIn}
+		<aside class="dock" aria-label="Standings">{@render standingsList()}</aside>
+	{/if}
 	{#if showStandings}
-		<aside class="drawer">
-			<h2>Standings</h2>
-			<ol>
-				{#each s.standings as row, i (row.id)}
-					{@const w = wb.get(row.id)}
-					{#if w}
-						<li>
-							<span class="rank">{i + 1}</span>
-							<Portrait name={w.player} portrait={w.portrait} symbol={w.symbol} faction={w.faction} seal={w.seal} size={34} />
-							<a href="/players/{w.id}" class="who"
-								><strong>{w.player}</strong><small>{w.name}</small></a
-							>
-							<span class="score"
-								><strong>{row.total}</strong><small>{w.games}/{s.campaign.gamesPerPlayer}</small
-								></span
-							>
-						</li>
-					{/if}
-				{/each}
-			</ol>
-			<a href="/players">Full standings →</a>
-		</aside>
+		<aside class="drawer">{@render standingsList()}</aside>
 	{/if}
 
 	{#if zone && zoneGame}
@@ -459,7 +477,7 @@
 		position: absolute;
 		z-index: 2;
 		bottom: 14px;
-		right: 14px;
+		left: 14px;
 		max-width: calc(100% - 28px);
 		padding: 6px 14px;
 		background: rgba(21, 19, 14, 0.88);
@@ -525,7 +543,8 @@
 	.txt small {
 		color: var(--muted);
 	}
-	.drawer {
+	.drawer,
+	.dock {
 		position: absolute;
 		z-index: 3;
 		top: calc(var(--band) + 12px);
@@ -538,16 +557,29 @@
 		border-top: 2px solid var(--blood);
 		box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
 	}
-	.drawer h2 {
+	/* Docked standings sit under the book-page sheets, which lay over them. */
+	.dock {
+		z-index: 2;
+	}
+	.phone-only {
+		display: none;
+	}
+	.bar.guest {
+		padding-left: 0;
+	}
+	.drawer h2,
+	.dock h2 {
 		margin: 0 0 8px;
 	}
-	.drawer ol {
+	.drawer ol,
+	.dock ol {
 		list-style: none;
 		padding: 0;
 		margin: 0 0 10px;
 		border-top: 2px solid var(--ink);
 	}
-	.drawer li {
+	.drawer li,
+	.dock li {
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -560,6 +592,13 @@
 		font-family: var(--font-display);
 		font-size: 1.25rem;
 		color: var(--blood);
+	}
+	.symbol {
+		flex: none;
+		width: 34px;
+		height: 34px;
+		border-radius: 50%;
+		object-fit: cover;
 	}
 	.who {
 		display: grid;
@@ -689,6 +728,14 @@
 			width: auto;
 			max-height: 62%;
 			padding: 14px 16px 18px;
+		}
+	}
+	@media (max-width: 40rem) {
+		.dock {
+			display: none;
+		}
+		.phone-only {
+			display: inline-flex;
 		}
 	}
 </style>

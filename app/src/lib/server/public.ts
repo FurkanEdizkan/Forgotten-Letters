@@ -61,7 +61,8 @@ export async function publicSnapshot(c: Campaign): Promise<PublicSnapshot> {
 			name: c.name,
 			gamesPerPlayer: c.gamesPerPlayer,
 			houseZones: c.houseZones,
-			visionsRevealed: reveal
+			visionsRevealed: reveal,
+			stage: c.stage
 		},
 		warbands: rows.map(({ warband: w, player: p }) => {
 			const s = state.players.get(w.id)!;

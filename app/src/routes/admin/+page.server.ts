@@ -63,7 +63,8 @@ export async function load() {
 export const actions: Actions = {
 	create: async ({ request }) => {
 		if (await currentCampaign()) return fail(400, { message: 'A campaign already exists' });
-		const [created] = await db.insert(campaign).values(settings(await request.formData())).returning({ id: campaign.id });
+		// A new campaign starts at setup: seats and invites next (Admin → Muster), then mustering, then rounds.
+		const [created] = await db.insert(campaign).values({ ...settings(await request.formData()), stage: 'setup' }).returning({ id: campaign.id });
 		await loadZones();
 		announceReload('zones');
 		await applyStarter(created.id);

@@ -10,6 +10,8 @@
 
 	const user = $derived(page.data.user as { name: string; role: string; warbandIds: string[] } | null);
 	const path = $derived(page.url.pathname);
+	// While players muster, their checklist is one tap away.
+	const mustering = $derived((page.data.snapshot as { campaign: { stage: string } } | null | undefined)?.campaign.stage === 'mustering');
 	// The live map is the one surface the panel covers rather than sits beside.
 	const overMap = $derived(path === '/');
 
@@ -70,6 +72,9 @@
 				<a href={item.href} aria-current={isCurrent(item, path) ? 'page' : undefined}>{item.label}</a>
 			{/each}
 
+			{#if user && mustering}
+				<a href="/muster" class="mine" aria-current={path === '/muster' ? 'page' : undefined}>Muster</a>
+			{/if}
 			{#if user?.warbandIds.length}
 				<p class="head">My warband{user.warbandIds.length > 1 ? 's' : ''}</p>
 				{#each user.warbandIds as id, i (id)}

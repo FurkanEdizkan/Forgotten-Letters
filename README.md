@@ -147,6 +147,8 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | Where | Who | What |
 | --- | --- | --- |
 | `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Clear skies / Satellite view* per device. |
+| `/join/<link>` | anyone with an invite | Take a seat: create an account already tied to it, then build a warband. |
+| `/muster` | signed-in players | Your mustering checklist: account, warband (landing at your seat's Entry Zone), Vision (keep one of the two dealt). |
 | `/players`, `/players/<id>` | everyone | Standings (with the campaign at a glance; `/campaign` redirects here) and each warband's digital Campaign Tracker. |
 | `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
 | `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
@@ -157,6 +159,7 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 | `/zones`, `/zones/<id>` | everyone | Zone lore, resources, Outposts and battles fought there (each can be replayed on the map). |
 | `/history` | everyone | The chronicle of battles. |
 | `/admin` | Campaign Master | Campaign settings, final-reckoning preview, Vision reveal. |
+| `/admin/muster` | Campaign Master | The campaign's stages (Setup → Mustering → Underway → Ended): seats, invite links (one per seat, 7 days, single use), warbands, Entry Zones, dealing Visions, starting the campaign. |
 | `/admin/games` | Campaign Master | Arrange a game → record its result. Up to 8 games at once. |
 | `/admin/adjustments` | Campaign Master | Glory→CVP trades, Tithe Ducats, corrections. |
 | `/admin/warbands/<id>` | Campaign Master | Muster roll, roster builder, map models (STL → token), Vision. |

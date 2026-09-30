@@ -110,9 +110,9 @@
 			{#if where === 'campaign'}
 				<label>
 					Entry Zone
-					<select name="entryZone" required>
+					<select name="entryZone" required value={data.suggestedEntry ?? ''}>
 						<option value="">Where the warband comes ashore…</option>
-						{#each data.entryZones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
+						{#each data.entryZones as z (z.id)}<option value={z.id}>{z.name}{z.id === data.suggestedEntry ? ' (your seat)' : ''}</option>{/each}
 					</select>
 				</label>
 			{/if}

@@ -92,6 +92,13 @@
       "when": 1790761407123,
       "tag": "0012_accounts_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790767575161,
+      "tag": "0013_campaign_stage_invites",
+      "breakpoints": true
     }
   ]
 }

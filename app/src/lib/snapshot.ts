@@ -100,7 +100,14 @@ export interface Monument {
 }
 
 export interface PublicSnapshot {
-	campaign: { name: string; gamesPerPlayer: number; houseZones: boolean; visionsRevealed: boolean };
+	campaign: {
+		name: string;
+		gamesPerPlayer: number;
+		houseZones: boolean;
+		visionsRevealed: boolean;
+		/** Setup, mustering (players joining), underway (rounds of battles) or ended. */
+		stage: 'setup' | 'mustering' | 'underway' | 'ended';
+	};
 	warbands: PublicWarband[];
 	active: PublicGame[];
 	recent: (PublicGame & { winner: string | null; at: number })[];

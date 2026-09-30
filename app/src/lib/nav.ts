@@ -21,6 +21,7 @@ export const PLAY: NavItem[] = [
 /** Game night: what the Campaign Master does while the group is playing. */
 export const OPERATE: NavItem[] = [
 	{ href: '/admin', label: 'Campaign', match: 'exact' },
+	{ href: '/admin/muster', label: 'Muster' },
 	{ href: '/admin/games', label: 'Games' },
 	{ href: '/admin/players', label: 'Players' },
 	{ href: '/admin/log', label: 'Log' },

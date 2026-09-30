@@ -17,6 +17,10 @@
 	// Settings must open on a fresh install too, before any campaign has been founded.
 	const settings = $derived(page.url.pathname.startsWith('/settings'));
 	const first = $derived(!!page.data.first);
+	// While the Campaign Master sets the campaign up, everyone else sees a waiting page (Muster and Settings stay open).
+	const preparing = $derived(
+		live?.current.campaign.stage === 'setup' && !data.isAdmin && !settings && !page.url.pathname.startsWith('/muster')
+	);
 	// The running footer names the chapter, as at the foot of each page of the book.
 	const chapter = $derived(chapterOf(page.url.pathname));
 
@@ -27,10 +31,15 @@
 {#if first}
 	<!-- A temporary password pins the user here: a panel of links that all bounce back would only mislead. -->
 	{@render children()}
-{:else if !live && !settings}
+{:else if (!live && !settings) || preparing}
 	<main class="empty">
-		<Lockup name="Carcass Front" />
-		<p><em>The campaign has not yet begun.</em> The Campaign Master can found it at <a href="/admin">/admin</a>.</p>
+		<Lockup name={live?.current.campaign.name ?? 'Carcass Front'} />
+		{#if live}
+			<p><em>The campaign is being prepared.</em> The Campaign Master is setting out the seats; invite links follow.</p>
+			{#if !data.user}<p><a href="/login">Sign in</a></p>{/if}
+		{:else}
+			<p><em>The campaign has not yet begun.</em> The Campaign Master can found it at <a href="/admin">/admin</a>.</p>
+		{/if}
 	</main>
 {:else}
 	<a class="skip" href="#main">Skip to content</a>

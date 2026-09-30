@@ -157,6 +157,7 @@ export interface PlanInput {
 
 /** Validate and create a battle: legal zone, warbands free and with games left (unless overridden). */
 export async function planGame(c: Campaign, input: PlanInput): Promise<Game> {
+	if (c.stage !== 'underway') throw new BattleError(c.stage === 'ended' ? 'The campaign has ended' : 'Battles begin once the campaign is under way (Admin → Muster)');
 	const { state } = await loadCampaignState(c);
 	const { aggressor, defender, zone } = input;
 	if (!state.players.has(aggressor) || !state.players.has(defender) || aggressor === defender)

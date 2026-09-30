@@ -30,7 +30,7 @@ A campaign table, not a list builder: the live map is the centre. It pairs a rul
 
 ## Capabilities and Constraints
 
-- Accounts are made by the Campaign Master (no self sign-up). The CM edits everything; each player edits only the warbands of the seat(s) their account plays (seal, pictures, roster via the builder). Everything else is read-only to them.
+- Players join through a per-seat invite link from the Campaign Master, or ask for an account from the sign-in page and wait for approval. The CM edits everything; each player edits only the warbands of the seat(s) their account plays (seal, pictures, roster via the builder). Everything else is read-only to them.
 - Vision cards stay secret: no public page or live update carries them until the CM reveals them.
 - The campaign book's map art and lore are copyrighted: they are never committed. Each group extracts the map (`app/scripts/extract-map.py`) and imports lore (`import-lore.py`) locally from their own copy of the book.
 - Rules data (units, battlekit, keywords) comes only from each group's own rulebooks via the local `import-rules.py`; it is never committed or bundled. Trench Companion lists can be imported per warband, and must match the warband's faction.

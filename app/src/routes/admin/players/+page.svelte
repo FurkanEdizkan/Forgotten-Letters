@@ -45,7 +45,16 @@
 					</div>
 					<div class="tools">
 						{#if r.kind === 'signup'}
-							<form method="POST" action="?/approve" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="small">Approve</button></form>
+							<form method="POST" action="?/approve" class="approve" use:enhance={keep}>
+								<input type="hidden" name="id" value={r.id} />
+								{#if data.seats.some((s) => !s.userId)}
+									<select name="seat" aria-label="Seat for {r.username}">
+										<option value="">No seat yet</option>
+										{#each data.seats.filter((s) => !s.userId) as s (s.id)}<option value={s.id}>{seatLabel(s)}</option>{/each}
+									</select>
+								{/if}
+								<button class="small">Approve</button>
+							</form>
 							<form method="POST" action="?/decline" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="ghost small danger">Decline</button></form>
 						{:else}
 							<form method="POST" action="?/resolveReset" use:enhance={keep}><input type="hidden" name="id" value={r.id} /><button class="small">Issue temporary password</button></form>
@@ -137,6 +146,12 @@
 </section>
 
 <style>
+	.approve {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		align-items: center;
+	}
 	.lede {
 		max-width: 60ch;
 		color: var(--ink-soft);

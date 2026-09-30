@@ -1,5 +1,6 @@
-# Rulebooks and campaign PDFs (copyrighted — bring your own copy)
-/docs/
+# Rulebooks and campaign PDFs (copyrighted — bring your own copy); design specs are tracked
+/docs/*
+!/docs/superpowers/
 
 # Blender Lab MCP bridge (download: see README)
 /tools/blender-mcp/

@@ -1,6 +1,10 @@
-# Development only: expose the database to this machine for `npm run dev`.
-#   docker compose -f compose.yaml -f compose.dev.yaml up -d db
+# Development only: expose the database (and Redis) to this machine for `npm run dev`.
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d db redis
+# then run the dev server with REDIS_URL=redis://127.0.0.1:6379 (or leave it unset to use memory).
 services:
   db:
     ports:
       - '127.0.0.1:5432:5432'
+  redis:
+    ports:
+      - '127.0.0.1:6379:6379'

@@ -3,7 +3,7 @@ import { and, asc, count, eq, gt, inArray, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { player, session, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
+import { endAllSessions, envAdminUsername, forgetUserSessions, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, USERNAME, hashPassword, normaliseUsername, temporaryPassword } from '$lib/server/passwords';
 import { approveSignup, declineRequest, listRequests, resolveReset } from '$lib/server/requests';
 import { normaliseEmail } from '$lib/server/request-rules';
@@ -54,8 +54,11 @@ const ENV_MANAGED = 'This account is defined in .env (ADMIN_USERNAME / ADMIN_PAS
 
 /** Give these player seats to the account (and take any others it had away). */
 async function assign(userId: string, playerIds: string[]) {
+	// Seats given to this account may be taken from others: their cached rights change too.
+	const before = playerIds.length ? await db.select({ userId: player.userId }).from(player).where(inArray(player.id, playerIds)) : [];
 	await db.update(player).set({ userId: null }).where(eq(player.userId, userId));
 	if (playerIds.length) await db.update(player).set({ userId }).where(inArray(player.id, playerIds));
+	for (const id of new Set([userId, ...before.flatMap((b) => (b.userId ? [b.userId] : []))])) await forgetUserSessions(id);
 }
 
 export const actions: Actions = {
@@ -120,6 +123,7 @@ export const actions: Actions = {
 		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		if (u.id === locals.user?.id) return fail(400, { message: 'You cannot disable your own account.' });
 		await db.update(user).set({ disabled: !u.disabled }).where(eq(user.id, u.id));
+		await forgetUserSessions(u.id);
 		if (!u.disabled) await endAllSessions(u.id);
 		auditAuth(event, u.disabled ? 'account.enable' : 'account.disable', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return {};
@@ -150,6 +154,7 @@ export const actions: Actions = {
 			if (!n) return fail(400, { message: 'Keep at least one Campaign Master account.' });
 		}
 		await db.delete(user).where(eq(user.id, u.id));
+		await forgetUserSessions(u.id);
 		auditAuth(event, 'account.delete', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return { message: `${u.username} deleted; their warbands stay.` };
 	}

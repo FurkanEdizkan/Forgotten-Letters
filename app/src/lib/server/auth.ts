@@ -5,6 +5,7 @@ import { player, session, user, warband } from './db/schema';
 import { hashPassword, newToken, rateLimiter, tokenHash, verifyPassword, normaliseUsername } from './passwords';
 import { adminSyncPlan } from './admin-sync';
 import { recordAudit } from './audit';
+import { kv } from './redis';
 
 export const SESSION_COOKIE = 'cf_session';
 /** Set when "Remember me" was left unticked: the session cookie then ends with the browser. */
@@ -24,8 +25,8 @@ export interface SessionUser {
 	warbandIds: string[];
 }
 
-/** Five tries a minute per username and per address. */
-export const loginLimiter = rateLimiter(5, 60_000);
+/** Five tries a minute per username and per address (shared by every instance through Redis). */
+export const loginLimiter = rateLimiter('login', 5, 60_000, kv);
 
 /** The account .env defines (ADMIN_USERNAME, default `cm`), or null when ADMIN_PASSWORD is unset. */
 export function envAdminUsername(): string | null {
@@ -66,6 +67,7 @@ export async function syncAdminAccount() {
 			.update(user)
 			.set({ ...plan.fields, ...(plan.rehash ? { passwordHash: await hashPassword(password) } : {}) })
 			.where(eq(user.id, u.id));
+		await forgetUserSessions(u.id);
 		if (plan.rehash) await endAllSessions(u.id);
 		console.log(`Brought the Campaign Master account "${username}" in line with .env${plan.rehash ? ' (new password)' : ''}.`);
 		recordAudit({ category: 'auth', action: 'admin.sync', actorName: 'system', targetType: 'user', targetId: u.id, detail: { username, ...plan.fields, newPassword: plan.rehash } });
@@ -96,14 +98,43 @@ export async function createSession(userId: string, { userAgent, ip }: { userAge
 	return { token, maxAge: SESSION_DAYS * 24 * 60 * 60 };
 }
 
+/*
+ * Session cache: the signed-in user for a session is kept for a minute (in Redis when configured, so every
+ * instance shares it) instead of two queries on every request. Anything that changes who may do what forgets it:
+ * sign-out, sign-out everywhere, password changes, disabling, deletion, seat changes, the .env admin sync.
+ */
+const SESSION_CACHE_MS = 60_000;
+const sessKey = (idHash: string) => `cf:sess:${idHash}`;
+const userSessionsKey = (userId: string) => `cf:usess:${userId}`;
+
+/** Forget one device's cached session. */
+export async function forgetSession(idHash: string) {
+	await kv().del(sessKey(idHash));
+}
+
+/** Forget every cached session of an account (its rights or devices changed). */
+export async function forgetUserSessions(userId: string) {
+	const store = kv();
+	const hashes = await store.members(userSessionsKey(userId));
+	await store.del(...hashes.map(sessKey), userSessionsKey(userId));
+}
+
 /** The signed-in user for a session cookie, or null. Sessions slide forward while in use. */
 export async function sessionUser(token: string | undefined): Promise<SessionUser | null> {
 	if (!token || token.length > 100) return null;
+	const idHash = tokenHash(token);
+	const cached = await kv()
+		.get(sessKey(idHash))
+		.catch(() => null);
+	if (cached) {
+		const { u, exp } = JSON.parse(cached) as { u: SessionUser; exp: number };
+		if (exp > Date.now()) return u;
+	}
 	const [row] = await db
 		.select({ s: session, u: user })
 		.from(session)
 		.innerJoin(user, eq(user.id, session.userId))
-		.where(and(eq(session.idHash, tokenHash(token)), gt(session.expiresAt, new Date())));
+		.where(and(eq(session.idHash, idHash), gt(session.expiresAt, new Date())));
 	if (!row || row.u.disabled) return null;
 	// Slide the expiry forward about once a day while in use (lastSeenAt itself is kept by the activity flush).
 	if (row.s.expiresAt.getTime() - Date.now() < (SESSION_DAYS - 1) * DAY)
@@ -116,7 +147,7 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		.from(warband)
 		.innerJoin(player, eq(player.id, warband.playerId))
 		.where(eq(player.userId, row.u.id));
-	return {
+	const found: SessionUser = {
 		id: row.u.id,
 		sessionId: row.s.idHash,
 		username: row.u.username,
@@ -125,15 +156,24 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		mustChangePassword: row.u.mustChangePassword,
 		warbandIds: owned.map((w) => w.id)
 	};
+	const store = kv();
+	await Promise.all([
+		store.set(sessKey(idHash), JSON.stringify({ u: found, exp: row.s.expiresAt.getTime() }), SESSION_CACHE_MS),
+		store.addToSet(userSessionsKey(found.id), idHash, SESSION_CACHE_MS)
+	]).catch((e) => console.error('session cache:', e));
+	return found;
 }
 
 export async function endSession(token: string | undefined) {
-	if (token) await db.delete(session).where(eq(session.idHash, tokenHash(token)));
+	if (!token) return;
+	await db.delete(session).where(eq(session.idHash, tokenHash(token)));
+	await forgetSession(tokenHash(token));
 }
 
 /** Sign an account out everywhere (after a reset, a disable, or on request). */
 export async function endAllSessions(userId: string) {
 	await db.delete(session).where(eq(session.userId, userId));
+	await forgetUserSessions(userId);
 }
 
 export async function pruneSessions() {
@@ -145,6 +185,7 @@ export async function setPassword(userId: string, password: string, mustChange: 
 		.update(user)
 		.set({ passwordHash: await hashPassword(password), mustChangePassword: mustChange })
 		.where(eq(user.id, userId));
+	await forgetUserSessions(userId);
 }
 
 /** Can this user edit the warband? The CM can edit any; a player only their own. */

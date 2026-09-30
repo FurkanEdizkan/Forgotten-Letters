@@ -7,7 +7,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from './db';
 import { campaign, game, mapZone, warband } from './db/schema';
 import { currentCampaign } from './campaign';
-import { publish } from './hub';
+import { publish, announceReload } from './hub';
 import { removeImage, resolveUpload, saveImage } from './uploads';
 import { PRESET_ZONES, setZones } from '$lib/rules/zones';
 import { starter } from './starter';
@@ -70,6 +70,7 @@ export async function saveZones(zones: Zone[]): Promise<{ inUse: string[] }> {
 	if (inUse.length) return { inUse };
 	await writeZones(c.id, zones);
 	await loadZones();
+	announceReload('zones');
 	publish(c.id);
 	return { inUse: [] };
 }

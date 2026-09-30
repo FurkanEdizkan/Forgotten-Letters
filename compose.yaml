@@ -16,11 +16,15 @@ services:
       ADDRESS_HEADER: ${ADDRESS_HEADER:-}
       XFF_DEPTH: ${XFF_DEPTH:-1}
       AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-365}
+      # Shared cache, rate limits, live updates between instances and locks (see README: Scaling).
+      REDIS_URL: redis://redis:6379
     volumes:
       # Uploaded maps, portraits, symbols, seals and models; also where an old SQLite campaign is picked up from.
       - data:/data
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -29,6 +33,17 @@ services:
       start_period: 30s
       retries: 5
     stop_grace_period: 20s
+    restart: unless-stopped
+
+  # Cache only: nothing in it needs to survive a restart (snapshots rebuild, counters restart, locks re-form).
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '128mb', '--maxmemory-policy', 'volatile-lru']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   db:

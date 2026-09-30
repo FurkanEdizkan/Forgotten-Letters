@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { USERNAME, hashPassword, rateLimiter, temporaryPassword, tokenHash, verifyPassword } from './passwords';
+import { memoryKv } from './kv';
 
 describe('passwords', () => {
 	it('verifies the right password and rejects the wrong one', async () => {
@@ -25,13 +26,18 @@ describe('passwords', () => {
 });
 
 describe('login rate limit', () => {
-	it('allows the limit, blocks the next, resets after the window', () => {
+	it('allows the limit, blocks the next, resets after the window, and can be cleared', async () => {
 		let t = 0;
-		const rl = rateLimiter(3, 1000, () => t);
-		expect([rl.take('k'), rl.take('k'), rl.take('k')]).toEqual([true, true, true]);
-		expect(rl.take('k')).toBe(false);
-		expect(rl.take('other')).toBe(true);
+		const store = memoryKv(() => t);
+		const rl = rateLimiter('test', 3, 1000, () => store);
+		expect([await rl.take('k'), await rl.take('k'), await rl.take('k')]).toEqual([true, true, true]);
+		expect(await rl.take('k')).toBe(false);
+		expect(await rl.take('other')).toBe(true);
 		t = 1001;
-		expect(rl.take('k')).toBe(true);
+		expect(await rl.take('k')).toBe(true);
+		await rl.take('k');
+		await rl.take('k');
+		await rl.clear('k');
+		expect(await rl.take('k')).toBe(true);
 	});
 });

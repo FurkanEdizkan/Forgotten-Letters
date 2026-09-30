@@ -21,3 +21,21 @@ export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0] | Db;
 export async function migrateDb() {
 	await migrate(db, { migrationsFolder: env.MIGRATIONS_DIR ?? 'drizzle' });
 }
+
+/** Arbitrary, fixed: the advisory lock id instances take while bringing the database up to date. */
+const STARTUP_LOCK = 72_310_914;
+
+/**
+ * Run start-up work (migrations, seeding, the .env admin sync) one instance at a time: parallel starts would
+ * race on the same rows. A Postgres advisory lock held on one reserved connection for the duration.
+ */
+export async function withStartupLock<T>(fn: () => Promise<T>): Promise<T> {
+	const conn = await client.reserve();
+	try {
+		await conn`select pg_advisory_lock(${STARTUP_LOCK})`;
+		return await fn();
+	} finally {
+		await conn`select pg_advisory_unlock(${STARTUP_LOCK})`.catch(() => {});
+		conn.release();
+	}
+}

@@ -3,6 +3,7 @@
  * Everything written here is `verified`, so a re-import of the books keeps it; book rows that are edited keep
  * their book version in `bookCopy` for "Revert to book".
  */
+import { announceReload } from './hub';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from './db';
 import { customFaction, rulesFaction, rulesItem, rulesKeyword, rulesUnit } from './db/schema';
@@ -162,6 +163,7 @@ export async function applyPack(p: FactionPack) {
 		for (const i of p.items) n[await upsert(tx, rulesItem, i)]++;
 	});
 	await loadCustomFactions();
+	announceReload('factions');
 	return n;
 }
 
@@ -169,6 +171,7 @@ export async function saveFaction(f: FactionRow) {
 	const { id, ...rest } = f;
 	await db.insert(customFaction).values({ id, ...rest }).onConflictDoUpdate({ target: customFaction.id, set: rest });
 	await loadCustomFactions();
+	announceReload('factions');
 }
 export const saveUnit = (u: UnitRow) => db.transaction((tx) => upsert(tx, rulesUnit, u));
 export const saveItem = (i: ItemRow) => db.transaction((tx) => upsert(tx, rulesItem, i));
@@ -209,5 +212,6 @@ export async function deleteFaction(id: string) {
 		await tx.delete(customFaction).where(eq(customFaction.id, id));
 	});
 	await loadCustomFactions();
+	announceReload('factions');
 	return true;
 }

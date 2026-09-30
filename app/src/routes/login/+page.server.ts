@@ -17,7 +17,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const username = normaliseUsername(String(data.get('username') ?? '')).slice(0, 32);
 		const password = String(data.get('password') ?? '').slice(0, 200);
-		if (!loginLimiter.take(`ip:${getClientAddress()}`) || !loginLimiter.take(`user:${username}`)) {
+		if (!(await loginLimiter.take(`ip:${getClientAddress()}`)) || !(await loginLimiter.take(`user:${username}`))) {
 			auditAuth(event, 'signin.limited', { detail: { username } });
 			return fail(429, { tab: 'signin' as const, username, message: 'Too many attempts. Wait a minute and try again.' });
 		}
@@ -30,7 +30,7 @@ export const actions: Actions = {
 				message: 'That username and password do not match, or the account is disabled.'
 			});
 		}
-		loginLimiter.clear(`user:${username}`);
+		await loginLimiter.clear(`user:${username}`);
 		const { token, maxAge } = await createSession(u.id, clientMeta(event));
 		auditAuth(event, 'signin.ok', { actorId: u.id, actorName: u.username });
 		// "Remember me": a cookie that lasts the session's 30 days; otherwise one that ends when the browser closes.
@@ -67,7 +67,7 @@ export const actions: Actions = {
 	reset: async (event) => {
 		const { request, getClientAddress } = event;
 		const username = String((await request.formData()).get('username') ?? '').slice(0, 64);
-		if (!requestLimiter.take(`ip:${getClientAddress()}`))
+		if (!(await requestLimiter.take(`ip:${getClientAddress()}`)))
 			return fail(429, { tab: 'reset' as const, username, message: 'Too many requests from here. Wait a few minutes and try again.' });
 		await requestReset(username);
 		auditAuth(event, 'reset.request', { detail: { username: normaliseUsername(username) } });

@@ -4,7 +4,10 @@ import { seedStudio } from '$lib/server/starter';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { SESSION_COOKIE, syncAdminAccount, pruneSessions, sessionUser } from '$lib/server/auth';
 import { schedule } from '$lib/server/fx';
-import { migrateDb } from '$lib/server/db';
+import { onReload } from '$lib/server/hub';
+import { snapshotStale } from '$lib/server/public';
+import { currentCampaign } from '$lib/server/campaign';
+import { migrateDb, withStartupLock } from '$lib/server/db';
 import { importLegacySqlite } from '$lib/server/db/legacy';
 import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
 import { clientMeta, pruneAudit, recordAudit } from '$lib/server/audit';
@@ -25,13 +28,18 @@ const SELF_LOGGED = new Set(['/admin/players']);
 
 /** Bring the database up to date (and carry over an old SQLite campaign), then start the weather timer. */
 export const init: ServerInit = async () => {
-	await migrateDb();
-	await importLegacySqlite();
-	await syncAdminAccount();
-	await loadRulesFileIfEmpty();
-	await seedStudio();
+	// One instance at a time: parallel starts would race on migrations and seeding.
+	await withStartupLock(async () => {
+		await migrateDb();
+		await importLegacySqlite();
+		await syncAdminAccount();
+		await loadRulesFileIfEmpty();
+		await seedStudio();
+	});
 	await loadCustomFactions();
 	await loadZones();
+	// Another instance changed factions or zones: reload this process's copy too.
+	onReload((what) => void (what === 'factions' ? loadCustomFactions() : loadZones()).catch((e) => console.error(`reload ${what}:`, e)));
 	await pruneSessions();
 	await pruneAudit();
 	await schedule();
@@ -60,8 +68,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const response = await resolve(event);
 
+	const mutation = event.request.method !== 'GET' && event.request.method !== 'HEAD';
+	// Some changes don't publish: whatever changed, the cached public snapshot must not outlive it.
+	if (mutation && response.status < 400 && /^\/(admin|warbands|players)(\/|$)/.test(path)) {
+		const c = await currentCampaign();
+		if (c) await snapshotStale(c.id).catch((e) => console.error('snapshot cache:', e));
+	}
+
 	// Every change the Campaign Master makes: form actions and API calls under /admin (never their bodies).
-	if (event.request.method !== 'GET' && event.request.method !== 'HEAD' && path.startsWith('/admin') && !SELF_LOGGED.has(event.route.id ?? '')) {
+	if (mutation && path.startsWith('/admin') && !SELF_LOGGED.has(event.route.id ?? '')) {
 		const params = Object.entries(event.params);
 		recordAudit({
 			category: 'admin',

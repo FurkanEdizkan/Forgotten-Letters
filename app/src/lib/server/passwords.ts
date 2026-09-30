@@ -1,3 +1,4 @@
+import type { Kv } from './kv';
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -35,25 +36,18 @@ export function temporaryPassword() {
 }
 
 /**
- * Fixed-window attempt counter: at most `limit` tries per key per window.
- * In memory; a restart clears it, which is fine for a LAN app.
+ * Fixed-window attempt counter: at most `limit` tries per key per window, counted in the shared store, so with
+ * Redis every app instance counts together (in memory otherwise, which is fine for a single instance).
  */
-export function rateLimiter(limit: number, windowMs: number, now: () => number = Date.now) {
-	const hits = new Map<string, { count: number; reset: number }>();
+export function rateLimiter(name: string, limit: number, windowMs: number, store: () => Kv) {
+	const key = (k: string) => `cf:rl:${name}:${k}`;
 	return {
 		/** Record an attempt; false when the key is over its limit. */
-		take(key: string) {
-			const t = now();
-			const h = hits.get(key);
-			if (!h || h.reset <= t) {
-				hits.set(key, { count: 1, reset: t + windowMs });
-				return true;
-			}
-			h.count++;
-			return h.count <= limit;
+		async take(k: string) {
+			return (await store().incr(key(k), windowMs)) <= limit;
 		},
-		clear(key: string) {
-			hits.delete(key);
+		async clear(k: string) {
+			await store().del(key(k));
 		}
 	};
 }

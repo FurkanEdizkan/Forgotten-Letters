@@ -7,10 +7,10 @@ describe('requestSignup rate limit', () => {
 	it('spends nothing on a form that fails its own checks', async () => {
 		for (let i = 0; i < 8; i++)
 			expect(await requestSignup({ ...good, confirm: 'typo' }, 'ip:typist')).toMatchObject({ ok: false, status: 400 });
-		expect(requestLimiter.take('ip:typist')).toBe(true);
+		expect(await requestLimiter.take('ip:typist')).toBe(true);
 	});
 	it('refuses a good form over the limit before touching the database', async () => {
-		for (let i = 0; i < 5; i++) requestLimiter.take('ip:flooder');
+		for (let i = 0; i < 5; i++) await requestLimiter.take('ip:flooder');
 		expect(await requestSignup(good, 'ip:flooder')).toEqual({
 			ok: false,
 			status: 429,

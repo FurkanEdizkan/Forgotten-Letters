@@ -1,6 +1,6 @@
 import { currentCampaign } from '$lib/server/campaign';
 import { subscribe, subscribeTriggers } from '$lib/server/hub';
-import { publicSnapshot } from '$lib/server/public';
+import { cachedPublicSnapshot } from '$lib/server/public';
 
 /**
  * Server-Sent Events: sends the public snapshot on connect and again after every
@@ -21,7 +21,7 @@ export async function GET({ request }) {
 			};
 			const snapshot = async () => {
 				const c = await currentCampaign();
-				if (c) send('snapshot', await publicSnapshot(c));
+				if (c) send('snapshot', await cachedPublicSnapshot(c));
 			};
 
 			await snapshot();

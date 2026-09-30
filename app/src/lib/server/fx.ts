@@ -1,4 +1,5 @@
 import { and, eq, isNotNull, gt, inArray } from 'drizzle-orm';
+import { INSTANCE, kv } from './redis';
 import { db } from './db';
 import { fxState, game, regionWeather, warband } from './db/schema';
 import { currentCampaign, type Campaign } from './campaign';
@@ -105,7 +106,7 @@ export function zeppelinEvent(c: Campaign, ev: ZeppelinEvent) {
 	sendTrigger(c.id, { kind: 'zeppelin', zone: ev.via, seed: Math.floor(Math.random() * 2 ** 31), zeppelin: ev });
 }
 
-// Random events: one server-side timer so every screen sees the same strike.
+// Random events: one server-side timer (one per campaign across all instances) so every screen sees the same strike.
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 export async function schedule() {
@@ -118,7 +119,12 @@ export async function schedule() {
 	const delay = every * (0.5 + Math.random()) * 1000;
 	timer = setTimeout(async () => {
 		const now = await currentCampaign();
-		if (now) {
+		// With several app instances each keeps a timer, but only the lock holder strikes; the lock outlives two
+		// periods, so the holder keeps it by striking and another instance takes over if it stops.
+		const leading = await kv()
+			.lock('cf:lead:weather', INSTANCE, 2 * every * 1500 + 10_000)
+			.catch(() => true);
+		if (now && leading) {
 			const cfg = await getFx(now.id);
 			if (cfg.random.on && cfg.random.kinds.length) {
 				const kind = cfg.random.kinds[Math.floor(Math.random() * cfg.random.kinds.length)];

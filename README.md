@@ -121,6 +121,22 @@ before the first start). The reader is a best effort: check entries against the 
   Structured values set here win over what the builder reads from the rule text.
 - **Where it shows.** Authored factions appear in New Warband, the builder and the compendium, and go into backups.
 
+### Accounts, logs and Redis
+
+- **Accounts:** Admin → Players lists every account; open one for its email, the devices signed in (browser,
+  address, first and last seen, with "Sign out" per device), its sign-in history and its activity per day.
+- **Log:** Admin → Log is the account log (sign-ins and failures, sign-outs, password changes, resets, sign-up
+  requests and approvals) and every change made in the admin pages, with address and browser. Entries are kept
+  `AUDIT_RETENTION_DAYS` (default 365). Behind the https profile, `build_and_update.sh` sets `ADDRESS_HEADER` /
+  `XFF_DEPTH` so the real visitor address is recorded rather than Caddy's.
+- **Redis** (a `redis` service in `compose.yaml`, cache only) holds what several app instances must share: rate
+  limits, the public snapshot (built once per change instead of once per screen), signed-in sessions (one
+  minute), live updates between instances, and the lock that lets only one instance fire random weather. Without
+  `REDIS_URL` the app keeps all of this in memory, which is right for a single instance.
+- **Before running more than one app container:** uploads live on the `data` volume, so they need a shared volume
+  or object storage, and the fixed `ports:` mapping has to give way to Caddy load-balancing the instances. Start-up
+  work (migrations, seeding) already takes turns through a Postgres advisory lock.
+
 ### Viewing from outside the venue
 
 The app only listens on your network. To let players check the map from home before a real
@@ -181,9 +197,9 @@ Agent skills (design, PixiJS, Svelte, commit conventions) are listed in `skills-
 ```sh
 cd app
 npm install
-docker compose -f compose.yaml -f compose.dev.yaml up -d db   # from the repo root: Postgres on localhost:5432
+docker compose -f compose.yaml -f compose.dev.yaml up -d db redis   # from the repo root: Postgres :5432, Redis :6379
 npm run dev          # http://localhost:5173; reads the repo-root .env (sign in as ADMIN_USERNAME / ADMIN_PASSWORD)
-npm test             # rules-engine tests
+npm test             # unit tests (REDIS_URL=redis://127.0.0.1:6379 npm test also checks the Redis store)
 npm run check        # type-check
 npm run db:generate  # after editing src/lib/server/db/schema.ts (migrations run on start)
 ```

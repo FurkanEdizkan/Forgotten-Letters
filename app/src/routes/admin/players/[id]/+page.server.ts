@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { and, desc, eq, gt, gte, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { auditLog, session, user, userActivity } from '$lib/server/db/schema';
-import { envAdminUsername } from '$lib/server/auth';
+import { envAdminUsername, forgetSession } from '$lib/server/auth';
 import { auditAuth } from '$lib/server/audit';
 import { deviceLabel } from '$lib/server/activity-rules';
 import { normaliseEmail } from '$lib/server/request-rules';
@@ -72,6 +72,7 @@ export const actions: Actions = {
 		const u = await account(event.params.id);
 		const id = String((await event.request.formData()).get('session') ?? '');
 		await db.delete(session).where(and(eq(session.idHash, id), eq(session.userId, u.id)));
+		await forgetSession(id);
 		auditAuth(event, 'account.signout-device', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return { message: 'That device is signed out.' };
 	},

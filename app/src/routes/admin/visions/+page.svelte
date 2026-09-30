@@ -1,39 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { VISIONS, visionById } from '$lib/rules/visions';
+	import { visionById } from '$lib/rules/visions';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const packs = $derived(Math.max(1, Math.ceil(data.warbands.length / 8)));
-	let deal = $state<Record<string, [string, string]>>({});
-
-	function shuffle<T>(xs: T[]) {
-		const a = [...xs];
-		for (let i = a.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[a[i], a[j]] = [a[j], a[i]];
-		}
-		return a;
-	}
-
-	/** Deal 2 cards to each warband without a Vision, from the packs minus cards already kept. */
-	function dealCards() {
-		const deck: string[] = [];
-		for (let p = 0; p < packs; p++) deck.push(...VISIONS.map((v) => v.id));
-		for (const w of data.warbands) {
-			const i = w.visionCard ? deck.indexOf(w.visionCard) : -1;
-			if (i >= 0) deck.splice(i, 1);
-		}
-		const shuffled = shuffle(deck);
-		const next: Record<string, [string, string]> = {};
-		for (const w of data.warbands) {
-			if (w.visionCard || shuffled.length < 2) continue;
-			next[w.id] = [shuffled.pop()!, shuffled.pop()!];
-		}
-		deal = next;
-	}
-
-	const undealt = $derived(data.warbands.filter((w) => !w.visionCard).length);
+	// Dealt on the server and kept (warband.visionOffer), so a reload loses nothing and players see their own two.
+	const undealt = $derived(data.warbands.filter((w) => !w.visionCard && !w.visionOffer?.length).length);
 </script>
 
 <h1>Visions</h1>
@@ -42,7 +15,10 @@
 	{data.warbands.length} warbands need {packs} pack{packs > 1 ? 's' : ''}.
 </p>
 
-<button onclick={dealCards} disabled={!undealt}>Deal to {undealt} warband{undealt === 1 ? '' : 's'}</button>
+<form method="POST" action="?/deal" use:enhance>
+	<button disabled={!undealt}>Deal to {undealt} warband{undealt === 1 ? '' : 's'}</button>
+	{#if form && 'dealt' in form}<span class="muted">Dealt to {form.dealt}. Players choose on their Muster page; you can choose for them here.</span>{/if}
+</form>
 
 <ul>
 	{#each data.warbands as w (w.id)}
@@ -50,9 +26,9 @@
 			<span class="who">{w.seat ? `P${w.seat} · ` : ''}{w.player} <small>{w.name}</small></span>
 			{#if w.visionCard}
 				<span class="kept">Kept: {visionById(w.visionCard)?.name}</span>
-			{:else if deal[w.id]}
+			{:else if w.visionOffer?.length}
 				<span class="choice">
-					{#each deal[w.id] as card, i (i)}
+					{#each w.visionOffer as card, i (i)}
 						<form method="POST" action="?/keep" use:enhance>
 							<input type="hidden" name="warband" value={w.id} />
 							<input type="hidden" name="card" value={card} />

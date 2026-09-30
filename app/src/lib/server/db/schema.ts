@@ -26,6 +26,14 @@ export const campaign = pgTable('campaign', {
 	houseRazing: boolean('house_razing').notNull().default(false),
 	houseOutpostLevy: boolean('house_outpost_levy').notNull().default(false),
 	visionsRevealed: boolean('visions_revealed').notNull().default(false),
+	/**
+	 * Where the campaign is in its life: the Campaign Master sets it up, players muster (join, build warbands,
+	 * choose Visions), then rounds of battles until the end. Existing campaigns migrate straight to `underway`;
+	 * a newly founded one is created at `setup`.
+	 */
+	stage: text('stage', { enum: ['setup', 'mustering', 'underway', 'ended'] })
+		.notNull()
+		.default('underway'),
 	/** The campaign map, uploaded in Admin → Map (/uploads path), and its size in pixels. Null: a plain parchment. */
 	mapImage: text('map_image'),
 	mapWidth: integer('map_width'),
@@ -82,6 +90,8 @@ export const warband = pgTable(
 		entryZone: text('entry_zone'),
 		// Secret until campaign.visionsRevealed — never sent to public views.
 		visionCard: text('vision_card'),
+		/** The two Vision cards dealt at mustering, one of which the player keeps (secret until the reveal). */
+		visionOffer: jsonb('vision_offer').$type<string[]>(),
 		visionProgress: integer('vision_progress').notNull().default(0),
 		visionNotes: text('vision_notes'),
 		/** Roster bank (the base game's Quartermaster). */
@@ -360,6 +370,28 @@ export const user = pgTable('user', {
 		.defaultNow()
 		.$onUpdateFn(() => new Date())
 });
+
+/** An invitation to take one seat: the link carries a random token, only its hash is kept. Single use, expires. */
+export const invite = pgTable(
+	'invite',
+	{
+		id: id(),
+		campaignId: text('campaign_id')
+			.notNull()
+			.references(() => campaign.id, { onDelete: 'cascade' }),
+		playerId: text('player_id')
+			.notNull()
+			.references(() => player.id, { onDelete: 'cascade' }),
+		tokenHash: text('token_hash').notNull().unique(),
+		createdBy: text('created_by').references((): AnyPgColumn => user.id, { onDelete: 'set null' }),
+		expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+		usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
+		usedBy: text('used_by').references((): AnyPgColumn => user.id, { onDelete: 'set null' }),
+		revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+		createdAt: createdAt()
+	},
+	(t) => [index('invite_player_idx').on(t.playerId)]
+);
 
 /** Sign-up and password-reset requests from the sign-in page, waiting for the Campaign Master. */
 export const accountRequest = pgTable(

@@ -78,7 +78,7 @@ export async function listRequests(): Promise<PendingRequest[]> {
 }
 
 /** Turn a sign-up request into a player account with the password they chose. */
-export async function approveSignup(id: string): Promise<{ ok: true; username: string } | { ok: false; message: string }> {
+export async function approveSignup(id: string): Promise<{ ok: true; username: string; userId: string } | { ok: false; message: string }> {
 	return db.transaction(async (tx) => {
 		const [r] = await tx
 			.select()
@@ -89,7 +89,7 @@ export async function approveSignup(id: string): Promise<{ ok: true; username: s
 		if (taken)
 			return { ok: false as const, message: `"${r.username}" is already an account. Decline this request instead.` };
 		const [emailUsed] = r.email ? await tx.select({ id: user.id }).from(user).where(eq(user.email, r.email)) : [];
-		await tx.insert(user).values({
+		const [created] = await tx.insert(user).values({
 			username: r.username,
 			displayName: r.displayName,
 			// An address another account took since the request is dropped rather than blocking the approval.
@@ -97,9 +97,9 @@ export async function approveSignup(id: string): Promise<{ ok: true; username: s
 			passwordHash: r.passwordHash,
 			role: 'player',
 			mustChangePassword: false
-		});
+		}).returning({ id: user.id });
 		await tx.delete(accountRequest).where(eq(accountRequest.id, id));
-		return { ok: true as const, username: r.username };
+		return { ok: true as const, username: r.username, userId: created.id };
 	});
 }
 

@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { warband } from '$lib/server/db/schema';
 import { currentCampaign, rosters } from '$lib/server/campaign';
 import { visionById } from '$lib/rules/visions';
+import { dealVisions } from '$lib/server/muster';
 import type { Actions } from './$types';
 
 export async function load() {
@@ -15,12 +16,19 @@ export async function load() {
 			name: w.name,
 			player: p.name,
 			seat: p.seat,
-			visionCard: w.visionCard
+			visionCard: w.visionCard,
+			visionOffer: w.visionOffer ?? null
 		}))
 	};
 }
 
 export const actions: Actions = {
+	deal: async () => {
+		const c = await currentCampaign();
+		if (!c) return fail(404);
+		return { dealt: await dealVisions(c) };
+	},
+
 	keep: async ({ request }) => {
 		const c = await currentCampaign();
 		if (!c) return fail(404);

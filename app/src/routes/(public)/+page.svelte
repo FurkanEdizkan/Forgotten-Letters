@@ -269,6 +269,14 @@
 		{fxEnabled ? 'Clear skies' : 'Satellite view'}
 	</button>
 
+	{#if s.campaign.stage === 'mustering'}
+		<div class="muster-banner" role="status">
+			<strong>Mustering</strong>
+			{s.warbands.length} warband{s.warbands.length === 1 ? ' has' : 's have'} come ashore · the campaign begins when every seat is ready
+			{#if page.data.user}<a href="/muster">Your muster →</a>{/if}
+		</div>
+	{/if}
+
 	{#if mapWide?.weatherEvent && !battle}
 		{@const we = weatherByRoll(mapWide.weatherEvent)}
 		<div class="omen">
@@ -514,6 +522,34 @@
 			transform: translate(-50%, -14px);
 			filter: blur(4px);
 		}
+	}
+	.muster-banner {
+		position: absolute;
+		z-index: 2;
+		left: 50%;
+		bottom: 14px;
+		transform: translateX(-50%);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: center;
+		gap: 4px 10px;
+		max-width: calc(100% - 28px);
+		padding: 8px 18px;
+		background: rgba(21, 19, 14, 0.9);
+		color: var(--bone);
+		border-top: 2px solid var(--blood-bright);
+		text-align: center;
+	}
+	.muster-banner strong {
+		font-family: var(--font-title);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--ember);
+	}
+	.muster-banner a {
+		color: var(--bone);
+		font-weight: 700;
 	}
 	.omen {
 		position: absolute;

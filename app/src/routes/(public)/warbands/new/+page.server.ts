@@ -11,6 +11,8 @@ import { publish } from '$lib/server/hub';
 import { FACTIONS } from '$lib/rules/factions';
 import { buildGraph } from '$lib/rules/zones';
 import type { Actions, PageServerLoad } from './$types';
+import { seatOf } from '$lib/server/muster';
+import { suggestedEntry } from '$lib/seating';
 
 /** The book's starting strongbox. */
 const START_DUCATS = 700;
@@ -29,8 +31,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/login?next=/warbands/new');
 	const c = await currentCampaign();
 	if (!c) error(404, 'The campaign has not been founded yet');
-	// Anyone signed in builds lists; founding the campaign warband is for a player who has none (or the CM).
-	const canFound = locals.isAdmin || !(await ownWarband(c.id, locals.user.id));
+	// Anyone signed in builds lists; founding the campaign warband is for a player who has none (or the CM),
+	// once mustering has opened.
+	const canFound = locals.isAdmin || (c.stage !== 'setup' && !(await ownWarband(c.id, locals.user.id)));
+	// A seat that is already this player's suggests its Entry Zone (the Campaign Master's seating plan).
+	const mySeat = locals.isAdmin ? null : await seatOf(c, locals.user.id);
 	const [art, leaders] = await Promise.all([
 		artIndex(c.id),
 		db.select({ faction: rulesUnit.faction, name: rulesUnit.name, keywords: rulesUnit.keywords }).from(rulesUnit).orderBy(asc(rulesUnit.cost))
@@ -57,6 +62,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		players: players.map((p) => ({ ...p, hasWarband: taken.has(p.id) })),
 		startDucats: START_DUCATS,
 		canFound,
+		suggestedEntry: mySeat ? suggestedEntry(mySeat.seat, c.expectedPlayers, c.houseZones) : null,
 		/** Each faction's and variant's starting money, from its special rules (Papal States: 500 and 11 Glory). */
 		startMoney: await (async () => {
 			const rows = await allFactionRules();
@@ -115,6 +121,7 @@ export const actions: Actions = {
 			const [u] = pick ? await db.select().from(user).where(eq(user.id, pick)) : [];
 			owner = u ? { id: u.id, name: u.displayName || u.username } : { id: null, name: String(data.get('playerName') ?? '').trim() };
 		}
+		if (!locals.isAdmin && c.stage === 'setup') return fail(400, { message: 'The campaign is still being set up: warbands open at mustering.' });
 		if (owner.id && (await ownWarband(c.id, owner.id)))
 			return fail(400, { message: locals.isAdmin ? 'That player already has a warband in this campaign.' : 'You already have a warband.' });
 		data.set('playerName', owner.name);
@@ -152,6 +159,7 @@ export const actions: Actions = {
 			return w.id;
 		});
 		publish(c.id);
-		redirect(303, `/warbands/${id}`);
+		// While mustering, a player goes back to their checklist (the Vision comes next).
+		redirect(303, c.stage === 'mustering' && !locals.isAdmin ? '/muster' : `/warbands/${id}`);
 	}
 };

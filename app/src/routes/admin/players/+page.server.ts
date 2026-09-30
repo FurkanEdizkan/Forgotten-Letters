@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { and, asc, count, eq, gt, inArray, ne } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { player, session, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
@@ -87,10 +87,17 @@ export const actions: Actions = {
 	},
 
 	approve: async (event) => {
-		const r = await approveSignup(String((await event.request.formData()).get('id')));
+		const data = await event.request.formData();
+		const r = await approveSignup(String(data.get('id')));
 		if (!r.ok) return fail(409, { message: r.message });
+		// Give a free seat at once if the Campaign Master picked one on the request.
+		const seat = String(data.get('seat') ?? '');
+		if (seat) {
+			const c = await currentCampaign();
+			if (c) await db.update(player).set({ userId: r.userId }).where(and(eq(player.id, seat), eq(player.campaignId, c.id), isNull(player.userId)));
+		}
 		auditAuth(event, 'signup.approved', { targetType: 'user', detail: { username: r.username } });
-		return { message: `Account "${r.username}" approved. Give it a seat below.` };
+		return { message: seat ? `Account "${r.username}" approved and seated.` : `Account "${r.username}" approved. Give it a seat below.` };
 	},
 
 	decline: async (event) => {

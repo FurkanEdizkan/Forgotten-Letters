@@ -2,13 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import { FORGET_COOKIE, SESSION_COOKIE, authenticate, createSession, loginLimiter } from '$lib/server/auth';
 import { normaliseUsername } from '$lib/server/passwords';
 import { requestLimiter, requestReset, requestSignup } from '$lib/server/requests';
+import { safeNext } from '$lib/server/safe-next';
 import type { Actions, PageServerLoad } from './$types';
 
-/** Only same-site paths are followed after sign-in. */
-const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null);
-
 export const load: PageServerLoad = ({ locals, url }) => {
-	if (locals.user) redirect(303, safeNext(url.searchParams.get('next')) ?? '/');
+	if (locals.user) redirect(303, safeNext(url.searchParams.get('next'), url.origin) ?? '/');
 	return {};
 };
 
@@ -35,26 +33,22 @@ export const actions: Actions = {
 		if (remember) cookies.delete(FORGET_COOKIE, { path: '/' });
 		else cookies.set(FORGET_COOKIE, '1', opts);
 		if (u.mustChangePassword) redirect(303, '/settings?first=1');
-		redirect(303, safeNext(url.searchParams.get('next')) ?? (u.role === 'cm' ? '/admin' : '/'));
+		redirect(303, safeNext(url.searchParams.get('next'), url.origin) ?? (u.role === 'cm' ? '/admin' : '/'));
 	},
 
 	signup: async ({ request, getClientAddress }) => {
 		const data = await request.formData();
 		const username = String(data.get('username') ?? '').slice(0, 64);
 		const displayName = String(data.get('displayName') ?? '').slice(0, 80);
-		if (!requestLimiter.take(`ip:${getClientAddress()}`))
-			return fail(429, {
-				tab: 'signup' as const,
+		const r = await requestSignup(
+			{
 				username,
 				displayName,
-				message: 'Too many requests from here. Wait a few minutes and try again.'
-			});
-		const r = await requestSignup({
-			username,
-			displayName,
-			password: String(data.get('password') ?? '').slice(0, 200),
-			confirm: String(data.get('confirm') ?? '').slice(0, 200)
-		});
+				password: String(data.get('password') ?? '').slice(0, 200),
+				confirm: String(data.get('confirm') ?? '').slice(0, 200)
+			},
+			`ip:${getClientAddress()}`
+		);
 		if (!r.ok) return fail(r.status, { tab: 'signup' as const, username, displayName, message: r.message });
 		return { tab: 'signup' as const, sent: true };
 	},

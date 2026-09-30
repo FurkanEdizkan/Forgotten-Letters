@@ -16,12 +16,18 @@ export interface PendingRequest {
 	createdAt: Date;
 }
 
-/** A visitor asks for an account. It stays a request until the Campaign Master approves it. */
+/**
+ * A visitor asks for an account. It stays a request until the Campaign Master approves it. `limitKey` names
+ * the sender for `requestLimiter`; only a form that passes its own checks spends from it, so typos cost nothing.
+ */
 export async function requestSignup(
-	input: SignupInput
+	input: SignupInput,
+	limitKey: string
 ): Promise<{ ok: true } | { ok: false; status: 400 | 429; message: string }> {
 	const checked = checkSignup(input);
 	if (!checked.ok) return { ok: false, status: 400, message: checked.message };
+	if (!requestLimiter.take(limitKey))
+		return { ok: false, status: 429, message: 'Too many requests from here. Wait a few minutes and try again.' };
 	const { username, displayName, password } = checked.value;
 	const [taken] = await db.select({ id: user.id }).from(user).where(eq(user.username, username));
 	const [asked] = await db

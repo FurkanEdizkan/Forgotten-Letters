@@ -1,4 +1,4 @@
-import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { type AnyPgColumn, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
 import type { Zone } from '$lib/rules/types';
@@ -340,6 +340,8 @@ export const user = pgTable('user', {
 	/** Lowercase, unique. */
 	username: text('username').notNull().unique(),
 	displayName: text('display_name'),
+	/** Optional, lowercase, unique when given. Stored for the Campaign Master's records; nothing is sent to it yet. */
+	email: text('email').unique(),
 	passwordHash: text('password_hash').notNull(),
 	role: text('role', { enum: ['cm', 'player'] })
 		.notNull()
@@ -348,7 +350,15 @@ export const user = pgTable('user', {
 	/** Set when the CM issues or resets a password; the user must choose their own on next sign-in. */
 	mustChangePassword: boolean('must_change_password').notNull().default(true),
 	lastSignInAt: timestamp('last_sign_in_at', { withTimezone: true, mode: 'date' }),
-	createdAt: createdAt()
+	lastSignInIp: text('last_sign_in_ip'),
+	/** Last request from any of its devices (kept to the minute by the activity flush). */
+	lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),
+	createdAt: createdAt(),
+	// A database default too, so the migration can add it to existing rows.
+	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+		.notNull()
+		.defaultNow()
+		.$onUpdateFn(() => new Date())
 });
 
 /** Sign-up and password-reset requests from the sign-in page, waiting for the Campaign Master. */
@@ -361,6 +371,8 @@ export const accountRequest = pgTable(
 		username: text('username').notNull(),
 		/** Sign-ups only. */
 		displayName: text('display_name'),
+		/** Sign-ups only, optional. */
+		email: text('email'),
 		/** Sign-ups only: the password the player chose, already hashed. */
 		passwordHash: text('password_hash'),
 		createdAt: createdAt()
@@ -380,9 +392,59 @@ export const session = pgTable(
 		lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' })
 			.notNull()
 			.$defaultFn(() => new Date()),
-		userAgent: text('user_agent')
+		userAgent: text('user_agent'),
+		/** The device: where it signed in from, and where it was last seen. */
+		ip: text('ip'),
+		lastIp: text('last_ip'),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow()
 	},
 	(t) => [index('session_user_idx').on(t.userId)]
+);
+
+/**
+ * What happened to accounts and what the Campaign Master changed: sign-ins (and failures), sign-outs, password
+ * changes, resets, sign-up requests and approvals (`auth`), and every admin form action or API call (`admin`).
+ * Never holds form bodies or passwords. Pruned after AUDIT_RETENTION_DAYS.
+ */
+export const auditLog = pgTable(
+	'audit_log',
+	{
+		id: id(),
+		at: timestamp('at', { withTimezone: true, mode: 'date' })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		category: text('category', { enum: ['auth', 'admin'] }).notNull(),
+		/** e.g. `signin.ok`, `signin.fail`, `password.change`, `admin.games.start`. */
+		action: text('action').notNull(),
+		/** Who did it: null for a visitor, or once the account is deleted (actorName keeps the name). */
+		actorId: text('actor_id').references((): AnyPgColumn => user.id, { onDelete: 'set null' }),
+		actorName: text('actor_name'),
+		targetType: text('target_type'),
+		targetId: text('target_id'),
+		ip: text('ip'),
+		userAgent: text('user_agent'),
+		/** HTTP status of an admin request. */
+		status: integer('status'),
+		detail: jsonb('detail').$type<Record<string, unknown>>()
+	},
+	(t) => [index('audit_log_at_idx').on(t.at), index('audit_log_actor_idx').on(t.actorId, t.at), index('audit_log_category_idx').on(t.category, t.at)]
+);
+
+/** How much each account uses the site, one row per day (UTC), flushed from a buffer every minute. */
+export const userActivity = pgTable(
+	'user_activity',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		day: date('day', { mode: 'string' }).notNull(),
+		requests: integer('requests').notNull().default(0),
+		pageViews: integer('page_views').notNull().default(0),
+		firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'date' }).notNull(),
+		lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }).notNull(),
+		lastIp: text('last_ip')
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.day] })]
 );
 
 /*

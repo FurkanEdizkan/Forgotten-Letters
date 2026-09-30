@@ -1,9 +1,10 @@
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
 import { player, session, user, warband } from './db/schema';
 import { hashPassword, newToken, rateLimiter, tokenHash, verifyPassword, normaliseUsername } from './passwords';
 import { adminSyncPlan } from './admin-sync';
+import { recordAudit } from './audit';
 
 export const SESSION_COOKIE = 'cf_session';
 /** Set when "Remember me" was left unticked: the session cookie then ends with the browser. */
@@ -13,6 +14,8 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export interface SessionUser {
 	id: string;
+	/** The device's session (hashed token), for activity and "sign out this device". */
+	sessionId: string;
 	username: string;
 	displayName: string | null;
 	role: 'cm' | 'player';
@@ -57,6 +60,7 @@ export async function syncAdminAccount() {
 			mustChangePassword: false
 		});
 		console.log(`Created the Campaign Master account "${username}" from .env.`);
+		recordAudit({ category: 'auth', action: 'admin.sync', actorName: 'system', targetType: 'user', detail: { username, created: true } });
 	} else if (plan.kind === 'update' && u) {
 		await db
 			.update(user)
@@ -64,6 +68,7 @@ export async function syncAdminAccount() {
 			.where(eq(user.id, u.id));
 		if (plan.rehash) await endAllSessions(u.id);
 		console.log(`Brought the Campaign Master account "${username}" in line with .env${plan.rehash ? ' (new password)' : ''}.`);
+		recordAudit({ category: 'auth', action: 'admin.sync', actorName: 'system', targetType: 'user', targetId: u.id, detail: { username, ...plan.fields, newPassword: plan.rehash } });
 	}
 }
 
@@ -76,15 +81,18 @@ export async function authenticate(username: string, password: string) {
 	return u;
 }
 
-export async function createSession(userId: string, userAgent: string | null) {
+export async function createSession(userId: string, { userAgent, ip }: { userAgent: string | null; ip: string | null }) {
 	const token = newToken();
 	await db.insert(session).values({
 		idHash: tokenHash(token),
 		userId,
 		expiresAt: new Date(Date.now() + SESSION_DAYS * DAY),
-		userAgent: userAgent?.slice(0, 200) ?? null
+		userAgent: userAgent?.slice(0, 200) ?? null,
+		ip,
+		lastIp: ip
 	});
-	await db.update(user).set({ lastSignInAt: new Date() }).where(eq(user.id, userId));
+	// Signing in isn't an edit to the account: keep updatedAt.
+	await db.update(user).set({ lastSignInAt: new Date(), lastSignInIp: ip, updatedAt: sql`${user.updatedAt}` }).where(eq(user.id, userId));
 	return { token, maxAge: SESSION_DAYS * 24 * 60 * 60 };
 }
 
@@ -97,10 +105,11 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		.innerJoin(user, eq(user.id, session.userId))
 		.where(and(eq(session.idHash, tokenHash(token)), gt(session.expiresAt, new Date())));
 	if (!row || row.u.disabled) return null;
-	if (Date.now() - row.s.lastSeenAt.getTime() > DAY)
+	// Slide the expiry forward about once a day while in use (lastSeenAt itself is kept by the activity flush).
+	if (row.s.expiresAt.getTime() - Date.now() < (SESSION_DAYS - 1) * DAY)
 		await db
 			.update(session)
-			.set({ lastSeenAt: new Date(), expiresAt: new Date(Date.now() + SESSION_DAYS * DAY) })
+			.set({ expiresAt: new Date(Date.now() + SESSION_DAYS * DAY) })
 			.where(eq(session.idHash, row.s.idHash));
 	const owned = await db
 		.select({ id: warband.id })
@@ -109,6 +118,7 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		.where(eq(player.userId, row.u.id));
 	return {
 		id: row.u.id,
+		sessionId: row.s.idHash,
 		username: row.u.username,
 		displayName: row.u.displayName,
 		role: row.u.role,

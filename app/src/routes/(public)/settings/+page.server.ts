@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { FORGET_COOKIE, SESSION_COOKIE, createSession, endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, verifyPassword } from '$lib/server/passwords';
+import { auditAuth, clientMeta } from '$lib/server/audit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, url }) => {
@@ -18,7 +19,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	password: async ({ request, locals, cookies, url }) => {
+	password: async (event) => {
+		const { request, locals, cookies, url } = event;
 		if (!locals.user) redirect(303, '/login');
 		if (locals.user.username === envAdminUsername())
 			return fail(400, { message: "This account's password is set in .env (ADMIN_PASSWORD). Change it there and restart." });
@@ -34,7 +36,8 @@ export const actions: Actions = {
 		await setPassword(u.id, next, false);
 		// Sign out every other device, keep this one.
 		await endAllSessions(u.id);
-		const { token, maxAge } = await createSession(u.id, request.headers.get('user-agent'));
+		const { token, maxAge } = await createSession(u.id, clientMeta(event));
+		auditAuth(event, 'password.change');
 		cookies.set(SESSION_COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:', ...(cookies.get(FORGET_COOKIE) ? {} : { maxAge }) });
 		redirect(303, '/settings');
 	}

@@ -13,6 +13,7 @@ export interface PendingRequest {
 	kind: 'signup' | 'reset';
 	username: string;
 	displayName: string | null;
+	email: string | null;
 	createdAt: Date;
 }
 
@@ -28,20 +29,24 @@ export async function requestSignup(
 	if (!checked.ok) return { ok: false, status: 400, message: checked.message };
 	if (!requestLimiter.take(limitKey))
 		return { ok: false, status: 429, message: 'Too many requests from here. Wait a few minutes and try again.' };
-	const { username, displayName, password } = checked.value;
+	const { username, displayName, email, password } = checked.value;
 	const [taken] = await db.select({ id: user.id }).from(user).where(eq(user.username, username));
 	const [asked] = await db
 		.select({ id: accountRequest.id })
 		.from(accountRequest)
 		.where(and(eq(accountRequest.kind, 'signup'), eq(accountRequest.username, username)));
 	if (taken || asked) return { ok: false, status: 400, message: 'That username is taken. Choose another.' };
+	if (email) {
+		const [used] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
+		if (used) return { ok: false, status: 400, message: 'That email address already belongs to an account.' };
+	}
 	const [{ n }] = await db.select({ n: count() }).from(accountRequest).where(eq(accountRequest.kind, 'signup'));
 	if (n >= MAX_PENDING_SIGNUPS)
 		return { ok: false, status: 429, message: 'The Campaign Master has too many requests waiting. Try again later.' };
 	// The unique index settles a race between two identical requests.
 	await db
 		.insert(accountRequest)
-		.values({ kind: 'signup', username, displayName, passwordHash: await hashPassword(password) })
+		.values({ kind: 'signup', username, displayName, email, passwordHash: await hashPassword(password) })
 		.onConflictDoNothing();
 	return { ok: true };
 }
@@ -64,6 +69,7 @@ export async function listRequests(): Promise<PendingRequest[]> {
 			kind: accountRequest.kind,
 			username: accountRequest.username,
 			displayName: accountRequest.displayName,
+			email: accountRequest.email,
 			createdAt: accountRequest.createdAt
 		})
 		.from(accountRequest)
@@ -81,9 +87,12 @@ export async function approveSignup(id: string): Promise<{ ok: true; username: s
 		const [taken] = await tx.select({ id: user.id }).from(user).where(eq(user.username, r.username));
 		if (taken)
 			return { ok: false as const, message: `"${r.username}" is already an account. Decline this request instead.` };
+		const [emailUsed] = r.email ? await tx.select({ id: user.id }).from(user).where(eq(user.email, r.email)) : [];
 		await tx.insert(user).values({
 			username: r.username,
 			displayName: r.displayName,
+			// An address another account took since the request is dropped rather than blocking the approval.
+			email: emailUsed ? null : r.email,
 			passwordHash: r.passwordHash,
 			role: 'player',
 			mustChangePassword: false

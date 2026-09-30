@@ -2,9 +2,10 @@
 	import { onMount } from 'svelte';
 	import Portrait from './Portrait.svelte';
 	import { weatherByRoll } from '$lib/rules/weather';
+	import { hudRoster } from '$lib/battle-hud';
 	import type { PublicGame, PublicSnapshot } from '$lib/snapshot';
 
-	/** The active battle's overlay: the stamp, the two sides facing each other, and a way out. */
+	/** The active battle's overlay: the stamp, the two warbands facing each other (purse and roster), and a way out. */
 	let { game, snapshot, zoneName, onleave }: { game: PublicGame; snapshot: PublicSnapshot; zoneName: string; onleave: () => void } = $props();
 
 	const a = $derived(snapshot.warbands.find((w) => w.id === game.aggressor));
@@ -40,14 +41,29 @@
 	</div>
 	{#each [{ w: a, cls: 'left', role: 'Aggressor' }, { w: d, cls: 'right', role: 'Defender' }] as side (side.cls)}
 		{#if side.w}
-			<div class="side {side.cls}">
-				<Portrait name={side.w.player} portrait={side.w.portrait} symbol={side.w.symbol} faction={side.w.faction} seal={side.w.seal} size={52} />
-				<div>
-					<small>{side.role}</small>
-					<strong>{side.w.name}</strong>
-					<span>{side.w.player}</span>
-				</div>
-			</div>
+			<section class="side {side.cls}" aria-label="{side.role}: {side.w.name}">
+				<header>
+					<Portrait name={side.w.player} portrait={side.w.portrait} symbol={side.w.symbol} faction={side.w.faction} seal={side.w.seal} size={52} />
+					<div class="who">
+						<small>{side.role}</small>
+						<strong>{side.w.name}</strong>
+						<span>{side.w.player}</span>
+					</div>
+				</header>
+				<p class="purse"><span><b>{side.w.treasury.ducats}</b> ducats</span><span><b>{side.w.treasury.glory}</b> glory</span></p>
+				{#if side.w.units.length}
+					<ol class="roster">
+						{#each hudRoster(side.w.units) as u (u.id)}
+							<li>
+								<span class="unit"
+									><strong>{u.name}</strong><small>{u.leader ? `Leader · ${u.type}` : u.type}</small></span
+								>
+								<span class="cost">{u.cost} {u.currency === 'glory' ? 'glory' : 'ducats'}</span>
+							</li>
+						{/each}
+					</ol>
+				{/if}
+			</section>
 		{/if}
 	{/each}
 	<button class="leave" onclick={onleave}>Leave the battlefield <kbd>Esc</kbd></button>
@@ -93,14 +109,18 @@
 		color: var(--bone);
 		font-size: 0.95rem;
 	}
+	/* Each warband as a night page: who they are, their purse, and the models they field. It grows up
+	   from the bottom corner and stops short of the Leave and sky buttons in the top-left. */
 	.side {
+		pointer-events: auto;
 		position: absolute;
 		bottom: 18px;
 		display: flex;
-		align-items: center;
-		gap: 10px;
-		max-width: min(44vw, 22rem);
-		padding: 8px 14px 8px 8px;
+		flex-direction: column;
+		gap: 8px;
+		width: min(22rem, 44vw);
+		max-height: calc(100% - 128px);
+		padding: 8px 14px 10px 8px;
 		background: rgba(21, 19, 14, 0.86);
 		border-top: 3px solid #8f1f18;
 		color: var(--bone);
@@ -110,22 +130,30 @@
 	}
 	.side.right {
 		right: 14px;
+		padding: 8px 8px 10px 14px;
+	}
+	header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.side.right header {
 		flex-direction: row-reverse;
 		text-align: right;
-		padding: 8px 8px 8px 14px;
 	}
-	.side div {
+	.who {
 		display: grid;
 		line-height: 1.2;
 		min-width: 0;
 	}
-	.side small {
+	.who small,
+	.unit small {
 		font-size: 0.7rem;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: #d98c80;
 	}
-	.side strong {
+	.who strong {
 		font-family: var(--font-title);
 		font-weight: 400;
 		font-size: 1.2rem;
@@ -133,9 +161,59 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.side span {
+	.who span {
 		font-size: 0.85rem;
 		color: var(--bone-dim);
+	}
+	.purse {
+		display: flex;
+		gap: 16px;
+		margin: 0;
+		padding: 4px 0;
+		border-block: 1px solid rgba(236, 229, 211, 0.18);
+		font-size: 0.9rem;
+		color: var(--bone-dim);
+		font-variant-numeric: lining-nums tabular-nums;
+	}
+	.side.right .purse {
+		justify-content: flex-end;
+	}
+	.purse b {
+		font-size: 1.15rem;
+		color: var(--bone);
+	}
+	.roster {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		scrollbar-width: thin;
+	}
+	.roster li {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 4px 0;
+		border-bottom: 1px solid rgba(236, 229, 211, 0.12);
+	}
+	.unit {
+		display: grid;
+		min-width: 0;
+		line-height: 1.2;
+	}
+	.unit strong {
+		font-weight: 600;
+		font-size: 0.92rem;
+	}
+	.cost {
+		flex: none;
+		font-size: 0.8rem;
+		color: var(--bone-dim);
+		font-variant-numeric: lining-nums tabular-nums;
 	}
 	.leave {
 		pointer-events: auto;
@@ -165,12 +243,18 @@
 		}
 		.side {
 			bottom: 10px;
-			max-width: 46vw;
+			width: 46vw;
 			padding: 6px;
 		}
+		/* Two rosters would bury the battlefield on a phone: keep who and their purse. */
 		.side :global(.portrait),
+		.roster,
 		kbd {
 			display: none;
+		}
+		.purse {
+			gap: 10px;
+			font-size: 0.8rem;
 		}
 	}
 </style>

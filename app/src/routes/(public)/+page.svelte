@@ -195,6 +195,12 @@
 						class="battle"
 						class:planned={g.status === 'scheduled'}
 						onclick={() => {
+							// A battle being fought is entered, as from the map; a planned one opens its zone's page.
+							if (g.status === 'in_progress') {
+								zoneId = null;
+								if (g.id !== battleId) enterBattle(g.id);
+								return;
+							}
 							zoneId = g.zone;
 							warbandId = null;
 						}}
@@ -237,7 +243,7 @@
 		{fxEnabled ? 'Clear skies' : 'Satellite view'}
 	</button>
 
-	{#if mapWide?.weatherEvent}
+	{#if mapWide?.weatherEvent && !battle}
 		{@const we = weatherByRoll(mapWide.weatherEvent)}
 		<div class="omen">
 			{mapWide.name ? `${mapWide.name}: ` : ''}<strong>{we?.name}</strong> across the front
@@ -271,7 +277,8 @@
 		<a href="/players">Full standings →</a>
 	{/snippet}
 
-	{#if !signedIn}
+	<!-- In a battle the two warbands take the screen; the standings wait until the viewer leaves. -->
+	{#if !signedIn && !battle}
 		<aside class="dock" aria-label="Standings">{@render standingsList(true)}</aside>
 	{/if}
 	{#if showStandings}

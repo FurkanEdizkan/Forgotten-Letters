@@ -141,7 +141,7 @@
 
 	{#if battle}
 		{#key battle.id}
-			<BattleHud game={battle} snapshot={s} zoneName={zoneName(battle.zone)} onleave={leaveBattle} />
+			<BattleHud game={battle} zone={graph.zones.get(battle.zone)} snapshot={s} onleave={leaveBattle} />
 		{/key}
 	{/if}
 

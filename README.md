@@ -146,9 +146,8 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 
 | Where | Who | What |
 | --- | --- | --- |
-| `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Weather on/off* per device. |
-| `/players`, `/players/<id>` | everyone | Standings and each warband's digital Campaign Tracker. |
-| `/campaign` | everyone | The campaign: players, warbands and standings. |
+| `/` | everyone | Live map. Tap a zone or a warband; *Standings*; *Clear skies / Satellite view* per device. |
+| `/players`, `/players/<id>` | everyone | Standings (with the campaign at a glance; `/campaign` redirects here) and each warband's digital Campaign Tracker. |
 | `/warbands/<id>` | everyone (the player and CM edit) | The warband: summary, models, battlekit, campaign record; the builder. |
 | `/compendium` | everyone | Core rules, campaign, scenarios, units, battlekit and keywords from your rulebooks; search. |
 | `/warbands` (menu: Warband Builder) | signed-in users | Your warband lists and campaign warband: build, duplicate, print, play, and use a list for the campaign. |

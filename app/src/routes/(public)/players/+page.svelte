@@ -8,12 +8,17 @@
 	const s = $derived(live.current);
 	const wb = $derived(new Map(s.warbands.map((w) => [w.id, w])));
 	const faction = (id: string) => FACTIONS.find((f) => f.id === id)?.name ?? id;
+	// The campaign at a glance (this page absorbed the old /campaign page).
+	const players = $derived(new Set(s.warbands.map((w) => w.player)).size);
+	const fought = $derived(s.warbands.reduce((n, w) => n + w.games, 0) / 2);
+	const planned = $derived((s.campaign.gamesPerPlayer * s.warbands.length) / 2);
 </script>
 
 <svelte:head><title>Standings · {s.campaign.name}</title></svelte:head>
 
 <main>
 	<h1>{s.campaign.visionsRevealed ? 'The Final Reckoning' : 'Standings'}</h1>
+	<p class="meta">{s.campaign.name} · {players} player{players === 1 ? '' : 's'} · {s.warbands.length} warband{s.warbands.length === 1 ? '' : 's'} · {fought} of {planned} games fought</p>
 	{#if s.campaign.visionsRevealed}
 		<p class="lede">Tracker CVP, Shared Objectives (Herald of Leviathan 6, Largest Enclave 8) and every Vision level achieved.</p>
 	{:else}
@@ -57,6 +62,11 @@
 </main>
 
 <style>
+	.meta {
+		margin: -6px 0 6px;
+		color: var(--ink-soft);
+		font-variant-numeric: lining-nums;
+	}
 	main {
 		max-width: 60rem;
 		margin: 0 auto;

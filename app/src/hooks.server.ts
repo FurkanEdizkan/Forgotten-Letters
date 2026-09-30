@@ -57,6 +57,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 	// Account settings moved into /settings; keep old links and bookmarks working.
 	if (path === '/account' || path.startsWith('/account/')) redirect(308, `/settings${event.url.search}`);
+	// The campaign page and the standings listed the same ranking: the standings page carries both now.
+	if (path === '/campaign') redirect(308, '/players');
 	if (user?.mustChangePassword && !OPEN_WHILE_TEMPORARY.some((p) => path === p || path.startsWith(p + '/')) && !path.startsWith('/_app/') && !path.startsWith('/uploads/'))
 		redirect(303, '/settings?first=1');
 	// /settings/admin is not under /admin, so it needs naming here too.

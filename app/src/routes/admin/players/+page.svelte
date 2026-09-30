@@ -63,6 +63,7 @@
 	<form method="POST" action="?/create" class="create" use:enhance>
 		<label>Username <input name="username" autocapitalize="none" spellcheck="false" required placeholder="e.g. alric" /></label>
 		<label>Display name <input name="displayName" placeholder="optional" /></label>
+		<label>Email <input name="email" type="email" autocomplete="off" placeholder="optional" /></label>
 		<label>Password <input name="password" type="text" autocomplete="off" placeholder="blank = generate one" /></label>
 		<label>Role
 			<select name="role">
@@ -92,7 +93,7 @@
 		{#each data.users as u (u.id)}
 			<li class:disabled={u.disabled}>
 				<div class="who">
-					<strong>{u.displayName ?? u.username}</strong>
+					<strong><a href="/admin/players/{u.id}">{u.displayName ?? u.username}</a></strong>
 					<small>
 						{u.username} · {u.role === 'cm' ? 'Campaign Master' : 'Player'}{u.disabled ? ' · disabled' : ''}{u.mustChangePassword ? ' · temporary password' : ''}
 					</small>

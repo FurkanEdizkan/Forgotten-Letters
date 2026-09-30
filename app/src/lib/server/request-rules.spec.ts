@@ -7,7 +7,7 @@ describe('checkSignup', () => {
 	it('accepts a good request and normalises it', () => {
 		expect(checkSignup({ ...good, username: '  Alric ', displayName: '  Alric   of  Ypres ' })).toEqual({
 			ok: true,
-			value: { username: 'alric', displayName: 'Alric of Ypres', password: 'trench-mud-1914' }
+			value: { username: 'alric', displayName: 'Alric of Ypres', email: null, password: 'trench-mud-1914' }
 		});
 	});
 	it('treats a blank display name as none and caps a long one at 40 characters', () => {
@@ -34,5 +34,13 @@ describe('checkSignup', () => {
 	});
 	it('caps pending sign-ups at 50', () => {
 		expect(MAX_PENDING_SIGNUPS).toBe(50);
+	});
+	it('keeps an optional email, trimmed and lowercased, and rejects a malformed one', () => {
+		const withEmail = checkSignup({ ...good, email: '  Alric@Ypres.Example ' });
+		expect(withEmail.ok && withEmail.value.email).toBe('alric@ypres.example');
+		const blank = checkSignup({ ...good, email: '   ' });
+		expect(blank.ok && blank.value.email).toBe(null);
+		for (const email of ['alric', 'alric@', '@ypres.example', 'al ric@ypres.example', 'alric@ypres'])
+			expect(checkSignup({ ...good, email }), email).toEqual({ ok: false, message: 'That email address does not look right.' });
 	});
 });

@@ -33,6 +33,13 @@ if [[ ! -f .env ]]; then
 fi
 
 set -a; source .env; set +a
+
+# Behind the bundled Caddy, log real client addresses (and rate-limit per visitor) rather than Caddy's.
+if [[ "${COMPOSE_PROFILES:-}" == *https* && -z "${ADDRESS_HEADER:-}" ]]; then
+	printf '\n# Set by build_and_update.sh: Caddy passes the client address in X-Forwarded-For.\nADDRESS_HEADER=x-forwarded-for\nXFF_DEPTH=1\n' >> .env
+	export ADDRESS_HEADER=x-forwarded-for XFF_DEPTH=1
+	say "Added ADDRESS_HEADER / XFF_DEPTH to .env for the https profile."
+fi
 image="${IMAGE:-forgotten-letters}"
 tag="$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
 

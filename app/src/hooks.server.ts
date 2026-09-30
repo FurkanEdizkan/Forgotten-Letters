@@ -7,6 +7,21 @@ import { schedule } from '$lib/server/fx';
 import { migrateDb } from '$lib/server/db';
 import { importLegacySqlite } from '$lib/server/db/legacy';
 import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
+import { clientMeta, pruneAudit, recordAudit } from '$lib/server/audit';
+import { countRequest, flushActivity } from '$lib/server/activity';
+import { adminActionName, isPageView } from '$lib/server/activity-rules';
+
+/** Background upkeep: request counts go to the database every minute; old sessions and log entries go every 6 hours. */
+function startUpkeep() {
+	const flush = () => flushActivity().catch((e) => console.error('activity flush:', e));
+	const prune = () => Promise.all([pruneSessions(), pruneAudit()]).catch((e) => console.error('prune:', e));
+	setInterval(flush, 60_000).unref();
+	setInterval(prune, 6 * 60 * 60_000).unref();
+	process.on('sveltekit:shutdown', () => void flush());
+}
+
+/** Routes that log their own account events (with the account as target), so the generic admin log skips them. */
+const SELF_LOGGED = new Set(['/admin/players']);
 
 /** Bring the database up to date (and carry over an old SQLite campaign), then start the weather timer. */
 export const init: ServerInit = async () => {
@@ -18,7 +33,9 @@ export const init: ServerInit = async () => {
 	await loadCustomFactions();
 	await loadZones();
 	await pruneSessions();
+	await pruneAudit();
 	await schedule();
+	startUpkeep();
 };
 
 /** Pages a signed-in user can reach before choosing their own password. */
@@ -39,5 +56,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, `/login?next=${encodeURIComponent(path)}`);
 	}
 
-	return resolve(event);
+	if (user) countRequest(user.id, user.sessionId, { ip: clientMeta(event).ip, pageView: isPageView(event.request.method, path, { accept: event.request.headers.get('accept') }) });
+
+	const response = await resolve(event);
+
+	// Every change the Campaign Master makes: form actions and API calls under /admin (never their bodies).
+	if (event.request.method !== 'GET' && event.request.method !== 'HEAD' && path.startsWith('/admin') && !SELF_LOGGED.has(event.route.id ?? '')) {
+		const params = Object.entries(event.params);
+		recordAudit({
+			category: 'admin',
+			action: adminActionName(event.route.id, event.url.search, event.request.method),
+			actorId: user?.id ?? null,
+			actorName: user?.username ?? null,
+			targetType: params[0]?.[0] ?? null,
+			targetId: params[0]?.[1] ?? null,
+			status: response.status,
+			...clientMeta(event),
+			...(params.length > 1 ? { detail: Object.fromEntries(params) } : {})
+		});
+	}
+	return response;
 };

@@ -66,6 +66,7 @@
 					<form method="POST" action={action('signup')} use:enhance={submit}>
 						<label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required value={form?.username ?? ''} /></label>
 						<label>Display name <input name="displayName" autocomplete="nickname" placeholder="optional" value={form && 'displayName' in form ? (form.displayName ?? '') : ''} /></label>
+						<label>Email <input name="email" type="email" autocomplete="email" placeholder="optional" value={form && 'email' in form ? (form.email ?? '') : ''} /></label>
 						<label>Password <input name="password" type="password" autocomplete="new-password" required minlength="8" /></label>
 						<label>Password again <input name="confirm" type="password" autocomplete="new-password" required minlength="8" /></label>
 						{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}

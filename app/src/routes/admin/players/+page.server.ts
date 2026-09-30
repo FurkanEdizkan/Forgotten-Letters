@@ -6,6 +6,8 @@ import { currentCampaign } from '$lib/server/campaign';
 import { endAllSessions, envAdminUsername, setPassword } from '$lib/server/auth';
 import { MIN_PASSWORD, USERNAME, hashPassword, normaliseUsername, temporaryPassword } from '$lib/server/passwords';
 import { approveSignup, declineRequest, listRequests, resolveReset } from '$lib/server/requests';
+import { normaliseEmail } from '$lib/server/request-rules';
+import { auditAuth } from '$lib/server/audit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -57,10 +59,14 @@ async function assign(userId: string, playerIds: string[]) {
 }
 
 export const actions: Actions = {
-	create: async ({ request }) => {
-		const data = await request.formData();
+	create: async (event) => {
+		const data = await event.request.formData();
 		const username = normaliseUsername(String(data.get('username') ?? ''));
 		const displayName = String(data.get('displayName') ?? '').trim().slice(0, 60) || null;
+		const email = normaliseEmail(String(data.get('email') ?? ''));
+		if (email === false) return fail(400, { createMessage: 'That email address does not look right.' });
+		if (email && (await db.select({ id: user.id }).from(user).where(eq(user.email, email))).length)
+			return fail(400, { createMessage: `“${email}” already belongs to an account.` });
 		let password = String(data.get('password') ?? '');
 		const role = data.get('role') === 'cm' ? 'cm' : 'player';
 		if (!USERNAME.test(username)) return fail(400, { createMessage: 'Usernames are 2–32 lowercase letters, digits, dots, dashes or underscores.' });
@@ -70,62 +76,73 @@ export const actions: Actions = {
 		password ||= temporaryPassword();
 		const [u] = await db
 			.insert(user)
-			.values({ username, displayName, role, passwordHash: await hashPassword(password), mustChangePassword: true })
+			.values({ username, displayName, email, role, passwordHash: await hashPassword(password), mustChangePassword: true })
 			.returning({ id: user.id });
 		await assign(u.id, data.getAll('players').map(String));
+		auditAuth(event, 'account.create', { targetType: 'user', targetId: u.id, detail: { username, role } });
 		return { issued: { username, password, why: 'created' } };
 	},
 
-	approve: async ({ request }) => {
-		const r = await approveSignup(String((await request.formData()).get('id')));
+	approve: async (event) => {
+		const r = await approveSignup(String((await event.request.formData()).get('id')));
 		if (!r.ok) return fail(409, { message: r.message });
+		auditAuth(event, 'signup.approved', { targetType: 'user', detail: { username: r.username } });
 		return { message: `Account "${r.username}" approved. Give it a seat below.` };
 	},
 
-	decline: async ({ request }) => {
-		await declineRequest(String((await request.formData()).get('id')));
+	decline: async (event) => {
+		const id = String((await event.request.formData()).get('id'));
+		await declineRequest(id);
+		auditAuth(event, 'request.declined', { targetType: 'account_request', targetId: id });
 		return { message: 'Request removed.' };
 	},
 
-	resolveReset: async ({ request }) => {
-		const r = await resolveReset(String((await request.formData()).get('id')));
+	resolveReset: async (event) => {
+		const r = await resolveReset(String((await event.request.formData()).get('id')));
 		if (!r.ok) return fail(409, { message: r.message });
+		auditAuth(event, 'reset.issued', { targetType: 'user', detail: { username: r.username, from: 'request' } });
 		return { issued: { username: r.username, password: r.password, why: 'reset' as const } };
 	},
 
-	reset: async ({ request }) => {
-		const u = await target((await request.formData()).get('id'));
+	reset: async (event) => {
+		const u = await target((await event.request.formData()).get('id'));
 		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		const password = temporaryPassword();
 		await setPassword(u.id, password, true);
 		await endAllSessions(u.id);
+		auditAuth(event, 'reset.issued', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return { issued: { username: u.username, password, why: 'reset' } };
 	},
 
-	toggle: async ({ request, locals }) => {
-		const u = await target((await request.formData()).get('id'));
+	toggle: async (event) => {
+		const { locals } = event;
+		const u = await target((await event.request.formData()).get('id'));
 		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		if (u.id === locals.user?.id) return fail(400, { message: 'You cannot disable your own account.' });
 		await db.update(user).set({ disabled: !u.disabled }).where(eq(user.id, u.id));
 		if (!u.disabled) await endAllSessions(u.id);
+		auditAuth(event, u.disabled ? 'account.enable' : 'account.disable', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return {};
 	},
 
-	signOut: async ({ request }) => {
-		const u = await target((await request.formData()).get('id'));
+	signOut: async (event) => {
+		const u = await target((await event.request.formData()).get('id'));
 		await endAllSessions(u.id);
+		auditAuth(event, 'account.signout-everywhere', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return { message: `${u.username} is signed out everywhere.` };
 	},
 
-	assign: async ({ request }) => {
-		const data = await request.formData();
+	assign: async (event) => {
+		const data = await event.request.formData();
 		const u = await target(data.get('id'));
 		await assign(u.id, data.getAll('players').map(String));
+		auditAuth(event, 'account.seats', { targetType: 'user', targetId: u.id, detail: { username: u.username, seats: data.getAll('players').length } });
 		return { message: `Seats updated for ${u.username}.` };
 	},
 
-	remove: async ({ request, locals }) => {
-		const u = await target((await request.formData()).get('id'));
+	remove: async (event) => {
+		const { locals } = event;
+		const u = await target((await event.request.formData()).get('id'));
 		if (u.username === envAdminUsername()) return fail(400, { message: ENV_MANAGED });
 		if (u.id === locals.user?.id) return fail(400, { message: 'You cannot delete your own account.' });
 		if (u.role === 'cm') {
@@ -133,6 +150,7 @@ export const actions: Actions = {
 			if (!n) return fail(400, { message: 'Keep at least one Campaign Master account.' });
 		}
 		await db.delete(user).where(eq(user.id, u.id));
+		auditAuth(event, 'account.delete', { targetType: 'user', targetId: u.id, detail: { username: u.username } });
 		return { message: `${u.username} deleted; their warbands stay.` };
 	}
 };

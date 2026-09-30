@@ -11,6 +11,11 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-cm}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       DATABASE_URL: postgres://carcass:${POSTGRES_PASSWORD:-carcass}@db:5432/carcass
+      # Behind the bundled Caddy (https profile) the real client address is in X-Forwarded-For; left empty
+      # otherwise, since the app would reject requests without that header.
+      ADDRESS_HEADER: ${ADDRESS_HEADER:-}
+      XFF_DEPTH: ${XFF_DEPTH:-1}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-365}
     volumes:
       # Uploaded maps, portraits, symbols, seals and models; also where an old SQLite campaign is picked up from.
       - data:/data

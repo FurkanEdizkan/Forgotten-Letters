@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { battlePlacement, battleSpots, markerSpots } from './map-battles';
+import { battlePlacement, battleSpots, markerSpots, battleFlanks } from './map-battles';
 
 const round = (p: { x: number; y: number }) => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
@@ -55,5 +55,19 @@ describe('markerSpots', () => {
 		const [p] = markerSpots(1, 1, { clear: 70, markerR: 35 });
 		expect(p.x).toBeGreaterThan(0);
 		expect(p.y).toBeLessThan(0);
+	});
+});
+
+describe('battleFlanks', () => {
+	it('stands the Aggressor on the left of the battle ring and the Defender on the right, at any zoom', () => {
+		for (const k of [1, 2, 3.5]) {
+			const [a, d] = battleFlanks(80, k);
+			expect(a.y).toBe(0);
+			expect(d.y).toBe(0);
+			expect(a.x).toBeLessThan(0);
+			expect(d.x).toBe(-a.x);
+			// In the map's units the marker's centre sits on the ring itself, so it reaches no further than it must.
+			expect(Math.round(d.x * k)).toBe(80);
+		}
 	});
 });

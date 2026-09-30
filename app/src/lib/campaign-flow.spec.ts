@@ -77,6 +77,17 @@ describe('dealVisionOffers', () => {
 		);
 		expect(Object.keys(deal)).toEqual(['w2']);
 	});
+	it('never strands a pair of identical cards: whatever the shuffle, it deals as many warbands as the deck allows', () => {
+		// Two packs of a, b, c: six cards, each twice. Three distinct pairs always exist (ab, ac, bc).
+		const nine = Array.from({ length: 9 }, (_, i) => ({ id: `w${i}`, visionCard: null, visionOffer: null }));
+		for (let seed = 1; seed <= 200; seed++) {
+			let x = seed;
+			const rng = () => ((x = (x * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+			const deal = dealVisionOffers(nine, ['a', 'b', 'c'], rng);
+			expect(Object.keys(deal).length, `seed ${seed}`).toBe(3);
+			for (const [a, b] of Object.values(deal)) expect(a).not.toBe(b);
+		}
+	});
 	it('adds a pack for every eight warbands, and never gives one warband the same card twice', () => {
 		const many = Array.from({ length: 9 }, (_, i) => ({ id: `w${i}`, visionCard: null, visionOffer: null }));
 		const deal = dealVisionOffers(many, cards, Math.random);

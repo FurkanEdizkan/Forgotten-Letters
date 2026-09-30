@@ -69,13 +69,22 @@ export function dealVisionOffers(
 		const j = Math.floor(random() * (i + 1));
 		[deck[i], deck[j]] = [deck[j], deck[i]];
 	}
+	// Pair the two cards with the most copies left (the earlier in the shuffle on a tie), so duplicate copies are
+	// used up first and never end the deal stranded as an identical pair.
+	const count = (c: string) => deck.filter((d) => d === c).length;
+	const mostLeft = (except?: string) => {
+		let best: string | undefined;
+		for (const c of deck) if (c !== except && (best === undefined || count(c) > count(best))) best = c;
+		return best;
+	};
 	const deal: Record<string, [string, string]> = {};
 	for (const w of warbands) {
 		if (w.visionCard || w.visionOffer?.length) continue;
-		const first = deck.shift();
-		const at = deck.findIndex((c) => c !== first);
-		if (!first || at < 0) break;
-		const [second] = deck.splice(at, 1);
+		const first = mostLeft();
+		const second = first === undefined ? undefined : mostLeft(first);
+		if (first === undefined || second === undefined) break;
+		deck.splice(deck.indexOf(first), 1);
+		deck.splice(deck.indexOf(second), 1);
 		deal[w.id] = [first, second];
 	}
 	return deal;

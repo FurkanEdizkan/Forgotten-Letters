@@ -149,7 +149,7 @@ export const actions: Actions = {
 		if (!pack) return failed(errors, s('id') || 'new-unit');
 		const row = { ...pack.units[0], id: s('id') || pack.units[0].id };
 		const was = (await packOf(params.id))?.units.find((u) => u.id === row.id)?.kit;
-		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit']) };
+		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit', 'items']) };
 		await saveUnit(row);
 		return { saved: row.id };
 	},

@@ -68,6 +68,8 @@ export interface PriceRule {
 	entries?: string[];
 	/** Only when bought for (or as) such a model. */
 	who?: ModelSel;
+	/** Only while such a model is in the warband (a Patron Skill's "while this model is in your warband"). */
+	while?: ModelSel;
 	/** Only the first one in the warband (of each item, or of the entry). */
 	first?: boolean;
 	cost?: number;
@@ -101,7 +103,9 @@ export function matchItem(i: HeldItem, sel: ItemSel | undefined, armoury: Armour
 	const a = findItem(armoury, i.name);
 	if (sel.names && !has(sel.names, i.name)) return false;
 	if (sel.categories && !(a && sel.categories.includes(a.category))) return false;
-	if (sel.types && !(a?.type && sel.types.some((t) => isName(t, a.type!)))) return false;
+	// "1-Handed" and "2-Handed" differ only by their digit.
+	const plain = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+	if (sel.types && !(a?.type && sel.types.some((t) => plain(t) === plain(a.type!)))) return false;
 	if (sel.keywords && !(a && sel.keywords.some((k) => a.keywords.some((x) => isName(x, k))))) return false;
 	const cost = a?.cost ?? i.cost;
 	if (sel.min_cost != null && cost < sel.min_cost) return false;
@@ -353,7 +357,7 @@ export function readPrices(v: unknown, path: string, err: Err): PriceRule[] | un
 	return v.map((o, i) => {
 		const p = `${path}[${i}]`;
 		if (!isObj(o)) return err(p, 'must be a price'), {};
-		keysOf(o, ['items', 'entries', 'who', 'first', 'cost', 'currency', 'less', 'factor'], p, err);
+		keysOf(o, ['items', 'entries', 'who', 'while', 'first', 'cost', 'currency', 'less', 'factor'], p, err);
 		if ((o.items == null) === (o.entries == null)) err(p, 'prices items or entries');
 		if ([o.cost, o.less, o.factor].filter((x) => x != null).length !== 1) err(p, 'needs one of cost, less or factor');
 		if (o.currency != null && o.currency !== 'ducats' && o.currency !== 'glory') err(`${p}.currency`, 'must be ducats or glory');
@@ -361,6 +365,7 @@ export function readPrices(v: unknown, path: string, err: Err): PriceRule[] | un
 			items: readItemSel(o.items, `${p}.items`, err),
 			entries: names(o.entries, `${p}.entries`, err),
 			who: readModelSel(o.who, `${p}.who`, err),
+			while: readModelSel(o.while, `${p}.while`, err),
 			first: o.first === true || undefined,
 			cost: count(o.cost, `${p}.cost`, err),
 			currency: o.currency as Currency | undefined,

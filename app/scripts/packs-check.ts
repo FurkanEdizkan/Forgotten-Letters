@@ -11,7 +11,8 @@ import { parseTemplate, type FactionPack } from '../src/lib/faction-template.ts'
 import { FACTIONS } from '../src/lib/rules/factions.ts';
 import { namesIn } from '../src/lib/warband-limits.ts';
 
-const files = process.argv.slice(2);
+// The example lists beside the packs (legal-lists*.yaml) are not packs.
+const files = process.argv.slice(2).filter((f) => !/(^|\/)legal-lists[^/]*\.yaml$/.test(f));
 if (!files.length) {
 	console.error('usage: npx --prefix app tsx app/scripts/packs-check.ts docs/packs/*.yaml');
 	process.exit(2);

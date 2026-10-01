@@ -131,7 +131,8 @@ export function builderState(d: BuilderInput) {
 		...rules.upgrades.flatMap((u) => scoped(u.limits, { upgrades: [u.name] })),
 		...(d.patron?.skills ?? []).flatMap((s) => scoped(s.limits, { skills: [s.name] }))
 	];
-	const prices: PriceRule[] = [...rules.prices, ...(d.patron?.skills ?? []).flatMap((s) => (s.prices ?? []).map((r) => ({ ...r, who: r.who ?? { skills: [s.name] } })))];
+	// A Skill's prices hold while a model with it is in the warband, unless they name who buys.
+	const prices: PriceRule[] = [...rules.prices, ...(d.patron?.skills ?? []).flatMap((s) => (s.prices ?? []).map((r) => (r.who || r.while ? r : { ...r, while: { skills: [s.name] } })))];
 	const state: WarbandState = {
 		models,
 		stash: d.stash,
@@ -142,7 +143,8 @@ export function builderState(d: BuilderInput) {
 		openExploration: d.openExploration,
 		limits,
 		prices,
-		upgrades: rules.upgrades
+		upgrades: rules.upgrades,
+		patron: d.patron?.name ?? null
 	};
 	return { rules, state, profileOf, entries: d.profiles.map(entryOf) };
 }

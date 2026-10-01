@@ -116,7 +116,8 @@ export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
 export async function loadPacksDirIfEmpty(dir = process.env.RULES_PACKS ?? '/data/packs') {
 	let names: string[];
 	try {
-		names = readdirSync(dir).filter((n) => n.endsWith('.yaml'));
+		// Not the template or packs-legal's example lists.
+		names = readdirSync(dir).filter((n) => n.endsWith('.yaml') && !/^(legal-lists|TEMPLATE)/.test(n));
 	} catch {
 		return null;
 	}

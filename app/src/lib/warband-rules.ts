@@ -141,6 +141,7 @@ export interface UnitKit {
 	loadouts?: Loadout[];
 	countsAs?: string;
 	recruit?: boolean;
+	items?: Record<string, StipulationsOverride>;
 }
 
 const CATEGORY_WORDS: [RegExp, ArmouryCategory][] = [
@@ -171,6 +172,8 @@ export interface UnitKitOverride {
 	countsAs?: string;
 	/** false: never recruited, only gained another way (resurrection). */
 	recruit?: boolean;
+	/** Stipulations an armoury item has when this entry carries it, by item name. */
+	items?: Record<string, StipulationsOverride>;
 }
 
 export function unitKit(note: string | null | undefined, override?: UnitKitOverride | null): UnitKit {
@@ -259,6 +262,8 @@ export interface VariantRules {
 	freeItems: string[];
 	upgrades: Upgrade[];
 	fireteams: number;
+	/** The Patron the warband must serve ("a Knights of Avarice warband worships Mammon"). */
+	patron: string | null;
 	/** The books' other building limits (see warband-limits.ts). */
 	limits: Limit[];
 	/** Prices set by rule (the first copy at half price, a Patron Skill's discount). */
@@ -325,6 +330,7 @@ function parseRules(factionText: string | null | undefined, variantText?: string
 		freeItems: [],
 		upgrades: [],
 		fireteams: 0,
+		patron: null,
 		limits: [],
 		prices: [],
 		paragraphs: all
@@ -398,6 +404,8 @@ export interface WarbandState {
 	limits?: ScopedLimit[];
 	prices?: PriceRule[];
 	upgrades?: Upgrade[];
+	/** The Patron it serves. */
+	patron?: string | null;
 }
 
 export type Check = { ok: true } | { ok: false; reason: string };
@@ -425,6 +433,7 @@ export function priceFor<T extends { name: string; cost: number; currency: Curre
 	for (const r of w.prices ?? []) {
 		if (!r.items || !matchItem(item, r.items, w.armoury)) continue;
 		if (r.who && !(m && 'id' in m && matchModel(m as ModelState, r.who, world(w)))) continue;
+		if (r.while && !w.models.some((x) => x.status === 'active' && matchModel(x, r.while, world(w)))) continue;
 		if (r.first && held.some((h) => letters(h.name) === letters(item.name))) continue;
 		p = applyPrice(p, r);
 	}
@@ -437,6 +446,7 @@ export function entryPrice<T extends { name: string; cost: number; currency: Cur
 	for (const r of w.prices ?? []) {
 		if (!r.entries?.some((x) => sameEntry(x, e.name))) continue;
 		if (r.first && w.models.some((m) => m.status === 'active' && sameEntry(m.type, e.name))) continue;
+		if (r.while && !w.models.some((x) => x.status === 'active' && matchModel(x, r.while, world(w)))) continue;
 		p = applyPrice(p, r);
 	}
 	return p;
@@ -478,7 +488,7 @@ function qualifies(m: ModelState, x: string) {
 
 /** Hands used by a model's weapons, per the Rulebook's Battlekit Limits. */
 function handsUsed(m: ModelState, armoury: ArmouryItem[], extra?: ArmouryItem) {
-	const items = [...m.equipment.map((e) => findItem(armoury, e.name)).filter((x): x is ArmouryItem => !!x), ...(extra ? [extra] : [])];
+	const items = [...m.equipment.map((e) => findItem(armoury, e.name)).filter((x): x is ArmouryItem => !!x), ...(extra ? [extra] : [])].map((i) => asCarried(m, i));
 	const strong = m.keywords.some((k) => letters(k) === 'strong');
 	let ranged = 0;
 	let melee = 0;
@@ -516,8 +526,15 @@ function handsOf(m: ModelState, w: WarbandState) {
 	return { ranged: pick('ranged'), melee: pick('melee') };
 }
 
+/** An item as this model carries it: its entry may give it other stipulations ("its Jezzail has Shield Combo"). */
+function asCarried(m: ModelState, i: ArmouryItem): ArmouryItem {
+	const own = m.kit.items && Object.entries(m.kit.items).find(([name]) => letters(name) === letters(i.name))?.[1];
+	return own ? { ...i, stipulations: { ...(i.stipulations ?? {}), ...own } } : i;
+}
+
 /** May this model be given this item? The first rule it breaks is the reason. */
-export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): Check {
+export function equipCheck(m: ModelState, armouryItem: ArmouryItem, w: WarbandState): Check {
+	const item = asCarried(m, armouryItem);
 	const f = itemFacts(item);
 	if (!w.unrestricted) {
 		if (m.kit.nothingElse) return no(`A ${m.type} cannot have any other Battlekit`);
@@ -552,8 +569,9 @@ export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): C
 			const combo = itemFacts(shield).shieldCombo;
 			const bad = next.twoHanded.find((t) => !(combo && itemFacts(t).shieldCombo));
 			if (bad) return no(`${bad.name} is 2-Handed and needs Shield Combo with ${shield.name}`);
-			if (next.ranged > 1 && !next.rangedTwo) return no(`With a Shield, only one 1-Handed ranged weapon`);
-			if (next.melee > 1 && !next.meleeTwo) return no(`With a Shield, only one 1-Handed melee weapon`);
+			// The shield takes a hand: one 1-Handed weapon of each kind beside it (more with more hands).
+			if (next.ranged > hands.ranged - 1 && !next.rangedTwo) return no(`With a Shield, only ${hands.ranged - 1 === 1 ? 'one' : hands.ranged - 1} 1-Handed ranged weapon${hands.ranged - 1 === 1 ? '' : 's'}`);
+			if (next.melee > hands.melee - 1 && !next.meleeTwo) return no(`With a Shield, only ${hands.melee - 1 === 1 ? 'one' : hands.melee - 1} 1-Handed melee weapon${hands.melee - 1 === 1 ? '' : 's'}`);
 		}
 		const has = (cat: ArmouryCategory) => cur.items.some((i) => i.category === cat);
 		if (item.category === 'grenade' && has('grenade')) return no('Only one type of Grenade');
@@ -688,6 +706,7 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 		if (u.max != null && on.length > u.max) out.push(`${u.name} on ${on.length} models; the most is ${u.max}.`);
 		for (const m of on) if (u.for.length && !u.for.some((x) => qualifies(m, x))) out.push(`${u.name} is only for ${u.for.join(', ')} (${m.type} has it).`);
 	}
+	if (rules.patron && !(w.patron && letters(w.patron).startsWith(letters(rules.patron)))) out.push(`The warband must serve ${rules.patron} as its Patron.`);
 	if (w.ducats < 0) out.push(`The strongbox is ${-w.ducats} Ducats short.`);
 	if (w.glory < 0) out.push(`The strongbox is ${-w.glory} Glory short.`);
 	return out;

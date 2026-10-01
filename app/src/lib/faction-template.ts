@@ -123,9 +123,9 @@ export interface TemplateError {
 
 type Obj = Record<string, unknown>;
 // The keys each part of a pack may have (anything else is refused).
-const RULE_KEYS = 'start_ducats start_glory excluded must_include leader optional caps free_items fireteams upgrades limits prices text';
+const RULE_KEYS = 'start_ducats start_glory excluded must_include leader optional caps free_items fireteams upgrades limits prices patron text';
 const UPGRADE_KEYS = 'name keyword keywords group max cost currency for hands limits text';
-const KIT_KEYS = 'fixed except nothing_else swap prices limits hands loadouts counts_as recruit';
+const KIT_KEYS = 'fixed except nothing_else swap prices limits hands loadouts counts_as recruit items';
 const STIPULATION_KEYS = 'only per_model shield_combo bayonet_lug consumable headgear exploration_only alignment factions limits limit_excludes';
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 /** Only the keys that are set. */
@@ -192,6 +192,22 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		if (isObj(o)) for (const k of Object.keys(o)) if (!allowed.split(' ').includes(k)) err(path ? `${path}.${k}` : k, 'is not a key of this format');
 	};
 	keys(doc, 'faction rules units armoury keywords patrons', '');
+	/** An item's stipulations (on the item, or as an entry carries it). */
+	const readStips = (st: Obj, q: string): StipulationsOverride => {
+		keys(st, STIPULATION_KEYS, q);
+		return {
+			...(st.only != null ? { only: list(st.only, `${q}.only`) } : {}),
+			...(st.per_model != null ? { perModel: num(st.per_model, `${q}.per_model`) } : {}),
+			...(st.shield_combo != null ? { shieldCombo: bool(st.shield_combo) } : {}),
+			...(st.bayonet_lug != null ? { bayonetLug: bool(st.bayonet_lug) } : {}),
+			...(st.consumable != null ? { consumable: bool(st.consumable) } : {}),
+			...(st.headgear != null ? { headgear: bool(st.headgear) } : {}),
+			...(st.exploration_only != null ? { explorationOnly: bool(st.exploration_only) } : {}),
+			...(st.alignment != null ? { alignment: oneOf(st.alignment, ALIGNMENTS, `${q}.alignment`, 'faithful') } : {}),
+			...(st.factions != null ? { factions: list(st.factions, `${q}.factions`) } : {}),
+			...defined({ limits: readLimits(st.limits, `${q}.limits`, err), limitExcludes: readModelSel(st.limit_excludes, `${q}.limit_excludes`, err) })
+		};
+	};
 
 	// Faction
 	const f = isObj(doc.faction) ? doc.faction : (err('faction', 'is required'), {} as Obj);
@@ -253,6 +269,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		...(r.excluded != null ? { excluded: list(r.excluded, 'rules.excluded') } : {}),
 		...(r.must_include != null ? { mustInclude: pairs(r.must_include, 'rules.must_include', 'n') as { name: string; n: number }[] } : {}),
 		...(r.leader != null ? { leader: str(r.leader, 'rules.leader') } : {}),
+		...(r.patron != null ? { patron: str(r.patron, 'rules.patron') } : {}),
 		...(r.optional != null ? { optional: list(r.optional, 'rules.optional') } : {}),
 		...(r.caps != null ? { caps: pairs(r.caps, 'rules.caps', 'max') as { name: string; max: number }[] } : {}),
 		...(r.free_items != null ? { freeItems: list(r.free_items, 'rules.free_items') } : {}),
@@ -328,7 +345,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 							hands: readHands(kitIn?.hands, `${p}.kit.hands`, err),
 							loadouts: readLoadouts(kitIn?.loadouts, `${p}.kit.loadouts`, err),
 							countsAs: str(kitIn?.counts_as, `${p}.kit.counts_as`) ?? undefined,
-							recruit: kitIn?.recruit != null ? bool(kitIn.recruit) : undefined
+							recruit: kitIn?.recruit != null ? bool(kitIn.recruit) : undefined,
+							items: isObj(kitIn?.items) ? Object.fromEntries(Object.entries(kitIn.items).map(([k, v]) => [k, readStips(isObj(v) ? v : {}, `${p}.kit.items.${k}`)])) : undefined
 						}),
 						...(swap
 							? { swap: { from: str(swap.from, `${p}.kit.swap.from`, true) ?? '', to: str(swap.to, `${p}.kit.swap.to`, true) ?? '', extra: num(swap.extra, `${p}.kit.swap.extra`, 0) ?? 0 } }
@@ -369,22 +387,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		const limit = num(o.limit, `${p}.limit`);
 		keys(o, 'name variant category type range cost currency limit unique keywords text description restrictions stipulations', p);
 		const st = isObj(o.stipulations) ? o.stipulations : null;
-		keys(st, STIPULATION_KEYS, `${p}.stipulations`);
 		const type = o.type != null ? oneOf(o.type, ITEM_TYPES, `${p}.type`, 'Equipment') : null;
-		const stipulations: StipulationsOverride | null = st
-			? {
-					...(st.only != null ? { only: list(st.only, `${p}.stipulations.only`) } : {}),
-					...(st.per_model != null ? { perModel: num(st.per_model, `${p}.stipulations.per_model`) } : {}),
-					...(st.shield_combo != null ? { shieldCombo: bool(st.shield_combo) } : {}),
-					...(st.bayonet_lug != null ? { bayonetLug: bool(st.bayonet_lug) } : {}),
-					...(st.consumable != null ? { consumable: bool(st.consumable) } : {}),
-					...(st.headgear != null ? { headgear: bool(st.headgear) } : {}),
-					...(st.exploration_only != null ? { explorationOnly: bool(st.exploration_only) } : {}),
-					...(st.alignment != null ? { alignment: oneOf(st.alignment, ALIGNMENTS, `${p}.stipulations.alignment`, 'faithful') } : {}),
-					...(st.factions != null ? { factions: list(st.factions, `${p}.stipulations.factions`) } : {}),
-					...defined({ limits: readLimits(st.limits, `${p}.stipulations.limits`, err), limitExcludes: readModelSel(st.limit_excludes, `${p}.stipulations.limit_excludes`, err) })
-				}
-			: null;
+		const stipulations: StipulationsOverride | null = st ? readStips(st, `${p}.stipulations`) : null;
 		return {
 			id: itemId(factionId, ivariant, iname),
 			faction: factionId,
@@ -418,6 +422,21 @@ const drop = <T extends Obj>(o: T, keepLists = false): T =>
 		Object.entries(o).filter(([, v]) => v != null && v !== '' && !(Array.isArray(v) && !v.length && !keepLists) && !(isObj(v) && !Object.keys(v).length))
 	) as T;
 
+const writeStips = (st: StipulationsOverride) =>
+	drop({
+		only: st.only,
+		per_model: st.perModel ?? undefined,
+		shield_combo: st.shieldCombo || undefined,
+		bayonet_lug: st.bayonetLug || undefined,
+		consumable: st.consumable || undefined,
+		headgear: st.headgear || undefined,
+		exploration_only: st.explorationOnly || undefined,
+		alignment: st.alignment,
+		factions: st.factions,
+		limits: st.limits,
+		limit_excludes: st.limitExcludes
+	});
+
 /** A faction (or variant) as a template document. */
 export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: string }): string {
 	const o = p.rules.overrides ?? {};
@@ -436,6 +455,7 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 			excluded: o.excluded,
 			must_include: o.mustInclude,
 			leader: o.leader ?? undefined,
+			patron: o.patron ?? undefined,
 			optional: o.optional,
 			caps: o.caps,
 			free_items: o.freeItems,
@@ -487,7 +507,8 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 							hands: u.kit.hands,
 							loadouts: u.kit.loadouts,
 							counts_as: u.kit.countsAs,
-							recruit: u.kit.recruit
+							recruit: u.kit.recruit,
+							items: u.kit.items ? Object.fromEntries(Object.entries(u.kit.items).map(([k, v]) => [k, writeStips(v)])) : undefined
 						})
 					: undefined,
 				hired_by: u.kit?.hire ? drop({ alignment: u.kit.hire.alignment ?? undefined, by: u.kit.hire.by }) : undefined
@@ -505,21 +526,7 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 				range: i.range ?? undefined,
 				keywords: i.keywords,
 				unique: i.unique || undefined,
-				stipulations: i.stipulations
-					? drop({
-							only: i.stipulations.only,
-							per_model: i.stipulations.perModel ?? undefined,
-							shield_combo: i.stipulations.shieldCombo || undefined,
-							bayonet_lug: i.stipulations.bayonetLug || undefined,
-							consumable: i.stipulations.consumable || undefined,
-							headgear: i.stipulations.headgear || undefined,
-							exploration_only: i.stipulations.explorationOnly || undefined,
-							alignment: i.stipulations.alignment,
-							factions: i.stipulations.factions,
-							limits: i.stipulations.limits,
-							limit_excludes: i.stipulations.limitExcludes
-						})
-					: undefined,
+				stipulations: i.stipulations ? writeStips(i.stipulations) : undefined,
 				restrictions: i.stipulations ? undefined : (i.restrictions ?? undefined),
 				text: i.text ?? undefined,
 				description: i.description ?? undefined

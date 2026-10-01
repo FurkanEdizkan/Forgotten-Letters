@@ -18,9 +18,9 @@ import { parseTemplate, type FactionPack, type ItemRow, type UnitRow } from '../
 import { FACTIONS } from '../src/lib/rules/factions.ts';
 import { builderState, entryOf, type BuilderInput, type ModelData } from '../src/lib/builder-state.ts';
 import { findPatron } from '../src/lib/patrons.ts';
-import { letters, priceFor, warbandIssues, type ArmouryItem } from '../src/lib/warband-rules.ts';
+import { entryPrice, letters, priceFor, readRules, recruitCheck, warbandIssues, type ArmouryItem } from '../src/lib/warband-rules.ts';
 
-const files = process.argv.slice(2).filter((f) => !/TEMPLATE/.test(f));
+const files = process.argv.slice(2).filter((f) => !/TEMPLATE|legal-lists/.test(f));
 const known = { factions: [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), ...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration'].map((id) => ({ id, name: id }))] };
 const packs = files.map((f) => parseTemplate(readFileSync(f, 'utf8'), known).pack).filter((p): p is FactionPack => !!p);
 const dir = files.length ? dirname(files[0]) : '.';
@@ -57,7 +57,15 @@ for (const f of FACTIONS) {
 		const shared = [...of('glory-items'), ...of('exploration')].filter(
 			(i) => (!i.stipulations?.alignment || i.stipulations.alignment === f.alignment) && (!i.stipulations?.factions?.length || i.stipulations.factions.some((x) => x === f.id || x === f.under))
 		);
-		const armoury = byName(byName([...shared, ...(mercs?.items ?? [])], base.items), v?.items ?? []).map(toItem);
+		// As the server builds it: a mercenary's own kit for that mercenary only; excluded items taken away.
+		const carriers = (n: string) => (mercs?.units ?? []).filter((u) => [...(u.kit?.fixed ?? []), ...Object.keys(u.kit?.prices ?? {})].some((x) => letters(x) === letters(n))).map((u) => u.name);
+		const mercKit = (mercs?.items ?? [])
+			.filter((i) => carriers(i.name).length)
+			.map((i) => ({ ...i, stipulations: { ...(i.stipulations ?? {}), only: i.stipulations?.only?.length ? i.stipulations.only : carriers(i.name) } }));
+		const excludedNow = new Set(readRules(base.rules.text, v?.rules.text ?? null, [base.rules.overrides, v?.rules.overrides]).excluded.map(letters));
+		const armoury = byName(byName([...shared, ...mercKit], base.items), v?.items ?? [])
+			.filter((i) => !excludedNow.has(letters(i.name)))
+			.map(toItem);
 		const input = (list: List | null, models: ModelData[], ducats: number, glory: number): BuilderInput => ({
 			faction: { name: f.name, alignment: f.alignment, variant },
 			rulesText: { faction: base.rules.text, variant: v?.rules.text ?? null, overrides: [base.rules.overrides, v?.rules.overrides ?? null] },
@@ -87,26 +95,37 @@ for (const f of FACTIONS) {
 						problems.push(`${m.entry}: no such unit`);
 						continue;
 					}
-					const fixed = new Set((empty.state.models[0]?.kit.fixed ?? []).map(letters));
-					const kit = [...(u.kit?.fixed ?? []).map((n) => ({ name: n, cost: 0, currency: 'ducats' as const }))];
+					// Recruited, or hired, as the builder would allow (money, caps and limits aside: those are the list's issues).
+					const may = recruitCheck(entryOf({ ...u, kit: u.kit }), { ...empty.state, ducats: Infinity, glory: Infinity, limits: [] }, empty.rules, { name: f.name, alignment: f.alignment, variant });
+					if (!may.ok) problems.push(`${m.entry}: ${may.reason}`);
+					// Priced as the builder prices it, in order: its entry's first-recruit price, then each item's (free items,
+					// first copies, Patron Skill discounts).
+					const sofar = () => builderState(input(list, models, 0, 0)).state;
+					const recruited = entryPrice({ name: u.name, cost: u.cost, currency: u.currency }, sofar());
+					const fixedKit = (u.kit?.fixed ?? []).map((n) => ({ name: n, cost: 0, currency: 'ducats' as const }));
+					const me: ModelData = { id: `m${models.length}`, type: u.name, name: '', category: u.category, status: 'active', profileId: u.id, equipment: fixedKit, upgrades: m.upgrades ?? [], cost: recruited.cost, currency: recruited.currency, skills: m.skills ?? [] };
+					models.push(me);
 					for (const n of m.kit ?? []) {
 						const a = armoury.find((x) => letters(x.name) === letters(n));
-						if (!a) problems.push(`${m.entry}: no item "${n}"`);
-						else if (!fixed.has(letters(n))) {
-							const p = priceFor({ kit: { fixed: [], swap: null, except: [], nothingElse: false, ...(u.kit ?? {}) } }, a);
-							kit.push({ name: a.name, cost: p.cost, currency: p.currency });
+						if (!a) problems.push(excludedNow.has(letters(n)) ? `${m.entry}: ${n} is excluded from this warband's armoury` : `${m.entry}: no item "${n}"`);
+						else {
+							const st = builderState(input(list, models, 0, 0));
+							const held = [...st.state.models.flatMap((x) => x.equipment)];
+							const free = st.rules.freeItems.some((x) => letters(x) === letters(a.name)) && !held.some((h) => letters(h.name) === letters(a.name));
+							const p = priceFor(st.state.models.at(-1), a, st.state);
+							me.equipment = [...me.equipment, { name: a.name, cost: free ? 0 : p.cost, currency: p.currency }];
 						}
 					}
-					let cost = u.cost;
+					let cost = recruited.cost;
 					for (const n of m.upgrades ?? []) {
 						const up = empty.rules.upgrades.find((x) => letters(x.name) === letters(n));
 						if (!up) problems.push(`${m.entry}: no upgrade "${n}"`);
-						else if (up.currency === u.currency) cost += up.cost;
+						else if (up.currency === recruited.currency) cost += up.cost;
 						else spent[up.currency] += up.cost;
 					}
-					spent[u.currency] += cost;
-					for (const e of kit) spent[e.currency] += e.cost;
-					models.push({ id: `m${models.length}`, type: u.name, name: '', category: u.category, status: 'active', profileId: u.id, equipment: kit, upgrades: m.upgrades ?? [], cost, currency: u.currency, skills: m.skills ?? [] });
+					me.cost = cost;
+					spent[recruited.currency] += cost;
+					for (const e of me.equipment) spent[e.currency] += e.cost;
 				}
 			const st = builderState(input(list, models, start.startDucats - spent.ducats, start.startGlory - spent.glory));
 			return [...problems, ...warbandIssues(st.state, st.rules, units.map((u) => entryOf({ ...u, kit: u.kit })))];

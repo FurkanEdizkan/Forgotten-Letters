@@ -150,11 +150,44 @@ describe('hands, loadouts and the Rulebook keywords', () => {
 		expect(equipCheck({ ...m, kit: { ...kit, hands: undefined } }, A.sword, wb([m])).ok).toBe(false);
 	});
 
+	it('2-Handed is not 1-Handed (the digit counts)', () => {
+		const one: ScopedLimit = { text: 'No 2-Handed weapons', items: { types: ['2-Handed'] }, max: 0 };
+		const m = model('Trooper');
+		expect(equipCheck(m, A.sword, wb([m], [one])).ok).toBe(true);
+		expect(equipCheck(m, A.greatsword, wb([m], [one])).ok).toBe(false);
+	});
+
+	it("an entry's own item facts: its Jezzail has Shield Combo", () => {
+		const jezzail = item('Jezzail', 'ranged', '2-Handed', 20);
+		const shield = { ...A.trenchShield };
+		const kit = { fixed: [], swap: null, except: [], nothingElse: false, items: { Jezzail: { shieldCombo: true } } };
+		const m = model('Sipahi', { kit, equipment: held(shield) });
+		const w = wb([m], [], { armoury: [...armoury, jezzail] });
+		expect(equipCheck(m, jezzail, w).ok).toBe(true);
+		expect(equipCheck({ ...m, kit: { ...kit, items: undefined } }, jezzail, w).ok).toBe(false);
+	});
+
+	it('a shield takes one of three hands: two 1-handed melee weapons beside it', () => {
+		const kit = { fixed: [], swap: null, except: [], nothingElse: false, hands: { melee: 3 } };
+		const m = model('Homunculus', { kit, equipment: held(A.trenchShield, A.sword) });
+		expect(equipCheck(m, A.knife, wb([m])).ok).toBe(true);
+		expect(equipCheck({ ...m, equipment: held(A.trenchShield, A.sword, A.knife) }, A.sword, wb([m])).ok).toBe(false);
+		expect(equipCheck({ ...m, kit: { ...kit, hands: undefined } }, A.knife, wb([m])).ok).toBe(false);
+	});
+
 	it('one piece of HEAVY battlekit, unless STRONG; an imported list is checked too', () => {
 		const m = model('Trooper', { equipment: held(A.lmg) });
 		expect(reason(equipCheck(m, A.mine, wb([m])))).toMatch(/HEAVY/);
 		expect(equipCheck({ ...m, keywords: ['STRONG'] }, A.mine, wb([m])).ok).toBe(true);
 		expect(warbandIssues(wb([model('Trooper', { equipment: held(A.lmg, A.mine) })]), rules, []).join()).toMatch(/HEAVY/);
+	});
+});
+
+describe('the Patron a warband must serve', () => {
+	it('is reported until it serves it', () => {
+		const r = readRules(null, null, [{ patron: 'Mammon' }]);
+		expect(warbandIssues(wb([model('Knight')]), r, [])).toContain('The warband must serve Mammon as its Patron.');
+		expect(warbandIssues(wb([model('Knight')], [], { patron: 'Mammon, the Golden Lord' }), r, [])).toEqual([]);
 	});
 });
 
@@ -171,6 +204,12 @@ describe('prices by rule', () => {
 		expect(priceFor(m, A.greatsword, { ...w, stash: held(A.greatsword) }).cost).toBe(12);
 		expect(priceFor(m, A.armour, w).cost).toBe(10);
 		expect(priceFor(model('Squire'), A.armour, w).cost).toBe(15);
+	});
+	it('a Procurement Skill discounts every purchase while its model is in the warband', () => {
+		const rule = { items: { categories: ['armour' as const] }, less: 5, while: { skills: ['Procurement'] } };
+		const squire = model('Squire');
+		expect(priceFor(squire, A.armour, wb([squire, model('Lord', { skills: ['Procurement'] })], [], { prices: [rule] })).cost).toBe(10);
+		expect(priceFor(squire, A.armour, wb([squire], [], { prices: [rule] })).cost).toBe(15);
 	});
 	it('the first Goetic Warlock costs 110 Ducats instead of its Glory', () => {
 		const w = wb([], [], { prices: [{ entries: ['Goetic Warlock'], first: true, cost: 110, currency: 'ducats' }] });

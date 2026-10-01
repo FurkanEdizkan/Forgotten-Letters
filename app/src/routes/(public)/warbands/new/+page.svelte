@@ -19,7 +19,13 @@
 	// The Patrons this pick may serve, and the one chosen (its rules and Skills shown beneath).
 	const pickAlignment = $derived(chosen ? ('parent' in chosen ? chosen.parent.alignment : chosen.alignment) : null);
 	const patrons = $derived(
-		chosen ? data.patrons.filter((p) => patronAllowed(p, { faction: factionId, variant: variant || null, alignment: pickAlignment as 'faithful' | 'fallen' })) : []
+		chosen
+			? data.patrons.filter(
+					(p) =>
+						patronAllowed(p, { faction: factionId, variant: variant || null, alignment: pickAlignment as 'faithful' | 'fallen' }) &&
+						(!rules?.patron || p.name.toLowerCase().startsWith(rules.patron.toLowerCase()))
+				)
+			: []
 	);
 	let patronName = $state('');
 	const patron = $derived(patrons.find((p) => p.name === patronName) ?? null);

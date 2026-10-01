@@ -34,6 +34,8 @@ interface PickRules {
 	ducats: number;
 	glory: number;
 	leader: string | null;
+	/** The one Patron it must serve, if the books name one. */
+	patron: string | null;
 	mustInclude: { name: string; n: number }[];
 	excluded: string[];
 	caps: { name: string; max: number }[];
@@ -115,6 +117,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 						ducats: r.startDucats,
 						glory: r.startGlory,
 						leader: r.leader,
+						patron: r.patron,
 						mustInclude: r.mustInclude,
 						excluded: r.excluded,
 						caps: r.caps,
@@ -129,12 +132,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-/** The strongbox a pick starts with: its variant's (or faction's) starting money. */
-async function startOf(faction: string, variant: string | null) {
+/** A pick's rules: its faction's, with its variant's over them. */
+async function rulesOf(faction: string, variant: string | null) {
 	const rows = await allFactionRules();
 	const base = rows.find((r) => r.faction === faction && !r.variant);
 	const vr = variant ? rows.find((r) => r.faction === faction && r.variant === variant) : undefined;
-	const r = readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
+	return readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
+}
+
+/** The strongbox a pick starts with: its variant's (or faction's) starting money. */
+async function startOf(faction: string, variant: string | null) {
+	const r = await rulesOf(faction, variant);
 	return { ducats: r.startDucats, glory: r.startGlory };
 }
 
@@ -194,6 +202,12 @@ export const actions: Actions = {
 			const fac = FACTIONS.find((x) => x.id === pf);
 			if (!pat || !fac || !patronAllowed(pat, { faction: fac.id, variant: pv || null, alignment: fac.alignment }))
 				return fail(400, { message: `${patronName} is not a Patron this warband may serve.` });
+		}
+		// Some warbands serve one Patron only (the Knights of Avarice, Mammon).
+		{
+			const [pf, pv] = String(data.get('pick') ?? '').split('::');
+			const must = (await rulesOf(pf, pv || null)).patron;
+			if (must && !patronName.toLowerCase().startsWith(must.toLowerCase())) return fail(400, { message: `This warband serves ${must}: choose it as its Patron.` });
 		}
 
 		// A list of your own: no seat, no entry zone; it can be used for the campaign later.

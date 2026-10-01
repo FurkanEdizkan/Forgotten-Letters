@@ -80,7 +80,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text])),
 		// The Patron it serves (its rules and Skills), and the ones it may change to.
 		patron: findPatron(patronList, w.patron) ?? (w.patron ? { name: w.patron, text: '', skills: [], source: null } : null),
-		patrons: patronList.filter((x) => patronAllowed(x, { faction: w.faction, variant: w.variant, alignment })).map((x) => x.name),
+		patrons: patronList
+			.filter((x) => patronAllowed(x, { faction: w.faction, variant: w.variant, alignment }) && (!rules.patron || x.name.toLowerCase().startsWith(rules.patron.toLowerCase())))
+			.map((x) => x.name),
 		canEdit,
 		/** The leader who stands by the banner at battles (Map models), for the warband's own player and the CM. */
 		leaderModel: await (async () => {
@@ -363,7 +365,7 @@ export const actions: Actions = {
 
 	/** Warband settings: name, notes and lore, strongbox, Remove Restrictions, Open Exploration. */
 	settings: async ({ params, request, locals }) => {
-		const { w } = await editable(params.id, locals);
+		const { w, rules } = await editable(params.id, locals);
 		const d = await request.formData();
 		const set: Partial<typeof warband.$inferInsert> = {};
 		if (d.has('name') && str(d, 'name', 80)) set.name = str(d, 'name', 80);
@@ -380,6 +382,7 @@ export const actions: Actions = {
 		if (d.has('glory')) set.treasuryGlory = Math.round(Number(d.get('glory')) || 0);
 		if (d.has('patronForm')) {
 			const name = str(d, 'patron', 120);
+			if (rules.patron && !w.unrestricted && !name.toLowerCase().startsWith(rules.patron.toLowerCase())) return fail(400, { message: `This warband serves ${rules.patron}.` });
 			const pat = (await allPatrons()).find((x) => x.name === name);
 			const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
 			if (name && (!pat || !patronAllowed(pat, { faction: w.faction, variant: w.variant, alignment }))) return fail(400, { message: `${name} is not a Patron this warband may serve.` });

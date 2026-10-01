@@ -133,7 +133,7 @@ for (const f of FACTIONS) {
 
 		const key = Object.keys(lists).find((k) => letters(k) === letters(`${f.id}::${variant ?? ''}`) || (!variant && letters(k) === letters(f.id)));
 		const mine = key ? lists[key] : null;
-		if (!mine?.legal?.length) {
+		if (!mine?.legal?.length && !(start.requiresVariant && !variant)) {
 			// No example: the smallest warband the rules ask for.
 			const want: string[] = [];
 			const leader = start.leader ?? units.find((u) => u.category !== 'mercenary' && !start.excluded.some((x) => letters(x) === letters(u.name)) && u.keywords.some((k) => letters(k) === 'leader'))?.name ?? null;

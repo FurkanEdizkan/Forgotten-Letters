@@ -43,3 +43,7 @@ next-env.d.ts
 app/test-results/
 app/playwright-report/
 app/blob-report/
+
+# Architecture: the built site and the atlas cache (facts, to-do) are rebuilt on demand
+architecture/site/
+architecture/.atlas/

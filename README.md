@@ -77,13 +77,14 @@ zones or presets, open *Admin → Backup → Download starter pack*, replace the
 
 **Two doors.** Players sign in at `/login`. The Campaign Master signs in at `/admin/login`, which opening `/admin` leads to; each door turns away the other's accounts with the same answer as a wrong password. Guessing at the CM is limited per address only, so nobody can lock the CM out, and guessing from many addresses meets the `.env` password: keep it long.
 
-`./build_and_update.sh` adds `ACCESS=private` when `DOMAIN` is set, and prints the mode on every run. The rules are in one place (`app/src/lib/server/access.ts`) and are tested case by case. `ARCHITECTURE.md` maps the whole system.
+`./build_and_update.sh` adds `ACCESS=private` when `DOMAIN` is set, and prints the mode on every run. The rules are in one place (`app/src/lib/server/access.ts`) and are tested case by case. `architecture/` maps the whole system (see Develop → The architecture).
 
 ### Testing
 
 - `cd app && npm test`: unit tests.
 - `./scripts/e2e.sh`: end-to-end tests of every sign-in and access case. It builds a throwaway copy of the app and runs them in open mode, over the LAN address, and in private mode, then removes the copy.
 - `TESTING.md`: the manual pass on real devices.
+- `cd tools/atlas && npm test`: the architecture tool.
 
 ### The map: Admin → Map
 
@@ -211,6 +212,28 @@ light on phones; the STL is kept for re-rendering but never served publicly.
   most Vision evidence) is recorded by the Campaign Master as an adjustment or Vision level.
 
 ## Develop
+
+**Start with `CONTRIBUTING.md`**: the order of work (architecture first), branch and commit conventions. Run
+`./scripts/dev-setup.sh` once after cloning.
+
+### The architecture
+
+The system is described as a [LikeC4](https://likec4.dev) model in `architecture/`: services, server modules,
+pages and endpoints, browser code, database tables, and one flow per feature (`architecture/features/`). It's kept
+next to the code by **atlas** (`tools/atlas`, its own package):
+
+```sh
+npm --prefix tools/atlas run serve    # the interactive diagrams, live while you edit the .c4 files
+npm --prefix tools/atlas run build    # a static site in architecture/site (opens from disk)
+npm --prefix tools/atlas run update   # refresh the generated part and MAP.md; list what the model still needs
+npm --prefix tools/atlas run check    # does the model match the code?
+npm --prefix tools/atlas run status   # did this branch change code without updating the model?
+```
+
+`architecture/MAP.md` is the whole map in a few kilobytes: start there before changing code (agents too:
+`AGENTS.md`). The `likec4` MCP server in `.mcp.json` answers questions about the model.
+
+### Agent skills
 
 Agent skills (design, PixiJS, Svelte, commit conventions) are listed in `skills-lock.json` and are not in git. After cloning, run
 `./install_skills.sh` to download them into `.agents/skills` and link them into `.claude/skills`. Add a skill with

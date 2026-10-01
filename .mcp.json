@@ -10,6 +10,16 @@
         "blender-mcp"
       ],
       "env": {}
+    },
+    "likec4": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "tools/atlas/node_modules/likec4/bin/likec4.mjs",
+        "mcp",
+        "architecture"
+      ],
+      "env": {}
     }
   }
 }

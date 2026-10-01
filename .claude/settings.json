@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Architecture map: architecture/MAP.md. Read it before searching the code (AGENTS.md).'; [ -d tools/atlas/node_modules ] && node tools/atlas/src/cli.ts status --brief 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

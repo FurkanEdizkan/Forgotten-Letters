@@ -1,0 +1,33 @@
+// Feature: the campaign's life. Code: lib/campaign-flow.ts (pure stages), muster.ts, rounds.ts, games.ts, campaign.ts.
+views {
+  dynamic view campaign_flow {
+    title 'Campaign flow'
+    description '''
+      **From founding to the final reckoning.** Stages run setup → mustering → underway →
+      ended (`campaign-flow.ts`, shared by server and pages).
+
+      **Decisions**
+      - Seats come first: the CM sizes the campaign, each seat gets an invite link (single use,
+        seven days), and joining makes the account and seats it.
+      - A campaign needs at least two warbands to get under way; the CM can override other
+        mustering checks.
+      - Rounds of battles: players roll for Aggressor, Aggressors pick opponents and battlefields,
+        battles roll Hell on Earth. Each step holds a Postgres advisory lock, so a double tap or
+        a player and the CM at once can't act twice.
+      - The campaign state is replayed from its events (games and adjustments) by the pure rules
+        engine, on the server and in the browser alike.
+    '''
+    cm -> cf.app.web.admin 'found the campaign, set the seats'
+    cf.app.web.admin -> cf.app.server.campaign 'ensureSeats, issueInvite'
+    player -> cf.app.web.door 'follow the invite link'
+    cf.app.web.door -> cf.app.server.campaign 'redeemInvite: account + seat'
+    player -> cf.app.web.public 'muster: found the warband, pick a Vision'
+    cm -> cf.app.web.admin 'advance to under way'
+    player -> cf.app.web.public 'the round: roll, pick an opponent and a field'
+    cf.app.web.public -> cf.app.web.api '/api/round'
+    cf.app.web.api -> cf.app.server.campaign 'one locked step at a time (rounds.ts)'
+    cm -> cf.app.web.admin 'record the battle'
+    cf.app.web.admin -> cf.app.server.campaign 'commitGame, closeRoundIfDone'
+    cf.app.server.campaign -> cf.app.ui.engine 'replay the events: standings'
+  }
+}

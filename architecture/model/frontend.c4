@@ -1,0 +1,174 @@
+// The pages and endpoints (app/src/routes) and the code that runs in the browser (app/src/lib).
+// Routes are listed one by one in generated/routes.c4, under the group that owns them here.
+model {
+  extend cf.app {
+    web = layer 'Pages and endpoints' {
+      technology 'SvelteKit routes'
+      description 'Pages load and write through form actions (use:enhance); JSON and streams live under /api.'
+
+      shell = page 'Shell' {
+        technology 'root layout · +error.svelte'
+        description 'The root layout (signed-in user, factions, map and zones for every page) and the book-page error page with a way back.'
+        metadata {
+          code ['app/src/routes/+layout.svelte', 'app/src/routes/+layout.server.ts', 'app/src/routes/+error.svelte']
+        }
+      }
+
+      door = page 'The doors' {
+        technology '/login · /admin/login · /join · /logout'
+        description '''
+          Signing in and out: players at /login (with account and reset requests), the
+          Campaign Master at /admin/login, seat invites at /join/<token>. Reachable signed out
+          in both modes.
+        '''
+        metadata {
+          code ['app/src/routes/login/**', 'app/src/routes/admin/login/**', 'app/src/routes/join/**', 'app/src/routes/logout/**']
+        }
+      }
+
+      public = page 'Campaign pages' {
+        technology 'route group (public)'
+        description 'The live map (home), standings, zones, chronicle, compendium, warbands and their builder, muster and settings.'
+        metadata {
+          code 'app/src/routes/(public)/**'
+        }
+      }
+
+      admin = page 'Admin console' {
+        #cm-only
+        technology '/admin'
+        description 'The Campaign Master\'s console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and the log.'
+        metadata {
+          code 'app/src/routes/admin/**'
+        }
+      }
+
+      api = endpoint 'API and files' {
+        technology '/api · /uploads · /health'
+        description '''
+          The live stream (SSE: anyone in open mode, signed in when private), the round API (the
+          round's players and the CM), battle results (as the stream), seals and unit photos (the
+          warband's player, the CM), model tokens and their STL sources (the CM, or a player for
+          their own warband; STL never public), uploaded files (as the stream), /health (anyone).
+        '''
+        metadata {
+          code ['app/src/routes/api/**', 'app/src/routes/uploads/**', 'app/src/routes/health/**']
+        }
+      }
+    }
+
+    ui = layer 'Browser code' {
+      description 'Components and client-safe modules. Pure modules are shared with the server and unit-tested.'
+
+      livemap = module 'Live map' {
+        #client
+        technology 'LiveMap.svelte · PixiJS 8 · pixi-viewport'
+        description '''
+          The campaign map: zones, warbands, battles and monuments, the battle muster, and
+          the camera (fly into a battle; zooming or panning far away leaves it).
+        '''
+        metadata {
+          code 'app/src/lib/components/LiveMap.svelte'
+        }
+      }
+
+      fx = module 'Effects engine' {
+        #client
+        technology 'lib/fx · PixiJS'
+        description 'Sky and weather, battle bombardment, aircraft and crows, wanted posters: loaded only in the browser.'
+        metadata {
+          code 'app/src/lib/fx/**'
+        }
+      }
+
+      battle = module 'Battle and round UI' {
+        #client
+        technology 'BattleHud · BattlePanel · RoundPanel · ArrangeBattle · …'
+        description 'Inside a battle and a round: the HUD, panels, dice, result banner and roll toasts.'
+        metadata {
+          code 'app/src/lib/components/{BattleHud,BattlePanel,BattleControls,RoundPanel,ArrangeBattle,ResultBanner,RollToasts,Dice}.svelte'
+        }
+      }
+
+      components = module 'Components' {
+        #client
+        technology 'Svelte 5'
+        description 'Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.'
+        metadata {
+          code 'app/src/lib/components/*.svelte'
+        }
+      }
+
+      live = module 'Live client' {
+        #client
+        technology 'live.svelte.ts · snapshot.ts'
+        description 'Starts from the server-rendered snapshot and follows /api/stream; the snapshot\'s shape.'
+        metadata {
+          code 'app/src/lib/{live.svelte,snapshot}{,.spec}.ts'
+        }
+      }
+
+      engine = module 'Rules engine' {
+        #pure
+        technology 'lib/rules · builder · warband-rules · roster'
+        description 'The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.'
+        metadata {
+          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,roster,keywords,rules-text,effects}{,.spec}.ts']
+        }
+      }
+
+      flow = module 'Campaign flow' {
+        #pure
+        technology 'campaign-flow · seating · map-battles · battle-outcome · battle-hud'
+        description 'The campaign\'s life from founding to the final reckoning, seats, where battles stand on the map, and how a finished battle reads.'
+        metadata {
+          code 'app/src/lib/{campaign-flow,seating,map-battles,battle-outcome,battle-hud}{,.spec}.ts'
+        }
+      }
+
+      shared = module 'Shared modules' {
+        #pure
+        technology 'lib/*.ts'
+        description 'Map and faction templates (YAML), custom factions, sigils, seals, monuments, model tokens, unit art, lore seed, Markdown, navigation, and the effects\' state types (fx/types.ts).'
+        metadata {
+          code ['app/src/lib/*.ts', 'app/src/lib/assets/**', 'app/src/lib/fx/types{,.spec}.ts']
+        }
+      }
+    }
+  }
+
+  // Browser code
+  cf.app.ui.livemap -> cf.app.ui.fx 'draws the weather and battles'
+  cf.app.ui.livemap -> cf.app.ui.flow 'places battles on zones'
+  cf.app.ui.livemap -> cf.app.ui.shared 'sigils, seals, monuments, tokens'
+  cf.app.ui.livemap -> cf.app.ui.live 'snapshot types'
+  cf.app.ui.livemap -> cf.app.ui.engine 'zone rules'
+  cf.app.ui.battle -> cf.app.ui.flow 'battle outcome, HUD roster'
+  cf.app.ui.battle -> cf.app.ui.engine 'round and scenario rules'
+  cf.app.ui.battle -> cf.app.ui.components 'portraits, seals, cards'
+  cf.app.ui.battle -> cf.app.ui.live 'snapshot types'
+  cf.app.ui.components -> cf.app.ui.engine 'unit and warband rules'
+  cf.app.ui.components -> cf.app.ui.shared 'seals, sigils, models, nav'
+  cf.app.ui.components -> cf.app.ui.live 'who is signed in, the snapshot'
+  cf.app.ui.fx -> cf.app.ui.shared 'sigils, seals'
+  cf.app.ui.fx -> cf.app.ui.live 'snapshot types'
+  cf.app.ui.flow -> cf.app.ui.engine 'campaign rules'
+  cf.app.ui.flow -> cf.app.ui.live 'snapshot types'
+  cf.app.ui.live -> cf.app.ui.engine 'rule types'
+  cf.app.ui.shared -> cf.app.ui.engine 'faction and rule types'
+  cf.app.ui.shared -> cf.app.ui.live 'the signed-in context'
+  cf.app.ui.shared -> cf.app.ui.flow 'campaign flow types'
+  cf.app.ui.battle -> cf.app.ui.shared 'effects state types, seals'
+  cf.app.ui.fx -> cf.app.ui.engine 'weather rules for the sky summary'
+  cf.app.ui.fx -> cf.app.ui.flow 'battle outcomes to animate'
+  cf.app.ui.live -> cf.app.ui.shared 'seals, effects state types'
+
+  // Server modules use the pure rules too
+  cf.app.server -> cf.app.ui.engine 'the same rules, on the server'
+  cf.app.server -> cf.app.ui.flow 'the same campaign flow, on the server'
+  cf.app.server -> cf.app.ui.shared 'templates, seals, models, effects state types'
+  cf.app.server.live -> cf.app.ui.live 'the snapshot\'s shape'
+
+  // The browser talks to the server through the web layer only
+  cf.app.ui.live -[streams]-> cf.app.web.api 'follows /api/stream'
+}

@@ -1,0 +1,38 @@
+// Feature: who may reach what, and signing in. Code: access.ts, signin.ts, auth.ts, hooks.server.ts, the doors.
+// Tests: app/src/lib/server/{access,auth,audit}.spec.ts, app/e2e/*.spec.ts (./scripts/e2e.sh), TESTING.md.
+views {
+  dynamic view access_and_sign_in {
+    title 'Access and sign-in'
+    description '''
+      **Two modes, two doors.** `ACCESS=open` (a LAN at the venue) lets anyone watch the map;
+      `ACCESS=private` (deployed; set by build_and_update.sh when DOMAIN is set) shows a
+      signed-out visitor only the doors: /login, /admin/login and /join/<invite>. Pages
+      redirect there, data answers 401.
+
+      **Decisions**
+      - One pure function, `accessFor(mode, request, user)`, decides every request; hooks only
+        carry it out. Denied pages raise their status in the group layouts, so the book-page
+        error page renders inside the app.
+      - Players sign in at /login, the Campaign Master only at /admin/login. Each door refuses
+        the other's accounts with the same answer as a wrong password.
+      - The CM's door limits per address only, so nobody can lock the CM out by guessing;
+        guessing from many addresses meets the long .env password.
+      - A player on /admin gets a 403 page, never a redirect (no loop); after sign-in a visitor
+        returns to `next` only if they may open it.
+      - Sessions roll forward once a day while in use; a remembered cookie rolls with them.
+      - A temporary password reaches only Settings until it is replaced.
+    '''
+    cm -> cf.app.hooks 'GET /admin (signed out)'
+    cf.app.hooks -> cf.app.server.access 'accessFor: CM-only, signed out'
+    cf.app.hooks -> cm 'redirect /admin/login?next=/admin'
+    cm -> cf.app.web.door 'POST /admin/login: username, password, remember'
+    cf.app.web.door -> cf.app.server.accounts 'signIn(event, cm): per-address limit, authenticate, right door?'
+    cf.app.server.accounts -> cf.db.t_accounts 'check the hash, create a session'
+    cf.app.server.accounts -> cf.app.server.audit 'signin.ok / signin.fail'
+    cf.app.server.accounts -> cf.app.server.access 'landingFor: next if allowed, else /admin'
+    cf.app.web.door -> cm 'Set-Cookie cf_session, 303 to /admin'
+    cm -> cf.app.hooks 'next request with the cookie'
+    cf.app.hooks -> cf.app.server.accounts 'sessionUser: cached in Redis, renewed once a day'
+    cf.app.hooks -> cf.app.server.access 'accessFor: allow'
+  }
+}

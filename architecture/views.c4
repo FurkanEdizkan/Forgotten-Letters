@@ -1,0 +1,74 @@
+// The part views. Each feature has its own dynamic view in features/. Neighbouring layers appear as one box, so a
+// view shows its own part in detail and only the outline of the rest (open that box for its own view).
+views {
+  view index {
+    title 'Landscape'
+    description 'Who uses Carcass Front, and the services it runs as.'
+    include *, cf.*
+  }
+
+  view app of cf.app {
+    title 'Inside the app'
+    description 'The request pipeline, the server modules, the pages and endpoints, and the browser code.'
+    include cf.app.hooks, cf.app.server, cf.app.web, cf.app.ui, cf.db, cf.redis, cf.files, cf.caddy
+    autoLayout TopBottom
+  }
+
+  view backend of cf.app.server {
+    title 'Backend: server modules'
+    description 'Server-only domain modules, how they depend on each other, and the stores they use. Who calls them: the frontend and app views.'
+    include cf.app.server.*, cf.db, cf.redis, cf.files
+    // Which module writes which table group: the database view.
+    exclude * -> cf.db.*
+    autoLayout TopBottom
+  }
+
+  view frontend of cf.app.web {
+    title 'Frontend: pages and endpoints'
+    description 'The route groups, the browser code they render, and the server modules behind them (open a group for its routes).'
+    include cf.app.web.*, cf.app.server, cf.app.ui, cm, player, guest
+    autoLayout TopBottom
+  }
+
+  view web_public of cf.app.web.public {
+    title 'Campaign pages: routes'
+    include *, cf.app.server.*
+    exclude cf.app.ui
+    autoLayout LeftRight
+  }
+
+  view web_admin of cf.app.web.admin {
+    title 'Admin console: routes'
+    include *, cf.app.server.*
+    exclude cf.app.ui
+    autoLayout LeftRight
+  }
+
+  view web_door of cf.app.web.door {
+    title 'The doors: routes'
+    include *, cf.app.server.*
+    exclude cf.app.ui
+    autoLayout LeftRight
+  }
+
+  view apis of cf.app.web.api {
+    title 'APIs'
+    description 'JSON and stream endpoints (/api), uploaded files and the health check, and the server modules behind them. Pages write through form actions instead.'
+    include *, cf.app.server.*
+    exclude cf.app.ui
+    autoLayout LeftRight
+  }
+
+  view browser of cf.app.ui {
+    title 'Frontend: browser code'
+    description 'Components, the PixiJS map and effects, and the pure modules shared with the server.'
+    include cf.app.ui.*, cf.app.server, cf.app.web
+    autoLayout TopBottom
+  }
+
+  view database of cf.db {
+    title 'Database'
+    description 'Table groups and their tables. Open the backend view for which module writes which group.'
+    include cf.db.*, cf.db.**, cf.app.server
+  }
+}

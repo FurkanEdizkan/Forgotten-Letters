@@ -5,10 +5,7 @@ import type { BattleResultEvent } from './types';
 import { factionColours } from '$lib/seals';
 import { TIER_SCALE, hexNum, mix, monumentFrame } from '$lib/monuments';
 
-/** Where each side stands on a battlefield: out to either side of the zone, clear of the two warbands'
- * markers (which stand on its centre while they fight). */
-const SIDE_OFFSET = 110;
-const sides = (at: Pt) => ({ aggressor: { x: at.x - SIDE_OFFSET, y: at.y + 20 }, defender: { x: at.x + SIDE_OFFSET, y: at.y + 8 } });
+import { sides } from './sides';
 /** The winner plants the monument on their own side of the field (a draw's cairn goes between). */
 const monumentAt = (at: Pt, side: Pt | null) => (side ? { x: side.x + (side.x < at.x ? -20 : 20), y: side.y + 40 } : { x: at.x - 112, y: at.y + 60 });
 const near = (p: Pt, r: () => number, rx: number, ry: number) => ({ x: p.x + (r() - 0.5) * 2 * rx, y: p.y + (r() - 0.5) * 2 * ry });

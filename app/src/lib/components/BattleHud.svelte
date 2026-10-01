@@ -5,7 +5,14 @@
 	import type { PublicGame, PublicSnapshot } from '$lib/snapshot';
 
 	/** The active battle's overlay: the stamp, the two sides facing each other, and a way out. */
-	let { game, snapshot, zoneName, onleave }: { game: PublicGame; snapshot: PublicSnapshot; zoneName: string; onleave: () => void } = $props();
+	let {
+		game,
+		snapshot,
+		zoneName,
+		onleave,
+		ondetails
+	}: { game: PublicGame; snapshot: PublicSnapshot; zoneName: string; onleave: () => void; ondetails?: () => void } = $props();
+	const planned = $derived(game.status === 'scheduled');
 
 	const a = $derived(snapshot.warbands.find((w) => w.id === game.aggressor));
 	const d = $derived(snapshot.warbands.find((w) => w.id === game.defender));
@@ -35,8 +42,8 @@
 <div class="hud" bind:this={root}>
 	<div class="vignette" aria-hidden="true"></div>
 	<div class="top">
-		<p class="stamp" role="status">Battle joined</p>
-		<p class="where">{zoneName} · {game.scenario ?? 'Scenario to be rolled'}{weather ? ` · ${weather.name}` : ''}</p>
+		<p class="stamp" class:planned role="status">{planned ? 'The armies muster' : 'Battle joined'}</p>
+		<p class="where">{planned ? 'Planned · ' : ''}{zoneName} · {game.scenario ?? 'Scenario to be rolled'}{weather ? ` · ${weather.name}` : ''}</p>
 	</div>
 	{#each [{ w: a, cls: 'left', role: 'Aggressor' }, { w: d, cls: 'right', role: 'Defender' }] as side (side.cls)}
 		{#if side.w}
@@ -50,7 +57,10 @@
 			</div>
 		{/if}
 	{/each}
-	<button class="leave" onclick={onleave}>Leave the battlefield <kbd>Esc</kbd></button>
+	<div class="actions">
+		{#if ondetails}<button class="leave" onclick={ondetails}>Battle details</button>{/if}
+		<button class="leave" onclick={onleave}>Leave the battlefield <kbd>Esc</kbd></button>
+	</div>
 </div>
 
 <style>
@@ -85,6 +95,12 @@
 		letter-spacing: 0.04em;
 		transform: rotate(-3deg);
 		box-shadow: 0 0 36px rgba(200, 35, 26, 0.35);
+	}
+	/* Not yet fought: the book's dashed rule for a planned battle, ink rather than blood. */
+	.stamp.planned {
+		border: 2px dashed var(--bone-dim);
+		background: rgba(21, 19, 14, 0.8);
+		box-shadow: none;
 	}
 	.where {
 		margin: 0;
@@ -137,11 +153,17 @@
 		font-size: 0.85rem;
 		color: var(--bone-dim);
 	}
-	.leave {
-		pointer-events: auto;
+	.actions {
 		position: absolute;
 		top: 14px;
 		left: 14px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.leave {
+		pointer-events: auto;
+		min-height: 36px;
 		padding: 6px 12px;
 		background: rgba(21, 19, 14, 0.85);
 		color: var(--bone);
@@ -171,6 +193,24 @@
 		.side :global(.portrait),
 		kbd {
 			display: none;
+		}
+	}
+	@media (max-width: 40rem) {
+		/* The way out gets its own row above the stamp. */
+		.actions {
+			left: 10px;
+			right: 10px;
+			gap: 6px;
+		}
+		.leave {
+			flex: 1;
+			font-size: 0.8rem;
+		}
+		.leave kbd {
+			display: none;
+		}
+		.top {
+			top: 62px;
 		}
 	}
 </style>

@@ -14,10 +14,36 @@
 		<Lockup name="Carcass Front" />
 		<form method="POST" action="?/password" class="card" use:enhance>
 			<h1>Choose your password</h1>
-			<p class="lede">You signed in with a password from the Campaign Master. Choose your own before going on.</p>
-			<label>The password you were given <input name="current" type="password" autocomplete="current-password" required /></label>
-			<label>New password <small>(at least 8 characters)</small> <input name="next" type="password" autocomplete="new-password" minlength="8" required /></label>
-			<label>New password again <input name="again" type="password" autocomplete="new-password" minlength="8" required /></label>
+			<p class="lede">
+				You signed in with a password from the Campaign Master. Choose your own before going on.
+			</p>
+			<label
+				>The password you were given <input
+					name="current"
+					type="password"
+					autocomplete="current-password"
+					required
+				/></label
+			>
+			<label
+				>New password <small>(at least 8 characters)</small>
+				<input
+					name="next"
+					type="password"
+					autocomplete="new-password"
+					minlength="8"
+					required
+				/></label
+			>
+			<label
+				>New password again <input
+					name="again"
+					type="password"
+					autocomplete="new-password"
+					minlength="8"
+					required
+				/></label
+			>
 			{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}
 			<button>Save password</button>
 			<p class="hint">Saving signs you out on every other device.</p>
@@ -25,34 +51,67 @@
 		<form method="POST" action="/logout"><button class="ghost signout">Sign out</button></form>
 	</main>
 {:else}
-	<h1>Settings</h1>
+	<div class="page">
+		<h1>Settings</h1>
 
-	<section>
-		<h2>Your account</h2>
-		<form method="POST" action="?/password" class="fields" use:enhance>
-			<label>Current password <input name="current" type="password" autocomplete="current-password" required /></label>
-			<label>New password <small>(at least 8 characters)</small> <input name="next" type="password" autocomplete="new-password" minlength="8" required /></label>
-			<label>New password again <input name="again" type="password" autocomplete="new-password" minlength="8" required /></label>
-			{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}
-			<button>Save password</button>
-			<p class="hint">Saving signs you out on every other device.</p>
-		</form>
-	</section>
-
-	{#if data.isAdmin}
 		<section>
-			<h2>Admin settings</h2>
-			<p class="lede">What the campaign is built from. Only the Campaign Master can open these.</p>
-			<ul class="menu">
-				{#each CONFIGURE as item (item.href + item.label)}
-					<li><a href={item.href}>{item.label}</a></li>
-				{/each}
-			</ul>
+			<h2>Your account</h2>
+			<form method="POST" action="?/password" class="fields" use:enhance>
+				<label
+					>Current password <input
+						name="current"
+						type="password"
+						autocomplete="current-password"
+						required
+					/></label
+				>
+				<label
+					>New password <small>(at least 8 characters)</small>
+					<input
+						name="next"
+						type="password"
+						autocomplete="new-password"
+						minlength="8"
+						required
+					/></label
+				>
+				<label
+					>New password again <input
+						name="again"
+						type="password"
+						autocomplete="new-password"
+						minlength="8"
+						required
+					/></label
+				>
+				{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}
+				<button>Save password</button>
+				<p class="hint">Saving signs you out on every other device.</p>
+			</form>
 		</section>
-	{/if}
+
+		{#if data.isAdmin}
+			<section>
+				<h2>Admin settings</h2>
+				<p class="lede">
+					What the campaign is built from. Only the Campaign Master can open these.
+				</p>
+				<ul class="menu">
+					{#each CONFIGURE as item (item.href + item.label)}
+						<li><a href={item.href}>{item.label}</a></li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+	</div>
 {/if}
 
 <style>
+	.page {
+		max-width: 40rem;
+		margin: 0 auto;
+		padding: 28px clamp(16px, 4vw, 40px) 64px;
+	}
 	.cover {
 		display: grid;
 		justify-items: center;

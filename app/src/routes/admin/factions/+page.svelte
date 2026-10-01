@@ -29,6 +29,7 @@
 		</div>
 		<ModelStudio kind="outpost" ownerType="faction" ownerId={f.id} title="Outpost" current={f.outpost} fallback="the stock redoubt" />
 		<ModelStudio kind="figure" ownerType="faction" ownerId={f.id} title="Figure" current={f.figure} fallback="each warband's portrait" />
+		<ModelStudio kind="leader" ownerType="faction" ownerId={f.id} title="Leader at the banner" current={f.leader} fallback="the figure, else the portrait" />
 
 		<h3>Unit pictures</h3>
 		<p class="note">The default picture for every model of a type, on unit cards. A player can still give one model its own.</p>

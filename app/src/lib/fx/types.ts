@@ -119,6 +119,33 @@ export const TIME_OF_DAY: Record<TimeOfDay, { label: string }> = {
 	cycle: { label: 'Day cycle' }
 };
 
+/** Aircraft that cross the map: the Faithful's olive biplanes and the Papal air arm's, and the heretics' hellwing drones. */
+export type AirKind = 'biplane' | 'papal' | 'hellwing';
+export const AIR_LABELS: Record<AirKind, string> = { biplane: 'Faithful biplanes', papal: 'Papal air arm', hellwing: 'Heretic hellwings' };
+export interface AirConfig {
+	/** 'war': the mix follows the campaign (who leads, who fights); 'manual': the weights below. */
+	mode: 'war' | 'manual';
+	/** Relative share of each kind (manual mode). */
+	weights: Record<AirKind, number>;
+	/** About how often something crosses the map, in seconds, at full intensity. */
+	everySeconds: number;
+	/** Biplanes sometimes fly in threes. */
+	formations: boolean;
+}
+export const DEFAULT_AIR: AirConfig = { mode: 'war', weights: { biplane: 1, papal: 1, hellwing: 1 }, everySeconds: 18, formations: true };
+
+export function normaliseAir(raw: unknown): AirConfig {
+	const a = (raw ?? {}) as Partial<AirConfig>;
+	const w = (a.weights ?? {}) as Partial<Record<AirKind, number>>;
+	const weight = (v: unknown) => (typeof v === 'number' && isFinite(v) ? Math.min(10, Math.max(0, v)) : 1);
+	return {
+		mode: a.mode === 'manual' ? 'manual' : 'war',
+		weights: { biplane: weight(w.biplane), papal: weight(w.papal), hellwing: weight(w.hellwing) },
+		everySeconds: typeof a.everySeconds === 'number' && isFinite(a.everySeconds) ? Math.round(Math.min(120, Math.max(4, a.everySeconds))) : 18,
+		formations: a.formations !== false
+	};
+}
+
 export interface WeatherPreset {
 	name: string;
 	layers: Partial<Record<FxKind, FxLayer>>;
@@ -141,6 +168,8 @@ export interface FxConfig {
 	timeOfDay: TimeOfDay;
 	/** Length of one full day in the day cycle, in minutes. */
 	cycleMinutes: number;
+	/** What flies over the map (with the Aircraft flyovers layer on). */
+	air: AirConfig;
 	presets: WeatherPreset[];
 }
 
@@ -153,6 +182,7 @@ export const DEFAULT_FX: FxConfig = {
 	monuments: true,
 	timeOfDay: 'day',
 	cycleMinutes: 30,
+	air: DEFAULT_AIR,
 	presets: []
 };
 
@@ -248,6 +278,7 @@ export function normaliseFx(raw: unknown): FxConfig {
 		layers: normaliseLayers(c.layers),
 		random: { ...DEFAULT_FX.random, ...(c.random ?? {}) },
 		timeOfDay: tod,
+		air: normaliseAir(c.air),
 		cycleMinutes: typeof c.cycleMinutes === 'number' && isFinite(c.cycleMinutes) ? Math.round(Math.min(240, Math.max(4, c.cycleMinutes))) : 30,
 		presets: (Array.isArray(c.presets) ? c.presets : [])
 			.filter((p) => p && typeof p.name === 'string' && p.name.trim())

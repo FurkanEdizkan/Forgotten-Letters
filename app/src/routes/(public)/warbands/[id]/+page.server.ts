@@ -13,6 +13,7 @@ import { KIND_OF } from '$lib/builder';
 import { keywordKey } from '$lib/keywords';
 import { sealLook } from '$lib/seals';
 import type { Item } from '$lib/roster';
+import { findModel } from '$lib/server/models';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -68,7 +69,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		profileArt: Object.fromEntries(input.profiles.map((pr) => [pr.id, artFor(art, w.faction, pr.name)])),
 		issues: warbandIssues(state, rules, entries),
 		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text])),
-		canEdit
+		canEdit,
+		/** The leader who stands by the banner at battles (Map models), for the warband's own player and the CM. */
+		leaderModel: await (async () => {
+			if (!canEdit || !c) return null;
+			const m = await findModel(c.id, 'leader', 'warband', w.id);
+			return m ? { id: m.id, token: m.token, hasStl: !!m.stl, params: m.params } : null;
+		})()
 	};
 };
 

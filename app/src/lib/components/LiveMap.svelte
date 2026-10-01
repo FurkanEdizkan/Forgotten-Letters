@@ -4,9 +4,10 @@
 	import type { Container, Graphics, Spritesheet, Texture } from 'pixi.js';
 	import { buildGraph } from '$lib/rules/zones';
 	import type { Zone } from '$lib/rules/types';
-	import type { PublicSnapshot, PublicWarband } from '$lib/snapshot';
+	import type { PublicGame, PublicSnapshot, PublicWarband } from '$lib/snapshot';
 	import type { FxTrigger } from '$lib/fx/types';
-	import { deviceQuality, wantedEffects } from '$lib/fx/wanted';
+	import { airMix, deviceQuality, wantedEffects } from '$lib/fx/wanted';
+	import { sides } from '$lib/fx/sides';
 	import { outpostFrame } from '$lib/models';
 	import { hexToNumber, sigilFor } from '$lib/sigils';
 	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
@@ -21,6 +22,7 @@
 		fxEnabled = true,
 		subscribeTriggers,
 		focus = null,
+		muster = null,
 		clockSkew = 0,
 		project = $bindable()
 	}: {
@@ -34,6 +36,8 @@
 		subscribeTriggers?: (fn: (t: FxTrigger) => void) => () => void;
 		/** A battle's zone the viewer has entered: the camera flies in and its field burns at full intensity. */
 		focus?: string | null;
+		/** A battle entered (planned or being fought): each side's banner and leader stand on the field. */
+		muster?: PublicGame | null;
 		/** Server time minus this device's clock (ms): battlefield effects are scheduled on the server's clock. */
 		clockSkew?: number;
 		/** Set by the map: a zone's position on screen (relative to the map), for DOM overlays. */
@@ -69,6 +73,12 @@
 	});
 	$effect(() => {
 		fly?.(focus);
+	});
+	let remuster: (() => void) | null = null;
+	$effect(() => {
+		void muster;
+		void snapshot;
+		remuster?.();
 	});
 
 	onMount(() => {
@@ -230,8 +240,10 @@
 			const hits = new PIXI.Container();
 			const fxBack = new PIXI.Container();
 			const fxFront = new PIXI.Container();
-			viewport.addChild(fxBack, highlight, battles, monumentLayer, outposts, hits, markers, fxFront);
+			const musterLayer = new PIXI.Container();
+			viewport.addChild(fxBack, highlight, battles, monumentLayer, outposts, hits, markers, musterLayer, fxFront);
 			monumentLayer.eventMode = 'none';
+			musterLayer.eventMode = 'none';
 
 			// Screen-space overlay above the map, for weather.
 			const overlay = new PIXI.Container();
@@ -593,6 +605,153 @@
 			const markerScale = () => Math.min(3.5, Math.max(1, 0.7 / viewport.scale.x));
 			const groups: Container[] = [];
 
+			/*
+			 * The muster: when a battle is entered, each side plants its banner (a flag in its seal's colours, the seal
+			 * burning on it) out on its own flank, and its leader stands beside it: the leader's model, rendered once
+			 * from an STL (Map models), else its figure, else the player's portrait.
+			 */
+			type Flag = { plane: import('pixi.js').MeshPlane; base: Float32Array; emblem: Container; texW: number; k: number; h: number; phase: number };
+			const flags: Flag[] = [];
+			const rising: { c: Container; pole: Container; flag: Container; leader: Container; at: number }[] = [];
+			let musterKey = '';
+			function flagTexture(low: string, high: string, metal: string) {
+				const W = 180;
+				const H = 120;
+				const cv = document.createElement('canvas');
+				cv.width = W;
+				cv.height = H;
+				const g = cv.getContext('2d')!;
+				// A swallowtail standard: cloth in the seal's low colour, a band of its high, a metal hem.
+				g.beginPath();
+				g.moveTo(0, 0);
+				g.lineTo(W, 0);
+				g.lineTo(W * 0.78, H / 2);
+				g.lineTo(W, H);
+				g.lineTo(0, H);
+				g.closePath();
+				const grad = g.createLinearGradient(0, 0, 0, H);
+				grad.addColorStop(0, low);
+				grad.addColorStop(0.5, high);
+				grad.addColorStop(1, low);
+				g.fillStyle = grad;
+				g.fill();
+				g.globalAlpha = 0.35;
+				g.fillStyle = '#000';
+				g.fillRect(0, 0, W, 6);
+				g.fillRect(0, H - 6, W, 6);
+				g.globalAlpha = 1;
+				g.lineWidth = 5;
+				g.strokeStyle = metal;
+				g.stroke();
+				return PIXI.Texture.from(cv);
+			}
+			function side(w: PublicWarband, p: { x: number; y: number }, dir: 1 | -1, delay: number) {
+				const c = new PIXI.Container();
+				c.position.set(p.x, p.y);
+				// Pole stands on the outside, the leader inside, toward the enemy.
+				const poleX = -dir * 34;
+				c.addChild(new PIXI.Graphics().ellipse(0, 4, 70, 16).fill({ color: 0x120d08, alpha: 0.32 }));
+
+				const pole = new PIXI.Container();
+				pole.position.set(poleX, 0);
+				pole.addChild(
+					new PIXI.Graphics()
+						.rect(-3, -150, 6, 152)
+						.fill({ color: 0x3b2a1a })
+						.stroke({ width: 1.5, color: 0x120d08 })
+						.circle(0, -154, 6)
+						.fill({ color: hexToNumber(factionColours(w.faction).metal) })
+				);
+				c.addChild(pole);
+
+				const colours = w.seal ? { low: w.seal.low, high: w.seal.high, metal: w.seal.metal } : factionColours(w.faction);
+				const flag = new PIXI.Container();
+				flag.position.set(0, -146);
+				const fw = 96;
+				const fh = 62;
+				const plane = new PIXI.MeshPlane({ texture: flagTexture(colours.low, colours.high, colours.metal), verticesX: 12, verticesY: 2 });
+				plane.width = fw;
+				plane.height = fh;
+				plane.scale.x *= dir;
+				flag.addChild(plane);
+				const emblem = new PIXI.Container();
+				emblem.position.set(dir * fw * 0.38, fh / 2);
+				if (w.seal) sealBadge(emblem, w.seal, 19, true);
+				else emblem.addChild(badge(w.symbol ?? w.portrait, 16, 0, 0, hexToNumber(colours.metal), w.faction, true));
+				flag.addChild(emblem);
+				pole.addChild(flag);
+				const buf = plane.geometry.getBuffer('aPosition');
+				// The plane's vertices are in texture pixels (180 × 120); k turns them into world units.
+				flags.push({ plane, base: Float32Array.from(buf.data as Float32Array), emblem, texW: 180, k: fh / 120, h: fh, phase: Math.random() * 6 });
+
+				const leader = new PIXI.Container();
+				leader.position.set(dir * 26, 0);
+				leader.addChild(new PIXI.Graphics().ellipse(0, 2, 28, 9).fill({ color: 0x120d08, alpha: 0.45 }));
+				if (w.leaderToken) {
+					tokenSprite(leader, tex(w.leaderToken), 92, 1, 2);
+				} else {
+					leader.addChild(new PIXI.Graphics().rect(-2, -40, 4, 40).fill({ color: 0x231a12 }));
+					leader.addChild(badge(w.portrait, 22, 0, -54, hexToNumber(colours.metal), w.faction, true));
+				}
+				c.addChild(leader);
+
+				const name = new PIXI.Text({
+					text: w.name.toUpperCase(),
+					style: { fontFamily: 'EB Garamond', fontWeight: '700', fontSize: 15, fill: 0xf1e6cb, stroke: { color: 0x231a12, width: 5 }, letterSpacing: 1 }
+				});
+				name.anchor.set(0.5, 0);
+				name.y = 14;
+				c.addChild(name);
+
+				musterLayer.addChild(c);
+				rising.push({ c, pole, flag, leader, at: delay });
+			}
+			function drawMuster() {
+				const a = muster ? snapshot.warbands.find((w) => w.id === muster.aggressor) : undefined;
+				const d = muster ? snapshot.warbands.find((w) => w.id === muster.defender) : undefined;
+				const z = muster ? graph.zones.get(muster.zone) : undefined;
+				const key = z && a && d ? [muster!.id, a.leaderToken, d.leaderToken, JSON.stringify(a.seal), JSON.stringify(d.seal), a.name, d.name].join('|') : '';
+				if (key === musterKey) return;
+				musterKey = key;
+				for (const child of musterLayer.removeChildren()) child.destroy({ children: true });
+				flags.length = 0;
+				rising.length = 0;
+				if (!z || !a || !d) return;
+				const s = sides(world(z));
+				side(a, { x: s.aggressor.x - 40, y: s.aggressor.y }, 1, 0.9);
+				side(d, { x: s.defender.x + 40, y: s.defender.y }, -1, 1.2);
+			}
+			remuster = drawMuster;
+			let musterClock = 0;
+			app.ticker.add((ticker) => {
+				if (!flags.length) return;
+				const dt = ticker.deltaMS / 1000;
+				musterClock += dt;
+				// Planting: the pole rises, the flag unfurls, then the leader steps up.
+				for (const r of rising) {
+					const e = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+					const t0 = reduceMotion ? 99 : musterClock - r.at;
+					r.c.alpha = e(t0 * 3);
+					r.pole.scale.y = e(t0 * 1.6);
+					r.flag.scale.x = e((t0 - 0.35) * 2);
+					r.leader.alpha = e((t0 - 0.6) * 2.5);
+					r.leader.y = (1 - e((t0 - 0.6) * 2.5)) * -18;
+				}
+				if (reduceMotion) return;
+				// The flags work in the wind: a travelling wave, growing toward the fly.
+				for (const f of flags) {
+					const buf = f.plane.geometry.getBuffer('aPosition');
+					const data = buf.data as Float32Array;
+					for (let i = 0; i < data.length; i += 2) {
+						const u = f.base[i] / f.texW;
+						data[i + 1] = f.base[i + 1] + Math.sin(musterClock * 4.2 - u * 5 + f.phase) * 9 * u;
+						data[i] = f.base[i] - Math.abs(Math.sin(musterClock * 2 + u * 3 + f.phase)) * 4 * u;
+					}
+					buf.update();
+					f.emblem.y = f.h / 2 + Math.sin(musterClock * 4.2 - 0.38 * 5 + f.phase) * 9 * 0.38 * f.k;
+				}
+			});
+
 			function draw() {
 				for (const layer of [highlight, battles, monumentLayer, outposts, markers]) {
 					for (const child of layer.removeChildren()) child.destroy({ children: true });
@@ -726,6 +885,7 @@
 
 			redraw = draw;
 			draw();
+			drawMuster();
 
 			// Entering a battle: fly the camera in; leaving: fly back to where the viewer was.
 			let home: { x: number; y: number; scale: number } | null = null;
@@ -737,7 +897,9 @@
 				const time = reduceMotion ? 0 : 1400;
 				if (z) {
 					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
-					viewport.animate({ position: world(z), scale: 2.2, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					// Close in, but keep both flanks (banners and leaders stand about 250 out) on a narrow screen.
+					const scale = Math.min(2.2, host.clientWidth / 640, host.clientHeight / 460);
+					viewport.animate({ position: world(z), scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 				} else if (home) {
 					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 					home = null;
@@ -767,6 +929,7 @@
 				// Lanterns after dark: every outpost, and the fields where battles are being fought.
 				const lit = new Set([...snapshot.warbands.flatMap((w) => w.outposts), ...snapshot.active.filter((g) => g.status === 'in_progress').map((g) => g.zone)]);
 				fx.setLights([...lit].flatMap((id) => (graph.zones.has(id) ? [world(graph.zones.get(id)!)] : [])));
+				fx.setAir(airMix(snapshot));
 				fx.setWanted(fxEnabled ? wantedEffects(snapshot, graph.zones, world, focus) : []);
 			};
 			refx();
@@ -793,6 +956,7 @@
 			cleanup = () => {
 				ro.disconnect();
 				redraw = null;
+				remuster = null;
 				refx = null;
 				fly = null;
 				unsubscribe?.();

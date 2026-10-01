@@ -15,13 +15,15 @@ import type { Actions, PageServerLoad } from './$types';
 
 /** Models for this warband and its faction's defaults, without the private STL path. */
 async function modelsFor(campaignId: string, warbandId: string, faction: string) {
-	const pick = async (kind: 'outpost' | 'figure', ownerType: 'warband' | 'faction', ownerId: string) => {
+	const pick = async (kind: 'outpost' | 'figure' | 'leader', ownerType: 'warband' | 'faction', ownerId: string) => {
 		const m = (await listModels(campaignId)).find((m) => m.kind === kind && m.ownerType === ownerType && m.ownerId === ownerId);
 		return m ? { id: m.id, token: m.token, hasStl: !!m.stl, params: m.params } : null;
 	};
 	return {
 		outpost: await pick('outpost', 'warband', warbandId),
 		figure: await pick('figure', 'warband', warbandId),
+		leader: await pick('leader', 'warband', warbandId),
+		factionLeader: await pick('leader', 'faction', faction),
 		factionOutpost: await pick('outpost', 'faction', faction),
 		factionFigure: await pick('figure', 'faction', faction)
 	};

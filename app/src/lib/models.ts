@@ -1,6 +1,7 @@
 /** Map tokens: uploaded model renders, with the Blender-rendered outpost sheet as the default. */
 
-export type ModelKind = 'outpost' | 'figure';
+/** The outpost token, the warband's marker figure, and its leader (who stands by its banner at a battle). */
+export type ModelKind = 'outpost' | 'figure' | 'leader';
 export type ModelOwner = 'faction' | 'warband';
 
 export interface ModelRef {
@@ -36,14 +37,16 @@ export function outpostFrame(faction: string): string {
 export function resolveTokens(
 	models: ModelRef[],
 	w: { id: string; faction: string; displayModel: 'portrait' | 'model' }
-): { outpostToken: string | null; figureToken: string | null } {
+): { outpostToken: string | null; figureToken: string | null; leaderToken: string | null } {
 	const find = (kind: ModelKind) =>
 		models.find((m) => m.kind === kind && m.ownerType === 'warband' && m.ownerId === w.id)?.token ??
 		models.find((m) => m.kind === kind && m.ownerType === 'faction' && m.ownerId === w.faction)?.token ??
 		null;
 	return {
 		outpostToken: find('outpost'),
-		figureToken: w.displayModel === 'model' ? find('figure') : null
+		figureToken: w.displayModel === 'model' ? find('figure') : null,
+		// The leader at the banner: its own model, else the figure (whatever the marker shows).
+		leaderToken: find('leader') ?? find('figure')
 	};
 }
 

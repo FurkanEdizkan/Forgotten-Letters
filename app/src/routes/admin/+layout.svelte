@@ -9,7 +9,7 @@
 
 {#if data.campaign !== undefined}
 	<a class="skip" href="#main">Skip to content</a>
-	<NavPanel bind:open={navOpen} title={data.campaign?.name ?? 'Campaign Master'} />
+	<NavPanel bind:open={navOpen} chosen={data.navChosen} title={data.campaign?.name ?? 'Campaign Master'} />
 	<div class="shell" class:beside={navOpen}>
 		<main id="main" tabindex="-1">
 			{@render children()}
@@ -45,6 +45,10 @@
 		.shell.beside {
 			padding-left: 0;
 		}
+	}
+	/* Work surfaces (the Map Studio) take the whole width beside the panel. */
+	main:has(:global(.studio)) {
+		max-width: none;
 	}
 	main {
 		min-width: 0;

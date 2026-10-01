@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import LiveMap from '$lib/components/LiveMap.svelte';
 	import {
+		AIR_LABELS,
 		AMBIENT_KINDS,
 		FX_LABELS,
 		TIME_OF_DAY,
@@ -166,6 +167,37 @@
 				</label>
 				<label class="check"><input type="checkbox" bind:checked={fx.battleWeather} /> Show each battle's Hell on Earth weather at its zone</label>
 				<label class="check"><input type="checkbox" bind:checked={fx.monuments} /> Leave victory monuments and the fallen on the zones where battles were won</label>
+			</div>
+		</section>
+
+		<section>
+			<h2>Aircraft &amp; birds</h2>
+			<p class="note">
+				With <em>Aircraft flyovers</em> on, planes and drones cross the map now and then: several at once sometimes, at different
+				heights, lamps lit after dusk. With <em>Crows</em> on, flocks of every size cross near and far.
+			</p>
+			<div class="air">
+				<div class="tod" role="radiogroup" aria-label="Aircraft mix">
+					<button type="button" class="seg" class:on={fx.air.mode === 'war'} onclick={() => (fx.air.mode = 'war')}>By the war</button>
+					<button type="button" class="seg" class:on={fx.air.mode === 'manual'} onclick={() => (fx.air.mode = 'manual')}>By hand</button>
+				</div>
+				{#if fx.air.mode === 'war'}
+					<p class="note">
+						The side ahead in the standings owns more of the sky (hellwings for the Fallen, biplanes for the Faithful), New Antioch's
+						warbands bring the Papal air arm, and every battle being fought draws more aircraft.
+					</p>
+				{:else}
+					{#each Object.entries(AIR_LABELS) as [k, label] (k)}
+						{@const kind = k as keyof typeof AIR_LABELS}
+						<label class="weight">{label} <small>{fx.air.weights[kind] === 0 ? 'never' : `×${fx.air.weights[kind]}`}</small>
+							<input type="range" min="0" max="5" step="0.5" bind:value={fx.air.weights[kind]} />
+						</label>
+					{/each}
+				{/if}
+				<label class="weight">About every <small>{fx.air.everySeconds} s</small>
+					<input type="range" min="4" max="120" step="2" bind:value={fx.air.everySeconds} />
+				</label>
+				<label class="check"><input type="checkbox" bind:checked={fx.air.formations} /> Biplanes sometimes fly in threes</label>
 			</div>
 		</section>
 
@@ -393,6 +425,25 @@
 	}
 	.cycle small {
 		color: var(--muted);
+	}
+	.note {
+		max-width: 64ch;
+		margin: 0 0 10px;
+		color: var(--ink-soft);
+		font-size: 0.92rem;
+	}
+	.air {
+		display: grid;
+		gap: 10px;
+		max-width: 32rem;
+	}
+	.weight {
+		display: grid;
+		gap: 2px;
+	}
+	.weight small {
+		color: var(--muted);
+		margin-left: 6px;
 	}
 	.seg {
 		background: var(--paper);

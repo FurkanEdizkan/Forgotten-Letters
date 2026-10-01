@@ -1,7 +1,7 @@
 import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, Texture, type Application, type Spritesheet } from 'pixi.js';
 import { BattleField, BattleResult } from './battle';
 import { Clouds, Sky } from './sky';
-import { DEFAULT_PARAMS, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
+import { DEFAULT_PARAMS, DEFAULT_AIR, type AirKind, type FxKind, type FxParams, type FxTrigger, type TimeOfDay, type ZeppelinEvent } from './types';
 
 /**
  * Weather & atmosphere for the live map.
@@ -115,6 +115,8 @@ export type SheetName =
 	| 'crow'
 	| 'smoke'
 	| 'biplane'
+	| 'biplane_papal'
+	| 'hellwing'
 	| 'zeppelin'
 	| 'monuments'
 	| 'trophy'
@@ -122,7 +124,7 @@ export type SheetName =
 	| 'flash'
 	| 'blast'
 	| 'spurt';
-export type Sheets = Partial<Record<SheetName | 'biplaneShadow' | 'zeppelinShadow', Texture[]>>;
+export type Sheets = Partial<Record<SheetName | `${SheetName}Shadow`, Texture[]>>;
 
 export interface Ctx {
 	app: Application;
@@ -135,6 +137,10 @@ export interface Ctx {
 	shake: (seconds: number, strength: number) => void;
 	/** Seconds on the server's clock, so screens can schedule effects in step. */
 	now: () => number;
+	/** The light of the hour for things above the map: a tint, and how dark it is (0 day … 1 night). */
+	sky: () => { tint: number; dark: number };
+	/** What flies over the map, and how often (the Campaign Master's Aircraft settings). */
+	air: () => { weights: Record<AirKind, number>; everySeconds: number; formations: boolean };
 }
 
 /** Bounds of a scope, in its own coordinate space. */
@@ -793,6 +799,88 @@ class Crows implements Effect {
 	}
 }
 
+/**
+ * Map-wide crows: flocks of different sizes crossing at different depths. Far flocks are small, faint and
+ * slow; near ones big, dark and quick, drawn over the far ones. New flocks set off at random, several
+ * can be in the air at once, and each bird keeps its own wingbeat and wander.
+ */
+class Flocks implements Effect {
+	c = new Container();
+	flocks: { birds: { s: Sprite; phase: number; wander: number; off: Pt }[]; from: Pt; v: Pt; age: number; life: number; depth: number }[] = [];
+	next = 0;
+	i = 1;
+	constructor(
+		private ctx: Ctx,
+		parent: Container,
+		intensity: number
+	) {
+		this.c.sortableChildren = true;
+		parent.addChild(this.c);
+		this.setIntensity(intensity);
+		// Start with the sky already in use.
+		for (let n = 0; n < 1 + Math.round(intensity * 2); n++) this.spawn(true);
+	}
+	setIntensity(i: number) {
+		this.i = i;
+	}
+	private spawn(midway = false) {
+		const { width: w, height: h } = this.ctx.app.screen;
+		const depth = Math.random() ** 1.6; // mostly far away, now and then close by
+		const n = Math.max(2, Math.round((depth > 0.7 ? 3 : 5 + Math.random() * 8) * Math.max(0.5, this.ctx.q || 0.5)));
+		const east = Math.random() < 0.5 + this.ctx.wind() * 0.3;
+		const heading = (east ? 0 : Math.PI) + (Math.random() - 0.5) * 0.9;
+		const via = { x: w * Math.random(), y: h * (0.08 + Math.random() * 0.8) };
+		const [from, to] = crossing(w, h, heading, via, 200);
+		const speed = 55 + depth * 170;
+		const life = Math.hypot(to.x - from.x, to.y - from.y) / speed;
+		const rendered = this.ctx.sheets.crow ? 0.55 : 1;
+		const size = (0.35 + depth * 1.35) * rendered;
+		const spread = 30 + depth * 90;
+		const birds = Array.from({ length: n }, () => {
+			const s = new Sprite(this.ctx.sheets.crow?.[0] ?? this.ctx.tex.birdUp);
+			s.anchor.set(0.5);
+			s.scale.set(size * (0.85 + Math.random() * 0.3));
+			s.zIndex = depth;
+			s.alpha = 0.5 + depth * 0.5;
+			this.c.addChild(s);
+			return { s, phase: Math.random() * 10, wander: 0.5 + Math.random(), off: { x: (Math.random() - 0.5) * spread * 1.6, y: (Math.random() - 0.5) * spread } };
+		});
+		this.flocks.push({ birds, from, v: { x: (to.x - from.x) / life, y: (to.y - from.y) / life }, age: midway ? life * (0.2 + Math.random() * 0.5) : 0, life, depth });
+	}
+	update(dt: number, t: number) {
+		this.next -= dt;
+		if (this.next <= 0) {
+			this.next = (4 + Math.random() * 10) / (0.3 + this.i);
+			this.spawn();
+			// A second flock takes off with the first, now and then.
+			if (Math.random() < 0.3) this.spawn();
+		}
+		const { tint } = this.ctx.sky();
+		const flap = this.ctx.sheets.crow;
+		for (const f of this.flocks) {
+			f.age += dt;
+			const x = f.from.x + f.v.x * f.age + this.ctx.wind() * 30 * f.age;
+			const y = f.from.y + f.v.y * f.age;
+			const heading = Math.atan2(f.v.y, f.v.x);
+			for (const b of f.birds) {
+				const wx = Math.sin(t * b.wander + b.phase) * 10 * (0.5 + f.depth);
+				const wy = Math.cos(t * b.wander * 1.3 + b.phase) * 7 * (0.5 + f.depth);
+				b.s.position.set(x + b.off.x + wx, y + b.off.y + wy);
+				b.s.tint = tint;
+				if (flap) {
+					b.s.texture = flap[Math.floor(t * (10 + f.depth * 4) + b.phase * 3) % flap.length];
+					b.s.rotation = heading;
+				} else b.s.texture = Math.sin(t * 14 + b.phase) > 0 ? this.ctx.tex.birdUp : this.ctx.tex.birdDown;
+			}
+		}
+		for (const f of this.flocks) if (f.age >= f.life) for (const b of f.birds) b.s.destroy();
+		this.flocks = this.flocks.filter((f) => f.age < f.life);
+	}
+	destroy() {
+		this.c.destroy({ children: true });
+	}
+}
+
 /** Tremors: shakes the whole stage every few seconds. */
 class Quake implements Effect {
 	next = 2;
@@ -912,11 +1000,52 @@ class Flight implements Effect {
 			this.sh.position.set(p.x + this.altitude * 0.55, p.y + this.altitude);
 			this.sh.alpha = fade;
 		}
+		if (this.lit) {
+			// Lit by the hour like the map below; after dark its lamps (or its furnace) show.
+			const { tint, dark } = this.lit.ctx.sky();
+			this.s.tint = tint;
+			const cos = Math.cos(this.s.rotation);
+			const sin = Math.sin(this.s.rotation);
+			const k = this.s.scale.x;
+			for (const l of this.lit.lamps) {
+				l.s.position.set(p.x + (l.x * cos - l.y * sin) * k, p.y + (l.x * sin + l.y * cos) * k);
+				const on = l.blink ? (Math.sin(this.age * l.blink) > 0.55 ? 1 : 0.1) : 1;
+				const pulse = l.pulse ? 0.75 + 0.25 * Math.sin(this.age * l.pulse) : 1;
+				l.s.alpha = fade * on * pulse * (l.always + (1 - l.always) * dark);
+			}
+		}
+	}
+	/** Night lamps: a biplane's red and green wingtip lights and a blinking tail lamp; a hellwing's furnace glow. */
+	private lit: { ctx: Ctx; lamps: { s: Sprite; x: number; y: number; blink: number; pulse: number; always: number }[] } | null = null;
+	light(ctx: Ctx, kind: 'biplane' | 'hellwing') {
+		// Offsets in frame pixels (128 px frames): see render_fx.biplane / render_fx.hellwing.
+		const spec =
+			kind === 'biplane'
+				? [
+						{ x: 10, y: -49, color: 0xff3020, size: 1.1, blink: 0, pulse: 0, always: 0 },
+						{ x: 10, y: 49, color: 0x40ff70, size: 1.1, blink: 0, pulse: 0, always: 0 },
+						{ x: -50, y: 0, color: 0xfff4d0, size: 1.0, blink: 5.5, pulse: 0, always: 0 }
+					]
+				: [{ x: 0, y: 0, color: 0xff5a14, size: 1.2, blink: 0, pulse: 7, always: 0.25 }];
+		this.lit = {
+			ctx,
+			lamps: spec.map((l) => {
+				const s = new Sprite(ctx.tex.dot);
+				s.anchor.set(0.5);
+				s.tint = l.color;
+				s.blendMode = 'add';
+				s.scale.set(l.size * (this.s.scale.x / 0.62));
+				this.s.parent?.addChild(s);
+				return { s, ...l };
+			})
+		};
+		this.update(0);
 	}
 	done = () => this.age >= this.seconds;
 	destroy() {
 		this.s.destroy();
 		this.sh?.destroy();
+		for (const l of this.lit?.lamps ?? []) l.s.destroy();
 	}
 }
 
@@ -948,23 +1077,41 @@ class AircraftAmbient implements Effect {
 	setIntensity(i: number) {
 		this.i = i;
 	}
+	/** Which aircraft crosses next: by the Campaign Master's weights, or the war's (see wanted.airMix). */
+	private pick(): 'biplane' | 'papal' | 'hellwing' {
+		const w = this.ctx.air().weights;
+		const total = w.biplane + w.papal + w.hellwing;
+		let r = Math.random() * (total || 1);
+		for (const k of ['biplane', 'papal', 'hellwing'] as const) if ((r -= w[k]) < 0) return k;
+		return 'biplane';
+	}
 	private spawn() {
-		const frames = this.ctx.sheets.biplane;
+		const kind = this.pick();
+		const sheet = kind === 'papal' ? 'biplane_papal' : kind;
+		const frames = this.ctx.sheets[sheet] ?? this.ctx.sheets.biplane;
 		if (!frames) return;
 		const { width: w, height: h } = this.ctx.app.screen;
 		const heading = Math.random() * Math.PI * 2;
-		const via = { x: w * (0.25 + Math.random() * 0.5), y: h * (0.25 + Math.random() * 0.5) };
+		const via = { x: w * (0.15 + Math.random() * 0.7), y: h * (0.15 + Math.random() * 0.7) };
 		const [a, b] = crossing(w, h, heading, via);
-		const seconds = (Math.hypot(b.x - a.x, b.y - a.y) / 260) * (0.8 + Math.random() * 0.4);
-		const vee = Math.random() < 0.35;
-		const offsets = vee ? [[0, 0], [-60, -55], [-60, 55]] : [[0, 0]];
+		// Altitude: high ones are small with their shadow far off; low ones big and near their shadow.
+		const high = Math.random();
+		const scale = (kind === 'hellwing' ? 0.9 : 0.62) * (0.6 + (1 - high) * 0.75);
+		const altitude = 30 + high * 70;
+		const speed = (kind === 'hellwing' ? 320 : 260) * (0.8 + Math.random() * 0.4) * (0.8 + (1 - high) * 0.4);
+		const seconds = Math.hypot(b.x - a.x, b.y - a.y) / speed;
+		const vee = kind !== 'hellwing' && this.ctx.air().formations && Math.random() < 0.35;
+		// Hellwings hunt in loose pairs now and then.
+		const pair = kind === 'hellwing' && Math.random() < 0.3;
+		const offsets = vee ? [[0, 0], [-60, -55], [-60, 55]] : pair ? [[0, 0], [-90, 70]] : [[0, 0]];
 		const dx = Math.cos(heading);
 		const dy = Math.sin(heading);
+		const shadow = this.ctx.sheets[`${sheet}Shadow`]?.[0] ?? this.ctx.sheets.biplaneShadow?.[0];
 		for (const [back, side] of offsets) {
 			const off = { x: dx * back - dy * side, y: dy * back + dx * side };
-			this.flights.push(
-				new Flight(frames, this.ctx.sheets.biplaneShadow?.[0], this.parent, { x: a.x + off.x, y: a.y + off.y }, { x: b.x + off.x, y: b.y + off.y }, seconds, 0.62, 46, 18, back ? 0.15 : 0)
-			);
+			const f = new Flight(frames, shadow, this.parent, { x: a.x + off.x, y: a.y + off.y }, { x: b.x + off.x, y: b.y + off.y }, seconds, scale, altitude, kind === 'hellwing' ? 14 : 18, back ? 0.15 + Math.random() * 0.3 : 0);
+			f.light(this.ctx, kind === 'hellwing' ? 'hellwing' : 'biplane');
+			this.flights.push(f);
 		}
 	}
 	update(dt: number, t: number) {
@@ -999,8 +1146,11 @@ class AircraftAmbient implements Effect {
 		}
 		this.next -= dt;
 		if (this.next <= 0) {
-			this.next = (10 + Math.random() * 14) / (0.35 + this.i);
+			// Irregular: sometimes two crossings close together, sometimes a long quiet.
+			const every = this.ctx.air().everySeconds;
+			this.next = (every * (0.5 + Math.random())) / (0.35 + this.i);
 			this.spawn();
+			if (Math.random() < 0.25) this.next = Math.min(this.next, 1.5 + Math.random() * 3);
 		}
 		for (const f of this.flights) f.update(dt);
 		this.flights = this.flights.filter((f) => (f.done() ? (f.destroy(), false) : true));
@@ -1162,7 +1312,9 @@ export class FxEngine {
 				this.shakeLeft = s;
 				this.shakeStrength = k;
 			},
-			now: () => (Date.now() + this.clockSkew) / 1000
+			now: () => (Date.now() + this.clockSkew) / 1000,
+			sky: () => ({ tint: this.sky?.current.mul ?? 0xffffff, dark: this.sky?.current.lamps ?? 0 }),
+			air: () => this.airSettings
 		};
 		this.worldBack.addChild(this.cloudBase, this.cloudMask);
 		this.cloudBase.mask = this.cloudMask;
@@ -1173,7 +1325,7 @@ export class FxEngine {
 
 	/** Load the Blender-rendered sheets; effects fall back to drawn versions until (or if never) loaded. */
 	private async loadSheets() {
-		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke', 'biplane', 'zeppelin', 'monuments', 'trophy', 'corpses', 'flash', 'blast', 'spurt'];
+		const names: SheetName[] = ['lightning', 'fire', 'crow', 'smoke', 'biplane', 'biplane_papal', 'hellwing', 'zeppelin', 'monuments', 'trophy', 'corpses', 'flash', 'blast', 'spurt'];
 		await Promise.all(
 			names.map(async (name) => {
 				try {
@@ -1181,7 +1333,7 @@ export class FxEngine {
 					const frames = sheet.animations[name];
 					if (frames?.length) this.ctx.sheets[name] = frames;
 					const shadow = sheet.animations.shadow;
-					if (shadow?.length && (name === 'biplane' || name === 'zeppelin')) this.ctx.sheets[`${name}Shadow`] = shadow;
+					if (shadow?.length) this.ctx.sheets[`${name}Shadow`] = shadow;
 				} catch (e) {
 					console.warn(`fx: ${name} sheet unavailable, using drawn effect`, e);
 				}
@@ -1197,6 +1349,11 @@ export class FxEngine {
 
 	/** Server time minus this device's clock (ms). */
 	clockSkew = 0;
+
+	private airSettings: ReturnType<Ctx['air']> = { weights: DEFAULT_AIR.weights, everySeconds: DEFAULT_AIR.everySeconds, formations: true };
+	setAir(a: ReturnType<Ctx['air']>) {
+		this.airSettings = a;
+	}
 
 	set wind(w: number) {
 		this.windValue = w;
@@ -1282,7 +1439,7 @@ export class FxEngine {
 			case 'embers':
 				return particles(embersSpec());
 			case 'crows':
-				return new Crows(ctx, w.scope, layer, i);
+				return w.scope.type === 'screen' ? new Flocks(ctx, layer, i) : new Crows(ctx, w.scope, layer, i);
 			case 'eclipse':
 				return new Glow(ctx, w.scope, 0x6e0606, 0.75, 0.15, back, i, true);
 			case 'heat':
@@ -1437,7 +1594,9 @@ export class FxEngine {
 			const via = at ?? { x: w * (0.3 + r() * 0.4), y: h * (0.3 + r() * 0.4) };
 			const [a, b] = crossing(w, h, heading, via);
 			const k = at ? 1.3 : 0.62;
-			this.oneShots.push(new Flight(frames, shadow, layer, a, b, Math.hypot(b.x - a.x, b.y - a.y) / (at ? 520 : 260), k, at ? 110 : 46));
+			const flight = new Flight(frames, shadow, layer, a, b, Math.hypot(b.x - a.x, b.y - a.y) / (at ? 520 : 260), k, at ? 110 : 46);
+			flight.light(this.ctx, 'biplane');
+			this.oneShots.push(flight);
 			return;
 		}
 		// Low pass over the zone: comes in from ~1100 world units away and leaves as far.

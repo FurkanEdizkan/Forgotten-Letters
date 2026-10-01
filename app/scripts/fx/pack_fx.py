@@ -40,6 +40,8 @@ SPECS = {
     'crow': (128, 8, 'normal'),
     'smoke': (192, 8, 'normal'),
     'biplane': (128, 8, 'normal'),
+    'biplane_papal': (128, 8, 'normal'),
+    'hellwing': (128, 6, 'normal'),
     'zeppelin': (384, 4, 'normal'),
     # One frame per faction, in render_fx.OUTPOST_FACTIONS order (last is neutral).
     'outposts': (128, 4, 'normal'),
@@ -57,7 +59,7 @@ SPECS = {
 # Pack only these sheets when names are given after the directories.
 ONLY = set(sys.argv[3:])
 # Aircraft also get a soft ground shadow (an extra frame, animation "shadow").
-SHADOWS = {'biplane', 'zeppelin'}
+SHADOWS = {'biplane', 'biplane_papal', 'hellwing', 'zeppelin'}
 
 
 def shadow_of(im):

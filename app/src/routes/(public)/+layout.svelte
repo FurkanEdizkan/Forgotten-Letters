@@ -34,7 +34,7 @@
 	</main>
 {:else}
 	<a class="skip" href="#main">Skip to content</a>
-	<NavPanel bind:open={navOpen} title={live?.current.campaign.name ?? 'Carcass Front'} />
+	<NavPanel bind:open={navOpen} chosen={data.navChosen} title={live?.current.campaign.name ?? 'Carcass Front'} />
 	<div class="shell" class:beside={navOpen && !isMap}>
 		<main id="main" tabindex="-1">
 			{@render children()}

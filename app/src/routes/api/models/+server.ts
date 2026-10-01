@@ -3,14 +3,14 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { saveModel } from '$lib/server/models';
+import { mayEditModel, saveModel } from '$lib/server/models';
 import { publish } from '$lib/server/hub';
 import { FACTIONS } from '$lib/rules/factions';
 
 /**
  * Save a model token rendered in the browser: multipart { kind, ownerType, ownerId, token (PNG), stl?, params (JSON) }.
  */
-export async function POST({ request }) {
+export async function POST({ request, locals }) {
 	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const data = await request.formData().catch(() => null);
@@ -18,7 +18,8 @@ export async function POST({ request }) {
 	const kind = String(data.get('kind'));
 	const ownerType = String(data.get('ownerType'));
 	const ownerId = String(data.get('ownerId'));
-	if (kind !== 'outpost' && kind !== 'figure') error(400, 'Unknown model kind');
+	if (kind !== 'outpost' && kind !== 'figure' && kind !== 'leader') error(400, 'Unknown model kind');
+	if (!mayEditModel(locals, ownerType, ownerId)) error(403, 'Not your warband');
 	if (ownerType === 'faction') {
 		if (!FACTIONS.some((f) => f.id === ownerId)) error(400, 'Unknown faction');
 	} else if (ownerType === 'warband') {

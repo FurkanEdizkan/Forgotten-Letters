@@ -130,6 +130,26 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 	};
 }
 
+/**
+ * The campaign set up but not yet played: the map, zones, lore, weather, faction models, rules and the Faction Studio,
+ * with accounts, players and warbands as mustered (seals, rosters, kit, treasury). Games and adjustments are dropped,
+ * and with them outposts, CVP and monuments. Dealt Visions are taken back, models lose experience, skills and injuries
+ * and stand again, and regional weather is switched off.
+ */
+export function freshStart(b: Backup): Backup {
+	const reset = (u: Row) => ({ ...u, experience: 0, skills: [], injuries: [], status: 'active' });
+	return {
+		...b,
+		exportedAt: new Date().toISOString(),
+		campaign: { ...b.campaign, visionsRevealed: false },
+		warbands: b.warbands.map((w) => ({ ...w, visionCard: null, visionProgress: 0, visionNotes: null })),
+		units: b.units?.map(reset),
+		games: [],
+		adjustments: [],
+		regions: b.regions.map((r) => ({ ...r, active: false }))
+	};
+}
+
 const DATE_FIELDS = ['createdAt', 'committedAt', 'updatedAt', 'lastSignInAt'];
 
 /** JSON turned Dates into strings; turn them back. */

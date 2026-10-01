@@ -157,7 +157,8 @@ server deployment, put a tunnel in front of port 3000 (e.g. Tailscale or Cloudfl
 Vision cards stay secret: no public page or live update contains them until the Campaign
 Master ticks *Reveal Vision cards* on the campaign page.
 
-Map models: upload an STL on a warband's page (or a faction default on *Factions*), pose it,
+Map models (outpost, figure, and the leader who stands by the warband's banner when a battle is entered): upload an STL on a
+warband's page (players can upload their own leader there too), or a faction default on *Factions*, pose it,
 and *Save token*. The browser renders it once to a transparent image, so the live map stays
 light on phones; the STL is kept for re-rendering but never served publicly.
 

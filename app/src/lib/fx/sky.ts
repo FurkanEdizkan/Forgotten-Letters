@@ -102,8 +102,11 @@ export class Sky {
 			this.lamps.addChild(s);
 		}
 	}
+	/** The light right now: what flies over the map is lit (and lamped) by it too. */
+	current: Light = LIGHT.day;
 	update(t: number) {
 		const l = this.mode === 'cycle' ? lightAt(this.ctx.now() / this.cycleSeconds) : LIGHT[this.mode];
+		this.current = l;
 		this.mul.tint = l.mul;
 		this.mul.visible = l.mul !== 0xffffff;
 		this.glow.tint = l.glow;

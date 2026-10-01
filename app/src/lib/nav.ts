@@ -21,7 +21,7 @@ export const PLAY: NavItem[] = [
 
 /** Game night: what the Campaign Master does while the group is playing. */
 export const OPERATE: NavItem[] = [
-	{ href: '/admin', label: 'Campaign', match: 'exact' },
+	{ href: '/admin', label: 'Console', match: 'exact' },
 	{ href: '/admin/games', label: 'Games' },
 	{ href: '/admin/players', label: 'Players' },
 	{ href: '/admin/warbands', label: 'Warbands' },
@@ -32,7 +32,6 @@ export const OPERATE: NavItem[] = [
 
 /** Set up once, or between sessions. Reached through Settings, not the panel. */
 export const CONFIGURE: NavItem[] = [
-	{ href: '/admin', label: 'Campaign setup', match: 'exact' },
 	{ href: '/admin/map', label: 'Map Studio' },
 	{ href: '/admin/lore', label: 'Lore' },
 	{ href: '/admin/rules', label: 'Rules' },

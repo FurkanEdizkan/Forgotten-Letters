@@ -76,9 +76,10 @@
 	const zoneGame = $derived(zoneId ? s.active.find((g) => g.zone === zoneId) : undefined);
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
 
-	// Active battle mode: /?battle=<game> flies into a battle being fought (shareable, so the TV can sit in it).
+	// Battle mode: /?battle=<game> flies into a battle, planned (the armies muster) or being fought.
+	// Shareable, so the TV can sit in it.
 	const battleId = $derived(page.url.searchParams.get('battle'));
-	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status === 'in_progress') : undefined);
+	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status !== 'done') : undefined);
 	const focus = $derived(battle?.zone ?? result?.zone ?? null);
 	const enterBattle = (id: string) => goto(`?battle=${id}`, { noScroll: true, keepFocus: true });
 	const leaveBattle = () => {
@@ -115,8 +116,9 @@
 			onzone={(id) => {
 				zoneId = id;
 				warbandId = null;
-				// Clicking a battle being fought enters it (without covering it with the panel).
-				const fought = s.active.find((g) => g.zone === id && g.status === 'in_progress');
+				// Clicking a battle, planned or being fought, enters it (without covering it with the panel).
+				// Once inside, clicking its field again opens the battle's details.
+				const fought = s.active.find((g) => g.zone === id && g.status !== 'done');
 				if (fought && fought.id !== battleId) {
 					zoneId = null;
 					enterBattle(fought.id);
@@ -129,6 +131,7 @@
 			{fxEnabled}
 			subscribeTriggers={live.onTrigger}
 			{focus}
+			muster={battle ?? null}
 			clockSkew={live.clockSkew}
 			bind:project
 		/>
@@ -136,7 +139,16 @@
 
 	{#if battle}
 		{#key battle.id}
-			<BattleHud game={battle} snapshot={s} zoneName={zoneName(battle.zone)} onleave={leaveBattle} />
+			<BattleHud
+				game={battle}
+				snapshot={s}
+				zoneName={zoneName(battle.zone)}
+				onleave={leaveBattle}
+				ondetails={() => {
+					zoneId = battle.zone;
+					warbandId = null;
+				}}
+			/>
 		{/key}
 	{/if}
 
@@ -195,8 +207,12 @@
 						class="battle"
 						class:planned={g.status === 'scheduled'}
 						onclick={() => {
-							zoneId = g.zone;
 							warbandId = null;
+							if (g.id === battleId) zoneId = g.zone;
+							else {
+								zoneId = null;
+								enterBattle(g.id);
+							}
 						}}
 					>
 						<span class="pair">
@@ -264,8 +280,8 @@
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
-			{#if zoneGame.status === 'in_progress' && zoneGame.id !== battleId}
-				<button class="enter" onclick={() => enterBattle(zoneGame.id)}>Enter the battle</button>
+			{#if zoneGame.status !== 'done' && zoneGame.id !== battleId}
+				<button class="enter" onclick={() => enterBattle(zoneGame.id)}>{zoneGame.status === 'scheduled' ? 'Go to the muster' : 'Enter the battle'}</button>
 			{/if}
 			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName}>
 				{#snippet controls()}

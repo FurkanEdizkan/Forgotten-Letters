@@ -69,6 +69,22 @@ The first run writes `.env` with random passwords and prints the Campaign Master
 It never holds the book's map, rules or lore, or accounts, players and uploads, so it is safe to commit. To refresh it after changing
 zones or presets, open *Admin → Backup → Download starter pack*, replace the file, and commit.
 
+### Access: open or private
+
+`ACCESS` in `.env` sets who may see the campaign:
+- **`open` (the default, a LAN at the venue).** Anyone who can reach the app watches the map and reads the campaign, on phones and the TV. Accounts sign in to do more.
+- **`private` (deployed on the internet).** Signed out, only the sign-in page and invite links work. Every page, the live stream, uploads and the APIs need an account.
+
+**Two doors.** Players sign in at `/login`. The Campaign Master signs in at `/admin/login`, which opening `/admin` leads to; each door turns away the other's accounts with the same answer as a wrong password. Guessing at the CM is limited per address only, so nobody can lock the CM out, and guessing from many addresses meets the `.env` password: keep it long.
+
+`./build_and_update.sh` adds `ACCESS=private` when `DOMAIN` is set, and prints the mode on every run. The rules are in one place (`app/src/lib/server/access.ts`) and are tested case by case. `ARCHITECTURE.md` maps the whole system.
+
+### Testing
+
+- `cd app && npm test`: unit tests.
+- `./scripts/e2e.sh`: end-to-end tests of every sign-in and access case. It builds a throwaway copy of the app and runs them in open mode, over the LAN address, and in private mode, then removes the copy.
+- `TESTING.md`: the manual pass on real devices.
+
 ### The map: Admin → Map
 
 The map art belongs to its book, so it isn't in the repository or the image; each campaign uploads its own.

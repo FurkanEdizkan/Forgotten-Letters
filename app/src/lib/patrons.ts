@@ -36,7 +36,9 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 export function patronAllowed(p: Patron, w: { faction: string; variant: string | null; alignment: 'faithful' | 'fallen' | null }) {
 	if (p.alignment && w.alignment && p.alignment !== w.alignment) return false;
 	if (!p.factions.length) return true;
-	if (!p.factions.includes(w.faction)) return false;
+	// A Carcass Front list under a faction (the Procession, under Trench Pilgrims) may serve that faction's Patrons.
+	const under = FACTIONS.find((f) => f.id === w.faction)?.under;
+	if (!p.factions.includes(w.faction) && !(under && p.factions.includes(under))) return false;
 	const own = FACTIONS.find((f) => f.id === w.faction)?.variants ?? [];
 	const named = p.variants.filter((v) => own.some((o) => letters(o) === letters(v)));
 	return !named.length || (!!w.variant && named.some((v) => letters(v) === letters(w.variant!)));

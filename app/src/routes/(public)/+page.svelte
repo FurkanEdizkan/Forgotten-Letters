@@ -201,6 +201,7 @@
 			subscribeTriggers={live.onTrigger}
 			{focus}
 			muster={battle ?? null}
+			onleavebattle={leaveBattle}
 			clockSkew={live.clockSkew}
 			bind:project
 		/>
@@ -254,6 +255,7 @@
 				{:else}
 					<!-- On a phone the docked standings would cover the map, so they fold into this chip. -->
 					<button class="chip phone-only" onclick={() => (showStandings = !showStandings)}>Standings</button>
+					<span class="guest-note">Watching as a guest</span>
 					<a class="chip" href={signInHref}>Sign in</a>
 				{/if}
 				<span
@@ -739,6 +741,24 @@
 	}
 	.bar.guest {
 		padding-left: 0;
+	}
+	.guest-note {
+		color: var(--bone-dim);
+		font-size: 0.85rem;
+		font-style: italic;
+	}
+	@media (max-width: 40rem) {
+		.guest-note {
+			display: none;
+		}
+	}
+	/* Fingers, not cursors: the bar's chips are full-size tap targets on touch screens. */
+	@media (pointer: coarse) {
+		.bar .chip {
+			min-height: 44px;
+			display: inline-flex;
+			align-items: center;
+		}
 	}
 	.drawer h2,
 	.dock h2 {

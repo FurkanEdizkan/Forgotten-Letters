@@ -19,6 +19,7 @@
 		snapshot,
 		selected = null,
 		onzone,
+		onleavebattle,
 		onwarband,
 		onbattle,
 		focusGame = null,
@@ -33,6 +34,8 @@
 		snapshot: PublicSnapshot;
 		selected?: string | null;
 		onzone?: (id: string) => void;
+		/** Inside a battle, the viewer zoomed or panned well away from it: back to the map. */
+		onleavebattle?: () => void;
 		onwarband?: (id: string) => void;
 		/** A battle's own marker was tapped (several on one zone fan out round it, each with its own target). */
 		onbattle?: (gameId: string) => void;
@@ -147,11 +150,14 @@
 				viewport.moveCenter(W / 2, H / 2);
 			}
 
+			// A drag or pinch is never a tap. It ends when the press is released, not at drag-end, which also fires when
+			// the pointer passes over a panel (the release would otherwise tap whatever is under it).
 			let dragging = false;
 			viewport.on('drag-start', () => (dragging = true));
-			viewport.on('drag-end', () => setTimeout(() => (dragging = false), 0));
 			viewport.on('pinch-start', () => (dragging = true));
-			viewport.on('pinch-end', () => setTimeout(() => (dragging = false), 0));
+			const released = () => setTimeout(() => (dragging = false), 0);
+			addEventListener('pointerup', released);
+			addEventListener('pointercancel', released);
 
 			const onResize = () => {
 				viewport.resize(host.clientWidth, host.clientHeight, W, H);
@@ -957,24 +963,52 @@
 			let home: { x: number; y: number; scale: number } | null = null;
 			let flownTo: string | null = null;
 			let flownScale = 0;
+			/*
+			 * Leaving a battle by moving away from it: once the fly-in has settled, zooming out below about 55% of the
+			 * battle view, or panning its centre more than about 45% of the screen away, returns to the map (and the
+			 * camera stays where the viewer took it).
+			 */
+			let battleView: { x: number; y: number; scale: number } | null = null;
+			let settle: ReturnType<typeof setTimeout> | undefined;
+			let stayOnLeave = false;
 			fly = (zoneId, scale = 3) => {
 				// The same place at the same distance: nothing to do (a closer look at the same zone still flies).
 				if (zoneId === flownTo && (!zoneId || scale === flownScale)) return;
 				flownTo = zoneId;
 				flownScale = scale;
+				clearTimeout(settle);
+				battleView = null;
 				const z = zoneId ? graph.zones.get(zoneId) : undefined;
 				const time = reduceMotion ? 0 : 1400;
 				if (z) {
+					stayOnLeave = false;
 					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
 					// Close in, but keep the field (banners and leaders stand about 110 out) on a narrow screen.
 					const k = Math.min(scale, host.clientWidth / 520, host.clientHeight / 380);
-					viewport.animate({ position: world(z), scale: k, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					const at = world(z);
+					viewport.animate({ position: at, scale: k, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					// Where the camera came to rest (the map's edge clamp can keep it off the zone's own centre).
+					settle = setTimeout(() => {
+						if (flownTo === zoneId) battleView = { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
+					}, time + 120);
+				} else if (stayOnLeave) {
+					// Left by zooming or panning away: the viewer is already where they want to be.
+					stayOnLeave = false;
+					home = null;
 				} else if (home) {
 					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
 					home = null;
 				}
 			};
-			viewport.on('moved', () => {
+			viewport.on('moved', (e: { type?: string }) => {
+				if (battleView && focusGame && onleavebattle && e?.type !== 'animate') {
+					const far = Math.hypot(viewport.center.x - battleView.x, viewport.center.y - battleView.y) * viewport.scale.x;
+					if (viewport.scale.x < battleView.scale * 0.55 || far > Math.min(host.clientWidth, host.clientHeight) * 0.45) {
+						battleView = null;
+						stayOnLeave = true;
+						onleavebattle();
+					}
+				}
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
 				for (const p of warbandGroups) p.place(k);
@@ -1030,6 +1064,8 @@
 			});
 
 			cleanup = () => {
+				removeEventListener('pointerup', released);
+				removeEventListener('pointercancel', released);
 				ro.disconnect();
 				redraw = null;
 				remuster = null;

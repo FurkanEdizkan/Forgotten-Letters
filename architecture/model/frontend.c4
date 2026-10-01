@@ -110,10 +110,10 @@ model {
 
       engine = module 'Rules engine' {
         #pure
-        technology 'lib/rules · builder · warband-rules · roster'
+        technology 'lib/rules · builder · warband-rules · warband-limits · roster'
         description 'The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.'
         metadata {
-          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts']
+          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,warband-limits,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts']
         }
       }
 

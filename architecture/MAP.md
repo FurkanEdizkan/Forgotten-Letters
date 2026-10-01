@@ -124,7 +124,7 @@ shortest unique end of their id.
         uses: engine shared api
         used by: public livemap battle components fx flow shared server.live
       - `cf.app.ui.engine` Rules engine #pure — The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.
-        files: app/src/lib/ builder-state.ts builder.ts effects.ts keywords.ts roster.ts rules-text.ts tc-import.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
+        files: app/src/lib/ builder-state.ts builder.ts effects.ts keywords.ts roster.ts rules-text.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
         used by: shell public admin api livemap battle components flow ui.live shared fx server
       - `cf.app.ui.flow` Campaign flow #pure — The campaign's life from founding to the final reckoning, seats, where battles stand on the map, and how a finished battle reads.
         files: app/src/lib/ battle-hud.ts battle-outcome.ts campaign-flow.ts map-battles.ts seating.ts
@@ -223,4 +223,4 @@ purchase and upgrade against them.
 7. warbands → t_rosters: replace the roster, fireteams
 8. warbands → engine: warbandIssues: what the books find wrong
 9. player → public: recruit, buy, upgrade
-10. public → engine: recruitCheck, equipCheck (priceFor), upgradeCheck
+10. public → engine: recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit

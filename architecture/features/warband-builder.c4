@@ -1,5 +1,5 @@
 // Feature: building a warband by the books, and bringing one in from Trench Companion.
-// Code: lib/warband-rules.ts, lib/builder-state.ts, lib/tc-import.ts, lib/roster.ts, lib/server/{builder,packs,tc-import}.ts,
+// Code: lib/warband-rules.ts, lib/warband-limits.ts, lib/builder-state.ts, lib/tc-import.ts, lib/roster.ts, lib/server/{builder,packs,tc-import}.ts,
 // routes (public)/warbands/[id] and /new, admin/rules. Data: book packs in docs/packs (the group's own, never committed).
 views {
   dynamic view warband_builder {
@@ -11,6 +11,14 @@ views {
       purchase and upgrade against them.
 
       **Decisions**
+      - The books' rules always apply. Only the Campaign Master lifts them (Remove Restrictions, Open
+        Exploration) or sets a strongbox; a new warband starts with its variant's money.
+      - Every building rule is a key in the packs, never only text: one limit shape counts a model's kit or
+        upgrades, or the warband's models, entries or kit, with a min and/or max, per something else, and only
+        when something holds, on a unit, item, upgrade, Patron Skill or the warband. Hands, loadouts, prices
+        (first copy, Skill discounts) and "counts as" complete it. A broken maximum refuses the action; a minimum
+        or a cost floor is reported until the finished list meets it. Unknown keys are refused.
+      - Rules that widen what a warband may have (another faction's armoury, unlocks) the CM grants by hand.
       - A variant's entry replaces the faction's entry of the same name; its rules merge onto the
         faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,
         an armoury item or an upgrade.
@@ -36,6 +44,6 @@ views {
     cf.app.server.warbands -> cf.db.t_rosters 'replace the roster, fireteams'
     cf.app.server.warbands -> cf.app.ui.engine 'warbandIssues: what the books find wrong'
     player -> cf.app.web.public 'recruit, buy, upgrade'
-    cf.app.web.public -> cf.app.ui.engine 'recruitCheck, equipCheck (priceFor), upgradeCheck'
+    cf.app.web.public -> cf.app.ui.engine 'recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit'
   }
 }

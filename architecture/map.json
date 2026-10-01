@@ -1871,7 +1871,7 @@
    ],
    "code": [
     "app/src/lib/rules/**",
-    "app/src/lib/{builder,builder-state,warband-rules,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts"
+    "app/src/lib/{builder,builder-state,warband-rules,warband-limits,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -2913,7 +2913,7 @@
   {
    "id": "warband_builder",
    "title": "Warband builder and Trench Companion import",
-   "description": "**Every warband follows the books.** The rules come from book packs: complete Faction Studio files\nfor each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the\ngroup's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,\npurchase and upgrade against them.\n\n**Decisions**\n- A variant's entry replaces the faction's entry of the same name; its rules merge onto the\n  faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,\n  an armoury item or an upgrade.\n- An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries\n  they are for. A Leader is required only where a variant names one.\n- A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched\n  to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;\n  Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is\n  checked like any warband.\n- Loading packs keeps the Campaign Master's Studio edits.\n- Carcass Front's own lists are picked under the faction whose variant they replace (Trench Pilgrims →\n  Procession of the Sacred Affliction, Heretic Legions → Heretic Naval Raiders), each with its own variants.\n  Picking a faction or variant shows its starting money, must-includes, exclusions, caps, upgrades and rules.\n- Patrons come from the packs too; only those a faction and variant may serve are offered, with their Skills.\n  Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.",
+   "description": "**Every warband follows the books.** The rules come from book packs: complete Faction Studio files\nfor each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the\ngroup's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,\npurchase and upgrade against them.\n\n**Decisions**\n- The books' rules always apply. Only the Campaign Master lifts them (Remove Restrictions, Open\n  Exploration) or sets a strongbox; a new warband starts with its variant's money.\n- Every building rule is a key in the packs, never only text: one limit shape counts a model's kit or\n  upgrades, or the warband's models, entries or kit, with a min and/or max, per something else, and only\n  when something holds, on a unit, item, upgrade, Patron Skill or the warband. Hands, loadouts, prices\n  (first copy, Skill discounts) and \"counts as\" complete it. A broken maximum refuses the action; a minimum\n  or a cost floor is reported until the finished list meets it. Unknown keys are refused.\n- Rules that widen what a warband may have (another faction's armoury, unlocks) the CM grants by hand.\n- A variant's entry replaces the faction's entry of the same name; its rules merge onto the\n  faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,\n  an armoury item or an upgrade.\n- An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries\n  they are for. A Leader is required only where a variant names one.\n- A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched\n  to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;\n  Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is\n  checked like any warband.\n- Loading packs keeps the Campaign Master's Studio edits.\n- Carcass Front's own lists are picked under the faction whose variant they replace (Trench Pilgrims →\n  Procession of the Sacred Affliction, Heretic Legions → Heretic Naval Raiders), each with its own variants.\n  Picking a faction or variant shows its starting money, must-includes, exclusions, caps, upgrades and rules.\n- Patrons come from the packs too; only those a faction and variant may serve are offered, with their Skills.\n  Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.",
    "dynamic": true,
    "steps": [
     {
@@ -2964,7 +2964,7 @@
     {
      "from": "cf.app.web.public",
      "to": "cf.app.ui.engine",
-     "label": "recruitCheck, equipCheck (priceFor), upgradeCheck"
+     "label": "recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit"
     }
    ]
   },

@@ -123,7 +123,7 @@ export interface TemplateError {
 
 type Obj = Record<string, unknown>;
 // The keys each part of a pack may have (anything else is refused).
-const RULE_KEYS = 'start_ducats start_glory excluded must_include leader optional caps free_items fireteams upgrades limits prices patron text';
+const RULE_KEYS = 'start_ducats start_glory excluded must_include leader optional caps free_items fireteams upgrades limits prices patron requires_variant text';
 const UPGRADE_KEYS = 'name keyword keywords group max cost currency for hands limits text';
 const KIT_KEYS = 'fixed except nothing_else swap prices limits hands loadouts counts_as recruit items';
 const STIPULATION_KEYS = 'only per_model shield_combo bayonet_lug consumable headgear exploration_only alignment factions limits limit_excludes';
@@ -270,6 +270,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		...(r.must_include != null ? { mustInclude: pairs(r.must_include, 'rules.must_include', 'n') as { name: string; n: number }[] } : {}),
 		...(r.leader != null ? { leader: str(r.leader, 'rules.leader') } : {}),
 		...(r.patron != null ? { patron: str(r.patron, 'rules.patron') } : {}),
+		...(r.requires_variant != null ? { requiresVariant: bool(r.requires_variant) } : {}),
 		...(r.optional != null ? { optional: list(r.optional, 'rules.optional') } : {}),
 		...(r.caps != null ? { caps: pairs(r.caps, 'rules.caps', 'max') as { name: string; max: number }[] } : {}),
 		...(r.free_items != null ? { freeItems: list(r.free_items, 'rules.free_items') } : {}),
@@ -456,6 +457,7 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 			must_include: o.mustInclude,
 			leader: o.leader ?? undefined,
 			patron: o.patron ?? undefined,
+			requires_variant: o.requiresVariant || undefined,
 			optional: o.optional,
 			caps: o.caps,
 			free_items: o.freeItems,

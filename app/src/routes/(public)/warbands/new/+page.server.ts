@@ -206,7 +206,9 @@ export const actions: Actions = {
 		// Some warbands serve one Patron only (the Knights of Avarice, Mammon).
 		{
 			const [pf, pv] = String(data.get('pick') ?? '').split('::');
-			const must = (await rulesOf(pf, pv || null)).patron;
+			const pr = await rulesOf(pf, pv || null);
+			if (pr.requiresVariant && !pv) return fail(400, { message: 'Choose one of this faction\'s variants.' });
+			const must = pr.patron;
 			if (must && !patronName.toLowerCase().startsWith(must.toLowerCase())) return fail(400, { message: `This warband serves ${must}: choose it as its Patron.` });
 		}
 

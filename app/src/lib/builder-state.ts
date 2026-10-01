@@ -144,7 +144,8 @@ export function builderState(d: BuilderInput) {
 		limits,
 		prices,
 		upgrades: rules.upgrades,
-		patron: d.patron?.name ?? null
+		patron: d.patron?.name ?? null,
+		variant: d.faction.variant
 	};
 	return { rules, state, profileOf, entries: d.profiles.map(entryOf) };
 }

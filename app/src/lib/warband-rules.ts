@@ -264,6 +264,8 @@ export interface VariantRules {
 	fireteams: number;
 	/** The Patron the warband must serve ("a Knights of Avarice warband worships Mammon"). */
 	patron: string | null;
+	/** A warband of this faction must be one of its variants (a Court warband is dedicated to a Sin). */
+	requiresVariant: boolean;
 	/** The books' other building limits (see warband-limits.ts). */
 	limits: Limit[];
 	/** Prices set by rule (the first copy at half price, a Patron Skill's discount). */
@@ -331,6 +333,7 @@ function parseRules(factionText: string | null | undefined, variantText?: string
 		upgrades: [],
 		fireteams: 0,
 		patron: null,
+		requiresVariant: false,
 		limits: [],
 		prices: [],
 		paragraphs: all
@@ -406,6 +409,8 @@ export interface WarbandState {
 	upgrades?: Upgrade[];
 	/** The Patron it serves. */
 	patron?: string | null;
+	/** Its variant, if any. */
+	variant?: string | null;
 }
 
 export type Check = { ok: true } | { ok: false; reason: string };
@@ -578,7 +583,8 @@ export function equipCheck(m: ModelState, armouryItem: ArmouryItem, w: WarbandSt
 		if (item.category === 'armour' && has('armour')) return no('Only one suit of Armour');
 		if (item.category === 'shield' && has('shield')) return no('Only one Shield');
 		if (f.headgear && cur.items.some((i) => itemFacts(i).headgear)) return no('Only one piece of Headgear');
-		if ((item.category === 'equipment' || item.category === 'special') && m.equipment.some((e) => letters(e.name) === letters(item.name)))
+		// No two of the same piece, unless the item allows more on one model.
+		if ((item.category === 'equipment' || item.category === 'special') && !((f.perModel ?? 1) > 1) && m.equipment.some((e) => letters(e.name) === letters(item.name)))
 			return no(`Already has ${item.name}`);
 		if (letters(item.name) === 'bayonet' && !cur.items.some((i) => i.category === 'ranged' && itemFacts(i).bayonetLug))
 			return no('Needs a ranged weapon with a Bayonet Lug');
@@ -706,6 +712,7 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 		if (u.max != null && on.length > u.max) out.push(`${u.name} on ${on.length} models; the most is ${u.max}.`);
 		for (const m of on) if (u.for.length && !u.for.some((x) => qualifies(m, x))) out.push(`${u.name} is only for ${u.for.join(', ')} (${m.type} has it).`);
 	}
+	if (rules.requiresVariant && w.variant === null) out.push('The warband must be one of its faction\'s variants.');
 	if (rules.patron && !(w.patron && letters(w.patron).startsWith(letters(rules.patron)))) out.push(`The warband must serve ${rules.patron} as its Patron.`);
 	if (w.ducats < 0) out.push(`The strongbox is ${-w.ducats} Ducats short.`);
 	if (w.glory < 0) out.push(`The strongbox is ${-w.glory} Glory short.`);

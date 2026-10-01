@@ -45,6 +45,6 @@
 		font-size: 1.25rem;
 	}
 	.compact .series {
-		font-size: 0.66rem;
+		font-size: 0.7rem;
 	}
 </style>

@@ -15,6 +15,8 @@
 	--rule: #c8c3ba; /* hairlines */
 	--blood: #a3170f; /* the book's red: section heads, rules, callout borders */
 	--blood-bright: #c8231a;
+	/* Blood on the night for small text: labels in the battle HUD and brief (the deep reds go dull on black). */
+	--blood-pale: #d98c80;
 
 	/* Night register */
 	--night: #15130e;

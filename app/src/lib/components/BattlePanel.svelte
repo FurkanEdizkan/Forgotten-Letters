@@ -4,8 +4,9 @@
 	import Portrait from './Portrait.svelte';
 	import UnitCard from './UnitCard.svelte';
 	import Mark from './Mark.svelte';
+	import BattleBrief from './BattleBrief.svelte';
+	import { battleBrief } from '$lib/battle-hud';
 	import { RESOURCES, RESOURCE_NAMES, type Zone } from '$lib/rules/types';
-	import { weatherByRoll } from '$lib/rules/weather';
 	import type { PublicGame, PublicSnapshot, PublicWarband } from '$lib/snapshot';
 
 	let {
@@ -30,7 +31,8 @@
 			{ w: wb.get(game.defender), role: 'Defender' as const }
 		].filter((s): s is { w: PublicWarband; role: 'Aggressor' | 'Defender' } => !!s.w)
 	);
-	const weather = $derived(game.weatherEvent ? weatherByRoll(game.weatherEvent) : null);
+	// Both sides' tables keep the same columns: Omens shows for both once either has any.
+	const omens = $derived(sides.some((s) => s.w.omens));
 	const reason = $derived(
 		game.aggressorReason === 'fewer'
 			? 'has been Aggressor fewer times'
@@ -52,14 +54,8 @@
 		· {game.scenario ?? (zone.scenario ? zone.scenario : 'Scenario to be rolled')}
 		· <a href="/zones/{zone.id}">Lore</a>
 	</p>
-	<div class="weather rules-box">
-		<h3>Hell on Earth</h3>
-		{#if weather}
-			<p><strong>{weather.name}.</strong> {weather.effect}</p>
-		{:else}
-			<p class="muted">Not yet rolled.</p>
-		{/if}
-	</div>
+	<!-- The whole brief, as in the battle's overview: a phone has no room for that one, so it lives here too. -->
+	<div class="weather rules-box"><BattleBrief brief={battleBrief({ game, zone, warbands: snapshot.warbands, regions: snapshot.regions })} /></div>
 
 	{#if controls}<div class="controls">{@render controls()}</div>{/if}
 
@@ -79,7 +75,7 @@
 
 				<table class="numbers">
 					<thead>
-						<tr><th>CVP</th><th>Ducats</th><th>Glory</th><th>Games</th><th>Explore</th>{#if w.omens}<th>Omens</th>{/if}</tr>
+						<tr><th>CVP</th><th>Ducats</th><th>Glory</th><th>Games</th><th>Explore</th>{#if omens}<th>Omens</th>{/if}</tr>
 					</thead>
 					<tbody>
 						<tr>
@@ -88,7 +84,7 @@
 							<td>{w.treasury.glory}</td>
 							<td>{w.games}/{snapshot.campaign.gamesPerPlayer}</td>
 							<td>{w.dice}D6</td>
-							{#if w.omens}<td>{w.omens}</td>{/if}
+							{#if omens}<td>{w.omens}</td>{/if}
 						</tr>
 					</tbody>
 				</table>
@@ -111,7 +107,7 @@
 					{#each w.outposts as z (z)}
 						<a href="/zones/{z}" class:supplied={w.supplied.includes(z)} title={w.supplied.includes(z) ? 'Supplied' : 'Cut off'}>{zoneName(z)}</a>
 					{:else}
-						<small class="muted">none yet</small>
+						<span class="none">No outposts yet</span>
 					{/each}
 				</div>
 
@@ -144,9 +140,6 @@
 	}
 	.status.live {
 		color: var(--blood);
-	}
-	.weather p {
-		margin: 0;
 	}
 	.controls {
 		margin: 12px 0 4px;
@@ -284,6 +277,10 @@
 		letter-spacing: 0.04em;
 		font-size: 0.8rem;
 		color: var(--blood);
+	}
+	.none {
+		color: var(--ink-soft);
+		font-style: italic;
 	}
 	.outposts a.supplied {
 		text-decoration-color: var(--supplies);

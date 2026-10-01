@@ -35,6 +35,26 @@
 	/** A zone holding several battles, zoomed into so they can be told apart and tapped. */
 	let peekZone = $state<string | null>(null);
 	let showStandings = $state(false);
+	// The battle strip scrolls sideways when the battles don't fit: its far edge fades while there is more.
+	let strip = $state<HTMLDivElement>();
+	let stripMore = $state(false);
+	const measureStrip = () => {
+		if (strip) stripMore = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2;
+	};
+	$effect(() => {
+		void s.active.length;
+		if (!strip) return;
+		measureStrip();
+		const ro = new ResizeObserver(measureStrip);
+		ro.observe(strip);
+		return () => ro.disconnect();
+	});
+	// A page opened over the map takes the focus, so a keyboard or screen reader lands in it.
+	const focusSheet = (node: HTMLElement) => {
+		const h = node.querySelector<HTMLElement>('h2');
+		h?.setAttribute('tabindex', '-1');
+		h?.focus({ preventScroll: true });
+	};
 	// Height of the smoke band that holds the chrome; the map plate starts below it.
 	let bandH = $state(64);
 	const isAdmin = $derived(!!page.data.isAdmin);
@@ -153,12 +173,17 @@
 
 <svelte:window
 	onkeydown={(e) => {
-		// In a battle, Esc steps back one level: the details page first, then out of the battle.
-		if (e.key === 'Escape' && !battle && peekZone) {
-			peekZone = null;
+		if (e.key !== 'Escape') return;
+		// On the map, Esc closes whatever lies over it: a page, the standings, a closer look at one zone.
+		if (!battle) {
+			if (zoneId || warbandId) {
+				zoneId = null;
+				warbandId = null;
+			} else if (showStandings) showStandings = false;
+			else if (peekZone) peekZone = null;
 			return;
 		}
-		if (e.key !== 'Escape' || !battle) return;
+		// In a battle, Esc steps back one level: the details page first, then out of the battle.
 		if (zoneId || warbandId) {
 			zoneId = null;
 			warbandId = null;
@@ -167,10 +192,12 @@
 />
 
 <div class="stage" style:--band="{bandH}px">
-	<div class="plate">
+	<!-- With the visitors' standings docked, the map fits beside them rather than under them. -->
+	<div class="plate" class:docked={!signedIn && !battle}>
 		<LiveMap
 			snapshot={s}
 			selected={warbandId}
+			selectedZone={zoneId}
 			onzone={(id) => {
 				if (roundPicking) {
 					pickZone = id;
@@ -251,22 +278,21 @@
 			<Lockup name={s.campaign.name} href="/players" compact />
 			<nav>
 				{#if signedIn}
-					<button class="chip" onclick={() => (showStandings = !showStandings)}>Standings</button>
+					<button class="chip" aria-expanded={showStandings} onclick={() => (showStandings = !showStandings)}>Standings</button>
 				{:else}
 					<!-- On a phone the docked standings would cover the map, so they fold into this chip. -->
-					<button class="chip phone-only" onclick={() => (showStandings = !showStandings)}>Standings</button>
+					<button class="chip phone-only" aria-expanded={showStandings} onclick={() => (showStandings = !showStandings)}>Standings</button>
 					<span class="guest-note">Watching as a guest</span>
 					<a class="chip" href={signInHref}>Sign in</a>
 				{/if}
-				<span
-					class="dot"
-					class:on={live.connected}
-					title={live.connected ? 'Live' : 'Reconnecting…'}
-				></span>
+				<span class="live" class:on={live.connected} role="status">
+					<span class="dot" aria-hidden="true"></span>
+					<span class="live-txt">{live.connected ? 'Live' : 'Reconnecting…'}</span>
+				</span>
 			</nav>
 		</header>
 		{#if s.active.length}
-			<div class="playing" aria-label="Now playing">
+			<div class="playing" class:more={stripMore} aria-label="Now playing" bind:this={strip} onscroll={measureStrip}>
 				{#each s.active as g (g.id)}
 					{@const a = wb.get(g.aggressor)}
 					{@const d = wb.get(g.defender)}
@@ -327,6 +353,7 @@
 	<button
 		class="chip sky"
 		class:in-battle={!!battle}
+		aria-pressed={!fxEnabled}
 		onclick={toggleFx}
 		title={fxEnabled ? 'Hide weather and animations: the plain battle map' : 'Show the battlefield as it stands now, weather and all'}
 	>
@@ -350,6 +377,7 @@
 
 	{#snippet standingsList(symbolOnly: boolean)}
 		<h2>Standings</h2>
+		<p class="ledger-head" aria-hidden="true"><span>Warband</span><span>CVP · games</span></p>
 		<ol>
 			{#each s.standings as row, i (row.id)}
 				{@const w = wb.get(row.id)}
@@ -367,7 +395,7 @@
 							<Portrait name={w.player} faction={w.faction} size={34} />
 						{/if}
 						<a href="/players/{w.id}" class="who"><strong>{w.player}</strong><small>{w.name}</small></a>
-						<span class="score"><strong>{row.total}</strong><small>{w.gamesLeft > 0 ? `rd ${w.round} · ` : ''}{w.games}/{s.campaign.gamesPerPlayer}</small></span>
+						<span class="score"><strong>{row.total}</strong><small>{w.gamesLeft > 0 ? `rd ${w.round} · ` : ''}{w.games}/{s.campaign.gamesPerPlayer} games</small></span>
 					</li>
 				{/if}
 			{/each}
@@ -380,11 +408,14 @@
 		<aside class="dock" aria-label="Standings">{@render standingsList(true)}</aside>
 	{/if}
 	{#if showStandings}
-		<aside class="drawer">{@render standingsList(!signedIn)}</aside>
+		<aside class="drawer" aria-label="Standings">
+			<button class="close" aria-label="Close the standings" onclick={() => (showStandings = false)}><Mark name="close" /></button>
+			{@render standingsList(!signedIn)}
+		</aside>
 	{/if}
 
 	{#if zone && zoneGame}
-		<aside class="sheet wide" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet wide" class:in-battle={!!battle} use:focusSheet transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
@@ -399,7 +430,7 @@
 			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if zone}
-		<aside class="sheet" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet" class:in-battle={!!battle} use:focusSheet transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
@@ -417,7 +448,7 @@
 			<footer class="running-foot">{zone.name}</footer>
 		</aside>
 	{:else if warband}
-		<aside class="sheet" class:in-battle={!!battle} transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
+		<aside class="sheet" class:in-battle={!!battle} use:focusSheet transition:fly={{ x: 48, duration: 380, easing: cubicOut }}>
 			<button class="close" aria-label="Close" onclick={() => (warbandId = null)}
 				><Mark name="close" /></button
 			>
@@ -457,16 +488,16 @@
 		width: 100%;
 		margin: 0 0 10px;
 		padding: 9px 14px;
-		background: #8f1f18;
+		background: var(--blood);
 		color: var(--bone);
-		border: 1px solid #b3261e;
+		border: 1px solid var(--blood-bright);
 		font: inherit;
 		font-weight: 600;
 		letter-spacing: 0.04em;
 		cursor: pointer;
 	}
 	.enter:hover {
-		background: #a3170f;
+		background: var(--blood-bright);
 	}
 	/* The painted night around the map; panels are pages of the book laid over it. */
 	.stage {
@@ -482,6 +513,12 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
+	}
+	/* The visitors' standings take the right of the screen; the map fits in the rest. */
+	@media (min-width: 40rem) {
+		.plate.docked {
+			right: calc(min(22rem, 100% - 28px) + 14px);
+		}
 	}
 	.band {
 		position: absolute;
@@ -545,15 +582,48 @@
 		left: auto;
 		right: 14px;
 	}
+	/* The connection, in words as well as a light: "Live", or "Reconnecting…" while the stream is down. */
+	.live {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-left: 4px;
+		color: var(--bone-dim);
+		font-family: var(--font-title);
+		font-size: 0.8rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
 	.dot {
 		width: 9px;
 		height: 9px;
-		margin-left: 4px;
 		border-radius: 50%;
 		background: var(--smoke);
+		box-shadow: 0 0 0 1px var(--bone-dim);
 	}
-	.dot.on {
-		background: #95b54c;
+	.live.on .dot {
+		background: var(--supplies);
+		box-shadow: 0 0 0 1px var(--supplies);
+	}
+	.live:not(.on) {
+		color: var(--ember);
+	}
+	.live.on .live-txt {
+		/* Said aloud, and shown once there is room for it. */
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+	@media (min-width: 40rem) {
+		.live.on .live-txt {
+			position: static;
+			width: auto;
+			height: auto;
+			clip-path: none;
+		}
 	}
 	.event-banner {
 		position: absolute;
@@ -673,6 +743,10 @@
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
+	/* More battles off to the right: the strip fades out there, so it reads as one that scrolls. */
+	.playing.more {
+		mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+	}
 	.battle {
 		display: flex;
 		align-items: center;
@@ -759,10 +833,30 @@
 			display: inline-flex;
 			align-items: center;
 		}
+		/* The navigation handle is a full 44px tap target here: the lockup starts clear of it. */
+		.bar:not(.guest) {
+			padding-left: 50px;
+		}
 	}
 	.drawer h2,
 	.dock h2 {
 		margin: 0 0 8px;
+	}
+	.drawer {
+		padding-top: 18px;
+	}
+	.drawer h2 {
+		margin-right: 40px;
+	}
+	.ledger-head {
+		display: flex;
+		justify-content: space-between;
+		margin: 0 0 3px;
+		color: var(--ink-soft);
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 	}
 	.drawer ol,
 	.dock ol {
@@ -824,7 +918,8 @@
 		z-index: 3;
 		top: calc(var(--band) + 12px);
 		right: 14px;
-		bottom: 14px;
+		/* As long as its page, up to the foot of the screen: a short zone page is a short sheet. */
+		max-height: calc(100% - var(--band) - 26px);
 		width: min(27rem, calc(100% - 28px));
 		overflow-y: auto;
 		padding: 18px 22px 22px;
@@ -856,6 +951,7 @@
 	/* In a battle the details page sits under the top row, so Leave and the sky switch stay reachable. */
 	.sheet.in-battle {
 		top: calc(var(--band) + 62px);
+		max-height: calc(100% - var(--band) - 76px);
 	}
 	.close {
 		position: absolute;
@@ -901,7 +997,7 @@
 			white-space: nowrap;
 		}
 		.bar :global(.lockup .series) {
-			font-size: 0.56rem;
+			font-size: 0.7rem; /* the 11px floor for text */
 		}
 		nav {
 			gap: 4px;

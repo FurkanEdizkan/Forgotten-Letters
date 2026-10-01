@@ -11,7 +11,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { and, eq, isNull, notInArray } from 'drizzle-orm';
 import { db } from './db';
-import { rulesFaction, rulesItem, rulesKeyword, rulesUnit } from './db/schema';
+import { rulesFaction, rulesItem, rulesKeyword, rulesPatron, rulesUnit } from './db/schema';
 import { announceReload } from './hub';
 import { loadCustomFactions } from './factions';
 import { FACTIONS } from '$lib/rules/factions';
@@ -23,11 +23,18 @@ export interface PackResult {
 	units: number;
 	items: number;
 	keywords: number;
+	patrons?: number;
 	kept: number;
 	removed: number;
 }
 
-const known = { factions: [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), { id: 'mercenaries', name: 'Mercenaries' }, { id: 'glossary', name: 'Glossary' }] };
+// Book factions, plus the packs that aren't one: mercenaries, the glossary, Patrons, and items any warband may get.
+const known = {
+	factions: [
+		...FACTIONS.map((f) => ({ id: f.id, name: f.name })),
+		...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration'].map((id) => ({ id, name: id }))
+	]
+};
 
 /** Read packs from YAML texts; any error refuses them all (nothing is half-loaded). */
 export function readPacks(files: { name: string; text: string }[]) {
@@ -75,8 +82,20 @@ export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
 				if (old) await tx.update(rulesKeyword).set({ ...k, verified: true }).where(eq(rulesKeyword.name, k.name));
 				else await tx.insert(rulesKeyword).values({ ...k, verified: true, origin: 'book' });
 			}
-			if (p.factionId === 'glossary') {
-				out.push({ pack: label, units: 0, items: 0, keywords: p.keywords.length, kept: 0, removed: 0 });
+			// Patrons: the pack's own replace the book's; the CM's edited or own Patrons stay.
+			if (p.patrons?.length) {
+				const ids = p.patrons.map((x) => x.id);
+				await tx.delete(rulesPatron).where(and(eq(rulesPatron.origin, 'book'), notInArray(rulesPatron.id, ids)));
+				for (const x of p.patrons) {
+					const [old] = await tx.select({ origin: rulesPatron.origin }).from(rulesPatron).where(eq(rulesPatron.id, x.id));
+					if (old && old.origin !== 'book') continue;
+					const row = { ...x, verified: true, origin: 'book' as const };
+					if (old) await tx.update(rulesPatron).set(row).where(eq(rulesPatron.id, x.id));
+					else await tx.insert(rulesPatron).values(row);
+				}
+			}
+			if (p.factionId === 'glossary' || p.factionId === 'patrons') {
+				out.push({ pack: label, units: 0, items: 0, keywords: p.keywords.length, patrons: p.patrons?.length ?? 0, kept: 0, removed: 0 });
 				continue;
 			}
 			const r = p.rules;

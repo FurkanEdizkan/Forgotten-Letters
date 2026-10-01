@@ -1,8 +1,9 @@
+import type { Patron } from '$lib/patrons';
 import { existsSync, readFileSync } from 'node:fs';
 import { asc, count, eq, ilike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
-import { rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from './db/schema';
+import { rulesPatron, rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from './db/schema';
 
 type Unit = typeof rulesUnit.$inferInsert;
 type Item = typeof rulesItem.$inferInsert;
@@ -230,3 +231,17 @@ export async function factionRulesText(faction: string, variant: string | null) 
 	return { faction: f?.text ?? null, variant: v?.text ?? null, overrides: [f?.overrides ?? null, v?.overrides ?? null] };
 }
 export const allFactionRules = () => db.select().from(rulesFaction).orderBy(asc(rulesFaction.faction), asc(rulesFaction.variant));
+
+/** Every Patron, from the book packs (see `lib/patrons.ts` for who may take one). */
+export async function allPatrons(): Promise<Patron[]> {
+	return (await db.select().from(rulesPatron).orderBy(asc(rulesPatron.name))).map((p) => ({
+		id: p.id,
+		name: p.name,
+		alignment: p.alignment ?? null,
+		factions: p.factions,
+		variants: p.variants,
+		text: p.text,
+		skills: p.skills,
+		source: p.source
+	}));
+}

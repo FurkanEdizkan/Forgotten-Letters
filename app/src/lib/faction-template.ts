@@ -5,6 +5,7 @@
  */
 import { parse, stringify } from 'yaml';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride, Upgrade } from './warband-rules';
+import { readPatrons, type Patron } from './patrons';
 
 export const ALIGNMENTS = ['faithful', 'fallen'] as const;
 export const UNIT_CATEGORIES = ['elite', 'troop', 'mercenary'] as const;
@@ -80,6 +81,8 @@ export interface FactionPack {
 	units: UnitRow[];
 	items: ItemRow[];
 	keywords: KeywordRow[];
+	/** Patrons (a book pack of Patrons; empty otherwise). */
+	patrons?: Patron[];
 }
 
 // ---------------------------------------------------------------- ids, the same as the book importer's
@@ -341,7 +344,9 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 					...(st.bayonet_lug != null ? { bayonetLug: bool(st.bayonet_lug) } : {}),
 					...(st.consumable != null ? { consumable: bool(st.consumable) } : {}),
 					...(st.headgear != null ? { headgear: bool(st.headgear) } : {}),
-					...(st.exploration_only != null ? { explorationOnly: bool(st.exploration_only) } : {})
+					...(st.exploration_only != null ? { explorationOnly: bool(st.exploration_only) } : {}),
+					...(st.alignment != null ? { alignment: oneOf(st.alignment, ALIGNMENTS, `${p}.stipulations.alignment`, 'faithful') } : {}),
+					...(st.factions != null ? { factions: list(st.factions, `${p}.stipulations.factions`) } : {})
 				}
 			: null;
 		return {
@@ -364,7 +369,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		};
 	});
 
-	const pack: FactionPack = { faction, factionId, variant, rules, units, items, keywords };
+	const patrons = readPatrons(doc.patrons, err);
+	const pack: FactionPack = { faction, factionId, variant, rules, units, items, keywords, ...(patrons.length ? { patrons } : {}) };
 	return errors.length ? { pack: null, errors } : { pack, errors };
 }
 
@@ -450,7 +456,9 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 							bayonet_lug: i.stipulations.bayonetLug || undefined,
 							consumable: i.stipulations.consumable || undefined,
 							headgear: i.stipulations.headgear || undefined,
-							exploration_only: i.stipulations.explorationOnly || undefined
+							exploration_only: i.stipulations.explorationOnly || undefined,
+							alignment: i.stipulations.alignment,
+							factions: i.stipulations.factions
 						})
 					: undefined,
 				restrictions: i.stipulations ? undefined : (i.restrictions ?? undefined),
@@ -501,6 +509,8 @@ export function templateText(glossary: { name: string; kind: string | null }[]):
 #   consumable: true                      removed from the roster once used in a game
 #   headgear: true                        a model may have only one piece of headgear
 #   exploration_only: true                only found through Exploration (or "Open Exploration")
+#   alignment: faithful | fallen          (shared items) only warbands of this alignment
+#   factions: [new-antioch]               (shared items) only these factions
 #
 # ── Battlekit limits the builder always applies (Rulebook, "Battlekit Limits") ────────────────
 #   one 2-Handed or two 1-Handed ranged weapons; the same for melee; one grenade type; one armour;

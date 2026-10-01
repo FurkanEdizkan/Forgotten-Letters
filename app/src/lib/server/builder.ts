@@ -29,11 +29,13 @@ export async function builderWarband(id: string, user: SessionUser | null) {
 /** Everything the rules engine needs about a warband, from the imported rules data. */
 export async function builderInput(w: typeof warband.$inferSelect): Promise<BuilderInput & { profiles: ProfileData[] }> {
 	const faction = FACTIONS.find((f) => f.id === w.faction);
-	const [own, mercs, items, mercItems, text, { units, stash }] = await Promise.all([
+	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }] = await Promise.all([
 		unitsOf(w.faction),
 		unitsOf('mercenaries'),
 		itemsOf(w.faction),
 		itemsOf('mercenaries'),
+		itemsOf('glory-items'),
+		itemsOf('exploration'),
 		factionRulesText(w.faction, w.variant),
 		roster(w.id)
 	]);
@@ -70,7 +72,17 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		.map((i) => ({ ...i, stipulations: { ...(i.stipulations ?? {}), only: i.stipulations?.only?.length ? i.stipulations.only : carriers(i.name) } }));
 	// Armoury items the variant takes away ("cannot take the Black Grail Shield") leave its armoury.
 	const excluded = new Set(readRules(text.faction, text.variant, text.overrides ?? []).excluded.map(letters));
-	const armoury: ArmouryItem[] = [...mine(items).filter((i) => !excluded.has(letters(i.name))), ...mercKit].map((i) => ({
+	// Items any warband may get (Glory Items, exploration finds), where their alignment or factions allow this one;
+	// the faction's own row wins over one of the same name.
+	const alignment = faction?.alignment ?? null;
+	const shared = [...glory, ...explore].filter(
+		(i) =>
+			(!i.stipulations?.alignment || i.stipulations.alignment === alignment) &&
+			(!i.stipulations?.factions?.length || i.stipulations.factions.includes(w.faction) || i.stipulations.factions.includes(faction?.under ?? '')) &&
+			!items.some((x) => letters(x.name) === letters(i.name)) &&
+			!excluded.has(letters(i.name))
+	);
+	const armoury: ArmouryItem[] = [...mine(items).filter((i) => !excluded.has(letters(i.name))), ...mercKit, ...shared].map((i) => ({
 		id: i.id,
 		name: i.name,
 		category: i.category,

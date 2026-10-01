@@ -55,6 +55,9 @@ export interface StipulationsOverride {
 	consumable?: boolean;
 	headgear?: boolean;
 	explorationOnly?: boolean;
+	/** Items any warband may get (Glory Items, exploration finds): only warbands of this alignment, or these factions. */
+	alignment?: 'faithful' | 'fallen';
+	factions?: string[];
 	hands?: 0 | 1 | 2;
 	dual?: boolean;
 }

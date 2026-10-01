@@ -662,6 +662,23 @@ export const rulesKeyword = pgTable('rules_keyword', {
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 });
 
+/**
+ * A Patron a warband may serve (Rulebook, Carcass Front): who may take it (an alignment, factions, variants of those
+ * factions), what it is, and its Skills. From the book packs, like the rest of the rules.
+ */
+export const rulesPatron = pgTable('rules_patron', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	alignment: text('alignment', { enum: ['faithful', 'fallen'] }),
+	factions: jsonb('factions').$type<string[]>().notNull().default([]),
+	variants: jsonb('variants').$type<string[]>().notNull().default([]),
+	text: text('text').notNull().default(''),
+	skills: jsonb('skills').$type<{ name: string; text: string }[]>().notNull().default([]),
+	source: text('source'),
+	verified: boolean('verified').notNull().default(false),
+	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
+});
+
 /** Core rules, campaign rules and scenarios, one page per heading of the book. */
 export const rulesPage = pgTable('rules_page', {
 	slug: text('slug').primaryKey(),

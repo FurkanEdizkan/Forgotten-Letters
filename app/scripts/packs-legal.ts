@@ -3,7 +3,7 @@
  * must-include, with their fixed kit) run through the builder's own checks. Prints what the builder would say about
  * it, so a pack that can't make a legal warband shows up before a player meets it.
  *
- *   node app/scripts/packs-legal.ts docs/packs/*.yaml
+ *   npx --prefix app tsx app/scripts/packs-legal.ts docs/packs/*.yaml
  */
 import { readFileSync } from 'node:fs';
 import { parseTemplate, type FactionPack } from '../src/lib/faction-template.ts';

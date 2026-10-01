@@ -3,7 +3,7 @@
  * item a unit names (fixed kit, swaps, per-entry prices, free items) must exist in its own pack, its faction's base
  * pack or the Mercenaries pack. A pack whose faction id is "glossary" carries keywords only. Prints a summary per pack and every problem; exits 1 if there are any.
  *
- *   node app/scripts/packs-check.ts docs/packs/*.yaml
+ *   npx --prefix app tsx app/scripts/packs-check.ts docs/packs/*.yaml
  */
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -12,7 +12,7 @@ import { FACTIONS } from '../src/lib/rules/factions.ts';
 
 const files = process.argv.slice(2);
 if (!files.length) {
-	console.error('usage: node app/scripts/packs-check.ts docs/packs/*.yaml');
+	console.error('usage: npx --prefix app tsx app/scripts/packs-check.ts docs/packs/*.yaml');
 	process.exit(2);
 }
 const known = { factions: [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), { id: 'mercenaries', name: 'Mercenaries' }] };
@@ -55,7 +55,9 @@ let warnings = 0;
 const keywords = new Set(packs.flatMap((x) => [...x.pack.keywords.map((k) => norm(k.name.replace(/\s*\(.*$/, ''))), ...x.pack.units.flatMap((u) => u.keywords.map(norm))]));
 for (const { file, pack } of packs) {
 	if (pack.factionId === 'glossary') continue;
-	const scope = packs.filter((x) => x.pack.factionId === pack.factionId && (!x.pack.variant || x.pack.variant === pack.variant)).map((x) => x.pack);
+	// A shared pack (Glory Items, exploration finds) may name any faction's entries.
+	const shared = ['glory-items', 'exploration', 'patrons'].includes(pack.factionId);
+	const scope = packs.filter((x) => shared || (x.pack.factionId === pack.factionId && (!x.pack.variant || x.pack.variant === pack.variant))).map((x) => x.pack);
 	const units = new Set([...scope.flatMap((p) => p.units.map((u) => norm(u.name))), ...packs.filter((x) => x.pack.factionId === 'mercenaries').flatMap((x) => x.pack.units.map((u) => norm(u.name)))]);
 	const items = new Set(scope.flatMap((p) => p.items.map((i) => norm(i.name))));
 	const ups = new Set(scope.flatMap((p) => (p.rules.overrides?.upgrades ?? []).map((u) => norm(u.name))));

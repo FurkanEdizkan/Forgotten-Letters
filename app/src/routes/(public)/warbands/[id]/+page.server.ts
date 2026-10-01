@@ -8,7 +8,7 @@ import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
 import { builderInput, builderWarband } from '$lib/server/builder';
 import { builderState, entryOf, modelKeywords } from '$lib/builder-state';
-import { equipCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { entryPrice, equipCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
 import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
@@ -136,7 +136,9 @@ export const actions: Actions = {
 			const a = findItem(input.armoury, name);
 			return a ? asItem(a, 0) : { name, kind: 'equipment', cost: 0, currency: 'ducats' };
 		});
-		const keywords = modelKeywords({ id: '', type: profile.name, name: '', category: profile.category, status: 'active', profileId: profile.id, equipment: [], upgrades: [] }, profile, rules, []);
+		// The first of some entries costs otherwise ("the first Goetic Warlock costs 110 Ducats").
+		const price = entryPrice(profile, state);
+		const keywords = modelKeywords({ id: '', type: profile.name, name: '', category: profile.category, status: 'active', profileId: profile.id, equipment: [], upgrades: [], cost: profile.cost, currency: profile.currency, skills: [] }, profile, rules, []);
 		await addUnit(
 			w.campaignId,
 			w.id,
@@ -145,8 +147,8 @@ export const actions: Actions = {
 				type: profile.name,
 				category: profile.category,
 				leader: keywords.includes('LEADER'),
-				cost: profile.cost,
-				currency: profile.currency,
+				cost: price.cost,
+				currency: price.currency,
 				experience: 0,
 				equipment: fixed,
 				upgrades: [],
@@ -179,7 +181,7 @@ export const actions: Actions = {
 		const m = target !== 'stash' ? state.models.find((x) => x.id === target) : null;
 		if (target !== 'stash' && !m) return fail(404, { message: 'No such model' });
 		// The model's own entry may price it differently ("a Rifle for 5"); the arsenal pays the armoury's price.
-		const priced = priceFor(m, item);
+		const priced = priceFor(m, item, state);
 		const cost = free ? 0 : priced.cost;
 		if (m) {
 			const check = equipCheck(m, { ...priced, cost }, state);

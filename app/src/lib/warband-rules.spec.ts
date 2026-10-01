@@ -47,6 +47,9 @@ const model = (over: Partial<ModelState> = {}): ModelState => ({
 	equipment: [],
 	upgrades: [],
 	kit: { fixed: [], swap: null, except: [], nothingElse: false },
+	cost: 0,
+	currency: 'ducats',
+	skills: [],
 	...over
 });
 const has = (...xs: ArmouryItem[]) => xs.map((x) => ({ name: x.name, cost: x.cost, currency: x.currency }));

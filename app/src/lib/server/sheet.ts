@@ -41,7 +41,7 @@ export async function warbandSheet(id: string, user: SessionUser | null) {
 			stats: { ...(profile?.stats ?? {}), ...u.stats },
 			armour: armourOf({ armour: u.stats.armour ?? profile?.stats.armour }, u.equipment, input.armoury, ms?.kit.fixed ?? []),
 			keywords: modelKeywords(
-				{ id: u.id, type: u.type, name: u.name, category: u.category, status: u.status, profileId: u.profileId, equipment: u.equipment, upgrades: u.upgrades },
+				{ id: u.id, type: u.type, name: u.name, category: u.category, status: u.status, profileId: u.profileId, equipment: u.equipment, upgrades: u.upgrades, cost: u.cost, currency: u.currency, skills: u.skills },
 				profile,
 				rules,
 				w.fireteams

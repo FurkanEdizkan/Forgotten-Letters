@@ -2,6 +2,15 @@
  * Patrons: the powers a warband serves (Rulebook, Carcass Front), each with its Skills, and who may take one.
  */
 import { FACTIONS } from './rules/factions';
+import { readLimits, readPrices, type Limit, type PriceRule } from './warband-limits';
+
+/** A Patron's Skill; `prices` and `limits` are for the models that have it ("armour of 15 Ducats or more costs 5 less"). */
+export interface PatronSkill {
+	name: string;
+	text: string;
+	prices?: PriceRule[];
+	limits?: Limit[];
+}
 
 export interface Patron {
 	id: string;
@@ -13,7 +22,7 @@ export interface Patron {
 	/** Only these variants, of the factions they belong to; a listed faction none of whose variants are named takes it whole. */
 	variants: string[];
 	text: string;
-	skills: { name: string; text: string }[];
+	skills: PatronSkill[];
 	source: string | null;
 }
 
@@ -52,7 +61,16 @@ export function readPatrons(input: unknown, err: (path: string, message: string)
 		if (alignment && alignment !== 'faithful' && alignment !== 'fallen') err(`patrons[${i}].alignment`, 'must be faithful or fallen');
 		const factions = list(o.factions);
 		for (const f of factions) if (!FACTIONS.some((x) => x.id === f)) err(`patrons[${i}].factions`, `no faction "${f}"`);
-		const skills = (Array.isArray(o.skills) ? o.skills : []).map((s: Record<string, unknown>) => ({ name: str(s?.name), text: str(s?.text) })).filter((s) => s.name);
+		for (const k of Object.keys(o ?? {})) if (!['name', 'source', 'alignment', 'factions', 'variants', 'text', 'skills'].includes(k)) err(`patrons[${i}].${k}`, 'is not a key of this format');
+		const skills = (Array.isArray(o.skills) ? o.skills : [])
+			.map((s: Record<string, unknown>, k: number) => {
+				const p = `patrons[${i}].skills[${k}]`;
+				for (const key of Object.keys(s ?? {})) if (!['name', 'text', 'prices', 'limits'].includes(key)) err(`${p}.${key}`, 'is not a key of this format');
+				const prices = readPrices(s?.prices, `${p}.prices`, err);
+				const limits = readLimits(s?.limits, `${p}.limits`, err);
+				return { name: str(s?.name), text: str(s?.text), ...(prices ? { prices } : {}), ...(limits ? { limits } : {}) };
+			})
+			.filter((s) => s.name);
 		return [
 			{
 				id: slug(name),

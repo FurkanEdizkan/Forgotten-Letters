@@ -92,7 +92,7 @@
 		if (!selState) return { ok: false as const, reason: 'Choose a model' };
 		// The variant's free item costs nothing the first time.
 		const free = st.rules.freeItems.some((f) => letters(f) === letters(i.name)) && !held.some((h) => letters(h.name) === letters(i.name));
-		const priced = priceFor(selState, i);
+		const priced = priceFor(selState, i, st.state);
 		return equipCheck(selState, free ? { ...priced, cost: 0 } : priced, st.state);
 	};
 
@@ -583,7 +583,7 @@
 			title={LABEL[equipCat]}
 			items={equipItems}
 			check={equipCheckFor}
-			priceOf={(i) => priceFor(selState, i)}
+			priceOf={(i) => priceFor(selState, i, st.state)}
 			{held}
 			unitId={selected.id}
 			glossary={data.glossary}

@@ -5,7 +5,8 @@ import { player, warband } from './db/schema';
 import { currentCampaign } from './campaign';
 import { canEditWarband, type SessionUser } from './auth';
 import { roster } from './roster';
-import { factionRulesText, itemsOf, unitsOf } from './rules-data';
+import { allPatrons, factionRulesText, itemsOf, unitsOf } from './rules-data';
+import { findPatron } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import type { BuilderInput, ProfileData } from '$lib/builder-state';
 import { letters, readRules, type ArmouryItem } from '$lib/warband-rules';
@@ -29,7 +30,7 @@ export async function builderWarband(id: string, user: SessionUser | null) {
 /** Everything the rules engine needs about a warband, from the imported rules data. */
 export async function builderInput(w: typeof warband.$inferSelect): Promise<BuilderInput & { profiles: ProfileData[] }> {
 	const faction = FACTIONS.find((f) => f.id === w.faction);
-	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }] = await Promise.all([
+	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }, patrons] = await Promise.all([
 		unitsOf(w.faction),
 		unitsOf('mercenaries'),
 		itemsOf(w.faction),
@@ -37,7 +38,8 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		itemsOf('glory-items'),
 		itemsOf('exploration'),
 		factionRulesText(w.faction, w.variant),
-		roster(w.id)
+		roster(w.id),
+		allPatrons()
 	]);
 	// The faction's own entries and this variant's, never another variant's; a variant's entry replaces the base
 	// entry of the same name (it costs more there, or gains a keyword).
@@ -110,13 +112,17 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 			status: u.status,
 			profileId: u.profileId,
 			equipment: u.equipment,
-			upgrades: u.upgrades
+			upgrades: u.upgrades,
+			cost: u.cost,
+			currency: u.currency,
+			skills: u.skills
 		})),
 		stash: stash.map((s) => ({ name: s.name, cost: s.cost, currency: s.currency })),
 		ducats: w.treasuryDucats,
 		glory: w.treasuryGlory,
 		unrestricted: w.unrestricted,
 		openExploration: w.openExploration,
-		fireteams: w.fireteams
+		fireteams: w.fireteams,
+		patron: findPatron(patrons, w.patron)
 	};
 }

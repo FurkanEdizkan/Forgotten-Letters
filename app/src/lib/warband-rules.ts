@@ -7,6 +7,7 @@
  * The facts are read from the imported rules text, so a correction in Admin → Rules corrects the builder.
  */
 import type { Currency } from './roster';
+import { limitIssues, loadoutCheck, matchModel, newlyBroken, matchItem, type Limit, type LimitWorld, type Loadout, type ModelSel, type PriceRule, type ScopedLimit } from './warband-limits';
 
 export type ArmouryCategory = 'ranged' | 'grenade' | 'melee' | 'armour' | 'shield' | 'equipment' | 'special';
 
@@ -60,6 +61,10 @@ export interface StipulationsOverride {
 	factions?: string[];
 	hands?: 0 | 1 | 2;
 	dual?: boolean;
+	/** Limits on the models that carry it ("cannot also carry a Trench Shield"). */
+	limits?: Limit[];
+	/** Models whose copies don't count towards its `limit`. */
+	limitExcludes?: ModelSel;
 }
 
 export interface ItemFacts {
@@ -77,6 +82,8 @@ export interface ItemFacts {
 	heavy: boolean;
 	held: boolean;
 	explorationOnly: boolean;
+	limits?: Limit[];
+	limitExcludes?: ModelSel;
 }
 
 const STIPULATIONS = /^(shield combo|bayonet lug|consumable|headgear|limit.*|\d+ per model|exploration only)$/i;
@@ -128,6 +135,12 @@ export interface UnitKit {
 	nothingElse: boolean;
 	/** Armoury items this entry buys at its own price (see `UnitKitOverride.prices`). */
 	prices?: Record<string, { cost: number; currency: Currency }>;
+	/** The entry's own limits (see `UnitKitOverride`). */
+	limits?: Limit[];
+	hands?: { ranged?: number; melee?: number };
+	loadouts?: Loadout[];
+	countsAs?: string;
+	recruit?: boolean;
 }
 
 const CATEGORY_WORDS: [RegExp, ArmouryCategory][] = [
@@ -148,6 +161,16 @@ export interface UnitKitOverride {
 	hire?: { alignment: 'faithful' | 'fallen' | null; by: string[] } | null;
 	/** What an armoury item costs this entry, where its own entry says so ("can take a Rifle for 5 ducats"). By item name. */
 	prices?: Record<string, { cost: number; currency: 'ducats' | 'glory' }>;
+	/** Limits on this entry's models ("may only take these items", "must carry Armour", "at most 2 Goetic Powers"). */
+	limits?: Limit[];
+	/** Weapons it can hold, in hands, where its entry gives it more (or fewer) than two. */
+	hands?: { ranged?: number; melee?: number };
+	/** The kit it must carry as one of these sets ("a Greatsword, or a Polearm and a Trench Shield"). */
+	loadouts?: Loadout[];
+	/** It is this other entry for "X only" kit and upgrades (a variant's Master Assassin is a Sultanate Assassin). */
+	countsAs?: string;
+	/** false: never recruited, only gained another way (resurrection). */
+	recruit?: boolean;
 }
 
 export function unitKit(note: string | null | undefined, override?: UnitKitOverride | null): UnitKit {
@@ -205,6 +228,14 @@ export interface Upgrade {
 	/** Entry names it applies to (empty: any model). */
 	for: string[];
 	text: string;
+	/** More keywords it grants. */
+	keywords?: string[];
+	/** The kind of upgrade it is ("Goetic Power"), for limits that count them together. */
+	group?: string;
+	/** Hands the model has with it. */
+	hands?: { ranged?: number; melee?: number };
+	/** Limits on the models that have it ("cannot take Ranged Weapons"). */
+	limits?: Limit[];
 }
 
 /** Hand-set rules for a faction or variant (Faction Studio / template); any key given replaces the parsed one. */
@@ -228,6 +259,10 @@ export interface VariantRules {
 	freeItems: string[];
 	upgrades: Upgrade[];
 	fireteams: number;
+	/** The books' other building limits (see warband-limits.ts). */
+	limits: Limit[];
+	/** Prices set by rule (the first copy at half price, a Patron Skill's discount). */
+	prices: PriceRule[];
 	/** The rule text, one paragraph per rule, for the Faction Special Rules panel. */
 	paragraphs: string[];
 }
@@ -260,6 +295,11 @@ export function readRules(
 			set.add(k);
 			if (first) out[k] = v;
 			else if (k === 'upgrades' || k === 'caps') out[k] = byName(r[k] as { name: string }[], v);
+			// Limits and prices: a later one of the same name replaces it; unnamed ones add up.
+			else if (k === 'limits' || k === 'prices') {
+				const later = v as { name?: string }[];
+				out[k] = [...(r[k] as { name?: string }[]).filter((x) => !x.name || !later.some((y) => y.name && letters(y.name) === letters(x.name!))), ...later];
+			}
 			else if (k === 'excluded' || k === 'freeItems' || k === 'optional') out[k] = union(r[k] as string[], v);
 			else out[k] = v;
 		}
@@ -285,6 +325,8 @@ function parseRules(factionText: string | null | undefined, variantText?: string
 		freeItems: [],
 		upgrades: [],
 		fireteams: 0,
+		limits: [],
+		prices: [],
 		paragraphs: all
 			.split(/\n{2,}/)
 			.map((p) => p.trim())
@@ -336,6 +378,12 @@ export interface ModelState {
 	equipment: HeldItem[];
 	upgrades: string[];
 	kit: UnitKit;
+	/** Its entry's cost with its upgrades (not its kit). */
+	cost: number;
+	currency: Currency;
+	skills: string[];
+	/** The entry it counts as for "X only" (see `UnitKitOverride.countsAs`). */
+	countsAs?: string;
 }
 export interface WarbandState {
 	models: ModelState[];
@@ -346,17 +394,56 @@ export interface WarbandState {
 	unrestricted: boolean;
 	/** Exploration-only kit may be bought (the CM, or "Open Exploration"). */
 	openExploration?: boolean;
+	/** Every building limit in force, each with the models it is about (see `builderState`). */
+	limits?: ScopedLimit[];
+	prices?: PriceRule[];
+	upgrades?: Upgrade[];
 }
 
 export type Check = { ok: true } | { ok: false; reason: string };
 const ok: Check = { ok: true };
 const no = (reason: string): Check => ({ ok: false, reason });
 
-/** What an item costs this model: its entry's own price where the entry names one ("a Rifle for 5"), else the armoury's. */
-export function priceFor<T extends { name: string; cost: number; currency: Currency }>(m: { kit: UnitKit } | null | undefined, item: T): T {
-	const own = m?.kit.prices && Object.entries(m.kit.prices).find(([name]) => letters(name) === letters(item.name));
-	return own ? { ...item, cost: own[1].cost, currency: own[1].currency } : item;
+/** The limits' view of a warband. */
+const world = (w: WarbandState, models = w.models): LimitWorld => ({ models, armoury: w.armoury, upgrades: w.upgrades ?? [], limits: w.limits ?? [] });
+
+function applyPrice<T extends { cost: number; currency: Currency }>(p: T, r: PriceRule): T {
+	if (r.cost != null) return { ...p, cost: r.cost, currency: r.currency ?? p.currency };
+	if (r.less != null) return { ...p, cost: Math.max(0, p.cost - r.less) };
+	return { ...p, cost: Math.ceil(p.cost * (r.factor ?? 1)) };
 }
+
+/**
+ * What an item costs this model: its entry's own price where the entry names one ("a Rifle for 5"), else the
+ * armoury's; then the warband's price rules (the first copy at half price, a Patron Skill's discount).
+ */
+export function priceFor<T extends { name: string; cost: number; currency: Currency }>(m: { kit: UnitKit } | null | undefined, item: T, w?: WarbandState): T {
+	const own = m?.kit.prices && Object.entries(m.kit.prices).find(([name]) => letters(name) === letters(item.name));
+	let p: T = own ? { ...item, cost: own[1].cost, currency: own[1].currency } : item;
+	if (!w) return p;
+	const held = [...w.models.flatMap((x) => x.equipment), ...w.stash];
+	for (const r of w.prices ?? []) {
+		if (!r.items || !matchItem(item, r.items, w.armoury)) continue;
+		if (r.who && !(m && 'id' in m && matchModel(m as ModelState, r.who, world(w)))) continue;
+		if (r.first && held.some((h) => letters(h.name) === letters(item.name))) continue;
+		p = applyPrice(p, r);
+	}
+	return p;
+}
+
+/** What recruiting this entry costs now (its first one may cost otherwise: "the first Goetic Warlock costs 110 Ducats"). */
+export function entryPrice<T extends { name: string; cost: number; currency: Currency }>(e: T, w: WarbandState): T {
+	let p = e;
+	for (const r of w.prices ?? []) {
+		if (!r.entries?.some((x) => sameEntry(x, e.name))) continue;
+		if (r.first && w.models.some((m) => m.status === 'active' && sameEntry(m.type, e.name))) continue;
+		p = applyPrice(p, r);
+	}
+	return p;
+}
+
+/** The warband's models with this one changed (or added). */
+const withModel = (w: WarbandState, m: ModelState) => (w.models.some((x) => x.id === m.id) ? w.models.map((x) => (x.id === m.id ? m : x)) : [...w.models, m]);
 
 /**
  * May this model take a keyword upgrade now: one of the entries it is for (if it names any), within its most, and
@@ -369,7 +456,9 @@ export function upgradeCheck(m: ModelState, up: Upgrade, w: WarbandState): Check
 	if (up.max != null && taken >= up.max) return no(`${up.name}: ${taken}/${up.max} taken`);
 	const purse = up.currency === 'glory' ? w.glory : w.ducats;
 	if (up.cost > purse) return no(`Costs ${up.cost} ${up.currency === 'glory' ? 'Glory' : 'Ducats'}; ${purse} in the strongbox`);
-	return ok;
+	const next = { ...m, upgrades: [...m.upgrades, up.name], keywords: [...m.keywords, ...[up.keyword, ...(up.keywords ?? [])].filter((k): k is string => !!k)] };
+	const broken = newlyBroken(world(w), world(w, withModel(w, next)));
+	return broken ? no(broken) : ok;
 }
 
 export const findItem = (armoury: ArmouryItem[], name: string) => armoury.find((a) => letters(a.name) === letters(name)) ?? null;
@@ -378,6 +467,7 @@ export const findItem = (armoury: ArmouryItem[], name: string) => armoury.find((
 function qualifies(m: ModelState, x: string) {
 	const k = letters(x);
 	if (k === 'elite') return m.category === 'elite' || m.keywords.some((w) => letters(w) === 'elite');
+	if (m.countsAs && sameEntry(m.countsAs, x)) return true;
 	// "Chewa only": a model that has taken that upgrade.
 	if (m.upgrades.some((u) => letters(u) === k)) return true;
 	if (m.keywords.some((w) => letters(w) === k)) return true;
@@ -412,6 +502,20 @@ function handsUsed(m: ModelState, armoury: ArmouryItem[], extra?: ArmouryItem) {
 	return { ranged, melee, rangedTwo, meleeTwo, shield, twoHanded, items };
 }
 
+/** Copies of an item held in the warband that count towards its Limit. */
+function limitCount(item: ArmouryItem, w: WarbandState) {
+	const ex = itemFacts(item).limitExcludes;
+	const on = w.models.filter((x) => !ex || !matchModel(x, ex, world(w))).flatMap((x) => x.equipment);
+	return [...on, ...w.stash].filter((e) => letters(e.name) === letters(item.name)).length;
+}
+
+/** The hands a model has for weapons: two, unless its entry or an upgrade says otherwise. */
+function handsOf(m: ModelState, w: WarbandState) {
+	const ups = (w.upgrades ?? []).filter((u) => u.hands && m.upgrades.includes(u.name));
+	const pick = (k: 'ranged' | 'melee') => Math.max(m.kit.hands?.[k] ?? 2, ...ups.map((u) => u.hands?.[k] ?? 0));
+	return { ranged: pick('ranged'), melee: pick('melee') };
+}
+
 /** May this model be given this item? The first rule it breaks is the reason. */
 export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): Check {
 	const f = itemFacts(item);
@@ -420,8 +524,8 @@ export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): C
 		if (m.kit.except.includes(item.category)) return no(`A ${m.type} cannot take ${item.category === 'armour' ? 'Armour' : item.category + ' kit'}`);
 		if (f.explorationOnly && !w.openExploration) return no('Found through Exploration only');
 		if (f.only.length && !f.only.some((x) => qualifies(m, x))) return no(`${f.only.join(' or ')} only`);
-		if (item.limit != null) {
-			const held = [...w.models.flatMap((x) => x.equipment), ...w.stash].filter((e) => letters(e.name) === letters(item.name)).length;
+		if (item.limit != null && !(f.limitExcludes && matchModel(m, f.limitExcludes, world(w)))) {
+			const held = limitCount(item, w);
 			if (held >= item.limit) return no(`Limit ${held}/${item.limit} used`);
 		}
 		if (f.perModel != null && m.equipment.filter((e) => letters(e.name) === letters(item.name)).length >= f.perModel)
@@ -429,8 +533,21 @@ export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): C
 		const cur = handsUsed(m, w.armoury);
 		const next = handsUsed(m, w.armoury, item);
 		const shield = next.shield;
-		if (item.category === 'ranged' && next.ranged > 2) return no(`No free hands for a ranged weapon (${cur.ranged} of 2 in use)`);
-		if (item.category === 'melee' && next.melee > 2) return no(`No free hands for a melee weapon (${cur.melee} of 2 in use)`);
+		const hands = handsOf(m, w);
+		if (item.category === 'ranged' && next.ranged > hands.ranged) return no(`No free hands for a ranged weapon (${cur.ranged} of ${hands.ranged} in use)`);
+		if (item.category === 'melee' && next.melee > hands.melee) return no(`No free hands for a melee weapon (${cur.melee} of ${hands.melee} in use)`);
+		// HEAVY: one piece per model (STRONG models negate it). HELD: one hand, so one 1-Handed Weapon or a Shield beside it.
+		const strong = m.keywords.some((k) => ['strong', 'negateheavy'].includes(letters(k)));
+		if (!strong && next.items.filter((i) => itemFacts(i).heavy).length > 1) return no('Only one piece of HEAVY battlekit');
+		if (next.items.some((i) => itemFacts(i).held)) {
+			const other = next.items.filter((i) => !itemFacts(i).held && ['ranged', 'melee', 'shield'].includes(i.category));
+			if (other.length > 1) return no('With HELD battlekit, only one 1-Handed Weapon or a Shield');
+			if (next.twoHanded.some((t) => !itemFacts(t).held)) return no('With HELD battlekit, no 2-Handed Weapons');
+		}
+		if (m.kit.loadouts?.length) {
+			const bad = loadoutCheck([...m.equipment.map((e) => e.name), item.name], m.kit.loadouts, false);
+			if (bad) return no(bad);
+		}
 		if (shield) {
 			const combo = itemFacts(shield).shieldCombo;
 			const bad = next.twoHanded.find((t) => !(combo && itemFacts(t).shieldCombo));
@@ -447,6 +564,9 @@ export function equipCheck(m: ModelState, item: ArmouryItem, w: WarbandState): C
 			return no(`Already has ${item.name}`);
 		if (letters(item.name) === 'bayonet' && !cur.items.some((i) => i.category === 'ranged' && itemFacts(i).bayonetLug))
 			return no('Needs a ranged weapon with a Bayonet Lug');
+		const held: HeldItem = { name: item.name, cost: item.cost, currency: item.currency };
+		const broken = newlyBroken(world(w), world(w, withModel(w, { ...m, equipment: [...m.equipment, held] })));
+		if (broken) return no(broken);
 	}
 	const purse = item.currency === 'glory' ? w.glory : w.ducats;
 	if (!w.unrestricted && item.cost > purse)
@@ -463,6 +583,9 @@ export interface EntryRef {
 	keywords: string[];
 	/** For mercenaries: who may hire them. */
 	hire?: { alignment: 'faithful' | 'fallen' | null; by: string[] };
+	/** false: never recruited (see `UnitKitOverride.recruit`). */
+	recruit?: boolean;
+	countsAs?: string;
 }
 
 const same = sameEntry;
@@ -475,6 +598,7 @@ export function recruitCheck(
 	faction: { name: string; alignment: 'faithful' | 'fallen'; variant: string | null }
 ): Check {
 	if (w.unrestricted) return ok;
+	if (e.recruit === false) return no(`A ${e.name} is not recruited; it joins another way`);
 	const active = w.models.filter((m) => m.status === 'active');
 	if (rules.excluded.some((x) => same(x, e.name) || (e.category === 'mercenary' && letters(x) === 'mercenaries')))
 		return no(`${faction.variant ?? faction.name} cannot include ${e.category === 'mercenary' && rules.excluded.some((x) => letters(x) === 'mercenaries') ? 'Mercenaries' : e.name}`);
@@ -491,9 +615,25 @@ export function recruitCheck(
 	if (cap != null && fielded >= cap) return no(`Limit reached (${fielded}/${cap})`);
 	const elite = e.category === 'elite' || e.keywords.some((k) => letters(k) === 'elite');
 	if (elite && active.filter((m) => m.category === 'elite').length >= 6) return no('A warband can have at most 6 ELITE models');
-	const purse = e.currency === 'glory' ? w.glory : w.ducats;
-	if (e.cost > purse) return no(`Costs ${e.cost} ${e.currency === 'glory' ? 'Glory' : 'Ducats'}; ${purse} in the strongbox`);
-	return ok;
+	const price = entryPrice(e, w);
+	const purse = price.currency === 'glory' ? w.glory : w.ducats;
+	if (price.cost > purse) return no(`Costs ${price.cost} ${price.currency === 'glory' ? 'Glory' : 'Ducats'}; ${purse} in the strongbox`);
+	const recruit: ModelState = {
+		id: '(new)',
+		type: e.name,
+		category: e.category,
+		keywords: e.keywords,
+		status: 'active',
+		equipment: [],
+		upgrades: [],
+		kit: { fixed: [], swap: null, except: [], nothingElse: false },
+		cost: price.cost,
+		currency: price.currency,
+		skills: [],
+		countsAs: e.countsAs
+	};
+	const broken = newlyBroken(world(w), world(w, [...w.models, recruit]));
+	return broken ? no(broken) : ok;
 }
 
 /** Everything that makes the list illegal right now (empty when it is valid). */
@@ -522,7 +662,27 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 	}
 	const counts = new Map<string, number>();
 	for (const i of [...active.flatMap((m) => m.equipment), ...w.stash]) counts.set(letters(i.name), (counts.get(letters(i.name)) ?? 0) + 1);
-	for (const a of w.armoury) if (a.limit != null && (counts.get(letters(a.name)) ?? 0) > a.limit) out.push(`${counts.get(letters(a.name))} × ${a.name}: the limit is ${a.limit}.`);
+	for (const a of w.armoury) {
+		const n = itemFacts(a).limitExcludes ? limitCount(a, w) : (counts.get(letters(a.name)) ?? 0);
+		if (a.limit != null && n > a.limit) out.push(`${n} × ${a.name}: the limit is ${a.limit}.`);
+	}
+	// Each model's kit, put on again one piece at a time against the Battlekit Limits and its entry's rules
+	// (an imported or older list never went through the builder's checks).
+	for (const m of active) {
+		const fixed = new Set(m.kit.fixed.map(letters));
+		let acc: ModelState = { ...m, equipment: [] };
+		for (const e of m.equipment) {
+			const a = findItem(w.armoury, e.name);
+			if (a && !fixed.has(letters(e.name))) {
+				const c = equipCheck(acc, a, { ...w, models: [acc], stash: [], ducats: Infinity, glory: Infinity, limits: [], openExploration: true });
+				if (!c.ok) out.push(`${m.type} with ${e.name}: ${c.reason}.`);
+			}
+			acc = { ...acc, equipment: [...acc.equipment, e] };
+		}
+		const loadout = m.kit.loadouts?.length ? loadoutCheck(m.equipment.map((e) => e.name), m.kit.loadouts, true) : null;
+		if (loadout) out.push(`${m.type}: ${loadout}`);
+	}
+	out.push(...limitIssues(world(w)).map((i) => i.text));
 	for (const u of rules.upgrades) {
 		const on = active.filter((m) => m.upgrades.includes(u.name));
 		if (u.max != null && on.length > u.max) out.push(`${u.name} on ${on.length} models; the most is ${u.max}.`);

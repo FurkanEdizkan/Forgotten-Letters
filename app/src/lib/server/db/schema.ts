@@ -1,3 +1,4 @@
+import type { PatronSkill } from '$lib/patrons';
 import { type AnyPgColumn, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
@@ -673,7 +674,7 @@ export const rulesPatron = pgTable('rules_patron', {
 	factions: jsonb('factions').$type<string[]>().notNull().default([]),
 	variants: jsonb('variants').$type<string[]>().notNull().default([]),
 	text: text('text').notNull().default(''),
-	skills: jsonb('skills').$type<{ name: string; text: string }[]>().notNull().default([]),
+	skills: jsonb('skills').$type<PatronSkill[]>().notNull().default([]),
 	source: text('source'),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')

@@ -3,6 +3,7 @@
  * rules, units, armoury and new keywords. The same format is exported from the Studio, so a faction can be
  * written by hand, downloaded, edited and uploaded again.
  */
+import { readHands, readLimits, readLoadouts, readModelSel, readPrices } from './warband-limits';
 import { parse, stringify } from 'yaml';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride, Upgrade } from './warband-rules';
 import { readPatrons, type Patron } from './patrons';
@@ -121,7 +122,14 @@ export interface TemplateError {
 }
 
 type Obj = Record<string, unknown>;
+// The keys each part of a pack may have (anything else is refused).
+const RULE_KEYS = 'start_ducats start_glory excluded must_include leader optional caps free_items fireteams upgrades limits prices text';
+const UPGRADE_KEYS = 'name keyword keywords group max cost currency for hands limits text';
+const KIT_KEYS = 'fixed except nothing_else swap prices limits hands loadouts counts_as recruit';
+const STIPULATION_KEYS = 'only per_model shield_combo bayonet_lug consumable headgear exploration_only alignment factions limits limit_excludes';
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
+/** Only the keys that are set. */
+const defined = <T extends Obj>(o: T): Partial<T> => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
 
 /** Read a template into rows, or say exactly what is wrong (by path) and read nothing. */
 export function parseTemplate(text: string, known: Known = { factions: [] }): { pack: FactionPack | null; errors: TemplateError[] } {
@@ -179,9 +187,15 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		return v.map((x) => String(x).trim()).filter(Boolean);
 	};
 	const bool = (v: unknown) => v === true || v === 'yes' || v === 'true';
+	// A misspelt key would leave its rule unenforced without a word: refuse it.
+	const keys = (o: unknown, allowed: string, path: string) => {
+		if (isObj(o)) for (const k of Object.keys(o)) if (!allowed.split(' ').includes(k)) err(path ? `${path}.${k}` : k, 'is not a key of this format');
+	};
+	keys(doc, 'faction rules units armoury keywords patrons', '');
 
 	// Faction
 	const f = isObj(doc.faction) ? doc.faction : (err('faction', 'is required'), {} as Obj);
+	keys(f, 'id name alignment parent description colours', 'faction');
 	const name = str(f.name, 'faction.name', true) ?? '';
 	const parent = str(f.parent, 'faction.parent');
 	const parentFaction = parent ? known.factions.find((x) => x.id === parent || slug(x.name) === slug(parent)) : null;
@@ -204,6 +218,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 
 	// Rules
 	const r = isObj(doc.rules) ? doc.rules : {};
+	keys(r, RULE_KEYS, 'rules');
 	const pairs = (v: unknown, path: string, key: string) =>
 		(Array.isArray(v) ? v : []).map((x, i) => {
 			if (typeof x === 'string') return { name: x, [key]: 1 };
@@ -213,6 +228,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		});
 	const upgrades: Upgrade[] = (Array.isArray(r.upgrades) ? r.upgrades : []).map((u: unknown, i: number) => {
 		const o = isObj(u) ? u : (err(`rules.upgrades[${i}]`, 'must be { name, keyword, max, cost }'), {} as Obj);
+		keys(o, UPGRADE_KEYS, `rules.upgrades[${i}]`);
 		return {
 			name: str(o.name, `rules.upgrades[${i}].name`, true) ?? '',
 			keyword: str(o.keyword, `rules.upgrades[${i}].keyword`)?.toUpperCase() ?? null,
@@ -220,7 +236,13 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 			cost: num(o.cost, `rules.upgrades[${i}].cost`, 0) ?? 0,
 			currency: oneOf(o.currency, CURRENCIES, `rules.upgrades[${i}].currency`, 'ducats'),
 			for: list(o.for, `rules.upgrades[${i}].for`),
-			text: str(o.text, `rules.upgrades[${i}].text`) ?? ''
+			text: str(o.text, `rules.upgrades[${i}].text`) ?? '',
+			...defined({
+				keywords: o.keywords != null ? list(o.keywords, `rules.upgrades[${i}].keywords`).map((k) => k.toUpperCase()) : undefined,
+				group: str(o.group, `rules.upgrades[${i}].group`) ?? undefined,
+				hands: readHands(o.hands, `rules.upgrades[${i}].hands`, err),
+				limits: readLimits(o.limits, `rules.upgrades[${i}].limits`, err)
+			})
 		};
 	});
 	const overrides: RulesOverride = {
@@ -235,7 +257,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		...(r.caps != null ? { caps: pairs(r.caps, 'rules.caps', 'max') as { name: string; max: number }[] } : {}),
 		...(r.free_items != null ? { freeItems: list(r.free_items, 'rules.free_items') } : {}),
 		...(r.fireteams != null ? { fireteams: num(r.fireteams, 'rules.fireteams', 0) ?? 0 } : {}),
-		...(r.upgrades != null ? { upgrades } : {})
+		...(r.upgrades != null ? { upgrades } : {}),
+		...defined({ limits: readLimits(r.limits, 'rules.limits', err), prices: readPrices(r.prices, 'rules.prices', err) })
 	};
 	const rules: RulesRow = {
 		id: `${factionId}:${variant ?? ''}`,
@@ -259,6 +282,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 	const units: UnitRow[] = (Array.isArray(doc.units) ? doc.units : []).map((u: unknown, i: number) => {
 		const p = `units[${i}]`;
 		const o = isObj(u) ? u : (err(p, 'must be a unit'), {} as Obj);
+		keys(o, 'name category variant availability stats kit hired_by cost currency keywords abilities battlekit_note powers description', p);
 		const uname = str(o.name, `${p}.name`, true) ?? '';
 		const category = oneOf(o.category, UNIT_CATEGORIES, `${p}.category`, 'troop');
 		const uvariant = variant ?? str(o.variant, `${p}.variant`);
@@ -277,6 +301,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		}
 		const s = isObj(o.stats) ? o.stats : {};
 		const kitIn = isObj(o.kit) ? o.kit : null;
+		keys(kitIn, KIT_KEYS, `${p}.kit`);
 		const hire = isObj(o.hired_by) ? o.hired_by : null;
 		const swap = kitIn && isObj(kitIn.swap) ? kitIn.swap : null;
 		// Per-entry prices: { Rifle: 5 } or { Rifle: { cost: 5, currency: ducats } }.
@@ -298,6 +323,13 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 						...(kitIn?.except != null ? { except: list(kitIn.except, `${p}.kit.except`).map((c, k) => oneOf(c, KIT_EXCEPT, `${p}.kit.except[${k}]`, 'armour')) } : {}),
 						...(kitIn?.nothing_else != null ? { nothingElse: bool(kitIn.nothing_else) } : {}),
 						...(prices ? { prices } : {}),
+						...defined({
+							limits: readLimits(kitIn?.limits, `${p}.kit.limits`, err),
+							hands: readHands(kitIn?.hands, `${p}.kit.hands`, err),
+							loadouts: readLoadouts(kitIn?.loadouts, `${p}.kit.loadouts`, err),
+							countsAs: str(kitIn?.counts_as, `${p}.kit.counts_as`) ?? undefined,
+							recruit: kitIn?.recruit != null ? bool(kitIn.recruit) : undefined
+						}),
 						...(swap
 							? { swap: { from: str(swap.from, `${p}.kit.swap.from`, true) ?? '', to: str(swap.to, `${p}.kit.swap.to`, true) ?? '', extra: num(swap.extra, `${p}.kit.swap.extra`, 0) ?? 0 } }
 							: {}),
@@ -318,6 +350,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 			keywords: list(o.keywords, `${p}.keywords`).map((k) => k.toUpperCase()),
 			abilities: (Array.isArray(o.abilities) ? o.abilities : []).map((a: unknown, k: number) => {
 				const ao = isObj(a) ? a : {};
+				keys(ao, 'name text', `${p}.abilities[${k}]`);
 				return { name: str(ao.name, `${p}.abilities[${k}].name`, true) ?? '', text: str(ao.text, `${p}.abilities[${k}].text`) ?? '' };
 			}),
 			battlekitNote: str(o.battlekit_note, `${p}.battlekit_note`),
@@ -334,7 +367,9 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		const iname = str(o.name, `${p}.name`, true) ?? '';
 		const ivariant = variant ?? str(o.variant, `${p}.variant`);
 		const limit = num(o.limit, `${p}.limit`);
+		keys(o, 'name variant category type range cost currency limit unique keywords text description restrictions stipulations', p);
 		const st = isObj(o.stipulations) ? o.stipulations : null;
+		keys(st, STIPULATION_KEYS, `${p}.stipulations`);
 		const type = o.type != null ? oneOf(o.type, ITEM_TYPES, `${p}.type`, 'Equipment') : null;
 		const stipulations: StipulationsOverride | null = st
 			? {
@@ -346,7 +381,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 					...(st.headgear != null ? { headgear: bool(st.headgear) } : {}),
 					...(st.exploration_only != null ? { explorationOnly: bool(st.exploration_only) } : {}),
 					...(st.alignment != null ? { alignment: oneOf(st.alignment, ALIGNMENTS, `${p}.stipulations.alignment`, 'faithful') } : {}),
-					...(st.factions != null ? { factions: list(st.factions, `${p}.stipulations.factions`) } : {})
+					...(st.factions != null ? { factions: list(st.factions, `${p}.stipulations.factions`) } : {}),
+					...defined({ limits: readLimits(st.limits, `${p}.stipulations.limits`, err), limitExcludes: readModelSel(st.limit_excludes, `${p}.stipulations.limit_excludes`, err) })
 				}
 			: null;
 		return {
@@ -404,7 +440,23 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 			caps: o.caps,
 			free_items: o.freeItems,
 			fireteams: o.fireteams,
-			upgrades: o.upgrades?.map((u) => drop({ name: u.name, keyword: u.keyword ?? undefined, max: u.max ?? undefined, cost: u.cost || undefined, currency: u.currency === 'glory' ? 'glory' : undefined, for: u.for, text: u.text })),
+			upgrades: o.upgrades?.map((u) =>
+				drop({
+					name: u.name,
+					keyword: u.keyword ?? undefined,
+					keywords: u.keywords,
+					group: u.group,
+					max: u.max ?? undefined,
+					cost: u.cost || undefined,
+					currency: u.currency === 'glory' ? 'glory' : undefined,
+					for: u.for,
+					hands: u.hands,
+					limits: u.limits,
+					text: u.text
+				})
+			),
+			limits: o.limits,
+			prices: o.prices,
 			text: p.rules.text || undefined
 		}, true),
 		keywords: p.keywords.map((k) => drop({ name: k.name, kind: k.kind ?? undefined, text: k.text })),
@@ -430,7 +482,12 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 							swap: u.kit.swap ?? undefined,
 							prices: u.kit.prices
 								? Object.fromEntries(Object.entries(u.kit.prices).map(([k, v]) => [k, v.currency === 'glory' ? v : v.cost]))
-								: undefined
+								: undefined,
+							limits: u.kit.limits,
+							hands: u.kit.hands,
+							loadouts: u.kit.loadouts,
+							counts_as: u.kit.countsAs,
+							recruit: u.kit.recruit
 						})
 					: undefined,
 				hired_by: u.kit?.hire ? drop({ alignment: u.kit.hire.alignment ?? undefined, by: u.kit.hire.by }) : undefined
@@ -458,7 +515,9 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 							headgear: i.stipulations.headgear || undefined,
 							exploration_only: i.stipulations.explorationOnly || undefined,
 							alignment: i.stipulations.alignment,
-							factions: i.stipulations.factions
+							factions: i.stipulations.factions,
+							limits: i.stipulations.limits,
+							limit_excludes: i.stipulations.limitExcludes
 						})
 					: undefined,
 				restrictions: i.stipulations ? undefined : (i.restrictions ?? undefined),
@@ -516,7 +575,22 @@ export function templateText(glossary: { name: string; kind: string | null }[]):
 #   one 2-Handed or two 1-Handed ranged weapons; the same for melee; one grenade type; one armour;
 #   one shield (it takes a hand: then one 1-Handed weapon of each kind, 2-Handed only with Shield
 #   Combo on both); STRONG carries a 2-Handed melee weapon in one hand unless it is CUMBERSOME;
-#   no two pieces of equipment with the same name; at most 6 ELITE models.
+#   no two pieces of equipment with the same name; at most 6 ELITE models; one piece of HEAVY kit
+#   (unless STRONG); beside HELD kit only one 1-Handed weapon or a shield, nothing 2-Handed.
+#
+# ── Every other building rule is a key, never only text ──────────────────────────────────────
+#   limits: count one thing, with min and/or max (a broken max refuses the action; a min is
+#   listed until the finished list meets it):
+#     per model:     items: {names, categories, types, keywords, min_cost, max_cost, currency, not}
+#                    upgrades: [name | group | keyword]          (who: {…models} narrows)
+#     warband-wide:  models: {entries, keywords, upgrades, skills, holding, category, value_under, not}
+#                    entries: [names] (how many of these are present) · warband_items: {…items}
+#     per: {models | items, each, round: up, strict}  ·  when: {rating_min, rating_under, present, absent}
+#   They go on a unit (kit.limits), an item (stipulations.limits), an upgrade (limits), a Patron
+#   Skill (limits), or the warband (rules.limits), and are about those models.
+#   prices (rules.prices, Skills): {items | entries, who, first, cost + currency | less | factor}
+#   kit.hands: {ranged, melee} · kit.loadouts: [[A], [B, C], [D, [E, F]]] · kit.counts_as: <entry>
+#   kit.recruit: false · upgrades: keywords, group, hands · stipulations.limit_excludes: {…models}
 #
 # ── Keywords you can use (from your rules glossary) ──────────────────────────────────────────
 #   Tags:
@@ -555,6 +629,10 @@ rules:
       max: 3
       cost: 0
       text: <Up to 3 models can have the NEGATE FEAR Keyword at no additional cost.>
+  limits:                           # the warband's own building rules
+    - { text: <One Pilgrim Hound per two Masked Knights>, models: { entries: [<Pilgrim Hound>] }, max: 1, per: { models: { entries: [<Masked Knight>] }, each: 2 } }
+  prices:
+    - { items: { categories: [melee] }, first: true, factor: 0.5 }   # <the first copy of each melee weapon at half price>
   text: |-                          # the special rules as players should read them (shown in the builder)
     * <Rule Name>: <What it does.>
 
@@ -595,6 +673,8 @@ units:
       except: [armour]              # may not take other armour
       swap: { from: Reinforced Armour, to: Machine Armour, extra: 10 }   # an upgrade that swaps kit
       prices: { <Saint's Rifle>: 5 }   # what an armoury item costs THIS entry ({ cost, currency } for glory)
+      limits:                       # this entry's own rules
+        - { text: <Must wear armour>, items: { categories: [armour] }, min: 1 }
   - name: <Wandering Hermit>
     category: mercenary
     cost: 3

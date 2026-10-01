@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { parseTemplate, type FactionPack } from '../src/lib/faction-template.ts';
 import { FACTIONS } from '../src/lib/rules/factions.ts';
+import { namesIn } from '../src/lib/warband-limits.ts';
 
 const files = process.argv.slice(2);
 if (!files.length) {
@@ -72,7 +73,17 @@ for (const { file, pack } of packs) {
 		...(o.caps ?? []).map((c) => ['caps', c.name] as [string, string]),
 		...(o.excluded ?? []).map((e) => ['excluded', e] as [string, string]),
 		...(o.upgrades ?? []).flatMap((u) => u.for.map((f) => [`upgrade ${u.name}.for`, f] as [string, string])),
-		...pack.items.flatMap((i) => (i.stipulations?.only ?? []).map((n) => [`${i.name}.only`, n] as [string, string]))
+		...pack.items.flatMap((i) => (i.stipulations?.only ?? []).map((n) => [`${i.name}.only`, n] as [string, string])),
+		// Every name a limit or price points at (entries, items, upgrades, kit loadouts, counts_as).
+		...[
+			['rules', [o.limits, o.prices, (o.upgrades ?? []).map((u) => u.limits)]] as const,
+			...pack.units.map((u) => [u.name, [u.kit?.limits, u.kit?.loadouts?.flat(2).map((n) => ({ names: [n] })), u.kit?.countsAs ? { entries: [u.kit.countsAs] } : null]] as const),
+			...pack.items.map((i) => [i.name, [i.stipulations?.limits, i.stipulations?.limitExcludes]] as const),
+			...(pack.patrons ?? []).flatMap((pt) => pt.skills.map((sk) => [`${pt.name}: ${sk.name}`, [sk.limits, sk.prices]] as const))
+		].flatMap(([where, x]) => {
+			const n = namesIn(x);
+			return [...n.entries, ...n.items, ...n.upgrades].map((name) => [`${where} limits`, name] as [string, string]);
+		})
 	];
 	for (const [where, n] of refs)
 		if (!known(n)) {

@@ -52,6 +52,9 @@ const reader = (d: FormData) => {
 	return { s, opt, lines };
 };
 
+/** The keys of a saved row that a form doesn't edit, to carry over. */
+const keep = <T extends object>(o: T, ks: (keyof T)[]): Partial<T> => Object.fromEntries(ks.filter((k) => o[k] !== undefined).map((k) => [k, o[k]])) as Partial<T>;
+
 const failed = (errors: { path: string; message: string }[], at: string) => fail(400, { errors, at });
 
 export const actions: Actions = {
@@ -94,6 +97,15 @@ export const actions: Actions = {
 			}
 		});
 		if (!pack) return failed(errors, 'rules');
+		// What this form doesn't edit (limits, prices, an upgrade's models and limits) stays as it was.
+		const old = (await packOf(params.id))?.rules.overrides ?? {};
+		const o = (pack.rules.overrides ??= {});
+		if (old.limits) o.limits = old.limits;
+		if (old.prices) o.prices = old.prices;
+		o.upgrades = o.upgrades?.map((u) => {
+			const was = old.upgrades?.find((x) => x.name === u.name);
+			return was ? { ...u, for: was.for, ...keep(was, ['keywords', 'group', 'hands', 'limits']) } : u;
+		});
 		await saveRules(pack.rules);
 		return { saved: 'rules' };
 	},
@@ -136,6 +148,8 @@ export const actions: Actions = {
 		});
 		if (!pack) return failed(errors, s('id') || 'new-unit');
 		const row = { ...pack.units[0], id: s('id') || pack.units[0].id };
+		const was = (await packOf(params.id))?.units.find((u) => u.id === row.id)?.kit;
+		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit']) };
 		await saveUnit(row);
 		return { saved: row.id };
 	},
@@ -169,6 +183,7 @@ export const actions: Actions = {
 		const row = { ...pack.items[0], id: s('id') || pack.items[0].id };
 		// Ticks that say what the book's own wording already says keep the wording (and the entry stays the book's).
 		const old = (await packOf(params.id))?.items.find((i) => i.id === row.id);
+		if (row.stipulations && old?.stipulations) row.stipulations = { ...row.stipulations, ...keep(old.stipulations, ['alignment', 'factions', 'limits', 'limitExcludes']) };
 		if (old && !old.stipulations) {
 			const same = (a: object, b: object) => (Object.keys(row.stipulations ?? {}) as (keyof typeof a)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 			if (same(itemFacts({ ...row, restrictions: old.restrictions, stipulations: null }), itemFacts(row))) Object.assign(row, { stipulations: null, restrictions: old.restrictions });

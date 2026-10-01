@@ -1,0 +1,29 @@
+{
+  "name": "atlas-arch",
+  "version": "0.1.0",
+  "description": "A living architecture: LikeC4 models checked against the code, with a compact map for people and agents",
+  "type": "module",
+  "bin": {
+    "atlas": "./src/cli.ts"
+  },
+  "engines": {
+    "node": ">=22.22.3"
+  },
+  "scripts": {
+    "atlas": "node src/cli.ts",
+    "update": "node src/cli.ts update",
+    "check": "node src/cli.ts check",
+    "status": "node src/cli.ts status",
+    "serve": "node src/cli.ts serve",
+    "build": "node src/cli.ts build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "likec4": "^1.59.4",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  },
+  "private": true
+}

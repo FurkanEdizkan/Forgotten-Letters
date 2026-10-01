@@ -45,6 +45,8 @@ export interface PublicWarband {
 	seal: SealLook | null;
 	outpostToken: string | null;
 	figureToken: string | null;
+	/** The leader who stands by the warband's banner at a battle (its leader model, else its figure). */
+	leaderToken: string | null;
 	omens: number;
 	apocrypha: number;
 	/** Only after the reveal. */

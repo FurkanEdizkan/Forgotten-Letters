@@ -107,3 +107,12 @@ export async function deleteWarbandModels(campaignId: string, warbandId: string)
 	const rows = (await listModels(campaignId)).filter((m) => m.ownerType === 'warband' && m.ownerId === warbandId);
 	for (const m of rows) await deleteModel(campaignId, m.id);
 }
+
+/** Who may change a model: the Campaign Master any, a player only their own warband's. */
+export function mayEditModel(locals: App.Locals, ownerType: string, ownerId: string) {
+	return !!locals.isAdmin || (ownerType === 'warband' && !!locals.user?.warbandIds.includes(ownerId));
+}
+
+export async function modelById(campaignId: string, id: string) {
+	return (await db.select().from(model).where(and(eq(model.id, id), eq(model.campaignId, campaignId))))[0];
+}

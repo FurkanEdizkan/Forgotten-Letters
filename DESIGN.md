@@ -385,6 +385,32 @@ All are rendered in Blender (`scripts/fx/render_fx.py`: `monuments`, `trophy`, `
   - *Day cycle* runs day → dusk → night → dawn over a length the Campaign Master sets (default 30 minutes), at the same moment on every screen.
 - **The UI stays readable.** Markers, labels and the page's own UI always sit above the weather.
 
+### The Muster
+- **Entering.** A battle, planned or being fought, is entered from its tab in the battle strip or its zone. The camera closes in, far enough to keep both flanks on screen, even on a phone.
+- **Banners.** Each side plants its banner out on its own flank: a swallowtail standard in its seal's colours with a metal hem, with the seal burning at its centre. It waves in the wind as a travelling wave that grows toward the fly.
+- **Leaders.** The side's leader stands between its banner and the field. The model is uploaded as an STL and rendered once into a token, the same pipeline as outposts and figures:
+  - the warband's own leader model;
+  - else the faction's default (*Admin → Factions*);
+  - else the warband's figure;
+  - else the player's portrait on a stake.
+- **Entrance.** The pole rises, the flag unfurls, then the leader steps up; the aggressor goes first.
+- **Planned battles.** The stamp reads "The armies muster" in a dashed ink frame (the book's dashed rule for a planned battle), and the field stays quiet. Once the battle starts, "Battle joined" and the gunfire take over, around the same banners.
+- **Details.** *Battle details* opens the battle's sheet, with the Campaign Master's controls, without leaving the muster.
+
+### Aircraft and Birds
+- **Aircraft** are rendered in Blender, seen from above:
+  - the Faithful's olive biplane;
+  - the Papal air arm's white-and-gold biplane with red crosses;
+  - the heretic **hellwing**, our own design: an iron reliquary cage with a furnace heart, a hooked prow, a barbed tail and bat wings of bone and torn hide, beating its wings.
+- **Crossings.**
+  - Each crossing picks a kind and an altitude (small and high, with the shadow far off; or big and low).
+  - Biplanes sometimes fly in threes and hellwings in pairs, and crossings can overlap.
+  - After dusk they are lit by the hour: biplanes carry red and green wingtip lamps and a blinking tail lamp, and hellwings' furnaces glow.
+- **The mix.** The Campaign Master sets it on the Weather page:
+  - *By the war*: the side ahead in the standings owns more of the sky, New Antioch's warbands bring the Papal air arm, and battles being fought draw more aircraft;
+  - *By hand*: weights and frequency.
+- **Crows** fly in flocks at different depths: far flocks are small, faint and slow, near ones large, dark and quick, drawn over the rest. Several can be in the air at once.
+
 ### Compendium
 The rules text (core rules, campaign, scenarios) reads as the book: a column of Garamond under a Pirata title, blood-red sub-heads, ✠ bullets, tables ruled in ink, keywords in capitals underlined with dots and linked to the glossary, and a sticky contents rail for the book on the right (stacked below on phones).
 

@@ -306,7 +306,7 @@ export const model = pgTable(
 		campaignId: text('campaign_id')
 			.notNull()
 			.references(() => campaign.id, { onDelete: 'cascade' }),
-		kind: text('kind', { enum: ['outpost', 'figure'] }).notNull(),
+		kind: text('kind', { enum: ['outpost', 'figure', 'leader'] }).notNull(),
 		ownerType: text('owner_type', { enum: ['faction', 'warband'] }).notNull(),
 		/** Faction id or warband id, depending on ownerType. */
 		ownerId: text('owner_id').notNull(),

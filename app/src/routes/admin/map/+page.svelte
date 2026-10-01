@@ -470,8 +470,7 @@
 		grid-template-columns: minmax(0, 1fr) 22rem;
 		gap: 20px;
 		align-items: start;
-		width: min(calc(100vw - 32px), 1560px);
-		margin-left: calc(50% - min(calc(50vw - 16px), 780px));
+		width: 100%;
 		margin-bottom: 80px;
 	}
 	.toolbar {

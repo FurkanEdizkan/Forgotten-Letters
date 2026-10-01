@@ -11,16 +11,31 @@ describe('model tokens', () => {
 	it('prefers the warband model, then the faction default', () => {
 		expect(resolveTokens(models, { id: 'w1', faction: 'iron-sultanate', displayModel: 'model' })).toEqual({
 			outpostToken: '/w-out',
-			figureToken: '/f-fig'
+			figureToken: '/f-fig',
+			leaderToken: '/f-fig'
 		});
 		expect(resolveTokens(models, { id: 'w2', faction: 'iron-sultanate', displayModel: 'portrait' })).toEqual({
 			outpostToken: '/f-out',
-			figureToken: null
+			figureToken: null,
+			// The banner's leader stands whatever the marker shows.
+			leaderToken: '/f-fig'
 		});
 		expect(resolveTokens(models, { id: 'w3', faction: 'black-grail', displayModel: 'model' })).toEqual({
 			outpostToken: null,
-			figureToken: null
+			figureToken: null,
+			leaderToken: null
 		});
+	});
+
+	it('stands the leader model at the banner: the warband\'s, the faction\'s, then the figure', () => {
+		const withLeaders: ModelRef[] = [
+			...models,
+			{ kind: 'leader', ownerType: 'faction', ownerId: 'iron-sultanate', token: '/f-lead' },
+			{ kind: 'leader', ownerType: 'warband', ownerId: 'w1', token: '/w-lead' }
+		];
+		expect(resolveTokens(withLeaders, { id: 'w1', faction: 'iron-sultanate', displayModel: 'portrait' }).leaderToken).toBe('/w-lead');
+		expect(resolveTokens(withLeaders, { id: 'w2', faction: 'iron-sultanate', displayModel: 'portrait' }).leaderToken).toBe('/f-lead');
+		expect(resolveTokens(withLeaders, { id: 'w3', faction: 'black-grail', displayModel: 'model' }).leaderToken).toBeNull();
 	});
 
 	it('maps factions to the default outpost sheet, unknown ones to neutral', () => {

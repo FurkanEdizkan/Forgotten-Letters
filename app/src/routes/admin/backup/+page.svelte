@@ -13,6 +13,12 @@
 		uploaded portraits and faction symbols. Keep one after every game night.
 	</p>
 	<a class="button" href="/admin/backup/export" download>Download backup</a>
+	<a class="button ghost" href="/admin/backup/export?fresh" download>Download fresh-start setup</a>
+	<p class="meta">
+		The fresh-start setup is the campaign ready for its first game. It keeps the map, zones, lore, weather, faction models and the
+		Faction Studio, plus accounts, players and warbands as mustered, but no games, outposts or dealt Visions. Restore it below.
+		Both files hold your map image and password hashes: keep them out of git.
+	</p>
 	<p class="muted">It contains the secret Vision cards — don't share it with players.</p>
 </section>
 
@@ -39,6 +45,11 @@
 </section>
 
 <style>
+	.meta {
+		max-width: 64ch;
+		color: var(--muted);
+		font-size: 0.9rem;
+	}
 	section {
 		margin: 16px 0;
 		padding: 14px 18px;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ModelStudio from '$lib/components/ModelStudio.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
@@ -321,6 +322,18 @@
 				{/if}
 			</details>
 
+			{#if data.canEdit && data.warband.inCampaign}
+				<details class="panel rulespanel">
+					<summary><h2>Leader on the Map</h2></summary>
+					<p class="dim">
+						When a battle is planned or fought, your leader stands by your banner on the map. Upload an STL of your leader,
+						pose it and save: it is rendered once into a picture. Without one, your figure or portrait stands there.
+					</p>
+					<div class="paper">
+						<ModelStudio kind="leader" ownerType="warband" ownerId={data.warband.id} title="Leader at the banner" current={data.leaderModel} fallback="your figure, else your portrait" />
+					</div>
+				</details>
+			{/if}
 			{#if data.canEdit}
 				<details class="panel rulespanel">
 					<summary><h2>Advanced Options</h2></summary>
@@ -1056,5 +1069,12 @@
 		.campaign {
 			grid-template-columns: 1fr;
 		}
+	}
+	/* The model studio is a book-page tool: it keeps its paper inside the dark panel. */
+	.paper {
+		margin-top: 10px;
+		padding: 4px 14px 14px;
+		background: var(--paper);
+		color: var(--ink);
 	}
 </style>

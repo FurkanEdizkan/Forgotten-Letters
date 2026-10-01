@@ -1,12 +1,26 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Lockup from './Lockup.svelte';
 	import Mark from './Mark.svelte';
 	import { OPERATE, PLAY, isCurrent } from '$lib/nav';
 
-	let { open = $bindable(true), title = 'Carcass Front' }: { open?: boolean; title?: string } = $props();
+	let {
+		open = $bindable(true),
+		title = 'Carcass Front',
+		chosen = false
+	}: {
+		open?: boolean;
+		title?: string;
+		/** The reader has opened or closed the panel before (the cookie is set). */
+		chosen?: boolean;
+	} = $props();
+	// Until the reader chooses, a phone starts with the panel shut. The server can't see the width,
+	// so CSS hides it below 60rem on the first paint and the state follows once the page runs.
+	// svelte-ignore state_referenced_locally
+	let auto = $state(!chosen);
 
 	const user = $derived(page.data.user as { name: string; role: string; warbandIds: string[] } | null);
 	const path = $derived(page.url.pathname);
@@ -25,6 +39,7 @@
 			reduced = motion.matches;
 		};
 		read();
+		if (auto && narrow) open = false;
 		wide.addEventListener('change', read);
 		motion.addEventListener('change', read);
 		return () => {
@@ -37,8 +52,21 @@
 	// paint, so it never flashes open and snap shut on every navigation.
 	function set(v: boolean) {
 		open = v;
+		auto = false;
 		document.cookie = `cf_nav=${v ? '1' : '0'}; path=/; max-age=31536000; samesite=lax`;
 	}
+
+	// On a phone the panel is a way to somewhere: once there, it gets out of the way.
+	afterNavigate(({ from }) => {
+		if (from && narrow && open) open = false;
+	});
+
+	// While it covers the page, the page behind can't be reached (Tab stays in the panel).
+	$effect(() => {
+		const main = document.getElementById('main');
+		main?.toggleAttribute('inert', open && narrow);
+		return () => main?.removeAttribute('inert');
+	});
 
 	const slide = $derived({ x: -288, duration: reduced ? 0 : 220, easing: cubicOut });
 </script>
@@ -62,9 +90,9 @@
 {#if open}
 	{#if narrow || overMap}
 		<!-- Over the map and on a phone the panel covers the page, so it needs a way out behind it. -->
-		<button class="scrim" onclick={() => set(false)} tabindex="-1" aria-hidden="true"></button>
+		<button class="scrim" class:auto onclick={() => set(false)} tabindex="-1" aria-hidden="true"></button>
 	{/if}
-	<aside id="nav-panel" class="panel" transition:fly={slide}>
+	<aside id="nav-panel" class="panel" class:auto transition:fly={slide}>
 		<div class="brand"><Lockup name={title} href="/" compact /></div>
 
 		<nav aria-label="Main">
@@ -98,7 +126,7 @@
 		<div class="foot">
 			{#if user}
 				<a href="/settings" class="who" aria-current={isCurrent({ href: '/settings', label: '' }, path) ? 'page' : undefined}>
-					{user.name}
+					Settings <small>{user.name}</small>
 				</a>
 				<form method="POST" action="/logout"><button class="ghost">Sign out</button></form>
 			{:else}
@@ -220,6 +248,38 @@
 		background: transparent;
 		border-color: var(--ember);
 		color: var(--bone);
+	}
+	.who small {
+		display: block;
+		font-family: var(--font-body);
+		font-size: 0.8rem;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--bone-dim);
+	}
+	/* The global blood ring is lost on the night panel; bone, inset so the scroll box can't clip it. */
+	.panel a:focus-visible,
+	.panel button:focus-visible,
+	.handle:focus-visible {
+		outline: 2px solid var(--bone);
+		outline-offset: -3px;
+	}
+	@media (pointer: coarse) {
+		.handle {
+			width: 44px;
+			height: 44px;
+		}
+		nav a,
+		.who {
+			padding-top: 11px;
+			padding-bottom: 11px;
+		}
+	}
+	@media (max-width: 60rem) {
+		.panel.auto,
+		.scrim.auto {
+			display: none;
+		}
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.handle {

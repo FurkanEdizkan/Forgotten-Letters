@@ -15,7 +15,7 @@ export const load: PageServerLoad = async () => {
 	const c = await currentCampaign();
 	if (!c) error(404, 'No campaign');
 	const models = (await listModels(c.id)).filter((m) => m.ownerType === 'faction');
-	const pick = (kind: 'outpost' | 'figure', faction: string) => {
+	const pick = (kind: 'outpost' | 'figure' | 'leader', faction: string) => {
 		const m = models.find((m) => m.kind === kind && m.ownerId === faction);
 		return m ? { id: m.id, token: m.token, hasStl: !!m.stl, params: m.params } : null;
 	};
@@ -38,6 +38,7 @@ export const load: PageServerLoad = async () => {
 			name: f.name,
 			outpost: pick('outpost', f.id),
 			figure: pick('figure', f.id),
+			leader: pick('leader', f.id),
 			units: typesFor(f.id)
 		}))
 	};

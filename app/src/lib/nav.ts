@@ -34,7 +34,6 @@ export const OPERATE: NavItem[] = [
 
 /** Set up once, or between sessions. Reached through Settings, not the panel. */
 export const CONFIGURE: NavItem[] = [
-	{ href: '/admin', label: 'Campaign setup', match: 'exact' },
 	{ href: '/admin/map', label: 'Map Studio' },
 	{ href: '/admin/lore', label: 'Lore' },
 	{ href: '/admin/rules', label: 'Rules' },

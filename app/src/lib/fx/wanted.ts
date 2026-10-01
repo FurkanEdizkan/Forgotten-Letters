@@ -1,7 +1,8 @@
 import { weatherByRoll } from '$lib/rules/weather';
 import type { Zone } from '$lib/rules/types';
 import type { PublicSnapshot } from '$lib/snapshot';
-import { PRESET_FX, layerParams, type FxKind, type FxParams } from './types';
+import { DEFAULT_AIR, PRESET_FX, layerParams, type AirKind, type FxKind, type FxParams } from './types';
+import { FACTIONS } from '$lib/rules/factions';
 import type { Wanted } from './engine';
 import { battlePlacement } from '$lib/map-battles';
 
@@ -116,4 +117,30 @@ export function deviceQuality(cap: 'low' | 'medium' | 'high'): number {
 	const small = Math.min(window.innerWidth, window.innerHeight) < 500;
 	const device = cores <= 4 || small ? 0.5 : 1;
 	return capQ * device;
+}
+
+/**
+ * What flies over the map, and how often. By hand, the Campaign Master's weights. By the war:
+ * - the side ahead in the standings owns more of the sky (heretic hellwings for the Fallen, biplanes for the Faithful);
+ * - New Antioch's warbands bring the Papal air arm;
+ * - every battle being fought draws more aircraft.
+ */
+export function airMix(s: PublicSnapshot): { weights: Record<AirKind, number>; everySeconds: number; formations: boolean } {
+	const air = s.fx.air ?? DEFAULT_AIR;
+	const fighting = s.active.filter((g) => g.status === 'in_progress').length;
+	const everySeconds = air.everySeconds / (1 + 0.35 * fighting);
+	if (air.mode === 'manual') return { weights: air.weights, everySeconds, formations: air.formations };
+	const side = (id: string) => FACTIONS.find((f) => f.id === s.warbands.find((w) => w.id === id)?.faction)?.alignment;
+	let faithful = 1;
+	let fallen = 1;
+	for (const st of s.standings) {
+		const a = side(st.id);
+		if (a === 'faithful') faithful += 1 + Math.max(0, st.total);
+		else if (a === 'fallen') fallen += 1 + Math.max(0, st.total);
+	}
+	const share = faithful / (faithful + fallen);
+	const antioch = s.warbands.filter((w) => w.faction === 'new-antioch').length;
+	const faithfulSky = 0.2 + 1.6 * share;
+	const papal = faithfulSky * Math.min(0.7, 0.15 + 0.1 * antioch);
+	return { weights: { biplane: faithfulSky - papal, papal, hellwing: 0.2 + 1.6 * (1 - share) }, everySeconds, formations: air.formations };
 }

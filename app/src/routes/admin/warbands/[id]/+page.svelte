@@ -109,6 +109,14 @@
 		fallback={data.models.factionFigure ? `the ${factionName} figure` : 'the portrait'}
 	/>
 	<ModelStudio
+		kind="leader"
+		ownerType="warband"
+		ownerId={w.id}
+		title="Leader at the banner"
+		current={data.models.leader}
+		fallback={data.models.factionLeader ? `the ${factionName} leader` : 'the figure, else the portrait'}
+	/>
+	<ModelStudio
 		kind="outpost"
 		ownerType="warband"
 		ownerId={w.id}

@@ -25,6 +25,8 @@
 		ondetails: () => void;
 		onleave: () => void;
 	} = $props();
+	// A planned battle: the armies muster under their banners; nothing is fired yet.
+	const planned = $derived(game.status === 'scheduled');
 
 	const a = $derived(snapshot.warbands.find((w) => w.id === game.aggressor));
 	const d = $derived(snapshot.warbands.find((w) => w.id === game.defender));
@@ -51,7 +53,7 @@
 <div class="hud" class:stepped bind:this={root}>
 	<div class="vignette" aria-hidden="true"></div>
 	<div class="top">
-		<p class="stamp" role="status">Battle joined</p>
+		<p class="stamp" class:planned role="status">{planned ? 'The armies muster' : 'Battle joined'}</p>
 		<div class="brief-wrap">
 			{#if brief}
 				<button class="brief-toggle" onclick={() => (briefOpen = !briefOpen)} aria-expanded={briefOpen} aria-controls="battle-brief">
@@ -172,6 +174,12 @@
 		letter-spacing: 0.04em;
 		transform: rotate(-3deg);
 		box-shadow: 0 0 36px rgba(200, 35, 26, 0.35);
+	}
+	/* Not yet fought: the book's dashed rule for a planned battle, ink rather than blood. */
+	.stamp.planned {
+		border: 2px dashed var(--bone-dim);
+		background: rgba(21, 19, 14, 0.8);
+		box-shadow: none;
 	}
 	/* The battle brief: where, what is played for, and the sky over it — in the gap between the two warbands. */
 	.brief-wrap {
@@ -442,6 +450,13 @@
 		position: absolute;
 		top: 14px;
 		left: 14px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.leave {
+		pointer-events: auto;
+		min-height: 36px;
 		padding: 6px 12px;
 		background: rgba(21, 19, 14, 0.85);
 		color: var(--bone);
@@ -487,6 +502,24 @@
 		.purse {
 			gap: 10px;
 			font-size: 0.8rem;
+		}
+	}
+	@media (max-width: 40rem) {
+		/* The way out gets its own row above the stamp. */
+		.actions {
+			left: 10px;
+			right: 10px;
+			gap: 6px;
+		}
+		.leave {
+			flex: 1;
+			font-size: 0.8rem;
+		}
+		.leave kbd {
+			display: none;
+		}
+		.top {
+			top: 62px;
 		}
 	}
 </style>

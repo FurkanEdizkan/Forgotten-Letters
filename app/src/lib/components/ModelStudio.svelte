@@ -4,7 +4,8 @@
 	import type { ModelKind, ModelOwner } from '$lib/models';
 
 	/**
-	 * Admin only: load an STL, pose it, and render a transparent map token in the browser.
+	 * Load an STL, pose it, and render a transparent map token in the browser (the CM for anything, a player for
+	 * their own warband; /api/models checks).
 	 * three.js is imported on demand so it never reaches the public bundle.
 	 */
 	interface Current {
@@ -130,7 +131,7 @@
 		if (current?.hasStl && !loaded) {
 			loading = true;
 			try {
-				const res = await fetch(`/admin/api/models/${current.id}/stl`);
+				const res = await fetch(`/api/models/${current.id}/stl`);
 				if (res.ok) await loadStl(await res.arrayBuffer());
 			} finally {
 				loading = false;
@@ -175,7 +176,7 @@
 		body.set('token', blob, 'token.png');
 		if (stlFile) body.set('stl', stlFile);
 		body.set('params', JSON.stringify({ yaw, pitch, scale, tint, zUp }));
-		const res = await fetch('/admin/api/models', { method: 'POST', body });
+		const res = await fetch('/api/models', { method: 'POST', body });
 		saving = false;
 		if (!res.ok) {
 			message = (await res.json().catch(() => null))?.message ?? `Save failed (${res.status}).`;
@@ -188,7 +189,7 @@
 
 	async function remove() {
 		if (!current) return;
-		const res = await fetch(`/admin/api/models/${current.id}`, { method: 'DELETE' });
+		const res = await fetch(`/api/models/${current.id}`, { method: 'DELETE' });
 		if (res.ok) {
 			loaded = false;
 			open = false;

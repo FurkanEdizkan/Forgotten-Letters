@@ -7,6 +7,7 @@ export async function load({ locals, cookies, url }) {
 	return {
 		snapshot: c ? await cachedPublicSnapshot(c) : null,
 		isAdmin: locals.isAdmin,
-		navOpen: navOpenFrom(cookies.get('cf_nav'), url.pathname)
+		navOpen: navOpenFrom(cookies.get('cf_nav'), url.pathname),
+		navChosen: !!cookies.get('cf_nav')
 	};
 }

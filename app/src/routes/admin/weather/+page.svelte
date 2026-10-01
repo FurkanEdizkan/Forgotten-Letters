@@ -6,6 +6,7 @@
 	import PortentsPanel from './PortentsPanel.svelte';
 	import RegionsPanel from './RegionsPanel.svelte';
 	import SettingsPanels from './SettingsPanels.svelte';
+	import AirPanel from './AirPanel.svelte';
 
 	let { data, form } = $props();
 
@@ -49,6 +50,7 @@
 		{ id: 'sky', label: 'Sky' },
 		{ id: 'portents', label: 'Portents' },
 		{ id: 'regions', label: 'Regions' },
+		{ id: 'air', label: 'Aircraft' },
 		{ id: 'display', label: 'Display' },
 		{ id: 'presets', label: 'Presets' }
 	] as const;
@@ -139,6 +141,8 @@
 				<PortentsPanel bind:fx zones={data.zones} {form} />
 			{:else if tab === 'regions'}
 				<RegionsPanel regions={data.regions} zones={data.zones} {form} bind:picked bind:picking />
+			{:else if tab === 'air'}
+				<AirPanel bind:fx />
 			{:else}
 				<SettingsPanels bind:fx show={tab} />
 			{/if}

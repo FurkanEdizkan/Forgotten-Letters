@@ -44,7 +44,7 @@
 {:else}
 	<a class="skip" href="#main">Skip to content</a>
 	{#if data.user}
-		<NavPanel bind:open={navOpen} title={live?.current.campaign.name ?? 'Carcass Front'} />
+		<NavPanel bind:open={navOpen} chosen={data.navChosen} title={live?.current.campaign.name ?? 'Carcass Front'} />
 	{/if}
 	<div class="shell" class:beside={navOpen && !isMap && !!data.user} class:guest={!data.user}>
 		{#if !data.user && !isMap}

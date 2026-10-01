@@ -4,6 +4,7 @@ export async function load({ cookies }) {
 	return {
 		campaign: (await currentCampaign()) ?? null,
 		// The Campaign Master's console always opens beside the panel, never under it.
-		navOpen: cookies.get('cf_nav') !== '0'
+		navOpen: cookies.get('cf_nav') !== '0',
+		navChosen: !!cookies.get('cf_nav')
 	};
 }

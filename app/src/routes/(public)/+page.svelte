@@ -98,12 +98,14 @@
 	});
 	const zoneName = (id: string) => graph.zones.get(id)?.name ?? id;
 
-	// Active battle mode: /?battle=<game> flies into a battle being fought (shareable, so the TV can sit in it).
+	// Battle mode: /?battle=<game> flies into a battle, planned (the armies muster) or being fought.
+	// Shareable, so the TV can sit in it.
 	const battleId = $derived(page.url.searchParams.get('battle'));
-	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status === 'in_progress') : undefined);
+	// Planned or being fought: a battle can be entered (a planned one shows its armies mustering).
+	const battle = $derived(battleId ? s.active.find((g) => g.id === battleId && g.status !== 'done') : undefined);
 	const focus = $derived(battle?.zone ?? result?.zone ?? peekZone ?? null);
 
-	/** A battle's own marker: one being fought is entered (again: its details); a planned one opens its details. */
+	/** A battle's own marker: a battle (planned or being fought) is entered; from inside it, its details open. */
 	function openBattle(id: string) {
 		const g = s.active.find((x) => x.id === id);
 		if (!g) return;
@@ -114,7 +116,7 @@
 		}
 		warbandId = null;
 		// The zone close-up stays: leaving the battle comes back to it, and Back (or Esc) to where the viewer was.
-		if (g.status === 'in_progress' && g.id !== battleId) {
+		if (g.status !== 'done' && g.id !== battleId) {
 			zoneId = null;
 			enterBattle(g.id);
 			return;
@@ -198,6 +200,7 @@
 			{fxEnabled}
 			subscribeTriggers={live.onTrigger}
 			{focus}
+			muster={battle ?? null}
 			clockSkew={live.clockSkew}
 			bind:project
 		/>
@@ -269,18 +272,14 @@
 						class="battle"
 						class:planned={g.status === 'scheduled'}
 						onclick={() => {
-							// A battle being fought is entered, as from the map; a planned one opens its zone's page.
-							// Clicked again from inside that battle, it opens the details.
-							if (g.status === 'in_progress') {
-								warbandId = null;
-								if (g.id === battleId) zoneId = g.zone;
-								else {
-									zoneId = null;
-									enterBattle(g.id);
-								}
-								return;
+							// A battle, planned or being fought, is entered as from the map; clicked again from inside it,
+							// it opens the details.
+							warbandId = null;
+							if (g.id === battleId) zoneId = g.zone;
+							else {
+								zoneId = null;
+								enterBattle(g.id);
 							}
-							openBattle(g.id);
 						}}
 					>
 						<span class="pair">
@@ -387,8 +386,8 @@
 			<button class="close" aria-label="Close" onclick={() => (zoneId = null)}
 				><Mark name="close" /></button
 			>
-			{#if zoneGame.status === 'in_progress' && zoneGame.id !== battleId}
-				<button class="enter" onclick={() => enterBattle(zoneGame.id)}>Enter the battle</button>
+			{#if zoneGame.status !== 'done' && zoneGame.id !== battleId}
+				<button class="enter" onclick={() => enterBattle(zoneGame.id)}>{zoneGame.status === 'scheduled' ? 'Go to the muster' : 'Enter the battle'}</button>
 			{/if}
 			<BattlePanel game={zoneGame} {zone} snapshot={s} {zoneName}>
 				{#snippet controls()}

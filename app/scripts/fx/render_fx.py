@@ -587,13 +587,14 @@ def _disc(name, radius, loc, mat, depth=0.02):
     return ob
 
 
-def biplane():
-    """WW1 biplane of Rudolf's Folly, seen from above, flying toward +X; 8-frame prop spin."""
+def biplane(name="biplane", wing_c=(0.24, 0.24, 0.13), hull_c=(0.2, 0.19, 0.11), cross=False):
+    """WW1 biplane of Rudolf's Folly, seen from above, flying toward +X; 8-frame prop spin.
+    Liveries: olive with roundels (the default), or `cross` for the Papal air arm's white and gold."""
     reset()
     frames = 8
-    s = _top_down("biplane", 256, 256, frames, ortho_scale=3.8)
-    wing = _fabric("Wing", (0.24, 0.24, 0.13), rib_scale=9.0, rib_dark=0.62)
-    hull = _fabric("Hull", (0.2, 0.19, 0.11))
+    s = _top_down(name, 256, 256, frames, ortho_scale=3.8)
+    wing = _fabric("Wing", wing_c, rib_scale=9.0, rib_dark=0.62)
+    hull = _fabric("Hull", hull_c)
     metal = _fabric("Metal", (0.12, 0.11, 0.1), rough=0.4)
     red = _fabric("Red", (0.55, 0.06, 0.04))
     cream = _fabric("Cream", (0.85, 0.8, 0.66))
@@ -612,10 +613,18 @@ def biplane():
     _box("LowerWing", (0.38, 2.6, 0.03), (-0.02, 0, -0.18), wing, bevel=0.02)
     _box("Stabiliser", (0.34, 1.2, 0.025), (-1.52, 0, 0.05), wing, bevel=0.015)
     _box("Fin", (0.28, 0.03, 0.3), (-1.55, 0, 0.18), red, bevel=0.01)
-    # Roundels on the upper wing tips: red over cream.
     for y in (-1.15, 1.15):
-        _disc(f"RoundelOuter{y}", 0.17, (0.3, y, 0.375), cream)
-        _disc(f"RoundelInner{y}", 0.1, (0.3, y, 0.39), red)
+        if cross:
+            # A red cross on each wing tip (the Papal air arm), edged in gold.
+            gold = _fabric("Gold", (0.75, 0.55, 0.15), rough=0.35)
+            _box(f"CrossEdgeA{y}", (0.12, 0.44, 0.012), (0.3, y, 0.375), gold)
+            _box(f"CrossEdgeB{y}", (0.4, 0.12, 0.012), (0.3, y, 0.375), gold)
+            _box(f"CrossA{y}", (0.08, 0.4, 0.014), (0.3, y, 0.385), red)
+            _box(f"CrossB{y}", (0.36, 0.08, 0.014), (0.3, y, 0.385), red)
+        else:
+            # Roundels on the upper wing tips: red over cream.
+            _disc(f"RoundelOuter{y}", 0.17, (0.3, y, 0.375), cream)
+            _disc(f"RoundelInner{y}", 0.1, (0.3, y, 0.39), red)
 
     # Two-blade propeller spinning about the nose axis. Each blade is keyframed directly
     # (orbiting the hub) rather than parented to a spinning empty, which rendered empty headless.
@@ -628,6 +637,79 @@ def biplane():
             b.location = (hub[0], -math.sin(a) * 0.26 * k, math.cos(a) * 0.26 * k)
             b.keyframe_insert("rotation_euler", frame=f)
             b.keyframe_insert("location", frame=f)
+    render()
+
+
+def biplane_papal():
+    """The Papal air arm's biplane: white-doped wings, gilt hull, red crosses."""
+    biplane("biplane_papal", wing_c=(0.86, 0.83, 0.74), hull_c=(0.5, 0.4, 0.2), cross=True)
+
+
+def hellwing():
+    """A heretic war-drone seen from above, flying toward +X: an iron reliquary cage with a furnace heart,
+    a hooked prow, a segmented barbed tail and two bat wings of bone struts and torn hide.
+    6 frames: one wingbeat (the wings fold toward the body and open again)."""
+    reset()
+    frames = 6
+    s = _top_down("hellwing", 256, 256, frames, ortho_scale=5.6)
+    iron = _fabric("Iron", (0.07, 0.065, 0.06), rough=0.35)
+    rust = _fabric("Rust", (0.28, 0.1, 0.05), rough=0.7)
+    bone = _fabric("Bone", (0.62, 0.55, 0.42), rough=0.6)
+    hide = _fabric("Hide", (0.15, 0.035, 0.03), rib_scale=14.0, rib_dark=0.55, rough=0.9)
+    furnace, _ = emission("Furnace", (0.95, 0.14, 0.02), 2.4)
+    ember, _ = emission("Ember", (1.0, 0.12, 0.02), 4.0)
+
+    # Body: an iron cage around a furnace sphere, a hooked prow, and a barbed tail of shrinking plates.
+    _box("Cage", (1.4, 0.62, 0.42), (0.0, 0, 0), iron, bevel=0.16)
+    for i, x in enumerate((-0.45, -0.15, 0.15, 0.45)):
+        _box(f"Rib{i}", (0.06, 0.7, 0.5), (x, 0, 0.02), rust, bevel=0.025)
+    _ball("Heart", 0.21, (0.0, 0, 0.24), furnace)
+    _box("Prow", (0.6, 0.3, 0.22), (0.9, 0, 0), iron, bevel=0.08)
+    _box("Hook", (0.26, 0.1, 0.12), (1.26, 0, -0.02), bone, bevel=0.03)
+    for side in (-1, 1):
+        _box(f"Tusk{side}", (0.34, 0.06, 0.06), (1.12, side * 0.2, 0), bone, bevel=0.02)
+    for i in range(5):
+        k = 1 - i * 0.16
+        _box(f"Tail{i}", (0.3 * k, 0.26 * k, 0.14 * k), (-0.88 - i * 0.28, 0, 0), iron if i % 2 == 0 else rust, bevel=0.04)
+    _box("Barb", (0.26, 0.34, 0.03), (-2.3, 0, 0), bone, bevel=0.02)
+    # Exhaust vents glowing along the flanks.
+    for side in (-1, 1):
+        _box(f"Vent{side}", (0.36, 0.06, 0.05), (-0.3, side * 0.32, 0.16), ember)
+
+    # Wings: bone struts fanning from a shoulder, hide stretched between them (a flat polygon), each
+    # wing parented to a hinge so a whole wing folds about the body's long axis.
+    hinges = []
+    for side in (-1, 1):
+        hinge = bpy.data.objects.new(f"Hinge{side}", None)
+        s.collection.objects.link(hinge)
+        hinge.location = (0.2, side * 0.3, 0.1)
+        tips = [(0.7, 1.55), (0.15, 2.15), (-0.55, 1.95), (-1.15, 1.3)]
+        for j, (tx, ty) in enumerate(tips):
+            length = math.hypot(tx, ty)
+            strut = _box(f"Strut{side}{j}", (length, 0.05, 0.04), (0, 0, 0), bone, bevel=0.015)
+            strut.parent = hinge
+            strut.location = (tx / 2, side * ty / 2, 0)
+            strut.rotation_euler = (0, 0, math.atan2(side * ty, tx))
+        # Hide: shoulder, then the strut tips with ragged notches between them.
+        # Bat wing: the leading edge along the struts' tips, a scalloped trailing edge sagging between them.
+        pts = [(0.4, 0), (0.7, 1.55), (0.38, 1.4), (0.15, 2.15), (-0.18, 1.45), (-0.55, 1.95), (-0.8, 1.15), (-1.15, 1.3), (-0.95, 0.35), (-0.6, 0)]
+        mesh = bpy.data.meshes.new(f"Hide{side}")
+        bm = bmesh.new()
+        verts = [bm.verts.new((x, side * y, -0.01)) for x, y in pts]
+        bm.faces.new(verts if side > 0 else list(reversed(verts)))
+        bm.to_mesh(mesh)
+        bm.free()
+        ob = bpy.data.objects.new(f"Hide{side}", mesh)
+        s.collection.objects.link(ob)
+        ob.data.materials.append(hide)
+        ob.parent = hinge
+        hinges.append((hinge, side))
+    for f in range(1, frames + 1):
+        # Down-stroke to up-stroke: fold about X (seen from above the span shortens), a little sweep back.
+        a = math.sin((f - 1) / frames * math.pi * 2)
+        for hinge, side in hinges:
+            hinge.rotation_euler = (side * math.radians(38 * max(0, a)), 0, side * math.radians(-6 * a))
+            hinge.keyframe_insert("rotation_euler", frame=f)
     render()
 
 
@@ -1194,7 +1276,7 @@ def spurt():
     render()
 
 
-EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, zeppelin, outposts,
+EFFECTS = {f.__name__: f for f in (lightning, fire, crow, smoke, biplane, biplane_papal, hellwing, zeppelin, outposts,
                                    monuments, trophy, corpses, flash, blast, spurt)}
 
 if __name__ == "__main__":

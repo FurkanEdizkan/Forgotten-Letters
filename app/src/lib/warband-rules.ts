@@ -11,7 +11,13 @@ import type { Currency } from './roster';
 export type ArmouryCategory = 'ranged' | 'grenade' | 'melee' | 'armour' | 'shield' | 'equipment' | 'special';
 
 export const letters = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z]/g, '');
-const singular = (s: string) => s.replace(/s$/, '');
+/** "yeomen" → "yeoman", "sorceries" → "sorcery", "pilgrims" → "pilgrim" (names already run through `letters`). */
+const singular = (s: string) => s.replace(/men$/, 'man').replace(/ies$/, 'y').replace(/(ch|sh|x|ss)es$/, '$1').replace(/s$/, '');
+/**
+ * Two names for the same entry: equal but for a plural ("Yeomen" is the Yeoman entry). Never one inside the other:
+ * "Heretic Raiders" is not "Anointed Heretic Raiders".
+ */
+export const sameEntry = (a: string, b: string) => singular(letters(a)) === singular(letters(b));
 /** "a Gas Mask" → "Gas Mask"; "a suit of Infernal Iron Armour" → "Infernal Iron Armour". */
 const bare = (s: string) =>
 	s
@@ -117,6 +123,8 @@ export interface UnitKit {
 	except: ArmouryCategory[];
 	/** "cannot have any other Battlekit". */
 	nothingElse: boolean;
+	/** Armoury items this entry buys at its own price (see `UnitKitOverride.prices`). */
+	prices?: Record<string, { cost: number; currency: Currency }>;
 }
 
 const CATEGORY_WORDS: [RegExp, ArmouryCategory][] = [
@@ -135,6 +143,8 @@ export interface UnitKitOverride {
 	nothingElse?: boolean;
 	swap?: { from: string; to: string; extra: number } | null;
 	hire?: { alignment: 'faithful' | 'fallen' | null; by: string[] } | null;
+	/** What an armoury item costs this entry, where its own entry says so ("can take a Rifle for 5 ducats"). By item name. */
+	prices?: Record<string, { cost: number; currency: 'ducats' | 'glory' }>;
 }
 
 export function unitKit(note: string | null | undefined, override?: UnitKitOverride | null): UnitKit {
@@ -233,7 +243,26 @@ export function readRules(
 	overrides: (RulesOverride | null | undefined)[] = []
 ): VariantRules {
 	const r = parseRules(factionText, variantText);
-	for (const o of overrides) if (o) Object.assign(r, definedOnly(o));
+	// The first hand-set value of a field replaces what was read from the text; later ones (a variant's, over its
+	// faction's) add to lists rather than replacing them: upgrades and caps by name (the later one wins), exclusions,
+	// free items and lifted must-includes together. Everything else, the later one wins.
+	const set = new Set<string>();
+	const out = r as unknown as Record<string, unknown>;
+	const byName = <T extends { name: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => letters(y.name) === letters(x.name))), ...b];
+	const union = (a: string[], b: string[]) => [...a, ...b.filter((x) => !a.some((y) => letters(y) === letters(x)))];
+	for (const o of overrides) {
+		if (!o) continue;
+		for (const [k, v] of Object.entries(definedOnly(o)) as [keyof VariantRules, never][]) {
+			const first = !set.has(k);
+			set.add(k);
+			if (first) out[k] = v;
+			else if (k === 'upgrades' || k === 'caps') out[k] = byName(r[k] as { name: string }[], v);
+			else if (k === 'excluded' || k === 'freeItems' || k === 'optional') out[k] = union(r[k] as string[], v);
+			else out[k] = v;
+		}
+	}
+	// A variant takes away a faction's upgrade by excluding it by name.
+	r.upgrades = r.upgrades.filter((u) => !r.excluded.some((x) => letters(x) === letters(u.name)));
 	return r;
 }
 
@@ -320,15 +349,36 @@ export type Check = { ok: true } | { ok: false; reason: string };
 const ok: Check = { ok: true };
 const no = (reason: string): Check => ({ ok: false, reason });
 
+/** What an item costs this model: its entry's own price where the entry names one ("a Rifle for 5"), else the armoury's. */
+export function priceFor<T extends { name: string; cost: number; currency: Currency }>(m: { kit: UnitKit } | null | undefined, item: T): T {
+	const own = m?.kit.prices && Object.entries(m.kit.prices).find(([name]) => letters(name) === letters(item.name));
+	return own ? { ...item, cost: own[1].cost, currency: own[1].currency } : item;
+}
+
+/**
+ * May this model take a keyword upgrade now: one of the entries it is for (if it names any), within its most, and
+ * paid in its own currency.
+ */
+export function upgradeCheck(m: ModelState, up: Upgrade, w: WarbandState): Check {
+	if (w.unrestricted) return ok;
+	if (up.for.length && !up.for.some((x) => qualifies(m, x))) return no(`${up.name} is for ${up.for.join(', ')}`);
+	const taken = w.models.filter((x) => x.status === 'active' && x.id !== m.id && x.upgrades.includes(up.name)).length;
+	if (up.max != null && taken >= up.max) return no(`${up.name}: ${taken}/${up.max} taken`);
+	const purse = up.currency === 'glory' ? w.glory : w.ducats;
+	if (up.cost > purse) return no(`Costs ${up.cost} ${up.currency === 'glory' ? 'Glory' : 'Ducats'}; ${purse} in the strongbox`);
+	return ok;
+}
+
 export const findItem = (armoury: ArmouryItem[], name: string) => armoury.find((a) => letters(a.name) === letters(name)) ?? null;
 
 /** Does a model count as "X" for an "X only" stipulation: its entry, a keyword, or (for "Rifle") its weapon? */
 function qualifies(m: ModelState, x: string) {
 	const k = letters(x);
 	if (k === 'elite') return m.category === 'elite' || m.keywords.some((w) => letters(w) === 'elite');
+	// "Chewa only": a model that has taken that upgrade.
+	if (m.upgrades.some((u) => letters(u) === k)) return true;
 	if (m.keywords.some((w) => letters(w) === k)) return true;
-	const t = letters(m.type);
-	if (t === k || singular(t) === singular(k) || t.includes(singular(k)) || singular(k).includes(singular(t))) return true;
+	if (sameEntry(m.type, x)) return true;
 	// "Rifle only" (a sniper scope): the model carries a rifle.
 	return m.equipment.some((e) => letters(e.name).includes(k));
 }
@@ -412,11 +462,7 @@ export interface EntryRef {
 	hire?: { alignment: 'faithful' | 'fallen' | null; by: string[] };
 }
 
-const same = (a: string, b: string) => {
-	const x = singular(letters(a));
-	const y = singular(letters(b));
-	return x === y || x.includes(y) || y.includes(x);
-};
+const same = sameEntry;
 
 /** May the warband recruit this entry now? */
 export function recruitCheck(
@@ -455,7 +501,8 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 	if (!active.length) return ['The warband has no models yet.'];
 	const isLeader = (m: ModelState) => m.keywords.some((k) => letters(k) === 'leader') || (!!rules.leader && same(m.type, rules.leader));
 	const leaders = active.filter(isLeader).length;
-	if (leaders === 0) out.push(rules.leader ? `The warband must include its Leader (${rules.leader}).` : 'The warband has no Leader.');
+	// A Leader is the warband's if it has one ("if you have one available"); only a variant that names one requires it.
+	if (leaders === 0 && rules.leader) out.push(`The warband must include its Leader (${rules.leader}).`);
 	if (leaders > 1) out.push(`The warband has ${leaders} Leaders; it may have only one.`);
 	for (const need of rules.mustInclude) {
 		const n = active.filter((m) => same(m.type, need.name)).length;
@@ -474,8 +521,9 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 	for (const i of [...active.flatMap((m) => m.equipment), ...w.stash]) counts.set(letters(i.name), (counts.get(letters(i.name)) ?? 0) + 1);
 	for (const a of w.armoury) if (a.limit != null && (counts.get(letters(a.name)) ?? 0) > a.limit) out.push(`${counts.get(letters(a.name))} × ${a.name}: the limit is ${a.limit}.`);
 	for (const u of rules.upgrades) {
-		const n = active.filter((m) => m.upgrades.includes(u.name)).length;
-		if (u.max != null && n > u.max) out.push(`${u.name} on ${n} models; the most is ${u.max}.`);
+		const on = active.filter((m) => m.upgrades.includes(u.name));
+		if (u.max != null && on.length > u.max) out.push(`${u.name} on ${on.length} models; the most is ${u.max}.`);
+		for (const m of on) if (u.for.length && !u.for.some((x) => qualifies(m, x))) out.push(`${u.name} is only for ${u.for.join(', ')} (${m.type} has it).`);
 	}
 	if (w.ducats < 0) out.push(`The strongbox is ${-w.ducats} Ducats short.`);
 	if (w.glory < 0) out.push(`The strongbox is ${-w.glory} Glory short.`);

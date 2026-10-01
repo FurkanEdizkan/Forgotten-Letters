@@ -2,7 +2,7 @@
  * The builder's view of a warband, built the same way on the server (to check each action) and in the
  * page (to grey out options with their reasons as you build).
  */
-import {
+import { sameEntry,
 	hiredBy,
 	letters,
 	readRules,
@@ -61,11 +61,7 @@ export interface BuilderInput {
 	fireteams: { name: string; members: string[] }[];
 }
 
-const same = (a: string, b: string) => {
-	const x = letters(a).replace(/s$/, '');
-	const y = letters(b).replace(/s$/, '');
-	return x === y || x.includes(y) || y.includes(x);
-};
+const same = sameEntry;
 
 export function entryOf(p: ProfileData): EntryRef {
 	return {

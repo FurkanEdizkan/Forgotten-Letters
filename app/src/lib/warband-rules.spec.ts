@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { equipCheck, hiredBy, itemFacts, readRules, recruitCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState, type WarbandState } from './warband-rules';
+import { equipCheck, hiredBy, sameEntry, itemFacts, priceFor, readRules, recruitCheck, unitKit, upgradeCheck, warbandIssues, type Upgrade, type ArmouryItem, type ModelState, type WarbandState } from './warband-rules';
 
 // Made-up kit in the books' shapes (no book text lives in the repository).
 const item = (name: string, category: ArmouryItem['category'], type: string | null, restrictions: string | null = null, extra: Partial<ArmouryItem> = {}): ArmouryItem => ({
@@ -167,5 +167,55 @@ describe('faction and variant rules', () => {
 		expect(issues).toContain('The warband must include 1 Cleric.');
 		expect(issues).toContain('It cannot include Moles.');
 		expect(warbandIssues(wb([model({ type: 'Cleric' })]), r, [])).toEqual([]);
+	});
+});
+
+describe('an entry\'s own prices', () => {
+	const cheap = model({ kit: { fixed: [], swap: null, except: [], nothingElse: false, prices: { 'Long Rifle': { cost: 5, currency: 'ducats' } } } });
+	it('charges the entry\'s price where it names one, the armoury\'s otherwise', () => {
+		expect(priceFor(cheap, A.rifle).cost).toBe(5);
+		expect(priceFor(cheap, A.knife).cost).toBe(10);
+		expect(priceFor(model(), A.rifle).cost).toBe(10);
+		expect(priceFor(null, A.rifle).cost).toBe(10);
+	});
+	it('checks the purse against that price', () => {
+		expect(reason(check(cheap, priceFor(cheap, A.rifle), { ducats: 6 }))).toBe('ok');
+		expect(reason(check(model(), priceFor(model(), A.rifle), { ducats: 6 }))).toMatch(/Costs 10/);
+	});
+	it('reads from a battlekit override', () => {
+		expect(unitKit(null, { prices: { Rifle: { cost: 5, currency: 'ducats' } } }).prices).toEqual({ Rifle: { cost: 5, currency: 'ducats' } });
+	});
+});
+
+describe('keyword upgrades', () => {
+	const up = (over: Partial<Upgrade> = {}): Upgrade => ({ name: 'Guard', keyword: 'NEGATE FEAR', max: 2, cost: 0, currency: 'ducats', for: [], text: '', ...over });
+	it('only for the entries it names', () => {
+		const officer = model({ id: 'o', type: 'Officer' });
+		const grunt = model({ id: 'g' });
+		const u = up({ for: ['Officer'] });
+		expect(reason(upgradeCheck(officer, u, wb([officer, grunt])))).toBe('ok');
+		expect(reason(upgradeCheck(grunt, u, wb([officer, grunt])))).toMatch(/for Officer/);
+	});
+	it('within its most, and in its own currency', () => {
+		const a = model({ id: 'a', upgrades: ['Guard'] });
+		const b = model({ id: 'b', upgrades: ['Guard'] });
+		const c = model({ id: 'c' });
+		expect(reason(upgradeCheck(c, up(), wb([a, b, c])))).toMatch(/2\/2 taken/);
+		expect(reason(upgradeCheck(c, up({ max: null, cost: 2, currency: 'glory' }), wb([c], { glory: 1 })))).toMatch(/2 Glory/);
+		expect(reason(upgradeCheck(c, up({ max: null, cost: 2, currency: 'glory' }), wb([c], { glory: 2 })))).toBe('ok');
+	});
+	it('a model holding one it may not have is an issue', () => {
+		const m = model({ upgrades: ['Guard'] });
+		const rules = { ...readRules(''), upgrades: [up({ for: ['Officer'] })] };
+		expect(warbandIssues(wb([m]), rules, []).some((i) => /only for Officer/.test(i))).toBe(true);
+	});
+});
+
+describe('entry names', () => {
+	it('are the same but for a plural, never one inside another', () => {
+		expect(sameEntry('Yeomen', 'Yeoman')).toBe(true);
+		expect(sameEntry('Trench Pilgrims', 'Trench Pilgrim')).toBe(true);
+		expect(sameEntry('Heretic Raiders', 'Anointed Heretic Raiders')).toBe(false);
+		expect(sameEntry('Thrall', 'Grail Thrall')).toBe(false);
 	});
 });

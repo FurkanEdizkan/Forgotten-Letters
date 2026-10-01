@@ -16,7 +16,8 @@
 		held,
 		unitId,
 		glossary,
-		rulesText
+		rulesText,
+		priceOf = (i) => i
 	}: {
 		open: boolean;
 		title: string;
@@ -28,6 +29,8 @@
 		glossary: Record<string, string>;
 		/** Rule text of an item, when the armoury has it. */
 		rulesText: (i: ArmouryItem) => string | null;
+		/** What the item costs this model (its entry may price it below the armoury). */
+		priceOf?: (i: ArmouryItem) => ArmouryItem;
 	} = $props();
 
 	let dialog = $state<HTMLDialogElement>();
@@ -58,11 +61,15 @@
 	<ul>
 		{#each items as i (i.id ?? i.name)}
 			{@const c = check(i)}
+			{@const p = priceOf(i)}
 			<li class:on={chosen === i.name} class:off={!c.ok}>
 				<button type="button" class="row" aria-expanded={chosen === i.name} onclick={() => (chosen = chosen === i.name ? null : i.name)}>
 					<span class="name">{i.name}</span>
 					<span class="meta">
-						<span class="cost">{i.cost} {i.currency === 'glory' ? 'G' : 'D'}</span>
+						<span class="cost"
+							>{#if p.cost !== i.cost || p.currency !== i.currency}<s>{i.cost} {i.currency === 'glory' ? 'G' : 'D'}</s> {/if}{p.cost}
+							{p.currency === 'glory' ? 'G' : 'D'}</span
+						>
 						{#if i.limit != null}<span>Limit: {used(i)}/{i.limit}</span>{/if}
 						{#if itemFacts(i).only.length}<span>Restrictions: {itemFacts(i).only.join(', ')}</span>{/if}
 					</span>

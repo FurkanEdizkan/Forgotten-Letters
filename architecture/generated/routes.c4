@@ -93,7 +93,7 @@ model {
       }
     }
     route_public_warbands_id = page '/warbands/[id]' {
-      description 'actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, item, rank, recruit, settings, unit, upgrade'
+      description 'actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, unit, upgrade'
       metadata {
         generated 'true'
         route '/warbands/[id]'
@@ -123,7 +123,7 @@ model {
       }
     }
     route_public_warbands_new = page '/warbands/new' {
-      description 'actions: default'
+      description 'actions: create, fromTc'
       metadata {
         generated 'true'
         route '/warbands/new'
@@ -322,7 +322,7 @@ model {
       }
     }
     route_admin_rules = page '/admin/rules' {
-      description 'actions: factionRule, import, item, keyword, page, unit'
+      description 'actions: factionRule, import, item, keyword, packs, page, unit'
       metadata {
         generated 'true'
         route '/admin/rules'

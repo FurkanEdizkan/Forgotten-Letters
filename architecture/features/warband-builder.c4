@@ -1,0 +1,36 @@
+// Feature: building a warband by the books, and bringing one in from Trench Companion.
+// Code: lib/warband-rules.ts, lib/builder-state.ts, lib/tc-import.ts, lib/roster.ts, lib/server/{builder,packs,tc-import}.ts,
+// routes (public)/warbands/[id] and /new, admin/rules. Data: book packs in docs/packs (the group's own, never committed).
+views {
+  dynamic view warband_builder {
+    title 'Warband builder and Trench Companion import'
+    description '''
+      **Every warband follows the books.** The rules come from book packs: complete Faction Studio files
+      for each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the
+      group's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,
+      purchase and upgrade against them.
+
+      **Decisions**
+      - A variant's entry replaces the faction's entry of the same name; its rules merge onto the
+        faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,
+        an armoury item or an upgrade.
+      - An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries
+        they are for. A Leader is required only where a variant names one.
+      - A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched
+        to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;
+        Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is
+        checked like any warband.
+      - Loading packs keeps the Campaign Master's Studio edits.
+    '''
+    cm -> cf.app.web.admin 'Admin → Rules: load the book packs'
+    cf.app.web.admin -> cf.app.server.rules 'readPacks, loadPacks (verified book rows)'
+    cf.app.server.rules -> cf.db.t_rules 'units, armoury, faction rules, keywords'
+    player -> cf.app.web.public 'Import from Trench Companion (link, text or JSON)'
+    cf.app.web.public -> cf.app.server.warbands 'readTcSource, importInto'
+    cf.app.server.warbands -> cf.app.ui.engine 'fromTcText / fromTrenchCompanion, matchToBook'
+    cf.app.server.warbands -> cf.db.t_rosters 'replace the roster, fireteams'
+    cf.app.server.warbands -> cf.app.ui.engine 'warbandIssues: what the books find wrong'
+    player -> cf.app.web.public 'recruit, buy, upgrade'
+    cf.app.web.public -> cf.app.ui.engine 'recruitCheck, equipCheck (priceFor), upgradeCheck'
+  }
+}

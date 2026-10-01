@@ -254,7 +254,7 @@
    "id": "cf.app.web.public.route_public_warbands_id",
    "kind": "page",
    "title": "/warbands/[id]",
-   "description": "actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, item, rank, recruit, settings, unit, upgrade",
+   "description": "actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, unit, upgrade",
    "tags": [],
    "code": [
     "app/src/routes/(public)/warbands/[id]/+page.server.ts",
@@ -313,7 +313,7 @@
    "id": "cf.app.web.public.route_public_warbands_new",
    "kind": "page",
    "title": "/warbands/new",
-   "description": "actions: default",
+   "description": "actions: create, fromTc",
    "tags": [],
    "code": [
     "app/src/routes/(public)/warbands/new/+page.server.ts",
@@ -699,7 +699,7 @@
    "id": "cf.app.web.admin.route_admin_rules",
    "kind": "page",
    "title": "/admin/rules",
-   "description": "actions: factionRule, import, item, keyword, page, unit",
+   "description": "actions: factionRule, import, item, keyword, packs, page, unit",
    "tags": [],
    "code": [
     "app/src/routes/admin/rules/+page.server.ts",
@@ -1630,12 +1630,12 @@
    "id": "cf.app.server.warbands",
    "kind": "module",
    "title": "Warbands and rosters",
-   "description": "The warband form, units and stash, the builder (campaign warbands and players' own lists) and the game sheet.",
+   "description": "The warband form, units and stash, the builder (campaign warbands and players' own lists), the game sheet, and importing a Trench Companion warband.",
    "tags": [
     "server-only"
    ],
    "code": [
-    "app/src/lib/server/{warbands,roster,builder,sheet}{,.spec}.ts"
+    "app/src/lib/server/{warbands,roster,builder,sheet,tc-import}{,.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -1678,12 +1678,12 @@
    "id": "cf.app.server.rules",
    "kind": "module",
    "title": "Rules and Faction Studio",
-   "description": "Rules imported from the books, the Faction Studio's own factions and house rules, and the committed starter pack.",
+   "description": "Rules from the books (book packs read from the group's own copies, or the import-rules.py file), the Faction Studio's own factions and house rules, and the committed starter pack.",
    "tags": [
     "server-only"
    ],
    "code": [
-    "app/src/lib/server/{rules-data,studio,factions,starter}{,.spec}.ts"
+    "app/src/lib/server/{rules-data,studio,factions,starter,packs}{,.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -1858,7 +1858,7 @@
    ],
    "code": [
     "app/src/lib/rules/**",
-    "app/src/lib/{builder,builder-state,warband-rules,roster,keywords,rules-text,effects}{,.spec}.ts"
+    "app/src/lib/{builder,builder-state,warband-rules,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -2360,6 +2360,11 @@
    "source": "cf.app.server.warbands",
    "target": "cf.app.server.accounts",
    "title": "who may edit a list"
+  },
+  {
+   "source": "cf.app.server.warbands",
+   "target": "cf.app.server.live",
+   "title": "announces an imported roster"
   },
   {
    "source": "cf.app.server.live",
@@ -2889,6 +2894,64 @@
      "from": "cf.app.ui.livemap",
      "to": "guest",
      "label": "the map moves"
+    }
+   ]
+  },
+  {
+   "id": "warband_builder",
+   "title": "Warband builder and Trench Companion import",
+   "description": "**Every warband follows the books.** The rules come from book packs: complete Faction Studio files\nfor each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the\ngroup's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,\npurchase and upgrade against them.\n\n**Decisions**\n- A variant's entry replaces the faction's entry of the same name; its rules merge onto the\n  faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,\n  an armoury item or an upgrade.\n- An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries\n  they are for. A Leader is required only where a variant names one.\n- A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched\n  to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;\n  Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is\n  checked like any warband.\n- Loading packs keeps the Campaign Master's Studio edits.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "cm",
+     "to": "cf.app.web.admin",
+     "label": "Admin → Rules: load the book packs"
+    },
+    {
+     "from": "cf.app.web.admin",
+     "to": "cf.app.server.rules",
+     "label": "readPacks, loadPacks (verified book rows)"
+    },
+    {
+     "from": "cf.app.server.rules",
+     "to": "cf.db.t_rules",
+     "label": "units, armoury, faction rules, keywords"
+    },
+    {
+     "from": "player",
+     "to": "cf.app.web.public",
+     "label": "Import from Trench Companion (link, text or JSON)"
+    },
+    {
+     "from": "cf.app.web.public",
+     "to": "cf.app.server.warbands",
+     "label": "readTcSource, importInto"
+    },
+    {
+     "from": "cf.app.server.warbands",
+     "to": "cf.app.ui.engine",
+     "label": "fromTcText / fromTrenchCompanion, matchToBook"
+    },
+    {
+     "from": "cf.app.server.warbands",
+     "to": "cf.db.t_rosters",
+     "label": "replace the roster, fireteams"
+    },
+    {
+     "from": "cf.app.server.warbands",
+     "to": "cf.app.ui.engine",
+     "label": "warbandIssues: what the books find wrong"
+    },
+    {
+     "from": "player",
+     "to": "cf.app.web.public",
+     "label": "recruit, buy, upgrade"
+    },
+    {
+     "from": "cf.app.web.public",
+     "to": "cf.app.ui.engine",
+     "label": "recruitCheck, equipCheck (priceFor), upgradeCheck"
     }
    ]
   },

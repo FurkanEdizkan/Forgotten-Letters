@@ -44,7 +44,7 @@ shortest unique end of their id.
       tables: unit warband_stash model unit_art
       used by: warbands uploads
     - `cf.db.t_rules` Rules — Rules imported from the books and the Faction Studio's own.
-      tables: rules_unit rules_item rules_keyword rules_faction rules_page custom_faction
+      tables: rules_unit rules_item rules_keyword rules_faction rules_page rules_patron custom_faction
       used by: rules
     - `cf.db.t_accounts` Accounts — Accounts, sessions, sign-up and reset requests, the audit log and daily activity.
       tables: user session account_request audit_log user_activity
@@ -131,7 +131,7 @@ shortest unique end of their id.
         uses: engine ui.live
         used by: public admin livemap battle shared fx server
       - `cf.app.ui.shared` Shared modules #pure — Map and faction templates (YAML), custom factions, sigils, seals, monuments, model tokens, unit art, lore seed, Markdown, navigation, and…
-        files: app/src/lib/ context.ts custom-factions.ts faction-template.ts lore-seed.ts map-template.ts markdown.ts models.ts monuments.ts nav.ts seal-compose.ts seals.ts sigils.ts unit-art.ts zone-rings.ts; app/src/lib/fx/ types.ts
+        files: app/src/lib/ context.ts custom-factions.ts faction-template.ts lore-seed.ts map-template.ts markdown.ts models.ts monuments.ts nav.ts patrons.ts seal-compose.ts seals.ts sigils.ts unit-art.ts zone-rings.ts; app/src/lib/fx/ types.ts
         uses: engine ui.live flow
         used by: shell public admin api livemap components fx battle ui.live server
 - `guest` Guest — Anyone watching the campaign: a phone at the table, the TV.

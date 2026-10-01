@@ -1321,6 +1321,10 @@ model {
     metadata { generated 'true' }
   }
 
+  cf.app.web.admin.route_admin_warbands -[imports]-> cf.app.server.rules {
+    metadata { generated 'true' }
+  }
+
   cf.app.web.admin.route_admin_warbands -[imports]-> cf.app.server.stores {
     metadata { generated 'true' }
   }
@@ -1350,6 +1354,10 @@ model {
   }
 
   cf.app.web.admin.route_admin_warbands_id -[imports]-> cf.app.server.live {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_warbands_id -[imports]-> cf.app.server.rules {
     metadata { generated 'true' }
   }
 

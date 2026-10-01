@@ -21,6 +21,11 @@ views {
         Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is
         checked like any warband.
       - Loading packs keeps the Campaign Master's Studio edits.
+      - Carcass Front's own lists are picked under the faction whose variant they replace (Trench Pilgrims →
+        Procession of the Sacred Affliction, Heretic Legions → Heretic Naval Raiders), each with its own variants.
+        Picking a faction or variant shows its starting money, must-includes, exclusions, caps, upgrades and rules.
+      - Patrons come from the packs too; only those a faction and variant may serve are offered, with their Skills.
+        Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.
     '''
     cm -> cf.app.web.admin 'Admin → Rules: load the book packs'
     cf.app.web.admin -> cf.app.server.rules 'readPacks, loadPacks (verified book rows)'

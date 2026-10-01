@@ -76,6 +76,9 @@ model {
     table_rules_page = table 'rules_page' {
       metadata { generated 'true' }
     }
+    table_rules_patron = table 'rules_patron' {
+      metadata { generated 'true' }
+    }
     table_custom_faction = table 'custom_faction' {
       metadata { generated 'true' }
     }

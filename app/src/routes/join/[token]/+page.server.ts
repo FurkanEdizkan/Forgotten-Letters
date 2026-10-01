@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { FORGET_COOKIE, SESSION_COOKIE, createSession } from '$lib/server/auth';
 import { lookupInvite, redeemInvite } from '$lib/server/muster';
-import { auditAuth, clientMeta } from '$lib/server/audit';
+import { auditAuth, clientMeta, clientAddress } from '$lib/server/audit';
 import { publish } from '$lib/server/hub';
 import { requestLimiter } from '$lib/server/requests';
 import type { Actions, PageServerLoad } from './$types';
@@ -19,12 +19,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 export const actions: Actions = {
 	default: async (event) => {
-		const { request, params, cookies, url, getClientAddress } = event;
+		const { request, params, cookies, url } = event;
 		const data = await request.formData();
 		const username = String(data.get('username') ?? '').slice(0, 64);
 		const displayName = String(data.get('displayName') ?? '').slice(0, 80);
 		const email = String(data.get('email') ?? '').slice(0, 254);
-		if (!(await requestLimiter.take(`ip:${getClientAddress()}`)))
+		if (!(await requestLimiter.take(`ip:${clientAddress(event)}`)))
 			return fail(429, { username, displayName, email, message: 'Too many attempts from here. Wait a few minutes and try again.' });
 		const r = await redeemInvite(params.token, {
 			username,

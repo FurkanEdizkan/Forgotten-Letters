@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import CoverBand from '$lib/components/CoverBand.svelte';
 
-	let { form } = $props();
+	let { data, form } = $props();
 	let busy = $state(false);
 
 	type Tab = 'signin' | 'signup' | 'reset';
@@ -38,7 +38,10 @@
 
 <svelte:head><title>{TABS.find((t) => t.id === tab)?.label} · Carcass Front</title></svelte:head>
 
-<CoverBand>
+<CoverBand back={!data.private}>
+			{#if data.private}
+				<p class="lead">This campaign is private. Sign in, ask the Campaign Master for an account, or follow the invite link you were sent.</p>
+			{/if}
 			<nav class="tabs" aria-label="Account">
 				{#each TABS as t (t.id)}
 					<a href={tabHref(t.id)} aria-current={tab === t.id ? 'page' : undefined}>{t.label}</a>
@@ -81,6 +84,13 @@
 </CoverBand>
 
 <style>
+	.lead {
+		margin: -6px 0 0;
+		max-width: 30ch;
+		text-align: center;
+		color: var(--bone-dim);
+		font-size: 0.95rem;
+	}
 	.tabs {
 		display: flex;
 		flex-wrap: wrap;

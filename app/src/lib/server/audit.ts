@@ -17,6 +17,14 @@ export function clientMeta(event: Pick<RequestEvent, 'getClientAddress' | 'reque
 	return { ip, userAgent: event.request.headers.get('user-agent')?.slice(0, 200) ?? null };
 }
 
+/**
+ * The client address for rate limits: what the proxy set-up reports, else "unknown" (when
+ * ADDRESS_HEADER is configured but this request came in directly), so a limiter never turns into a 500.
+ */
+export function clientAddress(event: Pick<RequestEvent, 'getClientAddress' | 'request'>): string {
+	return clientMeta(event).ip ?? 'unknown';
+}
+
 /** Write one log entry without holding up the request; a failed write is reported, never thrown. */
 export function recordAudit(entry: AuditEntry) {
 	void db

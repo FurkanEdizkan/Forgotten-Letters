@@ -40,6 +40,13 @@ if [[ "${COMPOSE_PROFILES:-}" == *https* && -z "${ADDRESS_HEADER:-}" ]]; then
 	export ADDRESS_HEADER=x-forwarded-for XFF_DEPTH=1
 	say "Added ADDRESS_HEADER / XFF_DEPTH to .env for the https profile."
 fi
+# Deployed on a domain: private unless .env says otherwise (signed out, only the sign-in door is open).
+if [[ -n "${DOMAIN:-}" && -z "${ACCESS:-}" ]]; then
+	printf '\n# Set by build_and_update.sh: deployed on a domain, so everything is behind sign-in (open = anyone can watch).\nACCESS=private\n' >> .env
+	export ACCESS=private
+	say "DOMAIN is set: added ACCESS=private to .env (signed-out visitors see only the sign-in page)."
+fi
+say "Access: ${ACCESS:-open}$([[ "${ACCESS:-open}" == private ]] && echo ' (sign-in required for everything)' || echo ' (anyone who can reach it watches the campaign)')"
 image="${IMAGE:-forgotten-letters}"
 tag="$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
 

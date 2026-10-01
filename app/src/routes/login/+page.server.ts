@@ -1,50 +1,25 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { FORGET_COOKIE, SESSION_COOKIE, authenticate, createSession, loginLimiter } from '$lib/server/auth';
+import { signIn } from '$lib/server/signin';
 import { normaliseUsername } from '$lib/server/passwords';
 import { requestLimiter, requestReset, requestSignup } from '$lib/server/requests';
 import { safeNext } from '$lib/server/safe-next';
-import { auditAuth, clientMeta } from '$lib/server/audit';
+import { auditAuth, clientAddress } from '$lib/server/audit';
+import { accessMode, landingFor } from '$lib/server/access';
+import { env } from '$env/dynamic/private';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, url }) => {
-	if (locals.user) redirect(303, safeNext(url.searchParams.get('next'), url.origin) ?? '/');
-	return {};
+	const mode = accessMode(env.ACCESS);
+	// Signed in already: on to `next` only if this account may open it (a player sent here from /admin would loop).
+	if (locals.user) redirect(303, landingFor(mode, locals.user, safeNext(url.searchParams.get('next'), url.origin)));
+	return { private: mode === 'private' };
 };
 
 export const actions: Actions = {
-	signin: async (event) => {
-		const { request, cookies, url, getClientAddress } = event;
-		const data = await request.formData();
-		const username = normaliseUsername(String(data.get('username') ?? '')).slice(0, 32);
-		const password = String(data.get('password') ?? '').slice(0, 200);
-		if (!(await loginLimiter.take(`ip:${getClientAddress()}`)) || !(await loginLimiter.take(`user:${username}`))) {
-			auditAuth(event, 'signin.limited', { detail: { username } });
-			return fail(429, { tab: 'signin' as const, username, message: 'Too many attempts. Wait a minute and try again.' });
-		}
-		const u = await authenticate(username, password);
-		if (!u) {
-			auditAuth(event, 'signin.fail', { detail: { username } });
-			return fail(401, {
-				tab: 'signin' as const,
-				username,
-				message: 'That username and password do not match, or the account is disabled.'
-			});
-		}
-		await loginLimiter.clear(`user:${username}`);
-		const { token, maxAge } = await createSession(u.id, clientMeta(event));
-		auditAuth(event, 'signin.ok', { actorId: u.id, actorName: u.username });
-		// "Remember me": a cookie that lasts the session's 30 days; otherwise one that ends when the browser closes.
-		const remember = data.has('remember');
-		const opts = { path: '/', httpOnly: true, sameSite: 'lax', secure: url.protocol === 'https:' } as const;
-		cookies.set(SESSION_COOKIE, token, remember ? { ...opts, maxAge } : opts);
-		if (remember) cookies.delete(FORGET_COOKIE, { path: '/' });
-		else cookies.set(FORGET_COOKIE, '1', opts);
-		if (u.mustChangePassword) redirect(303, '/settings?first=1');
-		redirect(303, safeNext(url.searchParams.get('next'), url.origin) ?? (u.role === 'cm' ? '/admin' : '/'));
-	},
+	signin: (event) => signIn(event, 'players'),
 
 	signup: async (event) => {
-		const { request, getClientAddress } = event;
+		const { request } = event;
 		const data = await request.formData();
 		const username = String(data.get('username') ?? '').slice(0, 64);
 		const displayName = String(data.get('displayName') ?? '').slice(0, 80);
@@ -57,7 +32,7 @@ export const actions: Actions = {
 				password: String(data.get('password') ?? '').slice(0, 200),
 				confirm: String(data.get('confirm') ?? '').slice(0, 200)
 			},
-			`ip:${getClientAddress()}`
+			`ip:${clientAddress(event)}`
 		);
 		if (!r.ok) return fail(r.status, { tab: 'signup' as const, username, displayName, email, message: r.message });
 		auditAuth(event, 'signup.request', { detail: { username: normaliseUsername(username) } });
@@ -65,9 +40,9 @@ export const actions: Actions = {
 	},
 
 	reset: async (event) => {
-		const { request, getClientAddress } = event;
+		const { request } = event;
 		const username = String((await request.formData()).get('username') ?? '').slice(0, 64);
-		if (!(await requestLimiter.take(`ip:${getClientAddress()}`)))
+		if (!(await requestLimiter.take(`ip:${clientAddress(event)}`)))
 			return fail(429, { tab: 'reset' as const, username, message: 'Too many requests from here. Wait a few minutes and try again.' });
 		await requestReset(username);
 		auditAuth(event, 'reset.request', { detail: { username: normaliseUsername(username) } });

@@ -1,8 +1,10 @@
 import { loadCustomFactions } from '$lib/server/factions';
 import { loadZones } from '$lib/server/map';
 import { seedStudio } from '$lib/server/starter';
-import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
-import { SESSION_COOKIE, syncAdminAccount, pruneSessions, sessionUser } from '$lib/server/auth';
+import { json, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+import { accessFor, accessMode } from '$lib/server/access';
+import { FORGET_COOKIE, SESSION_COOKIE, sessionCookie, syncAdminAccount, pruneSessions, sessionUser } from '$lib/server/auth';
 import { schedule } from '$lib/server/fx';
 import { onReload } from '$lib/server/hub';
 import { snapshotStale } from '$lib/server/public';
@@ -46,24 +48,28 @@ export const init: ServerInit = async () => {
 	startUpkeep();
 };
 
-/** Pages a signed-in user can reach before choosing their own password. */
-const OPEN_WHILE_TEMPORARY = ['/settings', '/logout', '/login', '/health', '/api/stream'];
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const user = await sessionUser(event.cookies.get(SESSION_COOKIE));
+	const token = event.cookies.get(SESSION_COOKIE);
+	const user = await sessionUser(token);
 	event.locals.user = user;
 	event.locals.isAdmin = user?.role === 'cm';
+	// The session just slid forward: a remembered cookie follows it (a browser-session cookie stays one).
+	if (user?.renewed && token && !event.cookies.get(FORGET_COOKIE))
+		event.cookies.set(SESSION_COOKIE, token, sessionCookie(event.url.protocol === 'https:', true));
 
 	const path = event.url.pathname;
 	// Account settings moved into /settings; keep old links and bookmarks working.
 	if (path === '/account' || path.startsWith('/account/')) redirect(308, `/settings${event.url.search}`);
 	// The campaign page and the standings listed the same ranking: the standings page carries both now.
 	if (path === '/campaign') redirect(308, '/players');
-	if (user?.mustChangePassword && !OPEN_WHILE_TEMPORARY.some((p) => path === p || path.startsWith(p + '/')) && !path.startsWith('/_app/') && !path.startsWith('/uploads/'))
-		redirect(303, '/settings?first=1');
-	// /settings/admin is not under /admin, so it needs naming here too.
-	if ((path.startsWith('/admin') || path.startsWith('/settings/admin')) && !event.locals.isAdmin) {
-		redirect(303, `/login?next=${encodeURIComponent(path)}`);
+	// Who may reach what, in either access mode: see lib/server/access.ts (and its tests).
+	const access = accessFor(accessMode(env.ACCESS), { path, search: event.url.search, method: event.request.method }, user);
+	if ('redirect' in access) redirect(303, access.redirect);
+	if ('status' in access) {
+		if (path.startsWith('/api/') || path.startsWith('/uploads/') || event.request.method !== 'GET') return json({ message: access.message }, { status: access.status });
+		// A page: the root layout raises it, so the app's own error page (with a way back) shows it.
+		event.locals.denied = { status: access.status, message: access.message };
 	}
 
 	if (user) countRequest(user.id, user.sessionId, { ip: clientMeta(event).ip, pageView: isPageView(event.request.method, path, { accept: event.request.headers.get('accept') }) });

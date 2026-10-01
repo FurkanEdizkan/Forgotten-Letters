@@ -7,7 +7,7 @@
 	 * campaign's history and heroes; the night for now — crossed by a half-transparent band that carries the lockup
 	 * and whatever the page asks, with a way back to the map below it.
 	 */
-	let { title = 'Carcass Front', children }: { title?: string; children: Snippet } = $props();
+	let { title = 'Carcass Front', back = true, children }: { title?: string; back?: boolean; children: Snippet } = $props();
 </script>
 
 <main class="cover">
@@ -18,7 +18,7 @@
 			{@render children()}
 		</div>
 	</section>
-	<a class="back" href="/">Back to the map</a>
+	{#if back}<a class="back" href="/">Back to the map</a>{/if}
 </main>
 
 <style>

@@ -23,6 +23,8 @@ export interface SessionUser {
 	mustChangePassword: boolean;
 	/** Warbands this account plays (and may edit). */
 	warbandIds: string[];
+	/** Set (never cached) when this request slid the session's expiry forward: the cookie should follow. */
+	renewed?: boolean;
 }
 
 /** Five tries a minute per username and per address (shared by every instance through Redis). */
@@ -119,6 +121,9 @@ export async function forgetUserSessions(userId: string) {
 	await store.del(...hashes.map(sessKey), userSessionsKey(userId));
 }
 
+/** A session in use slides forward about once a day: true once a day of its SESSION_DAYS has passed. */
+export const needsRenewal = (expiresAt: Date, now = Date.now()) => expiresAt.getTime() - now < (SESSION_DAYS - 1) * DAY;
+
 /** The signed-in user for a session cookie, or null. Sessions slide forward while in use. */
 export async function sessionUser(token: string | undefined): Promise<SessionUser | null> {
 	if (!token || token.length > 100) return null;
@@ -137,7 +142,8 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		.where(and(eq(session.idHash, idHash), gt(session.expiresAt, new Date())));
 	if (!row || row.u.disabled) return null;
 	// Slide the expiry forward about once a day while in use (lastSeenAt itself is kept by the activity flush).
-	if (row.s.expiresAt.getTime() - Date.now() < (SESSION_DAYS - 1) * DAY)
+	const renew = needsRenewal(row.s.expiresAt);
+	if (renew)
 		await db
 			.update(session)
 			.set({ expiresAt: new Date(Date.now() + SESSION_DAYS * DAY) })
@@ -161,7 +167,7 @@ export async function sessionUser(token: string | undefined): Promise<SessionUse
 		store.set(sessKey(idHash), JSON.stringify({ u: found, exp: row.s.expiresAt.getTime() }), SESSION_CACHE_MS),
 		store.addToSet(userSessionsKey(found.id), idHash, SESSION_CACHE_MS)
 	]).catch((e) => console.error('session cache:', e));
-	return found;
+	return renew ? { ...found, renewed: true } : found;
 }
 
 export async function endSession(token: string | undefined) {
@@ -192,3 +198,9 @@ export async function setPassword(userId: string, password: string, mustChange: 
 export const canEditWarband = (u: SessionUser | null, warbandId: string) =>
 	!!u && (u.role === 'cm' || u.warbandIds.includes(warbandId));
 
+
+/** The session cookie's options: secure behind https, a fixed lifetime when remembered (else it ends with the browser). */
+export function sessionCookie(secure: boolean, remember: boolean) {
+	const opts = { path: '/', httpOnly: true, sameSite: 'lax', secure } as const;
+	return remember ? { ...opts, maxAge: SESSION_DAYS * 24 * 60 * 60 } : opts;
+}

@@ -8,6 +8,8 @@ declare global {
 			user: SessionUser | null;
 			/** The signed-in account is the Campaign Master. */
 			isAdmin: boolean;
+			/** Set by the access gate when this page may not be shown (see lib/server/access.ts). */
+			denied?: { status: 401 | 403; message: string };
 		}
 	}
 }

@@ -61,11 +61,14 @@ for (const { file, pack } of packs) {
 	const shared = ['glory-items', 'exploration', 'patrons'].includes(pack.factionId);
 	const scope = packs.filter((x) => shared || (x.pack.factionId === pack.factionId && (!x.pack.variant || x.pack.variant === pack.variant))).map((x) => x.pack);
 	const units = new Set([...scope.flatMap((p) => p.units.map((u) => norm(u.name))), ...packs.filter((x) => x.pack.factionId === 'mercenaries').flatMap((x) => x.pack.units.map((u) => norm(u.name)))]);
-	const items = new Set(scope.flatMap((p) => p.items.map((i) => norm(i.name))));
-	const ups = new Set(scope.flatMap((p) => (p.rules.overrides?.upgrades ?? []).map((u) => norm(u.name))));
+	// Glory Items and exploration finds can be in any warband's armoury.
+	const sharedItems = packs.filter((x) => ['glory-items', 'exploration', 'mercenaries'].includes(x.pack.factionId)).flatMap((x) => x.pack.items.map((i) => norm(i.name)));
+	const items = new Set([...scope.flatMap((p) => p.items.map((i) => norm(i.name))), ...sharedItems]);
+	// Upgrades by name or by group ("Goetic Power").
+	const ups = new Set(scope.flatMap((p) => (p.rules.overrides?.upgrades ?? []).flatMap((u) => [norm(u.name), ...(u.group ? [norm(u.group)] : [])])));
 	const known = (n: string) => {
 		const k = norm(n);
-		return units.has(k) || items.has(k) || ups.has(k) || keywords.has(k) || k === 'elite' || k === 'mercenaries' || [...units].some((u) => u.startsWith(k) || k.startsWith(u));
+		return units.has(k) || items.has(k) || ups.has(k) || [...ups].some((u) => u === k.replace(/s$/, '')) || keywords.has(k) || k === 'elite' || k === 'mercenaries' || [...units].some((u) => u.startsWith(k) || k.startsWith(u));
 	};
 	const o = pack.rules.overrides ?? {};
 	const refs: [string, string][] = [

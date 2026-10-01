@@ -63,7 +63,10 @@ for (const f of FACTIONS) {
 			.filter((i) => carriers(i.name).length)
 			.map((i) => ({ ...i, stipulations: { ...(i.stipulations ?? {}), only: i.stipulations?.only?.length ? i.stipulations.only : carriers(i.name) } }));
 		const excludedNow = new Set(readRules(base.rules.text, v?.rules.text ?? null, [base.rules.overrides, v?.rules.overrides]).excluded.map(letters));
-		const armoury = byName(byName([...shared, ...mercKit], base.items), v?.items ?? [])
+		// A shared item with a faction item's name stays beside it, named for its source (as the server does).
+		const own = [...base.items, ...(v?.items ?? [])];
+		const sharedNamed = shared.map((i) => (own.some((x) => letters(x.name) === letters(i.name)) ? { ...i, name: `${i.name} (${i.faction === 'glory-items' ? 'Glory Item' : 'Exploration'})` } : i));
+		const armoury = byName(byName([...sharedNamed, ...mercKit], base.items), v?.items ?? [])
 			.filter((i) => !excludedNow.has(letters(i.name)))
 			.map(toItem);
 		const input = (list: List | null, models: ModelData[], ducats: number, glory: number): BuilderInput => ({

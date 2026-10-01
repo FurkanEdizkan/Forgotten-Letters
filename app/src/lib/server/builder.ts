@@ -74,16 +74,18 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		.map((i) => ({ ...i, stipulations: { ...(i.stipulations ?? {}), only: i.stipulations?.only?.length ? i.stipulations.only : carriers(i.name) } }));
 	// Armoury items the variant takes away ("cannot take the Black Grail Shield") leave its armoury.
 	const excluded = new Set(readRules(text.faction, text.variant, text.overrides ?? []).excluded.map(letters));
-	// Items any warband may get (Glory Items, exploration finds), where their alignment or factions allow this one;
-	// the faction's own row wins over one of the same name.
+	// Items any warband may get (Glory Items, exploration finds), where their alignment or factions allow this one.
+	// One with the name of a faction item stays beside it, named for where it comes from ("Restraining Muzzle (Glory
+	// Item)"), so each keeps its own price, limit and stipulations.
 	const alignment = faction?.alignment ?? null;
-	const shared = [...glory, ...explore].filter(
-		(i) =>
-			(!i.stipulations?.alignment || i.stipulations.alignment === alignment) &&
-			(!i.stipulations?.factions?.length || i.stipulations.factions.includes(w.faction) || i.stipulations.factions.includes(faction?.under ?? '')) &&
-			!items.some((x) => letters(x.name) === letters(i.name)) &&
-			!excluded.has(letters(i.name))
-	);
+	const shared = [...glory, ...explore]
+		.filter(
+			(i) =>
+				(!i.stipulations?.alignment || i.stipulations.alignment === alignment) &&
+				(!i.stipulations?.factions?.length || i.stipulations.factions.includes(w.faction) || i.stipulations.factions.includes(faction?.under ?? '')) &&
+				!excluded.has(letters(i.name))
+		)
+		.map((i) => (items.some((x) => letters(x.name) === letters(i.name)) ? { ...i, name: `${i.name} (${i.faction === 'glory-items' ? 'Glory Item' : 'Exploration'})` } : i));
 	const armoury: ArmouryItem[] = [...mine(items).filter((i) => !excluded.has(letters(i.name))), ...mercKit, ...shared].map((i) => ({
 		id: i.id,
 		name: i.name,

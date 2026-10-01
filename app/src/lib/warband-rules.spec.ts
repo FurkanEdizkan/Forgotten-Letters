@@ -222,3 +222,12 @@ describe('entry names', () => {
 		expect(sameEntry('Thrall', 'Grail Thrall')).toBe(false);
 	});
 });
+
+describe('fixed kit in a finished list', () => {
+	it('passes once, swapped kit included; a second copy is checked', () => {
+		const kit = { fixed: ['Plate'], swap: { from: 'Plate', to: 'Mail', extra: 10 }, except: ['armour' as const], nothingElse: false };
+		expect(warbandIssues(wb([model({ kit, equipment: has(A.plate) })]), readRules(null), [])).toEqual([]);
+		expect(warbandIssues(wb([model({ kit, upgrades: ['Mail'], equipment: has(A.mail) })]), readRules(null), [])).toEqual([]);
+		expect(warbandIssues(wb([model({ kit, equipment: has(A.plate, A.plate) })]), readRules(null), []).join()).toMatch(/Plate/);
+	});
+});

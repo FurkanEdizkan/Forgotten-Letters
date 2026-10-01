@@ -693,11 +693,15 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 	// Each model's kit, put on again one piece at a time against the Battlekit Limits and its entry's rules
 	// (an imported or older list never went through the builder's checks).
 	for (const m of active) {
-		const fixed = new Set(m.kit.fixed.map(letters));
+		// Its fixed kit (with an armour swap taken, the kit swapped in) passes once each; a second copy is checked.
+		const swapped = m.kit.swap && m.upgrades.includes(m.kit.swap.to) ? m.kit.swap : null;
+		const fixed = m.kit.fixed.map((n) => letters(swapped && letters(n) === letters(swapped.from) ? swapped.to : n));
 		let acc: ModelState = { ...m, equipment: [] };
 		for (const e of m.equipment) {
 			const a = findItem(w.armoury, e.name);
-			if (a && !fixed.has(letters(e.name))) {
+			const k = fixed.indexOf(letters(e.name));
+			if (k >= 0) fixed.splice(k, 1);
+			else if (a) {
 				const c = equipCheck(acc, a, { ...w, models: [acc], stash: [], ducats: Infinity, glory: Infinity, limits: [], openExploration: true });
 				if (!c.ok) out.push(`${m.type} with ${e.name}: ${c.reason}.`);
 			}

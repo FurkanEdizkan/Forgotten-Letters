@@ -38,3 +38,8 @@ next-env.d.ts
 /.ds-sync/
 /ds-bundle/
 /design-lab/
+
+# Playwright output
+app/test-results/
+app/playwright-report/
+app/blob-report/

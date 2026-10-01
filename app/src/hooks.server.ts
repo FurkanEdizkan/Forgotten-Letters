@@ -12,6 +12,7 @@ import { currentCampaign } from '$lib/server/campaign';
 import { migrateDb, withStartupLock } from '$lib/server/db';
 import { importLegacySqlite } from '$lib/server/db/legacy';
 import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
+import { loadPacksDirIfEmpty } from '$lib/server/packs';
 import { clientMeta, pruneAudit, recordAudit } from '$lib/server/audit';
 import { countRequest, flushActivity } from '$lib/server/activity';
 import { adminActionName, isPageView } from '$lib/server/activity-rules';
@@ -35,6 +36,8 @@ export const init: ServerInit = async () => {
 		await migrateDb();
 		await importLegacySqlite();
 		await syncAdminAccount();
+		// A fresh install starts from the book packs if it has them, else from an import-rules.py file.
+		await loadPacksDirIfEmpty();
 		await loadRulesFileIfEmpty();
 		await seedStudio();
 	});

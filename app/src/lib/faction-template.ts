@@ -223,7 +223,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 	const overrides: RulesOverride = {
 		...(r.start_ducats != null ? { startDucats: num(r.start_ducats, 'rules.start_ducats', 700) ?? 700 } : {}),
 		...(r.start_glory != null ? { startGlory: num(r.start_glory, 'rules.start_glory', 0) ?? 0 } : {}),
-		alignment: faction.alignment,
+		// A variant keeps its faction's alignment unless its file says otherwise.
+		...(!parent || f.alignment != null ? { alignment: faction.alignment } : {}),
 		...(r.excluded != null ? { excluded: list(r.excluded, 'rules.excluded') } : {}),
 		...(r.must_include != null ? { mustInclude: pairs(r.must_include, 'rules.must_include', 'n') as { name: string; n: number }[] } : {}),
 		...(r.leader != null ? { leader: str(r.leader, 'rules.leader') } : {}),
@@ -275,12 +276,25 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		const kitIn = isObj(o.kit) ? o.kit : null;
 		const hire = isObj(o.hired_by) ? o.hired_by : null;
 		const swap = kitIn && isObj(kitIn.swap) ? kitIn.swap : null;
+		// Per-entry prices: { Rifle: 5 } or { Rifle: { cost: 5, currency: ducats } }.
+		const pricesIn = kitIn && isObj(kitIn.prices) ? kitIn.prices : null;
+		const prices = pricesIn
+			? Object.fromEntries(
+					Object.entries(pricesIn).map(([item, v]) => {
+						const q = `${p}.kit.prices.${item}`;
+						return isObj(v)
+							? [item, { cost: num(v.cost, `${q}.cost`, 0) ?? 0, currency: oneOf(v.currency, CURRENCIES, `${q}.currency`, 'ducats') }]
+							: [item, { cost: num(v, q, 0) ?? 0, currency: 'ducats' as const }];
+					})
+				)
+			: null;
 		const kit: UnitKitOverride | null =
 			kitIn || hire
 				? {
 						...(kitIn?.fixed != null ? { fixed: list(kitIn.fixed, `${p}.kit.fixed`) } : {}),
 						...(kitIn?.except != null ? { except: list(kitIn.except, `${p}.kit.except`).map((c, k) => oneOf(c, KIT_EXCEPT, `${p}.kit.except[${k}]`, 'armour')) } : {}),
 						...(kitIn?.nothing_else != null ? { nothingElse: bool(kitIn.nothing_else) } : {}),
+						...(prices ? { prices } : {}),
 						...(swap
 							? { swap: { from: str(swap.from, `${p}.kit.swap.from`, true) ?? '', to: str(swap.to, `${p}.kit.swap.to`, true) ?? '', extra: num(swap.extra, `${p}.kit.swap.extra`, 0) ?? 0 } }
 							: {}),
@@ -403,7 +417,15 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 				powers: u.powers ?? undefined,
 				description: u.description ?? undefined,
 				kit: u.kit
-					? drop({ fixed: u.kit.fixed, except: u.kit.except, nothing_else: u.kit.nothingElse, swap: u.kit.swap ?? undefined })
+					? drop({
+							fixed: u.kit.fixed,
+							except: u.kit.except,
+							nothing_else: u.kit.nothingElse,
+							swap: u.kit.swap ?? undefined,
+							prices: u.kit.prices
+								? Object.fromEntries(Object.entries(u.kit.prices).map(([k, v]) => [k, v.currency === 'glory' ? v : v.cost]))
+								: undefined
+						})
 					: undefined,
 				hired_by: u.kit?.hire ? drop({ alignment: u.kit.hire.alignment ?? undefined, by: u.kit.hire.by }) : undefined
 			})
@@ -562,6 +584,7 @@ units:
       fixed: [Reinforced Armour]
       except: [armour]              # may not take other armour
       swap: { from: Reinforced Armour, to: Machine Armour, extra: 10 }   # an upgrade that swaps kit
+      prices: { <Saint's Rifle>: 5 }   # what an armoury item costs THIS entry ({ cost, currency } for glory)
   - name: <Wandering Hermit>
     category: mercenary
     cost: 3

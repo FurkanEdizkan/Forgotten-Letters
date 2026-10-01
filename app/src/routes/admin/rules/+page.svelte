@@ -31,6 +31,28 @@
 		</p>
 	{/if}
 	{#if form && 'importMessage' in form}<p class="error">{form.importMessage}</p>{/if}
+
+	<h3>Book packs</h3>
+	<p class="meta">
+		Complete, checked entries for a faction or variant, in the Faction Studio's format (one file each; choose several at once).
+		They replace that faction's book entries; your Studio edits and own entries stay.
+	</p>
+	<form method="POST" action="?/packs" enctype="multipart/form-data" use:enhance class="row">
+		<input type="file" name="files" accept=".yaml,.yml" multiple />
+		<button>Load book packs</button>
+	</form>
+	{#if form && 'packsLoaded' in form && form.packsLoaded}
+		<ul class="ok">
+			{#each form.packsLoaded as r (r.pack)}
+				<li>
+					{r.pack}: {r.units} units, {r.items} items, {r.keywords} keywords{r.kept ? `; ${r.kept} of your edits kept` : ''}{r.removed
+						? `; ${r.removed} old entries removed`
+						: ''}
+				</li>
+			{/each}
+		</ul>
+	{/if}
+	{#if form && 'packsMessage' in form}<p class="error">{form.packsMessage}</p>{/if}
 </section>
 
 <nav class="factions" aria-label="Rules by faction">

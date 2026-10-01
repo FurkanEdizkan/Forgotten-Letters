@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from '$lib/server/db/schema';
 import { allFactionRules, allKeywords, importRules, itemsOf, pagesOf, rulesSummary, unitsOf } from '$lib/server/rules-data';
 import { FACTIONS } from '$lib/rules/factions';
+import { loadPacks, readPacks } from '$lib/server/packs';
 import type { Actions, PageServerLoad } from './$types';
 
 const RULE_FACTIONS = [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), { id: 'mercenaries', name: 'Mercenaries' }];
@@ -47,6 +48,14 @@ const list = (d: FormData, k: string) =>
 		.filter(Boolean);
 
 export const actions: Actions = {
+	// Book packs (Faction Studio YAML, several at once): they become the book; the CM's Studio edits stay.
+	packs: async ({ request }) => {
+		const files = (await request.formData()).getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
+		if (!files.length) return fail(400, { packsMessage: 'Choose one or more pack files (.yaml).' });
+		const { packs, errors } = readPacks(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
+		if (errors.length) return fail(400, { packsMessage: `Nothing loaded: ${errors.slice(0, 12).join(' · ')}${errors.length > 12 ? ` · and ${errors.length - 12} more` : ''}` });
+		return { packsLoaded: await loadPacks(packs) };
+	},
 	import: async ({ request }) => {
 		const file = (await request.formData()).get('file');
 		if (!(file instanceof File) || !file.size) return fail(400, { importMessage: 'Choose the rules.json file made by import-rules.py.' });

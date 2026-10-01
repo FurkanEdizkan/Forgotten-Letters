@@ -8,7 +8,7 @@ import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
 import { builderInput, builderWarband } from '$lib/server/builder';
 import { builderState, entryOf, modelKeywords } from '$lib/builder-state';
-import { entryPrice, equipCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { copyCheck, entryPrice, equipCheck, stashCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
 import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
@@ -188,8 +188,9 @@ export const actions: Actions = {
 		if (m) {
 			const check = equipCheck(m, { ...priced, cost }, state);
 			if (!check.ok) return fail(400, { message: check.reason });
-		} else if ((priced.currency === 'glory' ? w.treasuryGlory : w.treasuryDucats) < cost && !w.unrestricted) {
-			return fail(400, { message: 'Not enough in the strongbox.' });
+		} else {
+			const check = stashCheck({ ...priced, cost }, state);
+			if (!check.ok) return fail(400, { message: check.reason });
 		}
 		await buyItem(w.id, target, asItem(priced, cost));
 		return done(w.campaignId);
@@ -216,11 +217,10 @@ export const actions: Actions = {
 				const check = equipCheck(probe, armour, without);
 				if (!check.ok) return fail(400, { message: check.reason });
 			}
-		} else if (op === 'copy' && !w.unrestricted) {
-			// Another into the arsenal: within the item's limit, and paid for.
-			const held = [...state.models.flatMap((m) => m.equipment), ...state.stash].filter((h) => letters(h.name) === letters(heldItem.name)).length;
-			if (armour?.limit != null && held >= armour.limit) return fail(400, { message: `${heldItem.name}: limit ${armour.limit} reached.` });
-			if (heldItem.cost > (heldItem.currency === 'glory' ? w.treasuryGlory : w.treasuryDucats)) return fail(400, { message: 'Not enough in the strongbox.' });
+		} else if (op === 'copy') {
+			// Another into the arsenal: found through Exploration only, its Limit, and paid for.
+			const check = stashCheck({ ...(armour ?? { name: heldItem.name, category: 'equipment', limit: null, restrictions: null, type: null, range: null, keywords: [] }), cost: heldItem.cost, currency: heldItem.currency }, state);
+			if (!check.ok) return fail(400, { message: check.reason });
 		}
 		if (op === 'copy') {
 			await buyItem(w.id, target, { name: heldItem.name, kind: heldItem.kind, cost: heldItem.cost, currency: heldItem.currency });
@@ -232,7 +232,7 @@ export const actions: Actions = {
 	},
 
 	unit: async ({ params, request, locals }) => {
-		const { w } = await editable(params.id, locals);
+		const { w, state, rules, input } = await editable(params.id, locals);
 		const d = await request.formData();
 		const u = await model(w.id, str(d, 'unit'));
 		const fields: Parameters<typeof saveUnit>[2] = {};
@@ -242,6 +242,18 @@ export const actions: Actions = {
 		if (d.has('skills')) fields.skills = lines(d, 'skills');
 		if (d.has('notes')) fields.notes = str(d, 'notes', 4000) || null;
 		if (d.has('status')) fields.status = (['active', 'dead', 'retired'] as const).find((s) => s === d.get('status')) ?? u.status;
+		// Back from the dead or retired: it rejoins within the caps and limits, like a new recruit.
+		if (fields.status === 'active' && u.status !== 'active') {
+			const others = { ...state, models: state.models.filter((x) => x.id !== u.id), ducats: Infinity, glory: Infinity };
+			const profile = input.profiles.find((p) => p.id === u.profileId);
+			const back = state.models.find((x) => x.id === u.id);
+			const check = profile ? recruitCheck({ ...entryOf(profile), recruit: undefined }, others, rules, input.faction) : { ok: true as const };
+			if (!check.ok) return fail(400, { message: check.reason });
+			if (back) {
+				const c = copyCheck({ ...back, status: 'active' }, others, rules);
+				if (!c.ok) return fail(400, { message: c.reason });
+			}
+		}
 		await saveUnit(w.id, u.id, fields);
 		return done(w.campaignId);
 	},
@@ -331,18 +343,17 @@ export const actions: Actions = {
 			const check = recruitCheck(entryOf(profile), state, rules, input.faction);
 			if (!check.ok) return fail(400, { message: check.reason });
 		}
+		// The copy comes with the original's kit and upgrades: every limit, Limit and upgrade's most counts them.
+		const original = state.models.find((x) => x.id === u.id);
+		if (original) {
+			const check = copyCheck({ ...original, id: '(copy)', status: 'active' }, state, rules);
+			if (!check.ok) return fail(400, { message: check.reason });
+		}
 		const kitCost = u.equipment.reduce((s, e) => s + (e.currency === 'ducats' ? e.cost : 0), 0);
 		const kitGlory = u.equipment.reduce((s, e) => s + (e.currency === 'glory' ? e.cost : 0), 0);
 		const ducats = kitCost + (u.currency === 'ducats' ? u.cost : 0);
 		const glory = kitGlory + (u.currency === 'glory' ? u.cost : 0);
 		if (!w.unrestricted && (ducats > w.treasuryDucats || glory > w.treasuryGlory)) return fail(400, { message: 'Not enough in the strongbox for a copy.' });
-		for (const e of u.equipment) {
-			const a = findItem(input.armoury, e.name);
-			if (a?.limit != null && !w.unrestricted) {
-				const held = [...state.models.flatMap((m) => m.equipment), ...state.stash].filter((h) => letters(h.name) === letters(e.name)).length;
-				if (held + 1 > a.limit) return fail(400, { message: `${e.name}: limit ${a.limit} reached.` });
-			}
-		}
 		await addUnit(w.campaignId, w.id, { ...u, name: u.name ? `${u.name} (copy)` : '', stats: u.stats, notes: u.notes, cost: u.cost }, true);
 		if (kitCost || kitGlory) {
 			const [now] = await db.select().from(warband).where(eq(warband.id, w.id));

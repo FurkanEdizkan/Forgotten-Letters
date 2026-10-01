@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryPrice, equipCheck, priceFor, readRules, recruitCheck, upgradeCheck, warbandIssues, type ArmouryItem, type EntryRef, type ModelState, type Upgrade, type WarbandState } from './warband-rules';
+import { copyCheck, entryPrice, equipCheck, stashCheck, priceFor, readRules, recruitCheck, upgradeCheck, warbandIssues, type ArmouryItem, type EntryRef, type ModelState, type Upgrade, type WarbandState } from './warband-rules';
 import type { ScopedLimit } from './warband-limits';
 
 // Made-up kit and entries in the books' shapes (no book text lives in the repository).
@@ -216,5 +216,25 @@ describe('prices by rule', () => {
 		const e = entry('Goetic Warlock', { cost: 3, currency: 'glory' });
 		expect(entryPrice(e, w)).toMatchObject({ cost: 110, currency: 'ducats' });
 		expect(entryPrice(e, { ...w, models: [model('Goetic Warlock')] })).toMatchObject({ cost: 3, currency: 'glory' });
+	});
+});
+
+describe('the arsenal and copies follow the same rules', () => {
+	it('an exploration find, or kit over its Limit, cannot be bought into the arsenal', () => {
+		const found = { ...A.knife, name: 'Relic', restrictions: 'Exploration only' };
+		expect(reason(stashCheck(found, wb([])))).toMatch(/Exploration only/);
+		expect(stashCheck(found, wb([], [], { openExploration: true })).ok).toBe(true);
+		const one = { ...A.sword, limit: 1 };
+		expect(stashCheck(one, wb([], [], { stash: held(A.sword) })).ok).toBe(false);
+	});
+	it('a copy brings its upgrades and kit: their most and the limits count it', () => {
+		const mole: Upgrade = { name: 'Trench Moles', keyword: null, max: 2, cost: 0, currency: 'ducats', for: [], text: '' };
+		const r = readRules(null, null, [{ upgrades: [mole] }]);
+		const two = [model('Yeoman', { upgrades: ['Trench Moles'] }), model('Yeoman', { upgrades: ['Trench Moles'] })];
+		expect(reason(copyCheck({ ...two[0], id: 'c' }, wb(two), r))).toMatch(/Trench Moles: 2\/2/);
+		const great: ScopedLimit = { text: 'At most 3 Great Swords', models: { holding: { names: ['Greatsword'] } }, max: 3 };
+		const three = [1, 2, 3].map(() => model('Ranger', { equipment: held(A.greatsword) }));
+		expect(reason(copyCheck({ ...three[0], id: 'c' }, wb(three, [great]), rules))).toMatch(/At most 3 Great Swords/);
+		expect(copyCheck({ ...three[0], id: 'c' }, wb(three.slice(1), [great]), rules).ok).toBe(true);
 	});
 });

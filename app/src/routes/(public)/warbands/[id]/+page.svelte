@@ -9,7 +9,7 @@
 	import AddModelDialog, { type EntryRow } from '$lib/components/AddModelDialog.svelte';
 	import { ARMOURY_ORDER, armouryCategory } from '$lib/builder';
 	import { armourOf, builderState, entryOf, modelKeywords } from '$lib/builder-state';
-	import { equipCheck, letters, priceFor, recruitCheck, upgradeCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
+	import { entryPrice, equipCheck, letters, priceFor, recruitCheck, upgradeCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
 	import { rosterTotals } from '$lib/roster';
 
 	let { data, form } = $props();
@@ -78,8 +78,9 @@
 				return {
 					id: p.id,
 					name: p.name,
-					cost: p.cost,
-					currency: p.currency,
+					// What recruiting it costs now (the first of some entries costs otherwise).
+					cost: entryPrice(p, st.state).cost,
+					currency: entryPrice(p, st.state).currency,
 					active: active.filter((m) => m.profileId === p.id || letters(m.type) === letters(p.name)).length,
 					max: cap,
 					picture: data.profileArt[p.id] ?? null,

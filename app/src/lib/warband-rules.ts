@@ -537,6 +537,36 @@ function asCarried(m: ModelState, i: ArmouryItem): ArmouryItem {
 	return own ? { ...i, stipulations: { ...(i.stipulations ?? {}), ...own } } : i;
 }
 
+/** May this item be bought into the arsenal (no model yet): found through Exploration only, its Limit, its price. */
+export function stashCheck(item: ArmouryItem, w: WarbandState): Check {
+	if (w.unrestricted) return ok;
+	if (itemFacts(item).explorationOnly && !w.openExploration) return no('Found through Exploration only');
+	if (item.limit != null) {
+		const held = limitCount(item, w);
+		if (held >= item.limit) return no(`Limit ${held}/${item.limit} used`);
+	}
+	const purse = item.currency === 'glory' ? w.glory : w.ducats;
+	if (item.cost > purse) return no(`Costs ${item.cost} ${item.currency === 'glory' ? 'Glory' : 'Ducats'}; ${purse} in the strongbox`);
+	return ok;
+}
+
+/** May the warband take on this whole model (a copy of a fighter, with its kit and upgrades)? */
+export function copyCheck(copy: ModelState, w: WarbandState, rules: VariantRules): Check {
+	if (w.unrestricted) return ok;
+	for (const name of copy.upgrades) {
+		const up = rules.upgrades.find((u) => u.name === name);
+		const taken = w.models.filter((x) => x.status === 'active' && x.upgrades.includes(name)).length;
+		if (up?.max != null && taken >= up.max) return no(`${name}: ${taken}/${up.max} taken`);
+	}
+	for (const e of copy.equipment) {
+		const a = findItem(w.armoury, e.name);
+		if (a?.limit != null && !copy.kit.fixed.some((f) => letters(f) === letters(e.name)) && limitCount(a, w) + copy.equipment.filter((x) => letters(x.name) === letters(e.name)).length > a.limit)
+			return no(`${e.name}: limit ${a.limit} reached`);
+	}
+	const broken = newlyBroken(world(w), world(w, [...w.models, copy]));
+	return broken ? no(broken) : ok;
+}
+
 /** May this model be given this item? The first rule it breaks is the reason. */
 export function equipCheck(m: ModelState, armouryItem: ArmouryItem, w: WarbandState): Check {
 	const item = asCarried(m, armouryItem);

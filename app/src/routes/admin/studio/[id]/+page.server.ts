@@ -102,6 +102,8 @@ export const actions: Actions = {
 		const o = (pack.rules.overrides ??= {});
 		if (old.limits) o.limits = old.limits;
 		if (old.prices) o.prices = old.prices;
+		if (old.patron) o.patron = old.patron;
+		if (old.requiresVariant) o.requiresVariant = old.requiresVariant;
 		o.upgrades = o.upgrades?.map((u) => {
 			const was = old.upgrades?.find((x) => x.name === u.name);
 			return was ? { ...u, for: was.for, ...keep(was, ['keywords', 'group', 'hands', 'limits']) } : u;

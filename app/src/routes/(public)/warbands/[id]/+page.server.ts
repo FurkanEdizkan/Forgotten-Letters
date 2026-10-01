@@ -8,7 +8,8 @@ import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
 import { builderInput, builderWarband } from '$lib/server/builder';
 import { builderState, entryOf, modelKeywords } from '$lib/builder-state';
-import { equipCheck, findItem, letters, recruitCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { equipCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { importInto, readTcSource } from '$lib/server/tc-import';
 import { KIND_OF } from '$lib/builder';
 import { keywordKey } from '$lib/keywords';
 import { sealLook } from '$lib/seals';
@@ -163,16 +164,18 @@ export const actions: Actions = {
 		const held = [...state.models.flatMap((m) => m.equipment), ...state.stash];
 		// "You must give the … to one model … free": the first one costs nothing.
 		const free = rules.freeItems.some((f) => letters(f) === letters(item.name)) && !held.some((h) => letters(h.name) === letters(item.name));
-		const cost = free ? 0 : item.cost;
-		if (target !== 'stash') {
-			const m = state.models.find((x) => x.id === target);
-			if (!m) return fail(404, { message: 'No such model' });
-			const check = equipCheck(m, { ...item, cost }, state);
+		const m = target !== 'stash' ? state.models.find((x) => x.id === target) : null;
+		if (target !== 'stash' && !m) return fail(404, { message: 'No such model' });
+		// The model's own entry may price it differently ("a Rifle for 5"); the arsenal pays the armoury's price.
+		const priced = priceFor(m, item);
+		const cost = free ? 0 : priced.cost;
+		if (m) {
+			const check = equipCheck(m, { ...priced, cost }, state);
 			if (!check.ok) return fail(400, { message: check.reason });
-		} else if ((item.currency === 'glory' ? w.treasuryGlory : w.treasuryDucats) < cost && !w.unrestricted) {
+		} else if ((priced.currency === 'glory' ? w.treasuryGlory : w.treasuryDucats) < cost && !w.unrestricted) {
 			return fail(400, { message: 'Not enough in the strongbox.' });
 		}
-		await buyItem(w.id, target, asItem(item, cost));
+		await buyItem(w.id, target, asItem(priced, cost));
 		return done(w.campaignId);
 	},
 
@@ -235,6 +238,23 @@ export const actions: Actions = {
 		return done(w.campaignId);
 	},
 
+	/** Replace the roster with a Trench Companion warband (a link, or its exported text or JSON), matched to the books. */
+	importTc: async ({ params, request, locals }) => {
+		const { w } = await editable(params.id, locals);
+		const d = await request.formData();
+		if (!d.has('confirm')) return fail(400, { tcMessage: 'Tick the box: the import replaces this whole warband.' });
+		try {
+			const file = d.get('file');
+			const text = file instanceof File && file.size ? await file.text() : String(d.get('text') ?? '');
+			const imported = await readTcSource({ link: String(d.get('link') ?? '').slice(0, 300), text: text.slice(0, 400_000) });
+			const r = await importInto(w, imported, { force: d.has('force') });
+			if ('mismatch' in r) return fail(400, { tcMessage: r.mismatch, tcMismatch: true });
+			return { tcImported: r };
+		} catch (e) {
+			return fail(400, { tcMessage: `Import failed: ${(e as Error).message}` });
+		}
+	},
+
 	/** Take or drop an upgrade: a variant's keyword upgrade (Swiss Guard) or an entry's armour swap. */
 	upgrade: async ({ params, request, locals }) => {
 		const { w, state, rules, input } = await editable(params.id, locals);
@@ -248,25 +268,34 @@ export const actions: Actions = {
 		if (!keywordUp && !swap) return fail(400, { message: 'No such upgrade.' });
 		const has = u.upgrades.includes(name);
 		if (on === has) return {};
-		if (keywordUp && on && keywordUp.max != null && !w.unrestricted) {
-			const taken = state.models.filter((x) => x.status === 'active' && x.upgrades.includes(name)).length;
-			if (taken >= keywordUp.max) return fail(400, { message: `${name}: ${taken}/${keywordUp.max} taken.` });
+		if (keywordUp && on) {
+			const check = upgradeCheck(m, keywordUp, state);
+			if (!check.ok) return fail(400, { message: check.reason });
 		}
 		let equipment = u.equipment;
 		let extra = keywordUp?.cost ?? 0;
+		// A keyword upgrade is paid in its own currency; an armour swap in Ducats.
+		const glory = keywordUp?.currency === 'glory' && !swap;
 		if (swap) {
 			const [from, to] = on ? [swap.from, swap.to] : [swap.to, swap.from];
 			const a = findItem(input.armoury, to);
 			equipment = u.equipment.map((e) => (letters(e.name) === letters(from) ? (a ? asItem(a, 0) : { ...e, name: to }) : e));
 			extra = swap.extra;
 		}
-		if (on && extra > (w.treasuryDucats ?? 0) && !w.unrestricted) return fail(400, { message: `Costs ${extra} Ducats; ${w.treasuryDucats} in the strongbox.` });
+		const purse = glory ? w.treasuryGlory : w.treasuryDucats;
+		if (on && extra > (purse ?? 0) && !w.unrestricted) return fail(400, { message: `Costs ${extra} ${glory ? 'Glory' : 'Ducats'}; ${purse} in the strongbox.` });
+		// The model's own cost carries it only in the model's own currency.
+		const sameCurrency = (glory ? 'glory' : 'ducats') === u.currency;
 		await db.transaction(async (tx) => {
 			await tx
 				.update(unit)
-				.set({ upgrades: on ? [...u.upgrades, name] : u.upgrades.filter((x) => x !== name), equipment, cost: u.cost + (on ? extra : -extra) })
+				.set({ upgrades: on ? [...u.upgrades, name] : u.upgrades.filter((x) => x !== name), equipment, cost: u.cost + (sameCurrency ? (on ? extra : -extra) : 0) })
 				.where(eq(unit.id, u.id));
-			if (extra) await tx.update(warband).set({ treasuryDucats: w.treasuryDucats + (on ? -extra : extra) }).where(eq(warband.id, w.id));
+			if (extra)
+				await tx
+					.update(warband)
+					.set(glory ? { treasuryGlory: w.treasuryGlory + (on ? -extra : extra) } : { treasuryDucats: w.treasuryDucats + (on ? -extra : extra) })
+					.where(eq(warband.id, w.id));
 		});
 		return done(w.campaignId);
 	},

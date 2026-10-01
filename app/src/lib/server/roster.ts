@@ -151,15 +151,27 @@ export async function itemOp(warbandId: string, ref: ItemRef, op: 'move' | 'sell
 }
 
 /** Replace a warband's roster and banks with an imported list. */
-export async function replaceRoster(campaignId: string | null, warbandId: string, data: { units: RosterUnit[]; stash: Item[]; ducats: number; glory: number }) {
-	await db.transaction(async (tx) => {
-		(await tx.delete(unit).where(eq(unit.warbandId, warbandId)));
-		(await tx.delete(warbandStash).where(eq(warbandStash.warbandId, warbandId)));
-		for (const [i, u] of data.units.entries()) await tx.insert(unit).values({ ...u, campaignId, warbandId, sort: i + 1 });
-		for (const s of data.stash) (await tx.insert(warbandStash).values({ warbandId, ...s }));
-		(await tx.update(warband)
-			.set({ treasuryDucats: data.ducats, treasuryGlory: data.glory })
-			.where(eq(warband.id, warbandId))
-			);
+/**
+ * Replace a warband's whole roster (an import): its models, arsenal and banks, and its fireteams (given as indexes
+ * into `units`, so they point at the new models). Returns the new models' ids, in order.
+ */
+export async function replaceRoster(
+	campaignId: string | null,
+	warbandId: string,
+	data: { units: RosterUnit[]; stash: Item[]; ducats: number; glory: number; fireteams?: { name: string; members: number[] }[] }
+) {
+	return db.transaction(async (tx) => {
+		await tx.delete(unit).where(eq(unit.warbandId, warbandId));
+		await tx.delete(warbandStash).where(eq(warbandStash.warbandId, warbandId));
+		const ids: string[] = [];
+		for (const [i, u] of data.units.entries()) {
+			const { sourceId: _s, tcTotal: _t, aliases: _a, ...row } = u;
+			const [made] = await tx.insert(unit).values({ ...row, campaignId, warbandId, sort: i + 1 }).returning({ id: unit.id });
+			ids.push(made.id);
+		}
+		for (const s of data.stash) await tx.insert(warbandStash).values({ warbandId, name: s.name, kind: s.kind, cost: s.cost, currency: s.currency });
+		const fireteams = (data.fireteams ?? []).map((f) => ({ name: f.name, members: f.members.map((n) => ids[n]).filter(Boolean) })).filter((f) => f.members.length);
+		await tx.update(warband).set({ treasuryDucats: data.ducats, treasuryGlory: data.glory, fireteams }).where(eq(warband.id, warbandId));
+		return ids;
 	});
 }

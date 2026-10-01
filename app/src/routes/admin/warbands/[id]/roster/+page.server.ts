@@ -11,15 +11,15 @@ import {
 	itemOp,
 	moveUnit,
 	removeUnit,
-	replaceRoster,
 	roster,
 	saveUnit,
 	setBank,
 	type ItemRef
 } from '$lib/server/roster';
-import { fromTrenchCompanion, importMismatch, trenchCompanionId, type Item, type RosterUnit } from '$lib/roster';
+import type { Item, RosterUnit } from '$lib/roster';
 import { FACTIONS } from '$lib/rules/factions';
 import { artFor, artIndex } from '$lib/server/unit-art';
+import { importInto, readTcSource } from '$lib/server/tc-import';
 import type { Actions, PageServerLoad } from './$types';
 
 async function find(id: string) {
@@ -181,44 +181,25 @@ export const actions: Actions = {
 		return { saved: 'item' };
 	},
 
-	importTc: async ({ params, request }) => {
-		const { c, warband: w } = await find(params.id);
-		const data = await request.formData();
-		if (!data.has('confirm')) return fail(400, { importMessage: 'Tick the box to replace this roster.' });
-		const tcId = trenchCompanionId(str(data.get('link'), 300));
-		if (!tcId) return fail(400, { importMessage: 'Paste a Trench Companion warband link or number.' });
-		try {
-			const res = await fetch(`https://synod.trench-companion.com/wp-json/synod/v1/warband/${tcId}`, {
-				headers: { accept: 'application/json', 'user-agent': 'carcass-front-campaign-tracker' },
-				signal: AbortSignal.timeout(15_000)
-			});
-			if (!res.ok) return fail(400, { importMessage: `Trench Companion answered ${res.status}. Is the warband shared publicly?` });
-			const imported = fromTrenchCompanion(await res.json());
-			const mismatch = importMismatch(imported, w);
-			if (mismatch && !data.has('force')) return fail(400, { importMessage: mismatch, mismatch: true });
-			await replaceRoster(c.id, w.id, imported);
-			publish(c.id);
-			return { imported: `${imported.units.length} models from “${imported.name}”` };
-		} catch (e) {
-			return fail(400, { importMessage: `Import failed: ${(e as Error).message}` });
-		}
-	},
-
-	importFile: async ({ params, request }) => {
-		const { c, warband: w } = await find(params.id);
-		const data = await request.formData();
-		if (!data.has('confirm')) return fail(400, { importMessage: 'Tick the box to replace this roster.' });
-		const file = data.get('file');
-		if (!(file instanceof File) || !file.size) return fail(400, { importMessage: 'Choose a Trench Companion JSON export.' });
-		try {
-			const imported = fromTrenchCompanion(JSON.parse(await file.text()));
-			const mismatch = importMismatch(imported, w);
-			if (mismatch && !data.has('force')) return fail(400, { importMessage: mismatch, mismatch: true });
-			await replaceRoster(c.id, w.id, imported);
-			publish(c.id);
-			return { imported: `${imported.units.length} models from “${imported.name}”` };
-		} catch (e) {
-			return fail(400, { importMessage: `Import failed: ${(e as Error).message}` });
-		}
-	}
+	// Trench Companion: the same import players use on their warband page, matched to the books.
+	importTc: async ({ params, request }) => tcImport(params.id, request, 'link'),
+	importFile: async ({ params, request }) => tcImport(params.id, request, 'file')
 };
+
+async function tcImport(id: string, request: Request, from: 'link' | 'file') {
+	const { warband: w } = await find(id);
+	const data = await request.formData();
+	if (!data.has('confirm')) return fail(400, { importMessage: 'Tick the box to replace this roster.' });
+	try {
+		const file = data.get('file');
+		const imported = await readTcSource(
+			from === 'link' ? { link: str(data.get('link'), 300) } : { text: file instanceof File && file.size ? await file.text() : '' }
+		);
+		const r = await importInto(w, imported, { force: data.has('force') });
+		if ('mismatch' in r) return fail(400, { importMessage: r.mismatch, mismatch: true });
+		const unmatched = r.report.units.length + r.report.items.length + r.report.upgrades.length;
+		return { imported: `${r.models} models from “${r.name}”${unmatched ? ` (${unmatched} not in the books: see the warband page)` : ''}` };
+	} catch (e) {
+		return fail(400, { importMessage: `Import failed: ${(e as Error).message}` });
+	}
+}

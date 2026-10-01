@@ -27,6 +27,14 @@ export interface RosterUnit {
 	stats: { movement?: string; ranged?: string; melee?: string; armour?: string; base?: string };
 	notes?: string | null;
 	status: 'active' | 'dead' | 'retired';
+	/** The rules entry it was matched to (`rules_unit.id`). */
+	profileId?: string | null;
+	/** Trench Companion's own id for the model (fireteams refer to it). */
+	sourceId?: string;
+	/** Other names Trench Companion knows the entry by (its model id, "Trenchcleric Lector"). */
+	aliases?: string[];
+	/** From a text export, which gives a model's whole cost (kit included) per currency rather than item by item. */
+	tcTotal?: { ducats: number; glory: number };
 }
 
 /** Selling returns half the price, rounded up; a refund returns it in full. */
@@ -102,6 +110,9 @@ export interface TcImport {
 	variant: string | null;
 	/** Trench Companion's own faction id, for messages. */
 	sourceFaction: string | null;
+	/** Fireteams: a name and its members, as indexes into `units`. */
+	fireteams: { name: string; members: number[] }[];
+	patron?: string | null;
 }
 
 const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
@@ -117,7 +128,8 @@ export function factionFromCompanion(objectId: string | null | undefined) {
 	// Match either way round, so "hereticlegion" finds "Heretic Legions".
 	const f = FACTIONS.find((f) => {
 		const n = letters(f.name);
-		return n === b || n.startsWith(b) || b.startsWith(n);
+		// "newantioch" is "Principality of New Antioch"; "hereticlegion" is "Heretic Legions".
+		return n === b || n.includes(b) || b.startsWith(n);
 	});
 	const v = variantSlug ? f?.variants.find((v) => letters(v).startsWith(letters(variantSlug)) || letters(variantSlug).startsWith(letters(v))) : undefined;
 	return { faction: f?.id ?? null, variant: v ?? null };
@@ -134,7 +146,7 @@ export function fromTrenchCompanion(raw: unknown): TcImport {
 
 	const item = (e: any): Item => {
 		const eq = e?.equipment ?? {};
-		const name = eq.name ?? humaniseId(eq.id ?? e?.purchase?.purchaseid ?? 'item');
+		const name = String(eq.name ?? humaniseId(eq.id ?? e?.purchase?.purchaseid ?? 'item')).replace(/\s+’/g, '’').replace(/\s+'/g, "'");
 		return {
 			name,
 			kind: kindOf(name, eq.id),
@@ -157,14 +169,23 @@ export function fromTrenchCompanion(raw: unknown): TcImport {
 			currency: currencyOf(entry?.purchase?.cost_type),
 			experience: Number(m.experience) || 0,
 			equipment: (m.equipment ?? []).map(item),
-			upgrades: (m.list_upgrades ?? []).map(refName),
+			// "Swiss Guard (Lieutenant)": the upgrade as Trench Companion names it (matching tries it whole, then without
+			// the bracket).
+			upgrades: (m.list_upgrades ?? []).map((u: any) => refName(u?.purchase?.custom_rel?.name ? { name: u.purchase.custom_rel.name } : u)),
 			skills: (m.list_skills ?? []).map(refName),
 			injuries: (m.list_injury ?? []).map(refName),
 			stats: {},
 			notes: Array.isArray(m.notes) && m.notes.length ? m.notes.map(String).join('\n') : null,
-			status: m.active && m.active !== 'active' ? 'dead' : 'active'
+			status: !m.active || m.active === 'active' ? 'active' : /retir/i.test(String(m.active)) ? 'retired' : 'dead',
+			sourceId: entry?.purchase?.purchaseid ?? m.id,
+			...(m.model ? { aliases: [humaniseId(String(m.model))] } : {})
 		};
 	});
+	const index = new Map(units.map((u, i) => [u.sourceId, i]));
+	const fireteams = (Array.isArray(w.fireteams) ? w.fireteams : []).map((f: any, i: number) => ({
+		name: `Fireteam ${i + 1}`,
+		members: (f?.selections ?? []).map((s: any) => index.get(s?.selection_ID)).filter((n: unknown): n is number => typeof n === 'number')
+	}));
 
 	const sourceFaction: string | null = w.faction?.faction_property?.object_id ?? null;
 	return {
@@ -174,7 +195,8 @@ export function fromTrenchCompanion(raw: unknown): TcImport {
 		ducats: Number(w.ducat_bank) || 0,
 		glory: Number(w.glory_bank) || 0,
 		units,
-		stash: (w.equipment ?? []).map(item)
+		stash: (w.equipment ?? []).map(item),
+		fireteams
 	};
 }
 

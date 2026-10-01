@@ -14,7 +14,7 @@ export default async function setup() {
 	if ((await pageData<{ stage: string }>(cm, '/admin/muster')).stage === 'mustering') {
 		// A campaign starts with at least two warbands: found two for seats nobody has claimed yet.
 		for (const [name, entryZone] of [['Iron Vigil', 'A'], ['Pale Choir', 'B']]) {
-			const r = await action(cm, '/warbands/new', 'default', { where: 'campaign', pick: 'new-antioch::', name, playerName: name, entryZone });
+			const r = await action(cm, '/warbands/new', 'create', { where: 'campaign', pick: 'new-antioch::', name, playerName: name, entryZone });
 			expect(r.type, `found ${name}: ${JSON.stringify(r.data ?? r.error)}`).toBe('redirect');
 		}
 		expect((await action(cm, '/admin/muster', 'advance', { override: 'on' })).type).toBe('success');

@@ -34,8 +34,21 @@
 <div class="page tc">
 	<div class="titlebar"><div class="inner"><h1>New Warband</h1></div></div>
 
+	<details class="tc panel" open={!!(form && 'tcMessage' in form)}>
+		<summary>Start from a Trench Companion warband</summary>
+		<p class="hint">A share link, or the text or file from <em>Export Warband</em> (Full). It becomes a list of your own, with its faction, models, kit and fireteams matched to the books; you can use it for the campaign later.</p>
+		<form method="POST" action="?/fromTc" enctype="multipart/form-data" use:enhance>
+			<label>Link or number <input name="link" placeholder="https://trench-companion.com/warband/detail/…" /></label>
+			<label>Or the exported text <textarea name="text" rows="4"></textarea></label>
+			<label>Or the exported file <input type="file" name="file" accept=".txt,.json,text/plain,application/json" /></label>
+			<button class="action">Import</button>
+		</form>
+		{#if form && 'tcMessage' in form}<p class="error" role="alert">{form.tcMessage}</p>{/if}
+	</details>
+
 	<form
 		method="POST"
+		action="?/create"
 		class="inner"
 		use:enhance={() => {
 			busy = true;
@@ -331,6 +344,26 @@
 		outline-offset: -2px;
 	}
 	.change {
+		justify-self: start;
+	}
+	/* Starting from Trench Companion: a fold above the two steps, for those who already have a list there. */
+	.tc {
+		max-width: 60rem;
+		margin: 18px auto 0;
+	}
+	.tc summary {
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.tc form {
+		display: grid;
+		gap: 8px;
+	}
+	.tc label {
+		display: grid;
+		gap: 3px;
+	}
+	.tc form .action {
 		justify-self: start;
 	}
 	.panel {

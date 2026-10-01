@@ -14,6 +14,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { seatOf } from '$lib/server/muster';
 import { forgetUserSessions } from '$lib/server/auth';
 import { suggestedEntry } from '$lib/seating';
+import { importInto, readTcSource } from '$lib/server/tc-import';
 
 /** The book's starting strongbox. */
 const START_DUCATS = 700;
@@ -89,7 +90,30 @@ const amount = (v: FormDataEntryValue | null, d: number) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	// A list of your own, started from a Trench Companion warband: its faction and variant come with it.
+	fromTc: async ({ request, locals }) => {
+		if (!locals.user) redirect(303, '/login?next=/warbands/new');
+		const d = await request.formData();
+		let imported;
+		try {
+			const file = d.get('file');
+			imported = await readTcSource({
+				link: String(d.get('link') ?? '').slice(0, 300),
+				text: file instanceof File && file.size ? (await file.text()).slice(0, 400_000) : String(d.get('text') ?? '').slice(0, 400_000)
+			});
+		} catch (e) {
+			return fail(400, { tcMessage: (e as Error).message });
+		}
+		if (!imported.faction) return fail(400, { tcMessage: `“${imported.name}” is of a faction this tracker doesn't know (${imported.sourceFaction ?? 'none given'}).` });
+		const [w] = await db
+			.insert(warband)
+			.values({ listOwnerId: locals.user.id, name: imported.name.slice(0, 80), faction: imported.faction, variant: imported.variant, treasuryDucats: 0, treasuryGlory: 0 })
+			.returning();
+		await importInto(w, imported);
+		redirect(303, `/warbands/${w.id}?imported=1`);
+	},
+	// Found a warband (a list of your own, or the campaign's), step by step.
+	create: async ({ request, locals }) => {
 		if (!locals.user) redirect(303, '/login?next=/warbands/new');
 		const c = await currentCampaign();
 		if (!c) return fail(404, { message: 'No campaign' });

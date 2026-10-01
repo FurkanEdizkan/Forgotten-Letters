@@ -9,7 +9,7 @@
 	import AddModelDialog, { type EntryRow } from '$lib/components/AddModelDialog.svelte';
 	import { ARMOURY_ORDER, armouryCategory } from '$lib/builder';
 	import { armourOf, builderState, entryOf, modelKeywords } from '$lib/builder-state';
-	import { equipCheck, letters, recruitCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
+	import { equipCheck, letters, priceFor, recruitCheck, upgradeCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
 	import { rosterTotals } from '$lib/roster';
 
 	let { data, form } = $props();
@@ -92,7 +92,8 @@
 		if (!selState) return { ok: false as const, reason: 'Choose a model' };
 		// The variant's free item costs nothing the first time.
 		const free = st.rules.freeItems.some((f) => letters(f) === letters(i.name)) && !held.some((h) => letters(h.name) === letters(i.name));
-		return equipCheck(selState, free ? { ...i, cost: 0 } : i, st.state);
+		const priced = priceFor(selState, i);
+		return equipCheck(selState, free ? { ...priced, cost: 0 } : priced, st.state);
 	};
 
 	let detail = $state<HTMLElement>();
@@ -353,6 +354,44 @@
 						<button class="action small">Set</button>
 					</form>
 				</details>
+				<details class="panel rulespanel" open={!!(form && ('tcImported' in form || 'tcMessage' in form))}>
+					<summary><h2>Import from Trench Companion</h2></summary>
+					<p class="dim">
+						Paste a share link, or in Trench Companion use <em>Export Warband</em> (Full) and paste the text or upload the file. The import
+						replaces this warband: its models, arsenal, banks and fireteams. Each model and item is matched to the books; prices are Trench
+						Companion's.
+					</p>
+					<form method="POST" action="?/importTc" enctype="multipart/form-data" use:enhance={keep} class="tc">
+						<label>Link or number <input name="link" placeholder="https://trench-companion.com/warband/detail/…" /></label>
+						<label>Or the exported text <textarea name="text" rows="4" placeholder="## My Warband ##&#10;Faction: …"></textarea></label>
+						<label>Or the exported file <input type="file" name="file" accept=".txt,.json,text/plain,application/json" /></label>
+						<label class="toggle"><input type="checkbox" name="confirm" /> Replace this warband with it</label>
+						{#if form && 'tcMismatch' in form}
+							<label class="toggle"><input type="checkbox" name="force" /> Import it anyway</label>
+						{/if}
+						<button class="action small">Import</button>
+					</form>
+					{#if form && 'tcMessage' in form}<p class="warn" role="alert">{form.tcMessage}</p>{/if}
+					{#if form && 'tcImported' in form && form.tcImported}
+						{@const r = form.tcImported}
+						<p role="status">Imported {r.models} models from “{r.name}”.</p>
+						{#if r.report.units.length || r.report.items.length || r.report.upgrades.length || r.report.costs.length}
+							<p class="warn">Not in this warband's books (kept as written):</p>
+							<ul class="tc-report">
+								{#each r.report.units as u (u)}<li>Model <b>{u}</b>: no such entry</li>{/each}
+								{#each r.report.items as i (i.unit + i.item)}<li><b>{i.item}</b> on {i.unit}: not in the armoury</li>{/each}
+								{#each r.report.upgrades as u (u.unit + u.upgrade)}<li><b>{u.upgrade}</b> on {u.unit}: no such upgrade</li>{/each}
+								{#each r.report.costs as c (c)}<li>{c}</li>{/each}
+							</ul>
+						{:else}
+							<p class="dim">Every model, item and upgrade matched the books.</p>
+						{/if}
+						{#if r.issues.length}
+							<p class="warn">By the books, this warband is not valid:</p>
+							<ul class="tc-report">{#each r.issues as i (i)}<li>{i}</li>{/each}</ul>
+						{/if}
+					{/if}
+				</details>
 			{/if}
 		</div>
 
@@ -389,7 +428,7 @@
 
 				{#if st.rules.upgrades.length || selState?.kit.swap}
 					<h3>Upgrades</h3>
-					{#each [...st.rules.upgrades.map((u) => ({ name: u.name, cost: u.cost, text: u.text, max: u.max })), ...(selState?.kit.swap ? [{ name: selState.kit.swap.to, cost: selState.kit.swap.extra, text: `Replaces ${selState.kit.swap.from}.`, max: null }] : [])] as u (u.name)}
+					{#each [...st.rules.upgrades.filter((u) => !u.for.length || selected.upgrades.includes(u.name) || (selState && upgradeCheck(selState, { ...u, max: null, cost: 0 }, st.state).ok)).map((u) => ({ name: u.name, cost: u.cost, currency: u.currency, text: u.text, max: u.max })), ...(selState?.kit.swap ? [{ name: selState.kit.swap.to, cost: selState.kit.swap.extra, currency: 'ducats' as const, text: `Replaces ${selState.kit.swap.from}.`, max: null }] : [])] as u (u.name)}
 						{@const taken = active.filter((m) => m.upgrades.includes(u.name)).length}
 						<details class="upgrade">
 							<summary>
@@ -400,7 +439,7 @@
 										<input type="checkbox" name="on" aria-label="Take {u.name}" checked={selected.upgrades.includes(u.name)} onchange={(e) => e.currentTarget.form?.requestSubmit()} />
 									</form>
 								{/if}
-								<span>{u.name}{u.cost ? ` — ${u.cost} D` : ''}{u.max != null ? ` · ${taken}/${u.max}` : ''}</span>
+								<span>{u.name}{u.cost ? ` — ${u.cost} ${u.currency === 'glory' ? 'G' : 'D'}` : ''}{u.max != null ? ` · ${taken}/${u.max}` : ''}</span>
 							</summary>
 							<p>{u.text}</p>
 						</details>
@@ -512,6 +551,7 @@
 			title={LABEL[equipCat]}
 			items={equipItems}
 			check={equipCheckFor}
+			priceOf={(i) => priceFor(selState, i)}
 			{held}
 			unitId={selected.id}
 			glossary={data.glossary}
@@ -856,15 +896,32 @@
 		margin: 8px 0;
 	}
 	.notes,
-	.bankform {
+	.bankform,
+	.tc {
 		display: grid;
 		gap: 8px;
 		margin-top: 8px;
 	}
 	.notes label,
-	.bankform label {
+	.bankform label,
+	.tc > label:not(.toggle) {
 		display: grid;
 		gap: 3px;
+	}
+	/* What a Trench Companion import couldn't match, and what the books find wrong with it. */
+	.warn {
+		margin: 10px 0 4px;
+		color: var(--blood-pale);
+		font-weight: 600;
+	}
+	.tc-report {
+		margin: 0;
+		padding-left: 1.2em;
+		font-size: 0.92rem;
+		color: var(--bone);
+	}
+	.tc .toggle {
+		margin-top: 0;
 	}
 	.toggle {
 		display: grid;

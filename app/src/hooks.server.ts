@@ -1,5 +1,5 @@
 import { loadCustomFactions } from '$lib/server/factions';
-import { loadZones } from '$lib/server/map';
+import { fitZoneRings, loadZones } from '$lib/server/map';
 import { seedStudio } from '$lib/server/starter';
 import { json, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
@@ -40,6 +40,8 @@ export const init: ServerInit = async () => {
 	});
 	await loadCustomFactions();
 	await loadZones();
+	// Zones still without their printed circle get it in the background (a few seconds; the map works meanwhile).
+	void fitZoneRings().catch((e) => console.error('zone rings:', e));
 	// Another instance changed factions or zones: reload this process's copy too.
 	onReload((what) => void (what === 'factions' ? loadCustomFactions() : loadZones()).catch((e) => console.error(`reload ${what}:`, e)));
 	await pruneSessions();

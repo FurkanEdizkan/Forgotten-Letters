@@ -274,7 +274,7 @@ model {
       }
     }
     route_admin_map = page '/admin/map' {
-      description 'actions: clearImage, image, import, preset, save'
+      description 'actions: clearImage, image, import, preset, rings, save'
       metadata {
         generated 'true'
         route '/admin/map'

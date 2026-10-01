@@ -197,6 +197,7 @@
 			announce = 'Map saved';
 		}
 	};
+	let fitting = $state(false);
 	const keep = () => ({ update }: { update: (o?: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 	const modeHint = $derived(
 		mode === 'move'
@@ -226,6 +227,11 @@
 			<section>
 				<h3>Map image</h3>
 				<p class="meta">{data.map.src ? `${data.map.width} × ${data.map.height} px.` : 'None yet: the map is plain parchment.'} WebP, PNG or JPEG, up to 30 MB.</p>
+				{#if data.map.src}
+					<p class="meta">
+						{data.zones.filter((z) => z.ring).length} of {data.zones.filter((z) => !z.house).length} printed zones stand on their circle.{form && 'fitted' in form ? ` Just now: ${form.fitted} fitted.` : ''}
+					</p>
+				{/if}
 				<div class="row">
 					<form method="POST" action="?/image" enctype="multipart/form-data" use:enhance={keep}>
 						<label class="button file">
@@ -234,6 +240,21 @@
 						</label>
 					</form>
 					{#if data.map.src}
+						<form
+							method="POST"
+							action="?/rings"
+							use:enhance={() => {
+								fitting = true;
+								return async ({ update }) => {
+									await update({ reset: false });
+									fitting = false;
+								};
+							}}
+						>
+							<button class="ghost" disabled={fitting} title="Find each zone's printed circle again, so markers and battles stand on it">
+								{fitting ? 'Finding the circles…' : 'Fit to the printed circles'}
+							</button>
+						</form>
 						<form method="POST" action="?/clearImage" use:enhance={guarded(() => 'Remove the map image? Zones stay where they are; the map shows parchment until you upload another.', keep)}>
 							<button class="ghost danger">Remove the image</button>
 						</form>

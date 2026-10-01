@@ -610,7 +610,7 @@
    "id": "cf.app.web.admin.route_admin_map",
    "kind": "page",
    "title": "/admin/map",
-   "description": "actions: clearImage, image, import, preset, save",
+   "description": "actions: clearImage, image, import, preset, rings, save",
    "tags": [],
    "code": [
     "app/src/routes/admin/map/+page.server.ts",
@@ -1809,7 +1809,7 @@
     "client"
    ],
    "code": [
-    "app/src/lib/components/{BattleHud,BattlePanel,BattleControls,RoundPanel,ArrangeBattle,ResultBanner,RollToasts,Dice}.svelte"
+    "app/src/lib/components/{BattleHud,BattleBrief,BattlePanel,BattleControls,RoundPanel,ArrangeBattle,ResultBanner,RollToasts,Dice}.svelte"
    ],
    "tables": [],
    "services": [],

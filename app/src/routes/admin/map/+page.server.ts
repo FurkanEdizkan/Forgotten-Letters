@@ -3,7 +3,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { game, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
-import { clearMapImage, mapInfo, saveZones, setMapImage } from '$lib/server/map';
+import { clearMapImage, fitZoneRings, mapInfo, saveZones, setMapImage } from '$lib/server/map';
 import { ALL_ZONES, PRESET_ZONES } from '$lib/rules/zones';
 import { parseZones, readZones } from '$lib/map-template';
 import type { Zone } from '$lib/rules/types';
@@ -56,5 +56,6 @@ export const actions: Actions = {
 		const { zones, errors } = parseZones(await file.text());
 		return save(zones, errors);
 	},
-	preset: async () => save(PRESET_ZONES, [])
+	preset: async () => save(PRESET_ZONES, []),
+	rings: async () => ({ fitted: await fitZoneRings({ all: true }) })
 };

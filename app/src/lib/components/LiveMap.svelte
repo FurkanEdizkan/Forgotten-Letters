@@ -10,7 +10,7 @@
 	import { sides } from '$lib/fx/sides';
 	import { outpostFrame } from '$lib/models';
 	import { hexToNumber, sigilFor } from '$lib/sigils';
-	import { battleFlanks, battlePlacement, markerSpots } from '$lib/map-battles';
+	import { battleFlanks, battlePlacement, ringSpots } from '$lib/map-battles';
 	import { SEAL_FRAME, SEAL_FRAMES, SEAL_PERIOD, factionColours, type SealLook } from '$lib/seals';
 	import { CAIRN_FRAME, TIER_SCALE, hexNum, monumentFrame } from '$lib/monuments';
 	import type { Monument } from '$lib/snapshot';
@@ -18,6 +18,7 @@
 	let {
 		snapshot,
 		selected = null,
+		selectedZone = null,
 		onzone,
 		onleavebattle,
 		onwarband,
@@ -33,6 +34,8 @@
 	}: {
 		snapshot: PublicSnapshot;
 		selected?: string | null;
+		/** The zone whose page is open: ringed on the map, so it can be found beside the page. */
+		selectedZone?: string | null;
 		onzone?: (id: string) => void;
 		/** Inside a battle, the viewer zoomed or panned well away from it: back to the map. */
 		onleavebattle?: () => void;
@@ -75,6 +78,7 @@
 	$effect(() => {
 		void snapshot;
 		void selected;
+		void selectedZone;
 		redraw?.();
 	});
 	$effect(() => {
@@ -109,11 +113,14 @@
 			await document.fonts?.ready;
 			if (destroyed) return;
 
+			// A weak device (few cores, a small screen) skips antialiasing and idles at a lower frame rate.
+			const weak = (navigator.hardwareConcurrency ?? 4) <= 4 || Math.min(innerWidth, innerHeight) < 500;
 			const app = new PIXI.Application();
 			await app.init({
 				resizeTo: host,
-				antialias: true,
-				backgroundColor: 0x231a12,
+				antialias: !weak,
+				// The painted night: the margin round the fitted map is the same ground as the band and panels.
+				backgroundColor: 0x15130e,
 				resolution: Math.min(window.devicePixelRatio || 1, 1.5),
 				autoDensity: true
 			});
@@ -131,7 +138,10 @@
 				events: app.renderer.events
 			});
 			app.stage.addChild(viewport);
-			const fitScale = () => Math.min(host.clientWidth / W, host.clientHeight / H);
+			// The whole map, with a margin of night round it so its edges never touch the screen's.
+			// Wide enough for the markers that stand on the map's own edge.
+			const margin = () => (Math.min(host.clientWidth, host.clientHeight) < 500 ? 22 : 44);
+			const fitScale = () => Math.min((host.clientWidth - 2 * margin()) / W, (host.clientHeight - 2 * margin()) / H);
 			viewport
 				.drag()
 				.pinch()
@@ -139,16 +149,34 @@
 				.decelerate({ friction: 0.92 })
 				.clampZoom({ minScale: fitScale() * 0.9, maxScale: 3 })
 				.clamp({ direction: 'all', underflow: 'center' });
-			// Landscape: show the whole map. Portrait (phones): fill the height and centre on the
-			// battlefield; the right third of the image is the manual's text panel.
-			if (host.clientHeight > host.clientWidth) {
-				const xs = [...buildGraph(snapshot.campaign.houseZones).zones.values()].map((z) => z.pos?.x ?? 0.5);
-				viewport.setZoom(host.clientHeight / H, true);
-				viewport.moveCenter(xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2) * W : W / 2, H / 2);
-			} else {
-				viewport.fit(true, W, H);
+			// Every screen starts on the whole map. Until the viewer moves it, it stays fitted as the screen changes
+			// (a phone turned, a foldable opened, the standings dock coming and going).
+			let untouched = true;
+			// The zone the camera has flown to (a battle, or several battles on one zone); null at home.
+			let flownTo: string | null = null;
+			const fitHome = () => {
+				viewport.setZoom(fitScale(), true);
 				viewport.moveCenter(W / 2, H / 2);
-			}
+				untouched = true;
+			};
+			fitHome();
+			for (const ev of ['drag-start', 'pinch-start', 'wheel-start'] as const) viewport.on(ev, () => (untouched = false));
+
+			/*
+			 * The frame rate rests when nothing needs it. Moving the map, a change in the campaign, a camera flight or an
+			 * effect wakes it to full speed for a while; then it settles: low when nothing moves (reduced motion), lower
+			 * with the sky cleared, 30 on a weak device, uncapped otherwise.
+			 */
+			const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+			const restingFps = () => (reduceMotion ? 5 : !fxEnabled ? 20 : weak ? 30 : 0);
+			let restTimer: ReturnType<typeof setTimeout> | undefined;
+			const wake = (ms = 2000) => {
+				app.ticker.maxFPS = 0;
+				clearTimeout(restTimer);
+				restTimer = setTimeout(() => (app.ticker.maxFPS = restingFps()), ms);
+			};
+			wake();
+			for (const ev of ['drag-start', 'pinch-start', 'wheel', 'moved', 'zoomed'] as const) viewport.on(ev, () => wake());
 
 			// A drag or pinch is never a tap. It ends when the press is released, not at drag-end, which also fires when
 			// the pointer passes over a panel (the release would otherwise tap whatever is under it).
@@ -162,6 +190,8 @@
 			const onResize = () => {
 				viewport.resize(host.clientWidth, host.clientHeight, W, H);
 				viewport.clampZoom({ minScale: fitScale() * 0.9, maxScale: 3 });
+				if (untouched && !flownTo) fitHome();
+				wake();
 			};
 			const ro = new ResizeObserver(onResize);
 			ro.observe(host);
@@ -182,7 +212,10 @@
 			}
 
 			const graph = buildGraph(snapshot.campaign.houseZones);
-			const world = (z: Zone) => ({ x: (z.pos?.x ?? 0.5) * W, y: (z.pos?.y ?? 0.5) * H });
+			// A zone stands where the book printed it: the centre of its fitted circle (Admin → Map), else its pin.
+			const world = (z: Zone) => (z.ring ? { x: z.ring.x * W, y: z.ring.y * H } : { x: (z.pos?.x ?? 0.5) * W, y: (z.pos?.y ?? 0.5) * H });
+			/** The zone's circle: as printed, else the drawn zones' own 42, else a book zone's usual 72. */
+			const radiusOf = (z: Zone) => (z.ring ? z.ring.r * W : drawn(z) ? 42 : 72);
 
 			// Static: house zones are not printed on the map, so draw them like the Player's Guide.
 			const house = new PIXI.Container();
@@ -198,14 +231,18 @@
 					g.moveTo(a.x + ux * t, a.y + uy * t).lineTo(a.x + ux * e, a.y + uy * e);
 				}
 			};
+			// The campaign's own connections (to or from a drawn zone) as red dashes, from one zone's circle to the next.
+			// The book's printed roads are left as printed.
 			const links = new PIXI.Graphics();
-			for (const z of graph.zones.values()) {
-				if (!drawn(z)) continue;
+			const linked = new Set<string>();
+			for (const z of graph.zones.values())
 				for (const l of z.links) {
 					const other = graph.zones.get(l);
-					if (other) dashed(links, world(z), world(other), 46, drawn(other) ? 46 : 60);
+					const key = [z.id, l].sort().join('|');
+					if (!other || linked.has(key) || !(drawn(z) || drawn(other))) continue;
+					linked.add(key);
+					dashed(links, world(z), world(other), radiusOf(z) + 4, radiusOf(other) + 4);
 				}
-			}
 			links.stroke({ width: 6, color: 0x8b2a1d, cap: 'round' });
 			house.addChild(links);
 			const numbered = [...graph.zones.values()].filter((z) => drawn(z) && z.type !== 'entry');
@@ -279,7 +316,7 @@
 				const p = world(z);
 				const hit = new PIXI.Container();
 				hit.position.set(p.x, p.y);
-				hit.hitArea = new PIXI.Circle(0, 0, 70);
+				hit.hitArea = new PIXI.Circle(0, 0, radiusOf(z));
 				hit.eventMode = 'static';
 				hit.cursor = 'pointer';
 				hit.on('pointertap', () => !dragging && onzone?.(z.id));
@@ -434,7 +471,6 @@
 			 * Faction sigils: a band of the faction's light climbs through each symbol badge,
 			 * bottom to top. One gradient texture per faction; the ticker moves the bands.
 			 */
-			const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 			const lightTextures = new Map<string, Texture>();
 			function lightTexture(faction: string) {
 				let t = lightTextures.get(faction);
@@ -625,14 +661,47 @@
 				return c;
 			}
 
-			const markerScale = () => Math.min(3.5, Math.max(1, 0.7 / viewport.scale.x));
-			// Warband markers are re-placed as the zoom changes their size: at camp they hug the camp's circle (radius 42);
-			// in a battle the pair stands on that battle's ring, so each warband reads as standing where it is and nowhere else.
-			type Placed = { g: Container; place: (k: number) => void };
-			const placeCamp = (g: Container) => (k: number) =>
-				markerSpots(g.children.length, k, { clear: 42, markerR: 35 }).forEach((p, i) => g.children[i].position.set(p.x, p.y));
-			const placeFlanks = (g: Container, ringR: number) => (k: number) =>
-				battleFlanks(ringR, k).forEach((p, i) => g.children[i]?.position.set(p.x, p.y));
+			// Markers keep a readable size as the map shrinks, up to a cap: lower on a small screen, where the whole map
+			// is only a few hundred pixels wide and full-size markers would bury it.
+			const markerScale = () => Math.min(host.clientWidth < 500 ? 2.2 : 3.5, Math.max(1, 0.7 / viewport.scale.x));
+			/*
+			 * Markers that stand on a zone's circle are sized to the zone (a quarter of its radius, so a large special zone
+			 * has larger ones), with a floor on screen so they stay visible on the whole-map view. They are re-placed as the
+			 * zoom changes: grown to that floor, they need more room on the circle.
+			 */
+			const minPx = () => (host.clientWidth < 500 ? 7 : 11);
+			const sized = (worldR: number) => worldR * Math.max(1, minPx() / (worldR * viewport.scale.x));
+			const markerSize = (z: Zone) => Math.max(10, radiusOf(z) * 0.25);
+			/** Warband markers are drawn at radius 30 with a 5 px ring. */
+			const MARKER_R = 35;
+			type Placed = { g: Container; place: () => void };
+			// At camp: on the zone's circle, from the shoulders beside its name banner up the sides.
+			const placeOnRing = (g: Container, R: number, worldR: number) => () => {
+				const m = sized(worldR);
+				ringSpots(g.children.length, R, m).forEach((p, i) => {
+					g.children[i].position.set(p.x, p.y);
+					g.children[i].scale.set(m / MARKER_R);
+				});
+			};
+			// In a battle: the pair on the battle's ring, facing each other across it.
+			const placeFlanks = (g: Container, ringR: number, worldR: number) => () => {
+				const m = sized(worldR);
+				battleFlanks(ringR).forEach((p, i) => {
+					g.children[i]?.position.set(p.x, p.y);
+					g.children[i]?.scale.set(m / MARKER_R);
+				});
+			};
+			// Outposts: redoubt tokens (about 24 across) along the top of the circle, either side of its crown.
+			const placeOutposts = (g: Container, R: number, worldR: number) => () => {
+				const m = sized(worldR);
+				const n = g.children.length;
+				const step = (2.3 * m) / R;
+				g.children.forEach((c, i) => {
+					const a = -Math.PI / 2 + (i - (n - 1) / 2) * step;
+					c.position.set(Math.cos(a) * R, Math.sin(a) * R);
+					c.scale.set(m / 24);
+				});
+			};
 			const groups: Container[] = [];
 			/** The warband marker groups among them (monuments and outposts keep their own layout). */
 			const warbandGroups: Placed[] = [];
@@ -794,6 +863,21 @@
 				studs.length = 0;
 				const s = snapshot;
 				const k = markerScale();
+				wake();
+
+				// The zone whose page is open: an ember ring, so it can be found beside the page.
+				const open = selectedZone ? graph.zones.get(selectedZone) : undefined;
+				if (open) {
+					const p = world(open);
+					const R = radiusOf(open) + 9;
+					highlight.addChild(
+						new PIXI.Graphics()
+							.circle(p.x, p.y, R)
+							.stroke({ width: 14, color: 0x15130e, alpha: 0.55 })
+							.circle(p.x, p.y, R)
+							.stroke({ width: 7, color: 0xe0692a })
+					);
+				}
 
 				// Selected warband: scouted zones and supply chain.
 				const sel = s.warbands.find((w) => w.id === selected);
@@ -801,28 +885,37 @@
 					const g = new PIXI.Graphics();
 					for (const id of sel.scouted) {
 						const z = graph.zones.get(id);
-						if (z) g.circle(world(z).x, world(z).y, 64).fill({ color: 0xf1e6cb, alpha: 0.28 });
+						if (z) g.circle(world(z).x, world(z).y, radiusOf(z)).fill({ color: 0xf1e6cb, alpha: 0.28 });
 					}
 					for (const id of sel.supplied) {
 						const z = graph.zones.get(id);
-						if (z) g.circle(world(z).x, world(z).y, 64).stroke({ width: 8, color: 0x5f7f2a, alpha: 0.9 });
+						if (z) g.circle(world(z).x, world(z).y, radiusOf(z)).stroke({ width: 8, color: 0x5f7f2a, alpha: 0.9 });
 					}
 					highlight.addChild(g);
 				}
 
 				// Battles: a pulsing ring while fought; a dashed ring with crossed swords while planned. Several on one
 				// zone fan out round it (smaller rings), each at its own spot with its own tap target.
-				const spots = battlePlacement(s.active, (id) => {
+				// A lone battle rings its zone's own circle; several on one zone stand round that circle, each a smaller ring.
+				const R0 = (id: string) => {
 					const z = graph.zones.get(id);
-					return z ? world(z) : null;
-				});
+					return z ? radiusOf(z) : 72;
+				};
+				const spots = battlePlacement(
+					s.active,
+					(id) => {
+						const z = graph.zones.get(id);
+						return z ? world(z) : null;
+					},
+					R0
+				);
 				const ringOf = new Map<string, number>();
 				const sharing = new Map<string, number>();
 				for (const g of s.active) sharing.set(g.zone, (sharing.get(g.zone) ?? 0) + 1);
 				for (const game of s.active) {
 					const spot = spots.get(game.id);
 					if (!spot) continue;
-					const r = (sharing.get(game.zone) ?? 1) > 1 ? 56 : 80;
+					const r = (sharing.get(game.zone) ?? 1) > 1 ? R0(game.zone) * 0.5 : R0(game.zone) + 10;
 					ringOf.set(game.id, r);
 					const ring = new PIXI.Graphics();
 					if (game.status === 'scheduled') {
@@ -872,30 +965,26 @@
 					if (!z) continue;
 					const g = new PIXI.Container();
 					g.position.set(world(z).x, world(z).y);
-					ws.forEach((w, i) => {
-						const m = outpostMarker(w, w.supplied.includes(zid));
-						m.position.set((i - (ws.length - 1) / 2) * 56, -50);
-						g.addChild(m);
-					});
-					g.scale.set(k);
-					groups.push(g);
+					for (const w of ws) g.addChild(outpostMarker(w, w.supplied.includes(zid)));
+					const placed = { g, place: placeOutposts(g, radiusOf(z), radiusOf(z) * 0.17) };
+					placed.place();
+					warbandGroups.push(placed);
 					outposts.addChild(g);
 				}
 
 				// Warband markers. A warband stands at its camp (its Entry Zone) until a battle is set; then it stands at that
 				// battle, the Aggressor left of the ring and the Defender right.
 				const marker = (w: PublicWarband) => {
-					const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : 0x231a12;
+					// Rimmed in the faction's own colour, so warbands tell apart at a glance; bone when chosen, blood in battle.
+					const ring = w.id === selected ? 0xf1e6cb : w.playing ? 0xb8321f : hexToNumber(sigilFor(w.faction).rim);
 					return w.figureToken ? figureMarker(w, 30, ring) : portraitMarker(w, 30, ring);
 				};
-				const addGroup = (at: { x: number; y: number }, ws: PublicWarband[], place: (g: Container) => (k: number) => void) => {
+				const addGroup = (at: { x: number; y: number }, ws: PublicWarband[], place: (g: Container) => () => void) => {
 					const g = new PIXI.Container();
 					g.position.set(at.x, at.y);
 					for (const w of ws) g.addChild(marker(w));
 					const placed = { g, place: place(g) };
-					g.scale.set(k);
-					placed.place(k);
-					groups.push(g);
+					placed.place();
 					warbandGroups.push(placed);
 					markers.addChild(g);
 				};
@@ -907,20 +996,21 @@
 					const pair = [byId.get(game.aggressor), byId.get(game.defender)].filter((w) => w && !fighting.has(w.id)) as PublicWarband[];
 					if (pair.length < 2) continue;
 					for (const w of pair) fighting.add(w.id);
-					addGroup(spot, pair, (g) => placeFlanks(g, ringOf.get(game.id) ?? 80));
+					const z = graph.zones.get(game.zone);
+					addGroup(spot, pair, (g) => placeFlanks(g, ringOf.get(game.id) ?? 80, z ? markerSize(z) : 14));
 				}
 				const byZone = new Map<string, PublicWarband[]>();
 				for (const w of s.warbands) if (!fighting.has(w.id)) byZone.set(w.position, [...(byZone.get(w.position) ?? []), w]);
 				for (const [zid, ws] of byZone) {
 					const z = graph.zones.get(zid);
-					if (z) addGroup(world(z), ws, placeCamp);
+					if (z) addGroup(world(z), ws, (g) => placeOnRing(g, radiusOf(z), markerSize(z)));
 				}
 			}
 
 			viewport.on('zoomed', () => {
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
-				for (const p of warbandGroups) p.place(k);
+				for (const p of warbandGroups) p.place();
 			});
 
 			let t = 0;
@@ -936,18 +1026,20 @@
 					}
 					for (const r of studs) if (!r.destroyed) r.rotation = now * 0.17;
 				}
-				t += ticker.deltaMS / 1000;
-				const pulse = 1 + 0.08 * Math.sin(t * 4);
+				// Battle rings breathe (fought) or turn (planned); held still under reduced motion.
+				if (!reduceMotion) t += ticker.deltaMS / 1000;
+				// Rings are drawn on the zone's own circle, so they keep the map's scale; a fought one breathes a little.
+				const pulse = 1 + 0.03 * Math.sin(t * 4);
 				for (const r of battles.children) {
 					if (r.label === 'planned') {
-						r.scale.set(markerScale() * 0.6 + 0.4);
+						r.scale.set(1);
 						r.rotation = t * 0.15;
 						const swords = r.children[0];
 						if (swords) swords.rotation = -t * 0.15; // keep the swords upright while the ring turns
 						continue;
 					}
-					r.scale.set(pulse * markerScale() * 0.6 + 0.4);
-					r.alpha = 0.55 + 0.35 * Math.sin(t * 4);
+					r.scale.set(pulse);
+					r.alpha = reduceMotion ? 0.85 : 0.55 + 0.35 * Math.sin(t * 4);
 				}
 			});
 
@@ -960,8 +1052,7 @@
 			let detailed = viewport.scale.x >= DETAIL_SCALE;
 
 			// Entering a battle: fly the camera in; leaving: fly back to where the viewer was.
-			let home: { x: number; y: number; scale: number } | null = null;
-			let flownTo: string | null = null;
+			let home: { x: number; y: number; scale: number; untouched: boolean } | null = null;
 			let flownScale = 0;
 			/*
 			 * Leaving a battle by moving away from it: once the fly-in has settled, zooming out below about 55% of the
@@ -976,13 +1067,15 @@
 				if (zoneId === flownTo && (!zoneId || scale === flownScale)) return;
 				flownTo = zoneId;
 				flownScale = scale;
+				wake(3000);
 				clearTimeout(settle);
 				battleView = null;
 				const z = zoneId ? graph.zones.get(zoneId) : undefined;
 				const time = reduceMotion ? 0 : 1400;
 				if (z) {
 					stayOnLeave = false;
-					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x };
+					home ??= { x: viewport.center.x, y: viewport.center.y, scale: viewport.scale.x, untouched };
+					untouched = false;
 					// Close in, but keep the field (banners and leaders stand about 110 out) on a narrow screen.
 					const k = Math.min(scale, host.clientWidth / 520, host.clientHeight / 380);
 					const at = world(z);
@@ -997,6 +1090,7 @@
 					home = null;
 				} else if (home) {
 					viewport.animate({ position: { x: home.x, y: home.y }, scale: home.scale, time, ease: 'easeInOutSine', removeOnInterrupt: true });
+					untouched = home.untouched;
 					home = null;
 				}
 			};
@@ -1011,7 +1105,7 @@
 				}
 				const k = markerScale();
 				for (const g of groups) g.scale.set(k);
-				for (const p of warbandGroups) p.place(k);
+				for (const p of warbandGroups) p.place();
 				// Close enough to tell battles on one zone apart: each shows its own weather (see wantedEffects).
 				const d = viewport.scale.x >= DETAIL_SCALE;
 				if (d !== detailed) {
@@ -1032,6 +1126,7 @@
 			const fx = new FxEngine(app, overlay, fxBack, fxFront, deviceQuality(snapshot.fx.quality));
 			fx.worldSize = { w: W, h: H };
 			refx = () => {
+				wake();
 				fx.quality = fxEnabled ? deviceQuality(snapshot.fx.quality) : 0;
 				fx.clockSkew = clockSkew;
 				fx.wind = snapshot.fx.wind;
@@ -1048,6 +1143,7 @@
 			if (new URLSearchParams(location.search).has('debugfx')) (window as unknown as { __fx: unknown }).__fx = fx;
 			const unsubscribe = subscribeTriggers?.((t) => {
 				if (!fxEnabled) return;
+				wake(12000); // a result or an omen plays for several seconds
 				const z = t.zone ? graph.zones.get(t.zone) : undefined;
 				if (t.kind === 'battle-result' && t.battle && z) {
 					// Hold the new monument back until the animation has raised its own.

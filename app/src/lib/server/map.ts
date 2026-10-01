@@ -10,6 +10,7 @@ import { currentCampaign } from './campaign';
 import { publish, announceReload } from './hub';
 import { removeImage, resolveUpload, saveImage } from './uploads';
 import { PRESET_ZONES, setZones } from '$lib/rules/zones';
+import { MIN_SCORE, darkness, fitRing } from '$lib/zone-rings';
 import { starter } from './starter';
 import type { Zone } from '$lib/rules/types';
 
@@ -84,6 +85,8 @@ export async function setMapImage(file: FormDataEntryValue | null) {
 	const meta = await sharp(resolveUpload(path)!).metadata();
 	await db.update(campaign).set({ mapImage: path, mapWidth: meta.width, mapHeight: meta.height }).where(eq(campaign.id, c.id));
 	await removeImage(c.mapImage);
+	// A new image: its zones' circles are found afresh.
+	await fitZoneRings({ all: true });
 	publish(c.id);
 }
 
@@ -93,4 +96,38 @@ export async function clearMapImage() {
 	await db.update(campaign).set({ mapImage: null, mapWidth: null, mapHeight: null }).where(eq(campaign.id, c.id));
 	await removeImage(c.mapImage);
 	publish(c.id);
+}
+
+/**
+ * Fit each printed zone's circle on the map image (see `fitRing`), so markers and battles stand on the zone as the
+ * book drew it. `all`: refit every zone (a new image); otherwise only zones without a circle yet. Drawn (house) zones
+ * are the app's own and keep their pins. Returns how many zones were fitted.
+ */
+export async function fitZoneRings({ all = false } = {}): Promise<number> {
+	const c = await currentCampaign();
+	const file = c?.mapImage ? resolveUpload(c.mapImage) : null;
+	if (!c || !file) return 0;
+	const zones = await zonesOf(c.id);
+	const todo = zones.filter((z) => !z.house && z.pos && (all || !z.ring));
+	if (!todo.length) return 0;
+	// Half the book's resolution, softened a little so the coarse search can't step over a printed line.
+	const { data, info } = await sharp(file).resize({ width: 1199, withoutEnlargement: true }).greyscale().blur(1.6).raw().toBuffer({ resolveWithObject: true });
+	const g = darkness(data, info.width, info.height);
+	let fitted = 0;
+	const next = zones.map((z) => {
+		if (!todo.includes(z)) return z;
+		const ring = fitRing(g, z.pos!.x * g.width, z.pos!.y * g.height);
+		if (ring.score < MIN_SCORE) {
+			const { ring: _, ...rest } = z;
+			return rest;
+		}
+		fitted++;
+		const round = (n: number) => Math.round(n * 10000) / 10000;
+		return { ...z, ring: { x: round(ring.x / g.width), y: round(ring.y / g.height), r: round(ring.r / g.width) } };
+	});
+	await writeZones(c.id, next);
+	await loadZones();
+	announceReload('zones');
+	publish(c.id);
+	return fitted;
 }

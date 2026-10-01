@@ -38,6 +38,11 @@ export interface Zone {
 	links: string[];
 	/** Map anchor in normalised [0,1] coordinates of the base map image. */
 	pos?: { x: number; y: number };
+	/**
+	 * The zone's printed circle on the map image, found by `fitRings` (centre as fractions of the image's width and
+	 * height, radius as a fraction of its width). Markers, battles and the open zone's ring stand on it.
+	 */
+	ring?: { x: number; y: number; r: number };
 }
 
 /** Rewards printed under a Campaign Tracker box. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { battlePlacement, battleSpots, markerSpots, battleFlanks } from './map-battles';
+import { battlePlacement, battleSpots, ringSpots, battleFlanks } from './map-battles';
 
 const round = (p: { x: number; y: number }) => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
@@ -41,33 +41,43 @@ describe('battlePlacement', () => {
 	});
 });
 
-describe('markerSpots', () => {
-	it("keeps every warband marker off the zone's own tap target, at any zoom", () => {
-		for (const k of [1, 2, 3.5])
-			for (const n of [1, 2, 5]) {
-				const spots = markerSpots(n, k, { clear: 70, markerR: 35 });
-				expect(spots).toHaveLength(n);
-				// In the map's units a spot sits k times further out (the marker group is scaled by k).
-				for (const p of spots) expect(Math.hypot(p.x, p.y) * k - 35 * k, `n=${n} k=${k}`).toBeGreaterThanOrEqual(70);
-			}
+describe('ringSpots', () => {
+	const R = 72;
+	const m = 14;
+	const angleFromBottom = (p: { x: number; y: number }) => Math.abs(Math.atan2(p.x, p.y));
+	it('stands on the zone\'s own circle, clear of the name banner at the bottom', () => {
+		for (const p of ringSpots(6, R, m)) {
+			expect(Math.hypot(p.x, p.y)).toBeCloseTo(R, 5);
+			expect(angleFromBottom(p)).toBeGreaterThanOrEqual((50 * Math.PI) / 180 - 1e-9);
+		}
 	});
-	it('puts a lone warband up and to the right of its zone', () => {
-		const [p] = markerSpots(1, 1, { clear: 70, markerR: 35 });
-		expect(p.x).toBeGreaterThan(0);
-		expect(p.y).toBeLessThan(0);
+	it('starts at the right shoulder, then the left, low down', () => {
+		const [a, b] = ringSpots(2, R, m);
+		expect(a.x).toBeGreaterThan(0);
+		expect(b.x).toBeLessThan(0);
+		expect(a.y).toBeGreaterThan(0);
+		expect(b.y).toBeCloseTo(a.y, 5);
+	});
+	it('never lets two markers overlap, however many share the zone', () => {
+		for (const n of [1, 5, 12, 16, 24]) {
+			const spots = ringSpots(n, R, m);
+			expect(spots).toHaveLength(n);
+			for (let i = 0; i < n; i++)
+				for (let j = i + 1; j < n; j++) expect(Math.hypot(spots[i].x - spots[j].x, spots[i].y - spots[j].y), `n=${n}`).toBeGreaterThanOrEqual(2 * m - 1e-6);
+		}
+	});
+	it('a full circle continues on a second one just outside', () => {
+		const spots = ringSpots(16, R, m);
+		const radii = [...new Set(spots.map((p) => Math.round(Math.hypot(p.x, p.y))))];
+		expect(radii).toEqual([R, Math.round(R + 2.2 * m)]);
 	});
 });
 
 describe('battleFlanks', () => {
-	it('stands the Aggressor on the left of the battle ring and the Defender on the right, at any zoom', () => {
-		for (const k of [1, 2, 3.5]) {
-			const [a, d] = battleFlanks(80, k);
-			expect(a.y).toBe(0);
-			expect(d.y).toBe(0);
-			expect(a.x).toBeLessThan(0);
-			expect(d.x).toBe(-a.x);
-			// In the map's units the marker's centre sits on the ring itself, so it reaches no further than it must.
-			expect(Math.round(d.x * k)).toBe(80);
-		}
+	it('puts the Aggressor left and the Defender right, on the ring', () => {
+		expect(battleFlanks(80)).toEqual([
+			{ x: -80, y: 0 },
+			{ x: 80, y: 0 }
+		]);
 	});
 });

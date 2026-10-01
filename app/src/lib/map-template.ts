@@ -33,6 +33,9 @@ export function readZones(input: unknown): { zones: Zone[] | null; errors: Templ
 		const omen = o.omen ? (o.omen === 'first' || o.omen === 'each' ? o.omen : (err(`${p}.omen`, 'must be first or each'), undefined)) : undefined;
 		const pos = isObj(o.pos) ? { x: Number(o.pos.x), y: Number(o.pos.y) } : undefined;
 		if (pos && !(pos.x >= 0 && pos.x <= 1 && pos.y >= 0 && pos.y <= 1)) err(`${p}.pos`, 'x and y must be between 0 and 1');
+		const ring = isObj(o.ring) ? { x: Number(o.ring.x), y: Number(o.ring.y), r: Number(o.ring.r) } : undefined;
+		if (ring && !(ring.x >= 0 && ring.x <= 1 && ring.y >= 0 && ring.y <= 1 && ring.r > 0 && ring.r <= 0.25))
+			err(`${p}.ring`, 'x and y must be between 0 and 1, r between 0 and 0.25');
 		const weight = o.enclave_weight ?? o.enclaveWeight;
 		const aliases = Array.isArray(o.aliases) ? o.aliases.map(String).filter(Boolean) : [];
 		const z: Zone = {
@@ -48,7 +51,8 @@ export function readZones(input: unknown): { zones: Zone[] | null; errors: Templ
 			...(omen ? { omen: omen as Zone['omen'] } : {}),
 			...(weight != null && Number(weight) > 1 ? { enclaveWeight: Math.round(Number(weight)) } : {}),
 			...(o.house === true || o.drawn === true ? { house: true } : {}),
-			...(pos ? { pos: { x: Math.round(pos.x * 10000) / 10000, y: Math.round(pos.y * 10000) / 10000 } } : {})
+			...(pos ? { pos: { x: Math.round(pos.x * 10000) / 10000, y: Math.round(pos.y * 10000) / 10000 } } : {}),
+			...(ring ? { ring: { x: Math.round(ring.x * 10000) / 10000, y: Math.round(ring.y * 10000) / 10000, r: Math.round(ring.r * 10000) / 10000 } } : {})
 		};
 		return z;
 	});
@@ -83,6 +87,7 @@ const HEADER = `# Map Studio zones. Upload the map image in Admin → Map; impor
 #   house         true: not printed on the map image, so the app draws it (and "house zones" can switch it off)
 #   links         the zones next to this one (links work both ways)
 #   pos           where it sits, as fractions of the map image's width (x) and height (y)
+#   ring          its printed circle (x, y as pos; r as a fraction of the width), fitted by Admin → Map
 `;
 
 export function toZonesYaml(zones: Zone[]) {
@@ -99,7 +104,8 @@ export function toZonesYaml(zones: Zone[]) {
 		...(z.enclaveWeight ? { enclave_weight: z.enclaveWeight } : {}),
 		...(z.house ? { house: true } : {}),
 		links: z.links,
-		...(z.pos ? { pos: z.pos } : {})
+		...(z.pos ? { pos: z.pos } : {}),
+		...(z.ring ? { ring: z.ring } : {})
 	}));
 	return HEADER + '\n' + stringify({ zones: out }, { lineWidth: 110, flowCollectionPadding: false });
 }

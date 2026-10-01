@@ -86,7 +86,7 @@ model {
         technology 'BattleHud · BattlePanel · RoundPanel · ArrangeBattle · …'
         description 'Inside a battle and a round: the HUD, panels, dice, result banner and roll toasts.'
         metadata {
-          code 'app/src/lib/components/{BattleHud,BattlePanel,BattleControls,RoundPanel,ArrangeBattle,ResultBanner,RollToasts,Dice}.svelte'
+          code 'app/src/lib/components/{BattleHud,BattleBrief,BattlePanel,BattleControls,RoundPanel,ArrangeBattle,ResultBanner,RollToasts,Dice}.svelte'
         }
       }
 

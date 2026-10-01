@@ -4,6 +4,7 @@ description: A live campaign tracker for Trench Crusade, bound like its campaign
 colors:
   blood: "#a3170f"
   blood-bright: "#c8231a"
+  blood-pale: "#d98c80"
   ember: "#e0692a"
   paper: "#fbfaf7"
   parchment: "#f1efea"
@@ -153,6 +154,7 @@ A paper-and-ink palette with a single blood red, a smoky night set for the map, 
 ### Primary
 - **Rubric Blood** (blood): the book's red. Section heads, the rule under sub-heads, rules-box borders, links, focus outlines, text selection, filled tracker marks, rank numerals, the top edge of every book page laid over the map, and primary-button hover. It is the only colour that means structure.
 - **Fresh Blood** (blood-bright): the brighter red used in the night register, where the base red goes dull against black. It marks the active nav underline, the cross in the cover lockup, event-banner rules and the omen frame. On pages it is the link hover.
+- **Pale Blood** (blood-pale, #d98c80): small labels on the night (the battle HUD's and brief's heads, a warband's role), where even Fresh Blood is too dark to read at that size.
 
 ### Secondary
 - **Ember** (ember): a firelight orange used only in the night register, for hover borders on night chips, the omen title, the "Live map" exit link in the admin masthead, and links on the empty night screen. It never appears on paper.
@@ -252,7 +254,12 @@ The book's callout, used for entry and scouted zones, battle weather, chronicle 
 - **Sign-in band:** the sign-in page is a full-screen backdrop (the slot for campaign-history and hero pictures; a night field until they exist) crossed by a full-width, half-transparent night band (`rgba(10, 9, 7, 0.6)`, blood hairlines top and bottom). On it, centred: the cover lockup, three Pirata One tabs (Sign in · Create account · Forgot password; the current one Bone with a Fresh Blood underline) and the chosen form in bone.
 - **Map chips:** square night chips (translucent Smoke Black, bone hairline, Pirata One capitals). Hover turns the border ember. Unpressed toggles fade to Dim Bone. They now carry only what is local to the map — the standings toggle (or Sign in, for visitors) and the live dot — never navigation.
 - **Sky switch:** one map chip floating at the top-left of the map plate, below the band. It reads **Clear skies** while weather and animations play, and clears them to the plain battle map; it then reads **Satellite view** and brings them back at the battlefield's current state. Remembered per device.
-- **Visitor map:** signed out, the live map shows the band (lockup, battle strip, live dot and a **Sign in** chip), the sky switch and the standings docked on the right (22rem, the drawer's ruled list, faction symbols instead of portraits). Book-page sheets lay over the dock. Below 40rem the dock folds into a Standings chip. The map-wide omen sits at the bottom-left.
+- **Visitor map:** signed out, the live map shows the band (lockup, battle strip, live state and a **Sign in** chip), the sky switch and the standings docked on the right (22rem, the drawer's ruled list under a "Warband / CVP · games" head, faction symbols instead of portraits). The map fits in the space beside the dock, never under it. Book-page sheets lay over the dock. Below 40rem the dock folds into a Standings chip, whose drawer has its own close mark. The map-wide omen sits at the bottom-left.
+- **The whole map, framed:** every screen opens on the whole map with a margin of night round it (22px on a small screen, 44px otherwise), and keeps it fitted as the screen changes until the viewer moves it.
+- **Standing on the zone:** each printed zone's circle is found on the map image (Admin → Map, *Fit to the printed circles*; automatic for a new image), and everything stands on it: the open zone's ember ring, a battle's ring, and the warbands. Warbands sit on the circle's lower half, starting at the shoulders either side of the name banner and climbing the sides as more arrive (a second circle just outside when one is full), so a camp of sixteen still reads as one place. Markers are a quarter of the zone's radius (a large special zone has larger ones), rimmed in the faction's colour (bone when chosen, blood in battle), with a floor on screen (11px, 7px on a phone) so they stay visible on the whole map. In a battle the two face each other across its ring, the Aggressor left. Outposts stand along the top of the circle.
+- **Connections:** the book's printed roads stay as printed. The campaign's own (to or from a drawn zone) are red dashes (6px) from one zone's circle to the next.
+- **Live state:** a light and a word: a Supply Green dot and "Live" (the word shown from 40rem up, always read aloud), or a smoke dot and "Reconnecting…" in ember.
+- **Closing:** Esc closes whatever lies over the map (a page, the standings, a closer look at one zone); in a battle it steps back one level. A page laid over the map takes the focus. Sheets are as long as their page.
 
 ### Running Footer
 Blackletter chapter name at the end of a full-width 1px ink hairline, closing every page-register screen and every book-page sheet.
@@ -323,7 +330,7 @@ There are Faction, Campaign and Sort filters. Each card's ⋮ menu offers Play M
 ### Battlefield
 **Active mode.** Clicking a zone with a battle in progress, its tab in the battle strip, or *Enter the battle* on its panel opens `/?battle=<game>`, a shareable URL the TV can sit on. The camera flies in to 3×, a vignette closes round the field, and a HUD sets the scene:
 - a "Battle joined" stamp in Pirata on dark red, slammed in by anime.js, then settling at −3°;
-- under it the battle brief, a night page in the gap between the two warbands: **Battlefield** (zone, kind, resource discs, outpost bonus, who holds outposts there, regional weather), **Scenario** (archetype, then Deployment and Victory for a rolled one; a fixed one by name; else "To be rolled"), and **Hell on Earth** (the event and its effect, each side's 2D6 and who chose; else "Not yet rolled"). Below 60rem it folds behind a *Battle brief* button and opens over the warband pages;
+- the battle brief, a night page at the foot of the field between the two warbands, above *Battle details*, so the banners and leaders keep the centre: **Battlefield** (zone, kind, resource discs, outpost bonus, who holds outposts there, regional weather), **Scenario** (archetype, then Deployment and Victory for a rolled one; a fixed one by name; else "To be rolled"), and **Hell on Earth** (the event and its effect, each side's 2D6 and who chose; else "Not yet rolled"). Below 60rem it folds behind a *Battle brief* button and opens upward over the warband pages. The same brief, on paper, opens the battle's details page, so a phone has all of it;
 - the two warbands as night columns pinned to the left and right edges, both starting on one line under the top row and running to the foot: portrait, role, warband and player, a ruled purse line (Ducats and Glory, tabular figures), then the roster — leader first, each model's name, type and cost — scrolling inside the column. Below 640px they become two equal slim cards low on either side (who and purse); the roster and the brief move to the details. The visitors' docked standings and the map-wide omen step aside while a battle is open;
 - a *Battle details* button at the foot of the centre. The top row keeps *Leave the battlefield* at the left and the sky switch at the right;
 - *Leave the battlefield* (or Esc) to go back.

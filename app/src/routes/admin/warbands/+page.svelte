@@ -50,7 +50,7 @@
 					if (result.type === 'success') formKey++;
 				}}
 		>
-			<WarbandFields
+			<WarbandFields patrons={data.patrons.length ? data.patrons : undefined}
 				values={form?.values ?? { seat: data.warbands.length + 1, entryZone: suggestedEntry(data.warbands.length + 1, data.expectedPlayers, houseZones) }}
 				errors={form?.errors ?? {}}
 				entryZones={data.entryZones}

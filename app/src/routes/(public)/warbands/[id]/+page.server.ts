@@ -3,12 +3,14 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { rulesUnit, unit, warband, warbandStash } from '$lib/server/db/schema';
 import { addUnit, buyItem, itemOp, removeUnit, roster, saveUnit, setBank } from '$lib/server/roster';
-import { allKeywords } from '$lib/server/rules-data';
+import { allPatrons, allKeywords } from '$lib/server/rules-data';
 import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
 import { builderInput, builderWarband } from '$lib/server/builder';
 import { builderState, entryOf, modelKeywords } from '$lib/builder-state';
 import { equipCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { findPatron, patronAllowed } from '$lib/patrons';
+import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
 import { KIND_OF } from '$lib/builder';
 import { keywordKey } from '$lib/keywords';
@@ -19,7 +21,13 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { w, p, c, isList, canEdit } = await builderWarband(params.id, locals.user);
-	const [input, keywords, art] = await Promise.all([builderInput(w), allKeywords(), c ? artIndex(c.id) : Promise.resolve(new Map<string, string>())]);
+	const [input, keywords, art, patronList] = await Promise.all([
+		builderInput(w),
+		allKeywords(),
+		c ? artIndex(c.id) : Promise.resolve(new Map<string, string>()),
+		allPatrons()
+	]);
+	const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
 	const { units } = await roster(w.id);
 	const { rules, state, entries } = builderState(input);
 	return {
@@ -70,6 +78,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		profileArt: Object.fromEntries(input.profiles.map((pr) => [pr.id, artFor(art, w.faction, pr.name)])),
 		issues: warbandIssues(state, rules, entries),
 		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text])),
+		// The Patron it serves (its rules and Skills), and the ones it may change to.
+		patron: findPatron(patronList, w.patron) ?? (w.patron ? { name: w.patron, text: '', skills: [], source: null } : null),
+		patrons: patronList.filter((x) => patronAllowed(x, { faction: w.faction, variant: w.variant, alignment })).map((x) => x.name),
 		canEdit,
 		/** The leader who stands by the banner at battles (Map models), for the warband's own player and the CM. */
 		leaderModel: await (async () => {
@@ -348,6 +359,13 @@ export const actions: Actions = {
 		if (d.has('explorationForm')) set.openExploration = d.get('openExploration') === 'on';
 		if (d.has('ducats')) set.treasuryDucats = Math.round(Number(d.get('ducats')) || 0);
 		if (d.has('glory')) set.treasuryGlory = Math.round(Number(d.get('glory')) || 0);
+		if (d.has('patronForm')) {
+			const name = str(d, 'patron', 120);
+			const pat = (await allPatrons()).find((x) => x.name === name);
+			const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
+			if (name && (!pat || !patronAllowed(pat, { faction: w.faction, variant: w.variant, alignment }))) return fail(400, { message: `${name} is not a Patron this warband may serve.` });
+			set.patron = name || null;
+		}
 		if (Object.keys(set).length) await db.update(warband).set(set).where(eq(warband.id, w.id));
 		return done(w.campaignId);
 	},

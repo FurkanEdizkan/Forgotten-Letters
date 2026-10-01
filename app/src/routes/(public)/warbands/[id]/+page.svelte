@@ -281,7 +281,7 @@
 							<form method="POST" action="?/fireteam" use:enhance={keep}><button class="plus" name="op" value="new" aria-label="New Fireteam">+</button></form>
 						{/if}
 					</h2>
-					{#each data.warband.fireteams as t, i (t.name)}
+					{#each data.warband.fireteams as t, i (i)}
 						<div class="panel fireteam">
 							<strong>{t.name}</strong>
 							<span>{t.members.map((id) => data.models.find((m) => m.id === id)?.type ?? '?').join(' + ') || 'No models yet'}</span>
@@ -306,6 +306,29 @@
 				<details class="panel rulespanel">
 					<summary><h2>Faction Special Rules</h2></summary>
 					{#each st.rules.paragraphs as p, i (i)}<p>{p.replace(/^\*\s*/, '')}</p>{/each}
+				</details>
+			{/if}
+
+			{#if data.patron || (data.canEdit && data.patrons.length)}
+				<details class="panel rulespanel">
+					<summary><h2>Patron{data.patron ? `: ${data.patron.name}` : ''}</h2></summary>
+					{#if data.canEdit && data.patrons.length}
+						<form method="POST" action="?/settings" use:enhance={keep} class="toggle">
+							<input type="hidden" name="patronForm" value="1" />
+							<label>
+								Serves
+								<select name="patron" value={data.patron?.name ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+									<option value="">No Patron</option>
+									{#each data.patrons as name (name)}<option value={name}>{name}</option>{/each}
+								</select>
+							</label>
+						</form>
+					{/if}
+					{#if data.patron}
+						{#if data.patron.text}<p>{data.patron.text}</p>{/if}
+						{#each data.patron.skills as k (k.name)}<p><b>{k.name}:</b> {k.text}</p>{/each}
+						{#if data.patron.source}<p class="dim">{data.patron.source}</p>{/if}
+					{/if}
 				</details>
 			{/if}
 

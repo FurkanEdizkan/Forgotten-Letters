@@ -94,7 +94,11 @@ export function fromTcText(text: string): TcImport {
 		}
 		if (section === 'fireteams') {
 			const bullet = /^\s*(?:[•·▪◦*\-–]|\.{2,})/.test(raw);
-			if (!bullet) fireteams.push({ name: line, members: [] });
+			// Trench Companion names every fireteam alike ("New Antioch Fireteam"): number the repeats.
+			if (!bullet) {
+				const same = fireteams.filter((f) => f.name === line || f.name.startsWith(`${line} `)).length;
+				fireteams.push({ name: same ? `${line} ${same + 1}` : line, members: [] });
+			}
 			else fireteams.at(-1)?.members.push(line);
 			continue;
 		}

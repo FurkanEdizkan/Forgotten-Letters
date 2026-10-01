@@ -131,6 +131,9 @@ export function factionFromCompanion(objectId: string | null | undefined) {
 		// "newantioch" is "Principality of New Antioch"; "hereticlegion" is "Heretic Legions".
 		return n === b || n.includes(b) || b.startsWith(n);
 	});
+	// An old variant that Carcass Front made a list of its own (Trench Pilgrims' Procession…) is that list now.
+	const moved = variantSlug && f ? FACTIONS.find((x) => x.under === f.id && x.replaces && letters(x.replaces).startsWith(letters(variantSlug))) : undefined;
+	if (moved) return { faction: moved.id, variant: null };
 	const v = variantSlug ? f?.variants.find((v) => letters(v).startsWith(letters(variantSlug)) || letters(variantSlug).startsWith(letters(v))) : undefined;
 	return { faction: f?.id ?? null, variant: v ?? null };
 }

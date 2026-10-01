@@ -16,12 +16,15 @@
 		values = {},
 		errors = {},
 		entryZones,
-		suggest
+		suggest,
+		patrons = CF_PATRONS.map((p) => p.name)
 	}: {
 		values?: Values;
 		errors?: Record<string, string | undefined>;
 		entryZones: Zone[];
 		suggest?: (seat: number) => string;
+		/** Patron names to offer (the book packs'); Carcass Front's three when none are loaded. */
+		patrons?: string[];
 	} = $props();
 
 	// Editable local copies of the incoming values (the form resets them on re-render).
@@ -80,7 +83,7 @@
 		Patron
 		<input name="patron" list="patrons" value={values.patron ?? ''} />
 		<datalist id="patrons">
-			{#each CF_PATRONS as p (p.name)}<option value={p.name}>{p.restriction}</option>{/each}
+			{#each patrons as p (p)}<option value={p}></option>{/each}
 		</datalist>
 	</label>
 	<label>

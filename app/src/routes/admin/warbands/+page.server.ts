@@ -1,4 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
+import { allPatrons } from '$lib/server/rules-data';
 import { db } from '$lib/server/db';
 import { player, warband } from '$lib/server/db/schema';
 import { currentCampaign, loadCampaignState } from '$lib/server/campaign';
@@ -14,6 +15,7 @@ export async function load() {
 	const { rows, state } = await loadCampaignState(c);
 	const zones = buildGraph(c.houseZones).zones;
 	return {
+		patrons: (await allPatrons()).map((x) => x.name),
 		expectedPlayers: Math.max(c.expectedPlayers, rows.length),
 		entryZones: [...zones.values()].filter((z) => z.type === 'entry'),
 		warbands: rows.map(({ warband: w, player: p }) => {

@@ -112,3 +112,12 @@ describe('Trench Companion faction check', () => {
 		expect(importMismatch({ ...grail, faction: null }, { faction: 'black-grail', variant: null, name: 'W' })).toMatch(/doesn't know/);
 	});
 });
+
+describe('Carcass Front lists', () => {
+	it('an old variant Carcass Front made its own list imports as that list', async () => {
+		const { factionFromCompanion } = await import('./roster');
+		expect(factionFromCompanion('fc_trenchpilgrims_fv_processionofthesacredaffliction')).toEqual({ faction: 'procession-of-the-sacred-affliction', variant: null });
+		expect(factionFromCompanion('fc_hereticlegion_fv_navalraidingparty')).toEqual({ faction: 'heretic-naval-raiders', variant: null });
+		expect(factionFromCompanion('fc_trenchpilgrims_fv_cavalcadeofthetenthplague').variant).toBe('Cavalcade of the Tenth Plague');
+	});
+});

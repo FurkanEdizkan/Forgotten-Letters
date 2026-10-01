@@ -34,7 +34,7 @@
 <section>
 	<h2>Muster roll</h2>
 	<form method="POST" action="?/update" enctype="multipart/form-data" use:enhance={keep}>
-		<WarbandFields
+		<WarbandFields patrons={data.patrons.length ? data.patrons : undefined}
 			values={form?.values ?? {
 				playerName: p.name,
 				seat: p.seat,

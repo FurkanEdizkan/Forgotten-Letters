@@ -5,10 +5,11 @@ import { player, rulesUnit, user, warband } from '$lib/server/db/schema';
 import { currentCampaign } from '$lib/server/campaign';
 import { parseWarbandForm } from '$lib/server/warbands';
 import { artFor, artIndex } from '$lib/server/unit-art';
-import { allFactionRules } from '$lib/server/rules-data';
+import { allFactionRules, allPatrons } from '$lib/server/rules-data';
+import { findPatron, patronAllowed } from '$lib/patrons';
 import { readRules } from '$lib/warband-rules';
 import { publish } from '$lib/server/hub';
-import { FACTIONS } from '$lib/rules/factions';
+import { FACTIONS, subFactions } from '$lib/rules/factions';
 import { buildGraph } from '$lib/rules/zones';
 import type { Actions, PageServerLoad } from './$types';
 import { seatOf } from '$lib/server/muster';
@@ -27,6 +28,19 @@ async function ownWarband(campaignId: string, userId: string) {
 		.innerJoin(player, eq(player.id, warband.playerId))
 		.where(and(eq(warband.campaignId, campaignId), eq(player.userId, userId)));
 	return row?.id ?? null;
+}
+
+interface PickRules {
+	ducats: number;
+	glory: number;
+	leader: string | null;
+	mustInclude: { name: string; n: number }[];
+	excluded: string[];
+	caps: { name: string; max: number }[];
+	upgrades: { name: string; cost: number; currency: 'ducats' | 'glory'; max: number | null; for: string[] }[];
+	/** The rules as printed, one entry per rule ("Name: text"). */
+	faction: { name: string | null; text: string }[];
+	variant: { name: string | null; text: string }[];
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -59,7 +73,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 		(await db.select({ userId: player.userId }).from(warband).innerJoin(player, eq(player.id, warband.playerId)).where(eq(warband.campaignId, c.id))).map((r) => r.userId)
 	);
 	return {
-		factions: FACTIONS.map((f) => ({ id: f.id, name: f.name, alignment: f.alignment, variants: f.variants, cover: cover(f.id) })),
+		// Carcass Front's own lists are picked under the faction whose variant they stand in for.
+		factions: FACTIONS.filter((f) => !f.under).map((f) => ({
+			id: f.id,
+			name: f.name,
+			alignment: f.alignment,
+			variants: f.variants,
+			cover: cover(f.id),
+			subs: subFactions(f.id).map((x) => ({ id: x.id, name: x.name, book: x.book ?? null, variants: x.variants }))
+		})),
+		patrons: await allPatrons(),
 		entryZones: [...buildGraph(c.houseZones).zones.values()].filter((z) => z.type === 'entry').map((z) => ({ id: z.id, name: z.name })),
 		players: players.map((p) => ({ ...p, hasWarband: taken.has(p.id) })),
 		startDucats: START_DUCATS,
@@ -67,16 +90,38 @@ export const load: PageServerLoad = async ({ locals }) => {
 		suggestedEntry: mySeat ? suggestedEntry(mySeat.seat, c.expectedPlayers, c.houseZones) : null,
 		/** Players can't choose: their seat decides (the Campaign Master can move them in Admin → Muster). */
 		entryLocked: !locals.isAdmin,
-		/** Each faction's and variant's starting money, from its special rules (Papal States: 500 and 11 Glory). */
-		startMoney: await (async () => {
+		/**
+		 * What each faction and variant brings, shown when it is picked: its starting money (Papal States: 500 and 11
+		 * Glory), what it must and cannot include, its caps and upgrades, and its special rules as printed.
+		 */
+		rulesFor: await (async () => {
 			const rows = await allFactionRules();
-			const out: Record<string, { ducats: number; glory: number }> = {};
+			const out: Record<string, PickRules> = {};
+			const lines = (t: string | null | undefined) =>
+				(t ?? '')
+					.split(/\n(?=\s*\*\s)|\n{2,}/)
+					.map((x) => x.trim().replace(/^\*\s*/, ''))
+					.filter(Boolean)
+					.map((x) => {
+						const m = /^([^:]{2,60}):\s*([\s\S]*)$/.exec(x);
+						return m ? { name: m[1], text: m[2] } : { name: null, text: x };
+					});
 			for (const f of FACTIONS) {
 				const base = rows.find((r) => r.faction === f.id && !r.variant);
 				for (const v of [null, ...f.variants]) {
 					const vr = v ? rows.find((x) => x.faction === f.id && x.variant === v) : undefined;
 					const r = readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
-					out[`${f.id}::${v ?? ''}`] = { ducats: r.startDucats, glory: r.startGlory };
+					out[`${f.id}::${v ?? ''}`] = {
+						ducats: r.startDucats,
+						glory: r.startGlory,
+						leader: r.leader,
+						mustInclude: r.mustInclude,
+						excluded: r.excluded,
+						caps: r.caps,
+						upgrades: r.upgrades.map((u) => ({ name: u.name, cost: u.cost, currency: u.currency, max: u.max, for: u.for })),
+						faction: lines(base?.text),
+						variant: v ? lines(vr?.text) : []
+					};
 				}
 			}
 			return out;
@@ -107,7 +152,15 @@ export const actions: Actions = {
 		if (!imported.faction) return fail(400, { tcMessage: `“${imported.name}” is of a faction this tracker doesn't know (${imported.sourceFaction ?? 'none given'}).` });
 		const [w] = await db
 			.insert(warband)
-			.values({ listOwnerId: locals.user.id, name: imported.name.slice(0, 80), faction: imported.faction, variant: imported.variant, treasuryDucats: 0, treasuryGlory: 0 })
+			.values({
+				listOwnerId: locals.user.id,
+				name: imported.name.slice(0, 80),
+				faction: imported.faction,
+				variant: imported.variant,
+				patron: findPatron(await allPatrons(), imported.patron)?.name ?? imported.patron ?? null,
+				treasuryDucats: 0,
+				treasuryGlory: 0
+			})
 			.returning();
 		await importInto(w, imported);
 		redirect(303, `/warbands/${w.id}?imported=1`);
@@ -118,6 +171,15 @@ export const actions: Actions = {
 		const c = await currentCampaign();
 		if (!c) return fail(404, { message: 'No campaign' });
 		const data = await request.formData();
+		// The Patron it serves, if any: one this faction and variant may take.
+		const patronName = String(data.get('patron') ?? '').trim();
+		if (patronName) {
+			const [pf, pv] = String(data.get('pick') ?? '').split('::');
+			const pat = (await allPatrons()).find((p) => p.name === patronName);
+			const fac = FACTIONS.find((x) => x.id === pf);
+			if (!pat || !fac || !patronAllowed(pat, { faction: fac.id, variant: pv || null, alignment: fac.alignment }))
+				return fail(400, { message: `${patronName} is not a Patron this warband may serve.` });
+		}
 
 		// A list of your own: no seat, no entry zone; it can be used for the campaign later.
 		if (data.get('where') !== 'campaign') {
@@ -133,6 +195,7 @@ export const actions: Actions = {
 					name,
 					faction: f.id,
 					variant: variant && f.variants.includes(variant) ? variant : null,
+					patron: patronName || null,
 					treasuryDucats: amount(data.get('ducats'), START_DUCATS),
 					treasuryGlory: amount(data.get('glory'), 0),
 					unrestricted: data.get('unrestricted') === 'on'

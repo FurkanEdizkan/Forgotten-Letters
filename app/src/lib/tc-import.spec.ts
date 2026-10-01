@@ -104,6 +104,10 @@ describe('the text export', () => {
 		expect(imp.units[0].upgrades).toEqual(['Guard']);
 		expect(imp.units[0].equipment.map((e) => e.name)).toEqual(['Long Rifle', 'Knife', 'Relic']);
 	});
+	it('numbers fireteams Trench Companion names alike', () => {
+		const two = fromTcText(`L\nFaction: Iron Sultanate\nElites\nOfficer - 70 D\nOfficer - 70 D\nFireteams\nTeam\n• Officer\nTeam\n• Officer`);
+		expect(two.fireteams.map((f) => f.name)).toEqual(['Team', 'Team 2']);
+	});
 	it('reads fireteams, each model once, in list order', () => {
 		expect(imp.fireteams).toEqual([{ name: 'A Fireteam', members: [2, 0] }]);
 	});

@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { allPatrons } from '$lib/server/rules-data';
 import { and, eq, or } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { adjustment, game, player, user, warband } from '$lib/server/db/schema';
@@ -54,6 +55,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const s = state.players.get(w.id)!;
 	const vision = visionById(w.visionCard ?? undefined);
 	return {
+		patrons: (await allPatrons()).map((x) => x.name),
 		expectedPlayers: Math.max(c.expectedPlayers, rows.length),
 		entryZones: [...buildGraph(c.houseZones).zones.values()].filter((z) => z.type === 'entry'),
 		warband: w,

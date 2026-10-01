@@ -156,7 +156,8 @@ export const actions: Actions = {
 				notes: null,
 				status: 'active'
 			},
-			d.get('pay') !== 'no'
+			// Recruits are always paid for here; the Campaign Master adds one free in Admin → Roster.
+			true
 		);
 		const { units } = await roster(w.id);
 		const fresh = [...units].reverse().find((u) => u.type === profile.name && !u.profileId);
@@ -211,6 +212,11 @@ export const actions: Actions = {
 				const check = equipCheck(probe, armour, without);
 				if (!check.ok) return fail(400, { message: check.reason });
 			}
+		} else if (op === 'copy' && !w.unrestricted) {
+			// Another into the arsenal: within the item's limit, and paid for.
+			const held = [...state.models.flatMap((m) => m.equipment), ...state.stash].filter((h) => letters(h.name) === letters(heldItem.name)).length;
+			if (armour?.limit != null && held >= armour.limit) return fail(400, { message: `${heldItem.name}: limit ${armour.limit} reached.` });
+			if (heldItem.cost > (heldItem.currency === 'glory' ? w.treasuryGlory : w.treasuryDucats)) return fail(400, { message: 'Not enough in the strongbox.' });
 		}
 		if (op === 'copy') {
 			await buyItem(w.id, target, { name: heldItem.name, kind: heldItem.kind, cost: heldItem.cost, currency: heldItem.currency });
@@ -322,7 +328,10 @@ export const actions: Actions = {
 			if (!check.ok) return fail(400, { message: check.reason });
 		}
 		const kitCost = u.equipment.reduce((s, e) => s + (e.currency === 'ducats' ? e.cost : 0), 0);
-		if (!w.unrestricted && u.cost + kitCost > w.treasuryDucats && u.currency === 'ducats') return fail(400, { message: 'Not enough in the strongbox for a copy.' });
+		const kitGlory = u.equipment.reduce((s, e) => s + (e.currency === 'glory' ? e.cost : 0), 0);
+		const ducats = kitCost + (u.currency === 'ducats' ? u.cost : 0);
+		const glory = kitGlory + (u.currency === 'glory' ? u.cost : 0);
+		if (!w.unrestricted && (ducats > w.treasuryDucats || glory > w.treasuryGlory)) return fail(400, { message: 'Not enough in the strongbox for a copy.' });
 		for (const e of u.equipment) {
 			const a = findItem(input.armoury, e.name);
 			if (a?.limit != null && !w.unrestricted) {
@@ -331,7 +340,10 @@ export const actions: Actions = {
 			}
 		}
 		await addUnit(w.campaignId, w.id, { ...u, name: u.name ? `${u.name} (copy)` : '', stats: u.stats, notes: u.notes, cost: u.cost }, true);
-		if (kitCost) await setBank(w.id, (await db.select().from(warband).where(eq(warband.id, w.id)))[0].treasuryDucats - kitCost, w.treasuryGlory);
+		if (kitCost || kitGlory) {
+			const [now] = await db.select().from(warband).where(eq(warband.id, w.id));
+			await setBank(w.id, now.treasuryDucats - kitCost, now.treasuryGlory - kitGlory);
+		}
 		const { units } = await roster(w.id);
 		const fresh = units.at(-1);
 		if (fresh) await db.update(unit).set({ profileId: u.profileId }).where(eq(unit.id, fresh.id));
@@ -355,6 +367,11 @@ export const actions: Actions = {
 		if (d.has('name') && str(d, 'name', 80)) set.name = str(d, 'name', 80);
 		if (d.has('notes')) set.rosterNotes = str(d, 'notes', 4000) || null;
 		if (d.has('lore')) set.lore = str(d, 'lore', 8000) || null;
+		// The books' rules always apply; only the Campaign Master may lift them (or open Exploration kit).
+		if ((d.has('restrictionsForm') || d.has('explorationForm')) && !locals.isAdmin)
+			return fail(403, { message: 'Only the Campaign Master can lift the rules or open Exploration kit.' });
+		// The strongbox moves by buying, selling and the campaign's results; only the Campaign Master sets it by hand.
+		if ((d.has('ducats') || d.has('glory')) && !locals.isAdmin) return fail(403, { message: 'Only the Campaign Master can set the strongbox.' });
 		if (d.has('restrictionsForm')) set.unrestricted = d.get('unrestricted') === 'on';
 		if (d.has('explorationForm')) set.openExploration = d.get('openExploration') === 'on';
 		if (d.has('ducats')) set.treasuryDucats = Math.round(Number(d.get('ducats')) || 0);

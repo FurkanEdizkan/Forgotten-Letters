@@ -129,6 +129,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
+/** The strongbox a pick starts with: its variant's (or faction's) starting money. */
+async function startOf(faction: string, variant: string | null) {
+	const rows = await allFactionRules();
+	const base = rows.find((r) => r.faction === faction && !r.variant);
+	const vr = variant ? rows.find((r) => r.faction === faction && r.variant === variant) : undefined;
+	const r = readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
+	return { ducats: r.startDucats, glory: r.startGlory };
+}
+
+/** The book's starting money; only the Campaign Master may start a warband with other sums. */
+async function money(data: FormData, isAdmin: boolean, faction: string, variant: string | null) {
+	const start = await startOf(faction, variant);
+	return isAdmin ? { treasuryDucats: amount(data.get('ducats'), start.ducats), treasuryGlory: amount(data.get('glory'), start.glory) } : { treasuryDucats: start.ducats, treasuryGlory: start.glory };
+}
+
 const amount = (v: FormDataEntryValue | null, d: number) => {
 	const n = Math.round(Number(v));
 	return Number.isFinite(n) && String(v ?? '').trim() !== '' ? Math.max(0, Math.min(100_000, n)) : d;
@@ -196,9 +211,8 @@ export const actions: Actions = {
 					faction: f.id,
 					variant: variant && f.variants.includes(variant) ? variant : null,
 					patron: patronName || null,
-					treasuryDucats: amount(data.get('ducats'), START_DUCATS),
-					treasuryGlory: amount(data.get('glory'), 0),
-					unrestricted: data.get('unrestricted') === 'on'
+					...(await money(data, !!locals.isAdmin, f.id, variant && f.variants.includes(variant) ? variant : null)),
+					unrestricted: !!locals.isAdmin && data.get('unrestricted') === 'on'
 				})
 				.returning({ id: warband.id });
 			redirect(303, `/warbands/${w.id}`);
@@ -229,6 +243,7 @@ export const actions: Actions = {
 		const { values, errors } = parseWarbandForm(data, c.houseZones);
 		if (Object.keys(errors).length) return fail(400, { message: Object.values(errors)[0] });
 
+		const start = await money(data, !!locals.isAdmin, values.faction, values.variant);
 		const id = await db.transaction(async (tx) => {
 			// Reuse the account's empty seat if the CM already made one.
 			const [seat] = owner.id
@@ -247,9 +262,8 @@ export const actions: Actions = {
 					faction: values.faction,
 					variant: values.variant,
 					entryZone: values.entryZone,
-					treasuryDucats: amount(data.get('ducats'), START_DUCATS),
-					treasuryGlory: amount(data.get('glory'), 0),
-					unrestricted: data.get('unrestricted') === 'on'
+					...start,
+					unrestricted: !!locals.isAdmin && data.get('unrestricted') === 'on'
 				})
 				.returning({ id: warband.id });
 			return w.id;

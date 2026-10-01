@@ -361,21 +361,30 @@
 			{#if data.canEdit}
 				<details class="panel rulespanel">
 					<summary><h2>Advanced Options</h2></summary>
-					<form method="POST" action="?/settings" use:enhance={keep} class="toggle">
-						<input type="hidden" name="restrictionsForm" value="1" />
-						<label><input type="checkbox" name="unrestricted" checked={data.warband.unrestricted} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> Remove Restrictions</label>
-						<small class="dim">The builder then does not check limits on numbers, cost, available hands, and other rules on battlekit and models.</small>
-					</form>
-					<form method="POST" action="?/settings" use:enhance={keep} class="toggle">
-						<input type="hidden" name="explorationForm" value="1" />
-						<label><input type="checkbox" name="openExploration" checked={data.warband.openExploration} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> Enable Open Exploration</label>
-						<small class="dim">Battlekit normally found only through Exploration may be bought.</small>
-					</form>
-					<form method="POST" action="?/settings" use:enhance={keep} class="bankform">
-						<label>Strongbox Ducats <input name="ducats" type="number" value={data.warband.ducats} /></label>
-						<label>Glory <input name="glory" type="number" value={data.warband.glory} /></label>
-						<button class="action small">Set</button>
-					</form>
+					{#if data.isAdmin}
+						<form method="POST" action="?/settings" use:enhance={keep} class="toggle">
+							<input type="hidden" name="restrictionsForm" value="1" />
+							<label><input type="checkbox" name="unrestricted" checked={data.warband.unrestricted} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> Remove Restrictions</label>
+							<small class="dim">Campaign Master only. The builder then does not check the books' rules: numbers, costs, battlekit and the rest.</small>
+						</form>
+						<form method="POST" action="?/settings" use:enhance={keep} class="toggle">
+							<input type="hidden" name="explorationForm" value="1" />
+							<label><input type="checkbox" name="openExploration" checked={data.warband.openExploration} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> Enable Open Exploration</label>
+							<small class="dim">Campaign Master only. Battlekit normally found only through Exploration may be bought.</small>
+						</form>
+					{:else}
+						<p class="dim">
+							{data.warband.unrestricted ? 'The Campaign Master has lifted the rules for this warband.' : "The books' rules apply; only the Campaign Master can lift them."}
+							{data.warband.openExploration ? 'Exploration kit is open to it.' : ''}
+						</p>
+					{/if}
+					{#if data.isAdmin}
+						<form method="POST" action="?/settings" use:enhance={keep} class="bankform">
+							<label>Strongbox Ducats <input name="ducats" type="number" value={data.warband.ducats} /></label>
+							<label>Glory <input name="glory" type="number" value={data.warband.glory} /></label>
+							<button class="action small">Set</button>
+						</form>
+					{/if}
 				</details>
 				<details class="panel rulespanel" open={!!(form && ('tcImported' in form || 'tcMessage' in form))}>
 					<summary><h2>Import from Trench Companion</h2></summary>

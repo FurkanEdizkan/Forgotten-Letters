@@ -29,7 +29,7 @@
 	const alignment = (a: string) => (a === 'faithful' ? 'Faithful' : 'Fallen');
 	let details = $state<HTMLElement>();
 	let where = $state<'list' | 'campaign'>('list');
-	// Starting money follows the variant's rules (Papal States: 500 Ducats and 11 Glory); the fields stay editable.
+	// Starting money follows the variant's rules (Papal States: 500 Ducats and 11 Glory); only the CM may edit it.
 	let ducats = $state(700);
 	let glory = $state(0);
 	$effect(() => {
@@ -239,17 +239,21 @@
 			{/if}
 
 			<div class="money">
-				<label>Starting Ducats <input name="ducats" type="number" min="0" max="100000" bind:value={ducats} inputmode="numeric" /></label>
-				<label>Starting Glory <input name="glory" type="number" min="0" max="100000" bind:value={glory} inputmode="numeric" /></label>
+				<!-- The book's starting money; only the Campaign Master may change it. -->
+				<label>Starting Ducats <input name="ducats" type="number" min="0" max="100000" bind:value={ducats} inputmode="numeric" readonly={!data.isAdmin} /></label>
+				<label>Starting Glory <input name="glory" type="number" min="0" max="100000" bind:value={glory} inputmode="numeric" readonly={!data.isAdmin} /></label>
 			</div>
 
-			<label class="toggle">
-				<input type="checkbox" name="unrestricted" />
-				<span>
-					<strong>Remove Restrictions</strong>
-					<small>If restrictions are removed, the builder will not check limits on the number of models, their cost, and the battlekit they can carry.</small>
-				</span>
-			</label>
+			{#if data.isAdmin}
+				<!-- The books' rules always apply; only the Campaign Master may lift them. -->
+				<label class="toggle">
+					<input type="checkbox" name="unrestricted" />
+					<span>
+						<strong>Remove Restrictions</strong>
+						<small>Campaign Master only. The builder then does not check the books' rules: numbers, costs, battlekit and the rest.</small>
+					</span>
+				</label>
+			{/if}
 
 			{#if data.players.length && where === 'campaign'}
 					<label>

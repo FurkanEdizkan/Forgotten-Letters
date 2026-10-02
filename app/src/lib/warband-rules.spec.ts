@@ -166,8 +166,9 @@ describe('faction and variant rules', () => {
 	});
 	it('lists what makes a warband illegal', () => {
 		const issues = warbandIssues(wb([model({ type: 'Mole' })]), r, []);
-		expect(issues).toContain('The warband must include its Leader (Cleric).');
+		// Said once: the must-include names the missing Leader.
 		expect(issues).toContain('The warband must include 1 Cleric.');
+		expect(issues.filter((i) => i.includes('Cleric'))).toHaveLength(1);
 		expect(issues).toContain('It cannot include Moles.');
 		expect(warbandIssues(wb([model({ type: 'Cleric' })]), r, [])).toEqual([]);
 	});

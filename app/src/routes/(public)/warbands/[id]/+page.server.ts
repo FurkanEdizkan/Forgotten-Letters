@@ -170,7 +170,8 @@ export const actions: Actions = {
 	recruit: async ({ params, request, locals }) => {
 		const { w, state, rules, input } = await editable(params.id, locals);
 		const d = await request.formData();
-		const profile = input.profiles.find((p) => p.id === str(d, 'profile'));
+		// The row's own button (one tap) or the picked entry.
+		const profile = input.profiles.find((p) => p.id === (str(d, 'quick') || str(d, 'profile')));
 		if (!profile) return fail(400, { message: 'Choose a unit from your list.' });
 		const check = recruitCheck(entryOf(profile), state, rules, input.faction);
 		if (!check.ok) return fail(400, { message: check.reason });

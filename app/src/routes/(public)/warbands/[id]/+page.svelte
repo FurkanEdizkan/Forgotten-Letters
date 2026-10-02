@@ -144,7 +144,11 @@
 		shareCopied = true;
 		setTimeout(() => (shareCopied = false), 2000);
 	}
-	let showIssues = $state(false);
+	// Problems show unless there are many; each names the model it is about, so it can be picked from here.
+	// svelte-ignore state_referenced_locally
+	let showIssues = $state(data.issues.length <= 4);
+	const modelIn = (issue: string) =>
+		[...active].sort((a, b) => (b.name || b.type).length - (a.name || a.type).length).find((m) => (m.name && issue.includes(m.name)) || issue.includes(m.type)) ?? null;
 </script>
 
 <svelte:head><title>{data.warband.name} · Warband</title></svelte:head>
@@ -212,8 +216,19 @@
 					<p><b>Rating:</b> {totals.ducats} Ducats | {totals.glory} Glory</p>
 					<p><b>Fielded:</b> Elite {count('elite')}, Troop {count('troop')}, Mercenary {count('mercenary')}, Total {active.length}</p>
 					{#if data.issues.length}
-						<button type="button" class="invalid" aria-expanded={showIssues} onclick={() => (showIssues = !showIssues)}>⚠ The warband is not valid</button>
-						{#if showIssues}<ul class="issues">{#each data.issues as i (i)}<li>{i}</li>{/each}</ul>{/if}
+						<button type="button" class="invalid" aria-expanded={showIssues} onclick={() => (showIssues = !showIssues)}>
+							⚠ {data.issues.length} {data.issues.length === 1 ? 'problem' : 'problems'} by the books {showIssues ? '▾' : '▸'}
+						</button>
+						{#if showIssues}
+							<ul class="issues">
+								{#each data.issues as i (i)}
+									{@const m = modelIn(i)}
+									<li>{i}{#if m && m.id !== selectedId} <button type="button" class="link" onclick={() => pick(m.id)}>Show {m.name || m.type}</button>{/if}</li>
+								{/each}
+							</ul>
+						{/if}
+					{:else if active.length}
+						<p class="valid">✓ Legal by the books</p>
 					{/if}
 				</div>
 				<div class="block">
@@ -503,6 +518,8 @@
 		<aside class="detail panel" bind:this={detail}>
 			{#if selected}
 				{@const c = modelCost(selected)}
+				<!-- On a phone the card is below the list: a way back up to it. -->
+				<button type="button" class="back" onclick={() => document.querySelector('.layout')?.scrollIntoView({ behavior: 'smooth' })}>↑ Back to the warband</button>
 				<div class="detail-bar">
 					<strong>{selected.type}</strong>
 					<span>{c.d} D{#if c.g} | {c.g} G{/if}</span>
@@ -1286,5 +1303,94 @@
 		padding: 4px 14px 14px;
 		background: var(--paper);
 		color: var(--ink);
+	}
+	/* The page's panels and controls, for the panels drawn by their own components (Rules, Aftermath). */
+	.page :global(.panel) {
+		background: var(--panel);
+		border: 1px solid var(--line);
+	}
+	.page :global(.rulespanel) {
+		margin-top: 14px;
+		padding: 10px 14px;
+	}
+	.page :global(.rulespanel > summary) {
+		cursor: pointer;
+		list-style: none;
+	}
+	.page :global(.rulespanel h2),
+	.page :global(.rulespanel h3),
+	.page :global(.rulespanel h4) {
+		font-family: var(--font-body);
+		font-weight: 400;
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--bone);
+	}
+	.page :global(.rulespanel > summary h2) {
+		display: inline;
+		font-size: 1.3rem;
+	}
+	.page :global(.rulespanel p) {
+		font-size: 0.9rem;
+		margin: 8px 0;
+	}
+	.page :global(.dim) {
+		color: rgba(236, 229, 211, 0.6);
+	}
+	.page :global(.action) {
+		background: #8f1f18;
+		color: var(--bone);
+		border: 1px solid #b3261e;
+		padding: 6px 14px;
+		font: inherit;
+		cursor: pointer;
+	}
+	.page :global(.mini) {
+		padding: 3px 9px;
+		background: transparent;
+		color: var(--bone);
+		border: 1px solid rgba(236, 229, 211, 0.3);
+		font: inherit;
+		font-size: 0.82rem;
+		cursor: pointer;
+	}
+	.page :global(.error) {
+		color: #ff9b8f;
+	}
+	.valid {
+		color: #9fc58a;
+	}
+	.link {
+		background: none;
+		border: 0;
+		padding: 0;
+		color: var(--gold, #c9a24a);
+		text-decoration: underline;
+		font: inherit;
+		cursor: pointer;
+	}
+	.back {
+		display: none;
+		width: 100%;
+		padding: 8px;
+		background: transparent;
+		color: var(--bone);
+		border: 0;
+		border-bottom: 1px solid var(--line);
+		font: inherit;
+		cursor: pointer;
+	}
+	@media (max-width: 60rem) {
+		.back {
+			display: block;
+		}
+	}
+	@media (max-width: 40rem) {
+		.picture {
+			max-width: 9rem;
+		}
+	}
+	.issues .link {
+		margin-left: 0.4em;
 	}
 </style>

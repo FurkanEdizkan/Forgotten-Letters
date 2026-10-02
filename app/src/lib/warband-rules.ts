@@ -703,7 +703,8 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 	const isLeader = (m: ModelState) => m.keywords.some((k) => letters(k) === 'leader') || (!!rules.leader && same(m.type, rules.leader));
 	const leaders = active.filter(isLeader).length;
 	// A Leader is the warband's if it has one ("if you have one available"); only a variant that names one requires it.
-	if (leaders === 0 && rules.leader) out.push(`The warband must include its Leader (${rules.leader}).`);
+	// (Said once: a must-include of the Leader already says it.)
+	if (leaders === 0 && rules.leader && !rules.mustInclude.some((x) => same(x.name, rules.leader!))) out.push(`The warband must include its Leader (${rules.leader}).`);
 	if (leaders > 1) out.push(`The warband has ${leaders} Leaders; it may have only one.`);
 	for (const need of rules.mustInclude) {
 		const n = active.filter((m) => same(m.type, need.name)).length;

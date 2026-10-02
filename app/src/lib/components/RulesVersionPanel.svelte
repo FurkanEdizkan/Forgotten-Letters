@@ -24,7 +24,9 @@
 		stats: 'profile',
 		category: 'category',
 		type: 'type',
-		range: 'range'
+		range: 'range',
+		rows: 'results',
+		settings: 'Experience and Promotion rules'
 	};
 	const date = (s: string) => new Date(s).toLocaleDateString();
 	const what = (c: EntryChange) =>

@@ -64,16 +64,20 @@
 		</header>
 		<fieldset>
 			<legend class="sr">Entries</legend>
-			{#each rows as r (r.id)}
-				<label class="entry" class:off={!r.check.ok} class:on={chosen === r.id}>
-					<input type="radio" name="profile" value={r.id} bind:group={chosen} disabled={!r.check.ok} />
-					<span class="pic">{#if r.picture}<img src={r.picture} alt="" />{:else}{initials(r.name)}{/if}</span>
-					<span class="what">
-						<strong>{r.name}</strong>
-						<small>{r.check.ok ? `Active: ${r.active}${r.max != null ? ` / Max: ${r.max}` : ''}` : r.check.reason}</small>
-					</span>
-					<span class="cost">{r.cost} {r.currency === 'glory' ? 'G' : 'D'}</span>
-				</label>
+			{#snippet entry(r: EntryRow)}
+				<div class="line">
+					<label class="entry" class:off={!r.check.ok} class:on={chosen === r.id}>
+						<input type="radio" name="profile" value={r.id} bind:group={chosen} disabled={!r.check.ok} />
+						<span class="pic">{#if r.picture}<img src={r.picture} alt="" />{:else}{initials(r.name)}{/if}</span>
+						<span class="what">
+							<strong>{r.name}</strong>
+							<small>{r.check.ok ? `Active: ${r.active}${r.max != null ? ` / Max: ${r.max}` : ''}` : r.check.reason}</small>
+						</span>
+						<span class="cost">{r.cost} {r.currency === 'glory' ? 'G' : 'D'}</span>
+					</label>
+					<!-- One tap: recruit it now (a name can be given on its card). -->
+					{#if r.check.ok}<button class="quick" name="quick" value={r.id} disabled={busy} aria-label="Recruit {r.name}" title="Recruit">+</button>{/if}
+				</div>
 				{#if chosen === r.id && r.profile}
 					{@const p = r.profile}
 					<div class="profile">
@@ -88,9 +92,16 @@
 						{#each p.abilities as a (a.name)}<p><b>{a.name}:</b> {a.text}</p>{/each}
 					</div>
 				{/if}
-			{:else}
-				<p class="empty">No entries are loaded for this list yet (Admin → Rules).</p>
+			{/snippet}
+			{#each rows.filter((r) => r.check.ok) as r (r.id)}{@render entry(r)}{:else}
+				<p class="empty">{rows.length ? 'Nothing more can be recruited here now.' : 'No entries are loaded for this list yet (Admin → Rules).'}</p>
 			{/each}
+			{#if rows.some((r) => !r.check.ok)}
+				<details class="barred">
+					<summary>Not now ({rows.filter((r) => !r.check.ok).length})</summary>
+					{#each rows.filter((r) => !r.check.ok) as r (r.id)}{@render entry(r)}{/each}
+				</details>
+			{/if}
 		</fieldset>
 		{#if chosen}
 			<label class="named">Name <small>(optional)</small><input name="name" bind:value={name} maxlength="80" placeholder="e.g. Brother Anselm" /></label>
@@ -98,7 +109,7 @@
 		{#if failed}<p class="why" role="alert">{failed}</p>{/if}
 		<footer>
 			<button type="button" class="cancel" onclick={() => (open = false)}>Cancel</button>
-			<button class="add" disabled={!chosen || busy}>+ Add Fighter</button>
+			<button class="add" disabled={!chosen || busy}>+ Add {name ? `“${name}”` : 'Fighter'}</button>
 		</footer>
 	</form>
 </dialog>
@@ -169,6 +180,29 @@
 	}
 	.profile .dim {
 		opacity: 0.75;
+	}
+	.line {
+		display: flex;
+		align-items: stretch;
+	}
+	.line .entry {
+		flex: 1;
+	}
+	.quick {
+		width: 3rem;
+		border: 0;
+		background: #b3261e;
+		color: var(--bone);
+		font-size: 1.4rem;
+		cursor: pointer;
+	}
+	.quick:hover {
+		background: #cf3326;
+	}
+	.barred summary {
+		padding: 8px 14px;
+		cursor: pointer;
+		opacity: 0.8;
 	}
 	.sr {
 		position: absolute;

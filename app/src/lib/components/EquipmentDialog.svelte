@@ -42,9 +42,26 @@
 		if (open && !dialog.open) {
 			chosen = null;
 			failed = null;
+			added = null;
 			dialog.showModal();
 		} else if (!open && dialog.open) dialog.close();
 	});
+	let added = $state<string | null>(null);
+	const allowed = $derived(items.filter((i) => check(i).ok));
+	const barred = $derived(items.filter((i) => !check(i).ok));
+	/** Buy, then stay open (the list re-checks against the new kit) and say what was added. */
+	const buy = (i: ArmouryItem) => () => {
+		busy = true;
+		failed = null;
+		return async ({ result, update }: { result: { type: string; data?: Record<string, unknown> }; update: (o: { reset: boolean }) => Promise<void> }) => {
+			busy = false;
+			if (result.type === 'failure') failed = (result.data?.message as string) ?? 'Could not add it.';
+			else {
+				added = i.name;
+				await update({ reset: false });
+			}
+		};
+	};
 	const used = (i: ArmouryItem) => held.filter((h) => letters(h.name) === letters(i.name)).length;
 	const hands = (i: ArmouryItem) => {
 		const f = itemFacts(i);
@@ -58,11 +75,11 @@
 		<h2 id="equip-title">Select Equipment <small>{title}</small></h2>
 		<button type="button" class="x" aria-label="Close" onclick={() => (open = false)}>×</button>
 	</header>
-	<ul>
-		{#each items as i (i.id ?? i.name)}
-			{@const c = check(i)}
-			{@const p = priceOf(i)}
-			<li class:on={chosen === i.name} class:off={!c.ok}>
+	{#snippet row(i: ArmouryItem)}
+		{@const c = check(i)}
+		{@const p = priceOf(i)}
+		<li class:on={chosen === i.name} class:off={!c.ok}>
+			<div class="line">
 				<button type="button" class="row" aria-expanded={chosen === i.name} onclick={() => (chosen = chosen === i.name ? null : i.name)}>
 					<span class="name">{i.name}</span>
 					<span class="meta">
@@ -71,48 +88,49 @@
 							{p.currency === 'glory' ? 'G' : 'D'}</span
 						>
 						{#if i.limit != null}<span>Limit: {used(i)}/{i.limit}</span>{/if}
-						{#if itemFacts(i).only.length}<span>Restrictions: {itemFacts(i).only.join(', ')}</span>{/if}
+						{#if itemFacts(i).only.length}<span>{itemFacts(i).only.join(', ')} only</span>{/if}
 					</span>
 				</button>
-				{#if !c.ok}<p class="why">{c.reason}</p>{/if}
-				{#if chosen === i.name}
-					<div class="profile">
-						<dl>
-							{#if i.range}<dt>Range</dt><dd>{i.range}</dd>{/if}
-							{#if hands(i)}<dt>Hands ({i.category === 'melee' ? 'Melee' : 'Ranged'})</dt><dd>{hands(i)}</dd>{/if}
-							{#if i.type && !hands(i)}<dt>Type</dt><dd>{i.type}</dd>{/if}
-						</dl>
-						{#if i.keywords.length}<KeywordChips keywords={i.keywords} {glossary} dark />{/if}
-						{#if rulesText(i)}<p class="rules">{rulesText(i)}</p>{/if}
-						<form
-							method="POST"
-							action="?/buy"
-							use:enhance={() => {
-								busy = true;
-								failed = null;
-								return async ({ result, update }) => {
-									busy = false;
-									if (result.type === 'failure') failed = (result.data?.message as string) ?? 'Could not add it.';
-									else {
-										open = false;
-										await update({ reset: false });
-									}
-								};
-							}}
-						>
-							<input type="hidden" name="item" value={i.id} />
-							<button class="add" name="unit" value={unitId} disabled={!c.ok || busy}>+ Add Equipment</button>
-							<button class="add stash" name="unit" value="stash" disabled={busy} title="Buy it into the arsenal, to give to a fighter later">Into the Arsenal</button>
-						</form>
-						{#if failed}<p class="why" role="alert">{failed}</p>{/if}
-					</div>
+				{#if c.ok}
+					<!-- One tap: buy it for this fighter; the dialog stays open for the next piece. -->
+					<form method="POST" action="?/buy" use:enhance={buy(i)} class="quick">
+						<input type="hidden" name="item" value={i.id} />
+						<button class="plus" name="unit" value={unitId} disabled={busy} aria-label="Add {i.name}" title="Add to this fighter">+</button>
+					</form>
 				{/if}
-			</li>
-		{:else}
-			<li class="empty">Nothing in this part of your armoury.</li>
+			</div>
+			{#if !c.ok}<p class="why">{c.reason}</p>{/if}
+			{#if chosen === i.name}
+				<div class="profile">
+					<dl>
+						{#if i.range}<dt>Range</dt><dd>{i.range}</dd>{/if}
+						{#if hands(i)}<dt>Hands ({i.category === 'melee' ? 'Melee' : 'Ranged'})</dt><dd>{hands(i)}</dd>{/if}
+						{#if i.type && !hands(i)}<dt>Type</dt><dd>{i.type}</dd>{/if}
+					</dl>
+					{#if i.keywords.length}<KeywordChips keywords={i.keywords} {glossary} dark />{/if}
+					{#if rulesText(i)}<p class="rules">{rulesText(i)}</p>{/if}
+					<form method="POST" action="?/buy" use:enhance={buy(i)}>
+						<input type="hidden" name="item" value={i.id} />
+						<button class="add stash" name="unit" value="stash" disabled={busy} title="Buy it into the arsenal, to give to a fighter later">Into the Arsenal</button>
+					</form>
+				</div>
+			{/if}
+		</li>
+	{/snippet}
+	<ul>
+		{#each allowed as i (i.id ?? i.name)}{@render row(i)}{:else}
+			<li class="empty">{items.length ? 'This fighter can take nothing more from here.' : 'Nothing in this part of your armoury.'}</li>
 		{/each}
 	</ul>
-	<footer><button type="button" class="cancel" onclick={() => (open = false)}>Cancel</button></footer>
+	{#if barred.length}
+		<details class="barred">
+			<summary>Not for this fighter now ({barred.length})</summary>
+			<ul>{#each barred as i (i.id ?? i.name)}{@render row(i)}{/each}</ul>
+		</details>
+	{/if}
+	{#if added}<p class="added" role="status">Added {added}.</p>{/if}
+	{#if failed}<p class="why" role="alert">{failed}</p>{/if}
+	<footer><button type="button" class="cancel" onclick={() => (open = false)}>Done</button></footer>
 </dialog>
 
 <style>
@@ -124,6 +142,36 @@
 		background: #26231e;
 		color: var(--bone);
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+	}
+	.line {
+		display: flex;
+		align-items: stretch;
+	}
+	.line .row {
+		flex: 1;
+	}
+	.quick {
+		display: flex;
+	}
+	.plus {
+		width: 3rem;
+		border: 0;
+		background: #b3261e;
+		color: var(--bone);
+		font-size: 1.4rem;
+		cursor: pointer;
+	}
+	.plus:hover {
+		background: #cf3326;
+	}
+	.barred summary {
+		padding: 8px 14px;
+		cursor: pointer;
+		opacity: 0.8;
+	}
+	.added {
+		margin: 8px 14px;
+		color: #9fc58a;
 	}
 	.picker::backdrop {
 		background: rgba(10, 8, 6, 0.6);
@@ -184,7 +232,7 @@
 		text-align: left;
 		cursor: pointer;
 	}
-	li.on > .row {
+	li.on .row {
 		background: #8f1f18;
 	}
 	.row:hover {

@@ -32,6 +32,24 @@
 	{/if}
 	{#if form && 'importMessage' in form}<p class="error">{form.importMessage}</p>{/if}
 
+	<h3>Rules versions</h3>
+	<p class="meta">Each load of the book packs and each Studio edit that changes the rules is a version; every warband records the one it was built under, and its page shows what changed since.</p>
+	<ul class="versions">
+		{#each data.versions as v, i (v.id)}
+			<li>
+				<b>{v.label}</b> <small class="meta">{v.kind} · {new Date(v.at).toLocaleString()}{i === 0 ? ' · current' : ''}</small>
+				{#if data.versions[i + 1]}<a href="?version={v.id}">changes from the one before</a>{/if}
+				{#if data.compare?.id === v.id}
+					<ul>
+						{#each data.compare.changes as c (c.kind + c.id)}
+							<li>{c.kind} <b>{c.name}</b>{c.variant ? ` (${c.variant})` : c.faction ? ` (${c.faction})` : ''}: {c.change === 'changed' ? c.fields.map((f) => (f.to === 'text changed' ? `${f.field} text changed` : `${f.field} ${f.from} → ${f.to}`)).join('; ') : c.change}</li>
+						{:else}<li class="meta">No changes.</li>{/each}
+					</ul>
+				{/if}
+			</li>
+		{:else}<li class="meta">No versions yet: load the book packs.</li>{/each}
+	</ul>
+
 	<h3>Book packs</h3>
 	<p class="meta">
 		Complete, checked entries for a faction or variant, in the Faction Studio's format (one file each; choose several at once).
@@ -39,6 +57,7 @@
 	</p>
 	<form method="POST" action="?/packs" enctype="multipart/form-data" use:enhance class="row">
 		<input type="file" name="files" accept=".yaml,.yml" multiple />
+		<input name="edition" placeholder="Edition (e.g. Rulebook 1.0.2 + FAQ)" maxlength="120" aria-label="Which edition of the rules these packs are" />
 		<button>Load book packs</button>
 	</form>
 	{#if form && 'packsLoaded' in form && form.packsLoaded}

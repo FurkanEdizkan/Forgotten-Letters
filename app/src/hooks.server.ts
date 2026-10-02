@@ -13,6 +13,7 @@ import { migrateDb, withStartupLock } from '$lib/server/db';
 import { importLegacySqlite } from '$lib/server/db/legacy';
 import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
 import { loadPacksDirIfEmpty } from '$lib/server/packs';
+import { ensureBaseline, recordVersion } from '$lib/server/versions';
 import { clientMeta, pruneAudit, recordAudit } from '$lib/server/audit';
 import { countRequest, flushActivity } from '$lib/server/activity';
 import { adminActionName, isPageView } from '$lib/server/activity-rules';
@@ -40,6 +41,8 @@ export const init: ServerInit = async () => {
 		await loadPacksDirIfEmpty();
 		await loadRulesFileIfEmpty();
 		await seedStudio();
+		// A first rules version to pin existing warbands to; later loads and edits make new ones.
+		await ensureBaseline();
 	});
 	await loadCustomFactions();
 	await loadZones();
@@ -79,7 +82,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (user) countRequest(user.id, user.sessionId, { ip: clientMeta(event).ip, pageView: isPageView(event.request.method, path, { accept: event.request.headers.get('accept') }) });
 
+	// A change to the rules (book packs loaded, a Studio edit) makes a new rules version, if the rules changed.
+	const rulesEdit = event.request.method === 'POST' && /^\/admin\/(rules|studio)(\/|$)/.test(path);
+	const edition = rulesEdit ? await event.request.clone().formData().then((d) => String(d.get('edition') ?? '').trim()).catch(() => '') : '';
+
 	const response = await resolve(event);
+
+	if (rulesEdit && response.status < 400) {
+		const day = new Date().toISOString().slice(0, 10);
+		await recordVersion(edition || (path.startsWith('/admin/studio') ? `House rules (${day})` : `Rules loaded (${day})`), path.startsWith('/admin/studio') ? 'house' : 'book').catch((e) => console.error('rules version:', e));
+	}
 
 	const mutation = event.request.method !== 'GET' && event.request.method !== 'HEAD';
 	// Some changes don't publish: whatever changed, the cached public snapshot must not outlive it.

@@ -127,6 +127,13 @@
       "when": 1790974621744,
       "tag": "0017_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790978734255,
+      "tag": "0018_rules_versions",
+      "breakpoints": true
     }
   ]
 }

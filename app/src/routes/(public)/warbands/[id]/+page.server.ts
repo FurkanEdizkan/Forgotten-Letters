@@ -13,6 +13,8 @@ import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
 import { d6, reportFor, reportsOf, saveLines, unitFacts, withExperience } from '$lib/server/aftermath';
+import { currentVersion, versionById } from '$lib/server/versions';
+import { affecting, diff } from '$lib/rules-versions';
 import { advancementsOwed, rollAdvancement, rollPromotionStep, rollTrauma, type AftermathLines } from '$lib/aftermath';
 import { KIND_OF } from '$lib/builder';
 import { keywordKey } from '$lib/keywords';
@@ -61,6 +63,26 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		},
 		/** The Campaign Phase's tables and the Experience at which models advance. */
 		campaign,
+		/**
+		 * The rules version it was built under, and what changed since in the rules that touch it (its entries, kit,
+		 * faction and variant rules, Patron, campaign tables), then the rest of its faction's changes.
+		 */
+		rules: await (async () => {
+			const [pinned, current] = await Promise.all([versionById(w.rulesVersion), currentVersion()]);
+			if (!pinned || !current) return null;
+			const base = { pinned: { label: pinned.label, at: pinned.createdAt.toISOString() }, current: { label: current.label, at: current.createdAt.toISOString() } };
+			if (pinned.id === current.id) return { ...base, upToDate: true, mine: [], faction: [] };
+			const changes = diff(pinned.snapshot, current.snapshot);
+			const { mine, faction } = affecting(changes, {
+				faction: w.faction,
+				variant: w.variant,
+				profileIds: units.map((u) => u.profileId).filter((x): x is string => !!x),
+				entryNames: units.map((u) => u.type),
+				itemNames: [...units.flatMap((u) => u.equipment.map((e) => e.name)), ...(await roster(w.id)).stash.map((s) => s.name)],
+				patron: w.patron
+			});
+			return { ...base, upToDate: false, mine, faction };
+		})(),
 		/** The battles it fought and its aftermath report on each (its player and the CM only). */
 		aftermath: canEdit && w.campaignId
 			? (await reportsOf(w.id)).slice(0, 6).map(({ game: g, report: r }) => ({
@@ -522,6 +544,14 @@ export const actions: Actions = {
 		return {};
 	},
 
+	/** The rules changed since this warband was built: take note, and pin it to the current version. */
+	rulesAck: async ({ params, locals }) => {
+		const { w } = await editable(params.id, locals);
+		const v = await currentVersion();
+		if (v) await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
+		return {};
+	},
+
 	/** A read-only link to this warband: make one (a new token each time), or revoke it. */
 	share: async ({ params, request, locals }) => {
 		const { w } = await editable(params.id, locals);
@@ -556,6 +586,7 @@ export const actions: Actions = {
 				treasuryGlory: w.treasuryGlory,
 				unrestricted: w.unrestricted,
 				openExploration: w.openExploration,
+				rulesVersion: w.rulesVersion,
 				rosterNotes: w.rosterNotes,
 				lore: w.lore,
 				seal: w.seal

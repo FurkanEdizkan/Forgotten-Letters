@@ -18,7 +18,7 @@ shortest unique end of their id.
       - `cf.app.web.public` Campaign pages — The live map (home), standings, zones, chronicle, compendium, warbands and their builder, muster and settings.
         code: app/src/routes/(public)/**
         uses: campaign server.live battle components engine ui.live livemap shared rules uploads audit stores accounts warbands flow world
-        routes: / · /compendium · /compendium/[faction] · /compendium/keywords · /compendium/rules/[slug] · /history · /muster (actions: vision) · /players · /players/[id] · /settings (actions: password) · /warbands (actions: useForCampaign) · /warbands/[id] (actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, share, unit, upgrade) · /warbands/[id]/export (GET) · /warbands/[id]/play · /warbands/[id]/print · /warbands/new (actions: create, fromTc) · /zones · /zones/[id]
+        routes: / · /compendium · /compendium/[faction] · /compendium/keywords · /compendium/rules/[slug] · /history · /muster (actions: vision) · /players · /players/[id] · /settings (actions: password) · /warbands (actions: useForCampaign) · /warbands/[id] (actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, rulesAck, settings, share, unit, upgrade) · /warbands/[id]/export (GET) · /warbands/[id]/play · /warbands/[id]/print · /warbands/new (actions: create, fromTc) · /zones · /zones/[id]
       - `cf.app.web.admin` Admin console #cm-only — The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and…
         files: app/src/routes/admin/weather/ AirPanel.svelte PortentsPanel.svelte RegionsPanel.svelte SettingsPanels.svelte SkyPanel.svelte
         uses: campaign server.live rules stores world components engine flow backup uploads shared warbands audit accounts requests fx livemap
@@ -44,7 +44,7 @@ shortest unique end of their id.
       tables: unit warband_stash model unit_art
       used by: warbands uploads
     - `cf.db.t_rules` Rules — Rules imported from the books and the Faction Studio's own.
-      tables: rules_unit rules_item rules_keyword rules_faction rules_page rules_patron rules_table custom_faction
+      tables: rules_unit rules_item rules_keyword rules_faction rules_page rules_patron rules_table rules_version custom_faction
       used by: rules
     - `cf.db.t_accounts` Accounts — Accounts, sessions, sign-up and reset requests, the audit log and daily activity.
       tables: user session account_request audit_log user_activity
@@ -83,7 +83,7 @@ shortest unique end of their id.
         uses: stores server.live campaign rules uploads t_map
         used by: shell public admin api hooks campaign server.live rules
       - `cf.app.server.rules` Rules and Faction Studio #server-only — Rules from the books (book packs read from the group's own copies, or the import-rules.py file), the Faction Studio's own factions and house…
-        files: app/src/lib/server/ factions.ts packs.ts rules-data.ts starter.ts studio.ts
+        files: app/src/lib/server/ factions.ts packs.ts rules-data.ts starter.ts studio.ts versions.ts
         uses: stores server.live world t_rules
         used by: shell public admin hooks warbands world
       - `cf.app.server.uploads` Files #server-only — Images re-encoded to WebP, rendered model tokens with their STL sources, and unit art, on the data volume.
@@ -116,7 +116,7 @@ shortest unique end of their id.
         uses: flow engine components ui.live shared
         used by: public
       - `cf.app.ui.components` Components #client — Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.
-        files: app/src/lib/components/ AddModelDialog.svelte AftermathPanel.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte KeywordChips.svelte Lockup.svelte Mark.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte Seal.svelte SealEditor.svelte SealStudio.svelte TrackerSheet.svelte UnitCard.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte
+        files: app/src/lib/components/ AddModelDialog.svelte AftermathPanel.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte KeywordChips.svelte Lockup.svelte Mark.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte RulesVersionPanel.svelte Seal.svelte SealEditor.svelte SealStudio.svelte TrackerSheet.svelte UnitCard.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte
         uses: engine shared ui.live
         used by: public admin door battle
       - `cf.app.ui.live` Live client #client — Starts from the server-rendered snapshot and follows /api/stream; the snapshot's shape.
@@ -124,7 +124,7 @@ shortest unique end of their id.
         uses: engine shared api
         used by: public livemap battle components fx flow shared server.live
       - `cf.app.ui.engine` Rules engine #pure — The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.
-        files: app/src/lib/ aftermath.ts builder-state.ts builder.ts effects.ts keywords.ts progression.ts roster.ts rules-text.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
+        files: app/src/lib/ aftermath.ts builder-state.ts builder.ts effects.ts keywords.ts progression.ts roster.ts rules-text.ts rules-versions.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
         used by: shell public admin api livemap battle components flow ui.live shared fx server
       - `cf.app.ui.flow` Campaign flow #pure — The campaign's life from founding to the final reckoning, seats, where battles stand on the map, and how a finished battle reads.
         files: app/src/lib/ battle-hud.ts battle-outcome.ts campaign-flow.ts map-battles.ts seating.ts

@@ -85,6 +85,9 @@ model {
     table_rules_table = table 'rules_table' {
       metadata { generated 'true' }
     }
+    table_rules_version = table 'rules_version' {
+      metadata { generated 'true' }
+    }
     table_custom_faction = table 'custom_faction' {
       metadata { generated 'true' }
     }

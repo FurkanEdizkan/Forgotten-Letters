@@ -99,10 +99,10 @@ model {
 
       rules = module 'Rules and Faction Studio' {
         #server-only
-        technology 'rules-data.ts · packs.ts · studio.ts · factions.ts · starter.ts'
-        description 'Rules from the books (book packs read from the group\'s own copies, or the import-rules.py file), the Faction Studio\'s own factions and house rules, and the committed starter pack.'
+        technology 'rules-data.ts · packs.ts · studio.ts · factions.ts · starter.ts · versions.ts'
+        description 'Rules from the books (book packs read from the group\'s own copies, or the import-rules.py file), the Faction Studio\'s own factions and house rules, the committed starter pack, and the rules versions every load or edit makes.'
         metadata {
-          code 'app/src/lib/server/{rules-data,studio,factions,starter,packs}{,.spec}.ts'
+          code 'app/src/lib/server/{rules-data,studio,factions,starter,packs,versions}{,.spec}.ts'
         }
       }
 

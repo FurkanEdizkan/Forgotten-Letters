@@ -24,6 +24,9 @@ views {
         effects (stat changes, keywords, no more Experience) the builder applies.
       - After a battle the player records the aftermath; the server rolls Trauma, Promotion and Advancement
         dice, so no roll can be redone, and the Campaign Master approves the report before it changes the roster.
+      - The rules are versioned: each load of the books and each Studio edit that changes them is a version (a
+        snapshot of every entry). Each warband records the version it was built under and shows what changed
+        since in the rules that touch it, field by field; the builder always checks against the current rules.
       - A list exports as Trench Companion's text and as our JSON, both of which import again; a private list
         can be shared read-only by a link its owner can revoke.
       - A variant's entry replaces the faction's entry of the same name; its rules merge onto the

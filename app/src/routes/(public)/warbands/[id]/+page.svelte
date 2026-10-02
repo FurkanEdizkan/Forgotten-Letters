@@ -8,6 +8,7 @@
 	import EquipmentDialog from '$lib/components/EquipmentDialog.svelte';
 	import AddModelDialog, { type EntryRow } from '$lib/components/AddModelDialog.svelte';
 	import AftermathPanel from '$lib/components/AftermathPanel.svelte';
+	import RulesVersionPanel from '$lib/components/RulesVersionPanel.svelte';
 	import { ARMOURY_ORDER, armouryCategory } from '$lib/builder';
 	import { armourOf, builderState, entryOf, modelKeywords } from '$lib/builder-state';
 	import { entryPrice, equipCheck, letters, priceFor, recruitCheck, upgradeCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
@@ -362,6 +363,8 @@
 					{/each}
 				</section>
 			{/if}
+
+			{#if data.rules}<RulesVersionPanel rules={data.rules} canEdit={data.canEdit} />{/if}
 
 			{#if data.canEdit && data.warband.inCampaign}
 				<AftermathPanel

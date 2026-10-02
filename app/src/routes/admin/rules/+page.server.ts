@@ -1,3 +1,5 @@
+import { allVersions, versionById } from '$lib/server/versions';
+import { diff } from '$lib/rules-versions';
 import { fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
@@ -16,7 +18,17 @@ export const load: PageServerLoad = async ({ url }) => {
 	const book = (['core', 'campaign', 'scenario'] as const).find((b) => f === `pages-${b}`);
 	const isFaction = RULE_FACTIONS.some((x) => x.id === f);
 	const pick = <T extends { verified: boolean }>(rows: T[]) => (todo ? rows.filter((r) => !r.verified) : rows);
+	// Rules versions, newest first; one picked (`?version=`) is compared with the one before it.
+	const versions = await allVersions();
+	const picked = url.searchParams.get('version');
+	const k = versions.findIndex((v) => v.id === picked);
+	const compare =
+		k >= 0 && versions[k + 1]
+			? await Promise.all([versionById(versions[k + 1].id), versionById(versions[k].id)]).then(([a, b]) => (a && b ? diff(a.snapshot, b.snapshot) : []))
+			: null;
 	return {
+		versions: versions.map((v) => ({ id: v.id, label: v.label, kind: v.kind, at: v.createdAt.toISOString() })),
+		compare: compare && { id: picked, changes: compare },
 		factions: RULE_FACTIONS.map((x) => ({
 			...x,
 			units: summary.units.find((u) => u.faction === x.id)?.n ?? 0,

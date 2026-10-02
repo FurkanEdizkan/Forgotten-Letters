@@ -93,7 +93,7 @@ model {
       }
     }
     route_public_warbands_id = page '/warbands/[id]' {
-      description 'actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, share, unit, upgrade'
+      description 'actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, rulesAck, settings, share, unit, upgrade'
       metadata {
         generated 'true'
         route '/warbands/[id]'

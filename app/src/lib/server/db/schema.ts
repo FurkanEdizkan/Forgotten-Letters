@@ -1,6 +1,7 @@
 import type { PatronSkill } from '$lib/patrons';
 import type { CampaignTable, Progression } from '$lib/progression';
 import type { AftermathLines } from '$lib/aftermath';
+import type { Snapshot } from '$lib/rules-versions';
 import { type AnyPgColumn, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
@@ -125,6 +126,8 @@ export const warband = pgTable(
 		lore: text('lore'),
 		/** A read-only link to a private list: /warbands/<id>?share=<token>; null when not shared. */
 		shareToken: text('share_token'),
+		/** The rules version it was built under (or last brought up to): see rules_version. */
+		rulesVersion: text('rules_version'),
 		/** Promotion Dice rolled in a row without a 6 (the sixth after five misses is a 6). */
 		promotionStreak: integer('promotion_streak').notNull().default(0),
 
@@ -698,6 +701,19 @@ export const rulesTable = pgTable('rules_table', {
 	source: text('source'),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
+});
+
+/**
+ * The rules as they stood at a point: each load of the book packs (`book`) and each Campaign Master's Studio edit
+ * (`house`) that changed them. The snapshot keeps every entry's rules fields, so two versions can be compared.
+ */
+export const rulesVersion = pgTable('rules_version', {
+	id: id(),
+	label: text('label').notNull(),
+	kind: text('kind', { enum: ['book', 'house', 'baseline'] }).notNull().default('book'),
+	hash: text('hash').notNull(),
+	snapshot: jsonb('snapshot').$type<Snapshot>().notNull(),
+	createdAt: createdAt()
 });
 
 /** A warband's record of a battle's aftermath: the player fills it (the server rolls), the CM approves it. */

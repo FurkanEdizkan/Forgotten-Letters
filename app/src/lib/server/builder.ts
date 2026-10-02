@@ -5,6 +5,7 @@ import { player, warband } from './db/schema';
 import { currentCampaign } from './campaign';
 import { canEditWarband, type SessionUser } from './auth';
 import { roster } from './roster';
+import { currentVersion } from './versions';
 import { allPatrons, campaignTables, factionRulesText, itemsOf, unitsOf } from './rules-data';
 import { findPatron } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
@@ -24,6 +25,14 @@ export async function builderWarband(id: string, user: SessionUser | null, share
 	// A private list: its owner and the CM, or anyone with its share link (read-only).
 	const shared = !!share && !!w.shareToken && share === w.shareToken;
 	if (isList && !shared && !(user && (user.role === 'cm' || user.id === w.listOwnerId))) error(404, 'No such warband');
+	// A warband not yet pinned to a rules version (just made) is pinned to the current one.
+	if (!w.rulesVersion) {
+		const v = await currentVersion();
+		if (v) {
+			await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
+			w.rulesVersion = v.id;
+		}
+	}
 	const p = w.playerId ? ((await db.select().from(player).where(eq(player.id, w.playerId)))[0] ?? null) : null;
 	const canEdit = isList ? !!user && (user.role === 'cm' || user.id === w.listOwnerId) : canEditWarband(user, w.id);
 	return { w, p, c: c ?? null, isList, canEdit };

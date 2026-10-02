@@ -4,7 +4,10 @@
  * fireteams replace the roster; every model and item is matched to the books (see `matchToBook`), and the result is
  * checked like any warband in the builder.
  */
-import type { warband } from './db/schema';
+import { eq } from 'drizzle-orm';
+import { db } from './db';
+import { warband } from './db/schema';
+import { currentVersion } from './versions';
 import { builderInput } from './builder';
 import { replaceRoster } from './roster';
 import { publish } from './hub';
@@ -49,6 +52,9 @@ export async function importInto(w: typeof warband.$inferSelect, imported: TcImp
 	const rules = readRules(input.rulesText.faction, input.rulesText.variant, input.rulesText.overrides ?? []);
 	const { imported: matched, report } = matchToBook(imported, { profiles: input.profiles, armoury: input.armoury, upgrades: rules.upgrades, leader: rules.leader, paragraphs: rules.paragraphs });
 	await replaceRoster(w.campaignId, w.id, matched);
+	// Brought in against the rules as they are now.
+	const v = await currentVersion();
+	if (v) await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
 	if (w.campaignId) publish(w.campaignId);
 	const after = builderState(await builderInput(w));
 	return { name: imported.name, models: matched.units.length, report, issues: warbandIssues(after.state, after.rules, after.entries) };

@@ -756,6 +756,8 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 		if (loadout) out.push(`${m.type}: ${loadout}`);
 	}
 	out.push(...limitIssues(world(w)).map((i) => i.text));
+	// The same problem twice (two models alike) is said once.
+	out.splice(0, out.length, ...new Set(out));
 	for (const u of rules.upgrades) {
 		const on = active.filter((m) => m.upgrades.includes(u.name));
 		if (u.max != null && on.length > u.max) out.push(`${u.name} on ${on.length} models; the most is ${u.max}.`);

@@ -221,7 +221,7 @@
 						</button>
 						{#if showIssues}
 							<ul class="issues">
-								{#each data.issues as i (i)}
+								{#each data.issues as i, k (k)}
 									{@const m = modelIn(i)}
 									<li>{i}{#if m && m.id !== selectedId} <button type="button" class="link" onclick={() => pick(m.id)}>Show {m.name || m.type}</button>{/if}</li>
 								{/each}
@@ -508,7 +508,7 @@
 						{/if}
 						{#if r.issues.length}
 							<p class="warn">By the books, this warband is not valid:</p>
-							<ul class="tc-report">{#each r.issues as i (i)}<li>{i}</li>{/each}</ul>
+							<ul class="tc-report">{#each r.issues as i, k (k)}<li>{i}</li>{/each}</ul>
 						{/if}
 					{/if}
 				</details>

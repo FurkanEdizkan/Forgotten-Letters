@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { affecting, diff, stable, type Snapshot } from './rules-versions';
+import { affecting, diff, fieldChanges, stable, type Snapshot } from './rules-versions';
 
 // Made-up rules in the books' shapes.
 const empty = (): Snapshot => ({ units: {}, items: {}, factions: {}, patrons: {}, tables: {} });
@@ -45,5 +45,16 @@ describe('rules versions', () => {
 		const { mine, faction } = affecting(diff(v1(), v2), { faction: 'new-antioch', variant: null, profileIds: ['na-yeoman'], entryNames: ['Yeoman'], itemNames: ['Rifle'], patron: null });
 		expect(mine.map((c) => c.id).sort()).toEqual(['na-rifle', 'na-yeoman', 'new-antioch:']);
 		expect(faction.map((c) => c.id)).toEqual(['na-sniper']);
+	});
+});
+
+describe('changes inside settings', () => {
+	it('name the setting that changed, and rules added or taken away by name', () => {
+		const a = { kit: { hands: { melee: 6 }, limits: [{ text: 'Six weapons', max: 6 }] }, cost: 10 };
+		const b = { kit: { hands: { melee: 6 }, heavyOneHand: 2, limits: [{ text: 'Six weapons', max: 6 }, { text: 'Two at most', max: 2 }] }, cost: 10 };
+		expect(fieldChanges(a, b)).toEqual([
+			{ field: 'kit heavyOneHand', from: '—', to: '2' },
+			{ field: 'kit limits', from: '', to: '+ Two at most' }
+		]);
 	});
 });

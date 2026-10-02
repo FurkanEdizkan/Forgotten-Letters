@@ -29,8 +29,18 @@
 		settings: 'Experience and Promotion rules'
 	};
 	const date = (s: string) => new Date(s).toLocaleDateString();
+	/** "kit heavyOneHand" → "kit rules: heavy one hand". */
+	const label = (field: string) => {
+		const [head, ...rest] = field.split(' ');
+		const words = rest.map((w) => w.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()).join(' ');
+		return [FIELD[head] ?? head, words].filter(Boolean).join(': ');
+	};
 	const what = (c: EntryChange) =>
-		c.change === 'added' ? 'added' : c.change === 'removed' ? 'removed' : c.fields.map((f) => (f.to === 'text changed' ? `${FIELD[f.field] ?? f.field} text changed` : `${FIELD[f.field] ?? f.field} ${f.from} → ${f.to}`)).join('; ');
+		c.change === 'added'
+			? 'added'
+			: c.change === 'removed'
+				? 'removed'
+				: c.fields.map((f) => (f.from === '' ? `${label(f.field)} ${f.to}` : `${label(f.field)} ${f.from} → ${f.to}`)).join('; ');
 </script>
 
 <details class="panel rulespanel version" class:changed={!rules.upToDate} open={!rules.upToDate && rules.mine.length > 0}>

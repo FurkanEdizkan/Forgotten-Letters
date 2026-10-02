@@ -42,7 +42,7 @@
 				{#if data.compare?.id === v.id}
 					<ul>
 						{#each data.compare.changes as c (c.kind + c.id)}
-							<li>{c.kind} <b>{c.name}</b>{c.variant ? ` (${c.variant})` : c.faction ? ` (${c.faction})` : ''}: {c.change === 'changed' ? c.fields.map((f) => (f.to === 'text changed' ? `${f.field} text changed` : `${f.field} ${f.from} → ${f.to}`)).join('; ') : c.change}</li>
+							<li>{c.kind} <b>{c.name}</b>{c.variant ? ` (${c.variant})` : c.faction ? ` (${c.faction})` : ''}: {c.change === 'changed' ? c.fields.map((f) => (f.from === '' ? `${f.field} ${f.to}` : `${f.field} ${f.from} → ${f.to}`)).join('; ') : c.change}</li>
 						{:else}<li class="meta">No changes.</li>{/each}
 					</ul>
 				{/if}

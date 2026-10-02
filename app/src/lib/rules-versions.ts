@@ -47,20 +47,37 @@ export function stable(v: unknown): string {
 	return JSON.stringify(v ?? null);
 }
 
-/** A short readable form of a field's value for the change list. */
+const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const simple = (v: unknown) => v == null || typeof v !== 'object' || (Array.isArray(v) && v.every((x) => x == null || typeof x !== 'object'));
+
+/** A short readable form of a value for the change list: plain values and lists of them; anything deeper is summed up. */
 function shown(v: unknown): string {
 	if (v == null || v === '') return '—';
-	if (Array.isArray(v)) return v.length ? v.map((x) => (typeof x === 'object' ? stable(x) : String(x))).join(', ') : '—';
-	if (typeof v === 'object') return stable(v);
+	if (Array.isArray(v)) return !v.length ? '—' : simple(v) ? v.join(', ') : `${v.length} rule${v.length === 1 ? '' : 's'}`;
+	if (typeof v === 'object') return `${Object.keys(v as object).length} settings`;
 	return String(v);
 }
 
-/** The fields that differ between two versions of one entry. */
-export function fieldChanges(a: SnapRow, b: SnapRow): FieldChange[] {
-	const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !IGNORED.has(k)).sort();
+/** The fields that differ between two versions of one entry; inside settings (kit, rules) each changed setting. */
+export function fieldChanges(a: Record<string, unknown>, b: Record<string, unknown>, prefix = ''): FieldChange[] {
+	const keys = [...new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])].filter((k) => prefix || !IGNORED.has(k)).sort();
 	return keys.flatMap((k) => {
-		if (stable(a[k]) === stable(b[k])) return [];
-		return [TEXTY.has(k) ? { field: k, from: '', to: 'text changed' } : { field: k, from: shown(a[k]), to: shown(b[k]) }];
+		const [x, y] = [a?.[k], b?.[k]];
+		if (stable(x) === stable(y)) return [];
+		const field = prefix ? `${prefix} ${k}` : k;
+		if (TEXTY.has(k)) return [{ field, from: '', to: 'text changed' }];
+		if ((isPlain(x) || x == null) && (isPlain(y) || y == null) && (isPlain(x) || isPlain(y)) && !prefix.includes(' '))
+			return fieldChanges((x ?? {}) as Record<string, unknown>, (y ?? {}) as Record<string, unknown>, field);
+		if (!simple(x) || !simple(y)) {
+			// Lists of rules (limits, upgrades): by name where they have one, else just that they changed.
+			const named = (v: unknown) => (Array.isArray(v) ? v.map((r) => (isPlain(r) ? String(r.name ?? r.text ?? '') : '')).filter(Boolean) : []);
+			const [nx, ny] = [named(x), named(y)];
+			const added = ny.filter((n) => !nx.includes(n));
+			const removed = nx.filter((n) => !ny.includes(n));
+			const parts = [...added.map((n) => `+ ${n}`), ...removed.map((n) => `− ${n}`)];
+			return [{ field, from: '', to: parts.length ? parts.join('; ') : 'changed' }];
+		}
+		return [{ field, from: shown(x), to: shown(y) }];
 	});
 }
 

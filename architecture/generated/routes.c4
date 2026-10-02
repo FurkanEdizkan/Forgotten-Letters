@@ -93,7 +93,7 @@ model {
       }
     }
     route_public_warbands_id = page '/warbands/[id]' {
-      description 'actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, unit, upgrade'
+      description 'actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, share, unit, upgrade'
       metadata {
         generated 'true'
         route '/warbands/[id]'
@@ -235,7 +235,7 @@ model {
       }
     }
     route_admin_games_id_aftermath = page '/admin/games/[id]/aftermath' {
-      description 'actions: update'
+      description 'actions: report, update'
       metadata {
         generated 'true'
         route '/admin/games/[id]/aftermath'
@@ -765,6 +765,10 @@ model {
     metadata { generated 'true' }
   }
 
+  cf.app.web.public.route_public_warbands_id_export -[imports]-> cf.app.ui.engine {
+    metadata { generated 'true' }
+  }
+
   cf.app.web.public.route_public_warbands_id_play -[imports]-> cf.app.server.warbands {
     metadata { generated 'true' }
   }
@@ -1050,6 +1054,10 @@ model {
   }
 
   cf.app.web.admin.route_admin_games_id_aftermath -[imports]-> cf.app.server.live {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_games_id_aftermath -[imports]-> cf.app.server.stores {
     metadata { generated 'true' }
   }
 

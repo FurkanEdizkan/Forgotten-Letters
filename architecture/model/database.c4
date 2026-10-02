@@ -4,7 +4,7 @@ model {
     t_campaign = layer 'Campaign' {
       description 'The campaign and its stages, seats, warbands, battles, adjustments, rounds, challenges and invites.'
       metadata {
-        tables ['campaign', 'player', 'warband', 'game', 'adjustment', 'round', 'round_entry', 'challenge', 'invite']
+        tables ['campaign', 'player', 'warband', 'game', 'adjustment', 'round', 'round_entry', 'challenge', 'invite', 'aftermath_report']
       }
     }
     t_map = layer 'Map and weather' {
@@ -22,7 +22,7 @@ model {
     t_rules = layer 'Rules' {
       description 'Rules imported from the books and the Faction Studio\'s own.'
       metadata {
-        tables ['rules_unit', 'rules_item', 'rules_keyword', 'rules_faction', 'rules_page', 'rules_patron', 'custom_faction']
+        tables ['rules_unit', 'rules_item', 'rules_keyword', 'rules_faction', 'rules_page', 'rules_patron', 'rules_table', 'custom_faction']
       }
     }
     t_accounts = layer 'Accounts' {

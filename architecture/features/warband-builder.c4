@@ -19,6 +19,13 @@ views {
         (first copy, Skill discounts) and "counts as" complete it. A broken maximum refuses the action; a minimum
         or a cost floor is reported until the finished list meets it. Unknown keys are refused.
       - Rules that widen what a warband may have (another faction's armoury, unlocks) the CM grants by hand.
+      - Campaign progression comes from the book too: the Trauma Table, the Skill Tables and the Experience at
+        which a model advances. Skills and injuries stay names on the model, matched to table rows, whose
+        effects (stat changes, keywords, no more Experience) the builder applies.
+      - After a battle the player records the aftermath; the server rolls Trauma, Promotion and Advancement
+        dice, so no roll can be redone, and the Campaign Master approves the report before it changes the roster.
+      - A list exports as Trench Companion's text and as our JSON, both of which import again; a private list
+        can be shared read-only by a link its owner can revoke.
       - A variant's entry replaces the faction's entry of the same name; its rules merge onto the
         faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,
         an armoury item or an upgrade.
@@ -45,5 +52,10 @@ views {
     cf.app.server.warbands -> cf.app.ui.engine 'warbandIssues: what the books find wrong'
     player -> cf.app.web.public 'recruit, buy, upgrade'
     cf.app.web.public -> cf.app.ui.engine 'recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit'
+    player -> cf.app.web.public 'record the aftermath: Trauma, Promotion and Advancement rolls'
+    cf.app.web.public -> cf.app.server.warbands 'aftermath report (server-rolled)'
+    cf.app.server.warbands -> cf.db.t_campaign 'aftermath_report'
+    cm -> cf.app.web.admin 'approve the aftermath'
+    cf.app.web.admin -> cf.app.server.warbands 'apply the report to the roster'
   }
 }

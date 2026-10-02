@@ -18,11 +18,11 @@ shortest unique end of their id.
       - `cf.app.web.public` Campaign pages — The live map (home), standings, zones, chronicle, compendium, warbands and their builder, muster and settings.
         code: app/src/routes/(public)/**
         uses: campaign server.live battle components engine ui.live livemap shared rules uploads audit stores accounts warbands flow world
-        routes: / · /compendium · /compendium/[faction] · /compendium/keywords · /compendium/rules/[slug] · /history · /muster (actions: vision) · /players · /players/[id] · /settings (actions: password) · /warbands (actions: useForCampaign) · /warbands/[id] (actions: buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, unit, upgrade) · /warbands/[id]/export (GET) · /warbands/[id]/play · /warbands/[id]/print · /warbands/new (actions: create, fromTc) · /zones · /zones/[id]
+        routes: / · /compendium · /compendium/[faction] · /compendium/keywords · /compendium/rules/[slug] · /history · /muster (actions: vision) · /players · /players/[id] · /settings (actions: password) · /warbands (actions: useForCampaign) · /warbands/[id] (actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, settings, share, unit, upgrade) · /warbands/[id]/export (GET) · /warbands/[id]/play · /warbands/[id]/print · /warbands/new (actions: create, fromTc) · /zones · /zones/[id]
       - `cf.app.web.admin` Admin console #cm-only — The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and…
         files: app/src/routes/admin/weather/ AirPanel.svelte PortentsPanel.svelte RegionsPanel.svelte SettingsPanels.svelte SkyPanel.svelte
         uses: campaign server.live rules stores world components engine flow backup uploads shared warbands audit accounts requests fx livemap
-        routes: /admin (actions: create, update) · /admin/adjustments (actions: add, delete) · /admin/api/battles (POST) · /admin/api/battles/[id] (POST) · /admin/api/battles/options (GET) · /admin/backup (actions: restore) · /admin/backup/export (GET) · /admin/backup/starter (GET) · /admin/factions (actions: art, artRemove) · /admin/games · /admin/games/[id] (actions: commit, delete, reopen) · /admin/games/[id]/aftermath (actions: update) · /admin/games/[id]/preview (POST) · /admin/games/new (actions: default) · /admin/log · /admin/lore (actions: import, save) · /admin/map (actions: clearImage, image, import, preset, rings, save) · /admin/map/zones.yaml (GET) · /admin/muster (actions: advance, choose, deal, entry, invite, rename, revoke, seats) · /admin/players (actions: approve, assign, create, decline, remove, reset, resolveReset, signOut, toggle) · /admin/players/[id] (actions: email, endDevice) · /admin/round (actions: answer, open, pass, pick, roll) · /admin/rules (actions: factionRule, import, item, keyword, packs, page, unit) · /admin/studio (actions: import, newFaction, newVariant) · /admin/studio/[id] (actions: delete, identity, item, keyword, remove, revert, rules, unit, yaml) · /admin/studio/[id]/export.yaml (GET) · /admin/studio/template.yaml (GET) · /admin/visions (actions: deal, keep) · /admin/warbands (actions: create) · /admin/warbands/[id] (actions: delete, display, strongbox, update, vision) · /admin/warbands/[id]/roster (actions: addUnit, bank, buyItem, importFile, importTc, itemOp, moveUnit, removeUnit, saveUnit) · /admin/weather (actions: addRegion, deleteRegion, toggleRegion, trigger, zeppelin) · /admin/weather/fx (POST)
+        routes: /admin (actions: create, update) · /admin/adjustments (actions: add, delete) · /admin/api/battles (POST) · /admin/api/battles/[id] (POST) · /admin/api/battles/options (GET) · /admin/backup (actions: restore) · /admin/backup/export (GET) · /admin/backup/starter (GET) · /admin/factions (actions: art, artRemove) · /admin/games · /admin/games/[id] (actions: commit, delete, reopen) · /admin/games/[id]/aftermath (actions: report, update) · /admin/games/[id]/preview (POST) · /admin/games/new (actions: default) · /admin/log · /admin/lore (actions: import, save) · /admin/map (actions: clearImage, image, import, preset, rings, save) · /admin/map/zones.yaml (GET) · /admin/muster (actions: advance, choose, deal, entry, invite, rename, revoke, seats) · /admin/players (actions: approve, assign, create, decline, remove, reset, resolveReset, signOut, toggle) · /admin/players/[id] (actions: email, endDevice) · /admin/round (actions: answer, open, pass, pick, roll) · /admin/rules (actions: factionRule, import, item, keyword, packs, page, unit) · /admin/studio (actions: import, newFaction, newVariant) · /admin/studio/[id] (actions: delete, identity, item, keyword, remove, revert, rules, unit, yaml) · /admin/studio/[id]/export.yaml (GET) · /admin/studio/template.yaml (GET) · /admin/visions (actions: deal, keep) · /admin/warbands (actions: create) · /admin/warbands/[id] (actions: delete, display, strongbox, update, vision) · /admin/warbands/[id]/roster (actions: addUnit, bank, buyItem, importFile, importTc, itemOp, moveUnit, removeUnit, saveUnit) · /admin/weather (actions: addRegion, deleteRegion, toggleRegion, trigger, zeppelin) · /admin/weather/fx (POST)
       - `cf.app.web.door` The doors — Signing in and out: players at /login (with account and reset requests), the Campaign Master at /admin/login, seat invites at /join/<token>.
         code: app/src/routes/login/** app/src/routes/admin/login/** app/src/routes/join/** app/src/routes/logout/**
         uses: access accounts components audit campaign server.live requests
@@ -35,7 +35,7 @@ shortest unique end of their id.
   - `cf.db` PostgreSQL — Every campaign record, account, session, rule and log.
     used by: stores app
     - `cf.db.t_campaign` Campaign — The campaign and its stages, seats, warbands, battles, adjustments, rounds, challenges and invites.
-      tables: campaign player warband game adjustment round round_entry challenge invite
+      tables: campaign player warband game adjustment round round_entry challenge invite aftermath_report
       used by: campaign
     - `cf.db.t_map` Map and weather — Zones, their lore, regional weather and the effects state.
       tables: map_zone zone_lore region_weather fx_state
@@ -44,7 +44,7 @@ shortest unique end of their id.
       tables: unit warband_stash model unit_art
       used by: warbands uploads
     - `cf.db.t_rules` Rules — Rules imported from the books and the Faction Studio's own.
-      tables: rules_unit rules_item rules_keyword rules_faction rules_page rules_patron custom_faction
+      tables: rules_unit rules_item rules_keyword rules_faction rules_page rules_patron rules_table custom_faction
       used by: rules
     - `cf.db.t_accounts` Accounts — Accounts, sessions, sign-up and reset requests, the audit log and daily activity.
       tables: user session account_request audit_log user_activity
@@ -71,7 +71,7 @@ shortest unique end of their id.
         uses: stores accounts world requests server.live t_campaign
         used by: public admin api door hooks warbands server.live world
       - `cf.app.server.warbands` Warbands and rosters #server-only — The warband form, units and stash, the builder (campaign warbands and players' own lists), the game sheet, and importing a Trench Companion…
-        files: app/src/lib/server/ builder.ts roster.ts sheet.ts tc-import.ts warbands.ts
+        files: app/src/lib/server/ aftermath.ts builder.ts roster.ts sheet.ts tc-import.ts warbands.ts
         uses: stores rules campaign accounts server.live t_rosters
         used by: public admin server.live
       - `cf.app.server.live` Live snapshot #server-only — The public snapshot (the only campaign view that leaves the server; Vision cards stay out), cached once per change in Redis, and the hub…
@@ -116,7 +116,7 @@ shortest unique end of their id.
         uses: flow engine components ui.live shared
         used by: public
       - `cf.app.ui.components` Components #client — Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.
-        files: app/src/lib/components/ AddModelDialog.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte KeywordChips.svelte Lockup.svelte Mark.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte Seal.svelte SealEditor.svelte SealStudio.svelte TrackerSheet.svelte UnitCard.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte
+        files: app/src/lib/components/ AddModelDialog.svelte AftermathPanel.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte KeywordChips.svelte Lockup.svelte Mark.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte Seal.svelte SealEditor.svelte SealStudio.svelte TrackerSheet.svelte UnitCard.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte
         uses: engine shared ui.live
         used by: public admin door battle
       - `cf.app.ui.live` Live client #client — Starts from the server-rendered snapshot and follows /api/stream; the snapshot's shape.
@@ -124,7 +124,7 @@ shortest unique end of their id.
         uses: engine shared api
         used by: public livemap battle components fx flow shared server.live
       - `cf.app.ui.engine` Rules engine #pure — The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.
-        files: app/src/lib/ builder-state.ts builder.ts effects.ts keywords.ts roster.ts rules-text.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
+        files: app/src/lib/ aftermath.ts builder-state.ts builder.ts effects.ts keywords.ts progression.ts roster.ts rules-text.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
         used by: shell public admin api livemap battle components flow ui.live shared fx server
       - `cf.app.ui.flow` Campaign flow #pure — The campaign's life from founding to the final reckoning, seats, where battles stand on the map, and how a finished battle reads.
         files: app/src/lib/ battle-hud.ts battle-outcome.ts campaign-flow.ts map-battles.ts seating.ts
@@ -224,3 +224,8 @@ purchase and upgrade against them.
 8. warbands → engine: warbandIssues: what the books find wrong
 9. player → public: recruit, buy, upgrade
 10. public → engine: recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit
+11. player → public: record the aftermath: Trauma, Promotion and Advancement rolls
+12. public → warbands: aftermath report (server-rolled)
+13. warbands → t_campaign: aftermath_report
+14. cm → admin: approve the aftermath
+15. admin → warbands: apply the report to the roster

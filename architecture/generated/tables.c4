@@ -28,6 +28,9 @@ model {
     table_invite = table 'invite' {
       metadata { generated 'true' }
     }
+    table_aftermath_report = table 'aftermath_report' {
+      metadata { generated 'true' }
+    }
   }
 
   extend cf.db.t_map {
@@ -77,6 +80,9 @@ model {
       metadata { generated 'true' }
     }
     table_rules_patron = table 'rules_patron' {
+      metadata { generated 'true' }
+    }
+    table_rules_table = table 'rules_table' {
       metadata { generated 'true' }
     }
     table_custom_faction = table 'custom_faction' {

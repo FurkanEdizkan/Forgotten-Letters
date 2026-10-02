@@ -71,7 +71,7 @@ model {
         technology 'warbands.ts · roster.ts · builder.ts · sheet.ts · tc-import.ts'
         description 'The warband form, units and stash, the builder (campaign warbands and players\' own lists), the game sheet, and importing a Trench Companion warband.'
         metadata {
-          code 'app/src/lib/server/{warbands,roster,builder,sheet,tc-import}{,.spec}.ts'
+          code 'app/src/lib/server/{warbands,roster,builder,sheet,tc-import,aftermath}{,.spec}.ts'
         }
       }
 

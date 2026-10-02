@@ -250,6 +250,14 @@
 				<label>Starting Glory <input name="glory" type="number" min="0" max="100000" bind:value={glory} inputmode="numeric" readonly={!data.isAdmin} /></label>
 			</div>
 
+			<label class="toggle">
+				<input type="checkbox" name="required" checked />
+				<span>
+					<strong>Recruit the required models now</strong>
+					<small>{rules?.leader || rules?.mustInclude.length ? `${[...new Set([rules.leader, ...rules.mustInclude.map((m) => (m.n > 1 ? `${m.n} × ${m.name}` : m.name))].filter(Boolean))].join(', ')}, paid from the starting money.` : 'The models this pick must include, paid from the starting money.'}</small>
+				</span>
+			</label>
+
 			{#if data.isAdmin}
 				<!-- The books' rules always apply; only the Campaign Master may lift them. -->
 				<label class="toggle">

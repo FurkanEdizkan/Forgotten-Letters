@@ -1,16 +1,18 @@
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { player, warband } from './db/schema';
+import { player, rulesUnit, unit, warband } from './db/schema';
 import { currentCampaign } from './campaign';
 import { canEditWarband, type SessionUser } from './auth';
-import { roster } from './roster';
+import { addUnit, roster } from './roster';
 import { currentVersion } from './versions';
 import { allPatrons, campaignTables, factionRulesText, itemsOf, unitsOf } from './rules-data';
 import { findPatron } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
-import type { BuilderInput, ProfileData } from '$lib/builder-state';
-import { letters, readRules, type ArmouryItem } from '$lib/warband-rules';
+import { builderState, entryOf, modelKeywords, type BuilderInput, type ProfileData } from '$lib/builder-state';
+import { KIND_OF } from '$lib/builder';
+import type { Item } from '$lib/roster';
+import { entryPrice, findItem, letters, readRules, recruitCheck, unitKit, type ArmouryItem } from '$lib/warband-rules';
 
 /**
  * A warband for the builder: a campaign warband (public to view, its player and the CM may edit) or a
@@ -146,4 +148,65 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		patron: findPatron(patrons, w.patron),
 		tables: campaign.tables
 	};
+}
+
+/**
+ * Recruit an entry into a warband, paying for it: its fixed kit free, its price as the rules set it now (the first
+ * of some entries costs otherwise), tied to its rules entry. The caller has checked the rules (`recruitCheck`).
+ */
+export async function recruitEntry(w: typeof warband.$inferSelect, profile: ProfileData, name = '') {
+	const input = await builderInput(w);
+	const { rules, state } = builderState(input);
+	const [row] = await db.select().from(rulesUnit).where(eq(rulesUnit.id, profile.id));
+	const kit = unitKit(profile.battlekitNote, profile.kit);
+	const fixed: Item[] = kit.fixed.map((n) => {
+		const a = findItem(input.armoury, n);
+		return a ? { name: a.name, kind: KIND_OF[a.category], cost: 0, currency: a.currency } : { name: n, kind: 'equipment', cost: 0, currency: 'ducats' };
+	});
+	const price = entryPrice(profile, state);
+	const keywords = modelKeywords({ id: '', type: profile.name, name: '', category: profile.category, status: 'active', profileId: profile.id, equipment: [], upgrades: [], cost: profile.cost, currency: profile.currency, skills: [] }, profile, rules, []);
+	await addUnit(
+		w.campaignId,
+		w.id,
+		{
+			name,
+			type: profile.name,
+			category: profile.category,
+			leader: keywords.includes('LEADER'),
+			cost: price.cost,
+			currency: price.currency,
+			experience: 0,
+			equipment: fixed,
+			upgrades: [],
+			skills: [],
+			injuries: [],
+			stats: row?.stats ?? {},
+			notes: null,
+			status: 'active'
+		},
+		// Recruits are always paid for here; the Campaign Master adds one free in Admin → Roster.
+		true
+	);
+	const { units } = await roster(w.id);
+	const fresh = [...units].reverse().find((u) => u.type === profile.name && !u.profileId);
+	if (fresh) await db.update(unit).set({ profileId: profile.id }).where(eq(unit.id, fresh.id));
+	return fresh ?? null;
+}
+
+/** Recruit the models the rules require (the Leader they name, then each must-include), as far as the rules allow. */
+export async function recruitRequired(w: typeof warband.$inferSelect) {
+	const input = await builderInput(w);
+	const { rules } = builderState(input);
+	// "A Praetor or a Sorcerer": a limit needing one of some entries brings the first of them.
+	const oneOf = rules.limits.filter((l) => l.entries?.length && l.min && !l.per && !l.when).map((l) => ({ name: l.entries![0], n: 1 }));
+	const want = [...(rules.leader ? [{ name: rules.leader, n: 1 }] : []), ...rules.mustInclude, ...oneOf];
+	for (const need of want)
+		for (let k = 0; k < need.n; k++) {
+			const now = builderState(await builderInput(w));
+			const have = now.state.models.filter((m) => m.status === 'active' && letters(m.type) === letters(need.name)).length;
+			if (have >= need.n) break;
+			const profile = input.profiles.find((p) => letters(p.name) === letters(need.name) && p.category !== 'mercenary');
+			if (!profile || !recruitCheck(entryOf(profile), now.state, now.rules, input.faction).ok) break;
+			await recruitEntry(w, profile);
+		}
 }

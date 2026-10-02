@@ -16,6 +16,7 @@ import { seatOf } from '$lib/server/muster';
 import { forgetUserSessions } from '$lib/server/auth';
 import { suggestedEntry } from '$lib/seating';
 import { importInto, readTcSource } from '$lib/server/tc-import';
+import { recruitRequired } from '$lib/server/builder';
 
 /** The book's starting strongbox. */
 const START_DUCATS = 700;
@@ -231,6 +232,8 @@ export const actions: Actions = {
 					unrestricted: !!locals.isAdmin && data.get('unrestricted') === 'on'
 				})
 				.returning({ id: warband.id });
+			// The models the rules require, recruited at once (unless the player would rather pick them).
+			if (data.has('required')) await recruitRequired((await db.select().from(warband).where(eq(warband.id, w.id)))[0]);
 			redirect(303, `/warbands/${w.id}`);
 		}
 
@@ -285,6 +288,7 @@ export const actions: Actions = {
 				.returning({ id: warband.id });
 			return w.id;
 		});
+		if (data.has('required')) await recruitRequired((await db.select().from(warband).where(eq(warband.id, id)))[0]);
 		// The owner's cached session lists the warbands they play: refresh it now, not in a minute.
 		if (owner.id) await forgetUserSessions(owner.id);
 		publish(c.id);

@@ -1,14 +1,14 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { rulesUnit, unit, warband, warbandStash } from '$lib/server/db/schema';
+import { unit, warband, warbandStash } from '$lib/server/db/schema';
 import { addUnit, buyItem, itemOp, removeUnit, roster, saveUnit, setBank } from '$lib/server/roster';
 import { allPatrons, allKeywords, campaignTables } from '$lib/server/rules-data';
 import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
-import { builderInput, builderWarband } from '$lib/server/builder';
-import { builderState, entryOf, modelKeywords } from '$lib/builder-state';
-import { copyCheck, entryPrice, equipCheck, stashCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, unitKit, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
+import { builderInput, builderWarband, recruitEntry } from '$lib/server/builder';
+import { builderState, entryOf } from '$lib/builder-state';
+import { copyCheck, equipCheck, stashCheck, findItem, letters, priceFor, recruitCheck, upgradeCheck, warbandIssues, type ArmouryItem, type ModelState } from '$lib/warband-rules';
 import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
@@ -175,40 +175,7 @@ export const actions: Actions = {
 		if (!profile) return fail(400, { message: 'Choose a unit from your list.' });
 		const check = recruitCheck(entryOf(profile), state, rules, input.faction);
 		if (!check.ok) return fail(400, { message: check.reason });
-		const [row] = await db.select().from(rulesUnit).where(eq(rulesUnit.id, profile.id));
-		const kit = unitKit(profile.battlekitNote, profile.kit);
-		const fixed: Item[] = kit.fixed.map((name) => {
-			const a = findItem(input.armoury, name);
-			return a ? asItem(a, 0) : { name, kind: 'equipment', cost: 0, currency: 'ducats' };
-		});
-		// The first of some entries costs otherwise ("the first Goetic Warlock costs 110 Ducats").
-		const price = entryPrice(profile, state);
-		const keywords = modelKeywords({ id: '', type: profile.name, name: '', category: profile.category, status: 'active', profileId: profile.id, equipment: [], upgrades: [], cost: profile.cost, currency: profile.currency, skills: [] }, profile, rules, []);
-		await addUnit(
-			w.campaignId,
-			w.id,
-			{
-				name: str(d, 'name', 80),
-				type: profile.name,
-				category: profile.category,
-				leader: keywords.includes('LEADER'),
-				cost: price.cost,
-				currency: price.currency,
-				experience: 0,
-				equipment: fixed,
-				upgrades: [],
-				skills: [],
-				injuries: [],
-				stats: row?.stats ?? {},
-				notes: null,
-				status: 'active'
-			},
-			// Recruits are always paid for here; the Campaign Master adds one free in Admin → Roster.
-			true
-		);
-		const { units } = await roster(w.id);
-		const fresh = [...units].reverse().find((u) => u.type === profile.name && !u.profileId);
-		if (fresh) await db.update(unit).set({ profileId: profile.id }).where(eq(unit.id, fresh.id));
+		const fresh = await recruitEntry(w, profile, str(d, 'name', 80));
 		done(w.campaignId);
 		return { recruited: fresh?.id ?? null };
 	},

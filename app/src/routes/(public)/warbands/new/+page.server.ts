@@ -277,6 +277,7 @@ export const actions: Actions = {
 					name: values.name,
 					faction: values.faction,
 					variant: values.variant,
+					patron: patronName || null,
 					entryZone: values.entryZone,
 					...start,
 					unrestricted: !!locals.isAdmin && data.get('unrestricted') === 'on'

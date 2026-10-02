@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { rulesUnit, unit, warband, warbandStash } from '$lib/server/db/schema';
 import { addUnit, buyItem, itemOp, removeUnit, roster, saveUnit, setBank } from '$lib/server/roster';
-import { allPatrons, allKeywords } from '$lib/server/rules-data';
+import { allPatrons, allKeywords, campaignTables } from '$lib/server/rules-data';
 import { artFor, artIndex } from '$lib/server/unit-art';
 import { publish } from '$lib/server/hub';
 import { builderInput, builderWarband } from '$lib/server/builder';
@@ -12,6 +12,8 @@ import { copyCheck, entryPrice, equipCheck, stashCheck, findItem, letters, price
 import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
+import { d6, reportFor, reportsOf, saveLines, unitFacts, withExperience } from '$lib/server/aftermath';
+import { advancementsOwed, rollAdvancement, rollPromotionStep, rollTrauma, type AftermathLines } from '$lib/aftermath';
 import { KIND_OF } from '$lib/builder';
 import { keywordKey } from '$lib/keywords';
 import { sealLook } from '$lib/seals';
@@ -19,13 +21,15 @@ import type { Item } from '$lib/roster';
 import { findModel } from '$lib/server/models';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-	const { w, p, c, isList, canEdit } = await builderWarband(params.id, locals.user);
-	const [input, keywords, art, patronList] = await Promise.all([
+export const load: PageServerLoad = async ({ params, locals, url }) => {
+	const share = url.searchParams.get('share');
+	const { w, p, c, isList, canEdit } = await builderWarband(params.id, locals.user, share);
+	const [input, keywords, art, patronList, campaign] = await Promise.all([
 		builderInput(w),
 		allKeywords(),
 		c ? artIndex(c.id) : Promise.resolve(new Map<string, string>()),
-		allPatrons()
+		allPatrons(),
+		campaignTables()
 	]);
 	const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
 	const { units } = await roster(w.id);
@@ -51,8 +55,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			openExploration: w.openExploration,
 			fireteams: w.fireteams,
 			isList,
-			inCampaign: !!w.campaignId
+			inCampaign: !!w.campaignId,
+			/** The read-only link, for its owner and the CM to copy or revoke. */
+			shareToken: canEdit ? w.shareToken : null
 		},
+		/** The Campaign Phase's tables and the Experience at which models advance. */
+		campaign,
+		/** The battles it fought and its aftermath report on each (its player and the CM only). */
+		aftermath: canEdit && w.campaignId
+			? (await reportsOf(w.id)).slice(0, 6).map(({ game: g, report: r }) => ({
+					gameId: g.id,
+					zone: g.zone,
+					won: g.winnerId === w.id,
+					at: g.committedAt?.toISOString() ?? null,
+					report: r ? { id: r.id, status: r.status, reply: r.reply, lines: r.lines } : null
+				}))
+			: [],
+		/** The share token this view was opened with, so its links (print, export) keep it. */
+		share: share && share === w.shareToken ? share : null,
 		input,
 		models: units.map((u) => ({
 			id: u.id,
@@ -420,9 +440,95 @@ export const actions: Actions = {
 			if (member && !teams[i].members.includes(member)) teams[i] = { ...teams[i], members: [...teams[i].members, member] };
 		}
 		if (op === 'leave' && teams[i]) teams[i] = { ...teams[i], members: teams[i].members.filter((x) => x !== str(d, 'unit')) };
-		if (op === 'disband') teams = teams.filter((_, k) => k !== i).map((t, k) => ({ ...t, name: `Fireteam ${k + 1}` }));
+		if (op === 'rename' && teams[i]) teams[i] = { ...teams[i], name: str(d, 'name', 60) || teams[i].name };
+		if (op === 'disband') teams = teams.filter((_, k) => k !== i);
 		await db.update(warband).set({ fireteams: teams }).where(eq(warband.id, w.id));
 		return done(w.campaignId);
+	},
+
+	/**
+	 * The aftermath of a battle (Campaign Phase): mark who went Out of Action and their Glorious Deeds, then the
+	 * server rolls Trauma, Promotions and Advancements, each once; submit it for the Campaign Master.
+	 */
+	aftermath: async ({ params, request, locals }) => {
+		const { w } = await editable(params.id, locals);
+		const d = await request.formData();
+		const op = str(d, 'op');
+		const r = await reportFor(str(d, 'game'), w.id);
+		if (!r) return fail(404, { aftermathMessage: 'No such battle for this warband.' });
+		if (r.status === 'approved' || (r.status === 'submitted' && op !== 'withdraw')) return fail(400, { aftermathMessage: 'This report is with the Campaign Master.' });
+		const { tables, progression } = await campaignTables();
+		const units = await unitFacts(w.id);
+		const table = (id: string) => tables.find((t) => t.id === id);
+		let lines: AftermathLines = r.lines;
+		const model = (id: string) => lines.models.find((m) => m.unitId === id);
+		if (op === 'mark') {
+			// What happened in the battle; fixed once a die has been rolled on it.
+			lines = {
+				...lines,
+				models: lines.models.map((m) => ({
+					...m,
+					outOfAction: m.trauma ? m.outOfAction : d.has(`ooa-${m.unitId}`),
+					deeds: lines.promotion.rolled ? m.deeds : Math.max(0, Math.min(9, Number(d.get(`deeds-${m.unitId}`)) || 0))
+				})),
+				income: { ducats: Math.round(Number(d.get('ducats')) || 0), glory: Math.round(Number(d.get('glory')) || 0) },
+				notes: str(d, 'notes', 2000)
+			};
+		} else if (op === 'trauma') {
+			const m = model(str(d, 'unit'));
+			const t = m && rollTrauma(m, { survival: table('survival'), trauma: table('trauma') }, d6);
+			if (!m || !t) return fail(400, { aftermathMessage: 'Nothing to roll for that model.' });
+			lines = { ...lines, models: lines.models.map((x) => (x === m ? { ...x, trauma: t } : x)) };
+		} else if (op === 'promote') {
+			if (!progression) return fail(400, { aftermathMessage: 'The campaign tables are not loaded.' });
+			if (lines.models.some((m) => m.outOfAction && !m.trauma)) return fail(400, { aftermathMessage: 'Roll Trauma for every model taken Out of Action first.' });
+			const eliteNow = units.filter((u) => u.category === 'elite').length;
+			lines = rollPromotionStep(lines, progression, eliteNow, w.promotionStreak, d6);
+		} else if (op === 'advance') {
+			const m = model(str(d, 'unit'));
+			const u = units.find((x) => x.id === m?.unitId);
+			const picked = d.getAll('tables').map(String).map(table).filter((t) => !!t);
+			if (!m || !u || !progression) return fail(400, { aftermathMessage: 'No such model.' });
+			if (!lines.promotion.rolled) return fail(400, { aftermathMessage: 'Roll Promotions first.' });
+			lines = withExperience(lines, units);
+			if (advancementsOwed(model(u.id)!, u, progression) < 1) return fail(400, { aftermathMessage: `${m.name || m.type} has no Advancement Roll due.` });
+			if (picked.length !== progression.advancement.tablesToPick || !picked.every((t) => t.id.startsWith('skills-')))
+				return fail(400, { aftermathMessage: `Pick ${progression.advancement.tablesToPick} different Skill Tables.` });
+			const patron = (await allPatrons()).find((x) => x.name === w.patron)?.skills.map((s) => s.name) ?? [];
+			const known = [...u.skills, ...model(u.id)!.advancements.map((a) => a.chosen ?? '')];
+			const adv = rollAdvancement(picked, progression.advancement.dice, known, patron, d6);
+			lines = { ...lines, models: lines.models.map((x) => (x.unitId === u.id ? { ...x, advancements: [...x.advancements, adv] } : x)) };
+		} else if (op === 'choose') {
+			const m = model(str(d, 'unit'));
+			const k = Number(d.get('index'));
+			const skill = str(d, 'skill', 120);
+			const a = m?.advancements[k];
+			if (!m || !a || a.chosen || !a.rolls.some((x) => x.skill === skill || (x.skill ?? '').split(' or ').includes(skill))) return fail(400, { aftermathMessage: 'Pick one of the rolled skills.' });
+			lines = { ...lines, models: lines.models.map((x) => (x === m ? { ...x, advancements: x.advancements.map((y, i) => (i === k ? { ...y, chosen: skill } : y)) } : x)) };
+		} else if (op === 'submit') {
+			if (!progression) return fail(400, { aftermathMessage: 'The campaign tables are not loaded.' });
+			if (lines.models.some((m) => m.outOfAction && !m.trauma)) return fail(400, { aftermathMessage: 'Roll Trauma for every model taken Out of Action.' });
+			if (!lines.promotion.rolled) return fail(400, { aftermathMessage: 'Roll Promotions.' });
+			lines = withExperience(lines, units);
+			const owed = lines.models.filter((m) => advancementsOwed(m, units.find((u) => u.id === m.unitId), progression) > 0 || m.advancements.some((a) => !a.chosen));
+			if (owed.length) return fail(400, { aftermathMessage: `Make and choose the Advancement Rolls of ${owed.map((m) => m.name || m.type).join(', ')}.` });
+			await saveLines(r.id, lines, 'submitted', null);
+			return done(w.campaignId);
+		} else if (op === 'withdraw') {
+			await saveLines(r.id, lines, 'draft');
+			return {};
+		} else return fail(400);
+		await saveLines(r.id, withExperience(lines, units), r.status === 'declined' ? 'draft' : undefined);
+		return {};
+	},
+
+	/** A read-only link to this warband: make one (a new token each time), or revoke it. */
+	share: async ({ params, request, locals }) => {
+		const { w } = await editable(params.id, locals);
+		const d = await request.formData();
+		const token = d.get('op') === 'revoke' ? null : crypto.randomUUID().replace(/-/g, '');
+		await db.update(warband).set({ shareToken: token }).where(eq(warband.id, w.id));
+		return { shared: token };
 	},
 
 	/** A list only: delete it. */

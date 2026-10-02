@@ -10,7 +10,7 @@
 	const shown = $derived(
 		data.warbands
 			.filter((w) => (!faction || w.faction === faction) && (where === 'all' || (where === 'campaign') === w.inCampaign))
-			.sort((a, b) => (sort === 'name' ? a.name.localeCompare(b.name) : sort === 'rating' ? b.ducats - a.ducats : b.createdAt - a.createdAt))
+			.sort((a, b) => (sort === 'name' ? a.name.localeCompare(b.name) : sort === 'rating' ? b.ducats - a.ducats || b.glory - a.glory : b.createdAt - a.createdAt))
 	);
 </script>
 

@@ -17,6 +17,7 @@ import { sameEntry,
 	type WarbandState
 } from './warband-rules';
 import type { Limit, PriceRule, ScopedLimit } from './warband-limits';
+import { effectsOf, type CampaignTable } from './progression';
 import type { Currency } from './roster';
 
 export interface ProfileData {
@@ -35,6 +36,8 @@ export interface ProfileData {
 	abilities: { name: string; text: string }[];
 	/** Hand-set builder facts (Faction Studio). */
 	kit?: UnitKitOverride | null;
+	/** Its Goetic Powers or other powers, as printed. */
+	powers?: string | null;
 }
 
 export interface ModelData {
@@ -49,6 +52,8 @@ export interface ModelData {
 	cost: number;
 	currency: Currency;
 	skills: string[];
+	/** Battle Scars and injuries (names on the Trauma Table, or free text). */
+	injuries?: string[];
 }
 
 /** A Patron's Skills as far as building goes: their prices and limits, for models that have the Skill. */
@@ -70,6 +75,8 @@ export interface BuilderInput {
 	openExploration: boolean;
 	fireteams: { name: string; members: string[] }[];
 	patron?: PatronRules | null;
+	/** The Campaign Phase's tables, whose rows a model's skills and injuries are (their keywords apply). */
+	tables?: CampaignTable[];
 }
 
 const same = sameEntry;
@@ -92,12 +99,13 @@ export function entryOf(p: ProfileData): EntryRef {
 }
 
 /** Keywords a model has now: its entry's, its upgrades', its Fireteam, and the variant's Leader. */
-export function modelKeywords(m: ModelData, profile: ProfileData | null, rules: VariantRules, fireteams: BuilderInput['fireteams']) {
+export function modelKeywords(m: ModelData, profile: ProfileData | null, rules: VariantRules, fireteams: BuilderInput['fireteams'], tables: CampaignTable[] = []) {
 	const kw = new Set((profile?.keywords ?? []).map((k) => k.toUpperCase()));
 	for (const u of rules.upgrades) if (m.upgrades.includes(u.name)) for (const k of [u.keyword, ...(u.keywords ?? [])]) if (k) kw.add(k);
 	if (rules.leader && same(m.type, rules.leader)) kw.add('LEADER');
 	if (fireteams.some((f) => f.members.includes(m.id))) kw.add('FIRETEAM');
 	if (m.category === 'elite') kw.add('ELITE');
+	for (const k of effectsOf([...m.skills, ...(m.injuries ?? [])], tables).keywords) kw.add(k);
 	return [...kw];
 }
 
@@ -110,7 +118,7 @@ export function builderState(d: BuilderInput) {
 			id: m.id,
 			type: p?.name ?? m.type,
 			category: m.category,
-			keywords: modelKeywords(m, p, rules, d.fireteams),
+			keywords: modelKeywords(m, p, rules, d.fireteams, d.tables),
 			status: m.status,
 			equipment: m.equipment,
 			upgrades: m.upgrades,

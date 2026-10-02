@@ -21,7 +21,7 @@ import { findPatron } from '../src/lib/patrons.ts';
 import { entryPrice, letters, priceFor, readRules, recruitCheck, warbandIssues, type ArmouryItem } from '../src/lib/warband-rules.ts';
 
 const files = process.argv.slice(2).filter((f) => !/TEMPLATE|legal-lists/.test(f));
-const known = { factions: [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), ...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration'].map((id) => ({ id, name: id }))] };
+const known = { factions: [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), ...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration', 'campaign'].map((id) => ({ id, name: id }))] };
 const packs = files.map((f) => parseTemplate(readFileSync(f, 'utf8'), known).pack).filter((p): p is FactionPack => !!p);
 const dir = files.length ? dirname(files[0]) : '.';
 type Model = { entry: string; kit?: string[]; upgrades?: string[]; skills?: string[]; n?: number };

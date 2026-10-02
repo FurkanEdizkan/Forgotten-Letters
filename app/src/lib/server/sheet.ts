@@ -1,3 +1,4 @@
+import { applyStat, effectsOf, rowNamed } from '$lib/progression';
 import { roster } from './roster';
 import { allKeywords } from './rules-data';
 import { builderInput, builderWarband } from './builder';
@@ -8,13 +9,18 @@ import { rosterTotals, type RosterUnit } from '$lib/roster';
 import type { SessionUser } from './auth';
 
 /** A warband as a game sheet: each fielded model with its profile, weapons (full profiles), kit and abilities. */
-export async function warbandSheet(id: string, user: SessionUser | null) {
-	const { w, p } = await builderWarband(id, user);
+export async function warbandSheet(id: string, user: SessionUser | null, share?: string | null) {
+	const { w, p } = await builderWarband(id, user, share);
 	const input = await builderInput(w);
 	const { rules, state } = builderState(input);
 	const [{ units, stash }, keywords] = await Promise.all([roster(w.id), allKeywords()]);
 	const active = units.filter((u) => u.status === 'active');
+	const tables = input.tables ?? [];
+	const profile0 = (id: string | null) => input.profiles.find((x) => x.id === id) ?? null;
 	const models = active.map((u) => {
+		// Skills and injuries from the Campaign Phase's tables change the profile.
+		const fx = effectsOf([...u.skills, ...u.injuries], tables);
+		const base = { ...(profile0(u.profileId)?.stats ?? {}), ...u.stats };
 		const profile = input.profiles.find((x) => x.id === u.profileId) ?? null;
 		const ms = state.models.find((m) => m.id === u.id);
 		const kit = u.equipment.map((e) => {
@@ -38,14 +44,18 @@ export async function warbandSheet(id: string, user: SessionUser | null) {
 			cost: u.cost,
 			currency: u.currency,
 			experience: u.experience,
-			stats: { ...(profile?.stats ?? {}), ...u.stats },
-			armour: armourOf({ armour: u.stats.armour ?? profile?.stats.armour }, u.equipment, input.armoury, ms?.kit.fixed ?? []),
+			stats: { ...base, movement: applyStat(base.movement, fx.stats.movement), ranged: applyStat(base.ranged, fx.stats.ranged), melee: applyStat(base.melee, fx.stats.melee) },
+			armour: applyStat(armourOf({ armour: u.stats.armour ?? profile?.stats.armour }, u.equipment, input.armoury, ms?.kit.fixed ?? []), fx.stats.armour) ?? '0',
 			keywords: modelKeywords(
-				{ id: u.id, type: u.type, name: u.name, category: u.category, status: u.status, profileId: u.profileId, equipment: u.equipment, upgrades: u.upgrades, cost: u.cost, currency: u.currency, skills: u.skills },
+				{ id: u.id, type: u.type, name: u.name, category: u.category, status: u.status, profileId: u.profileId, equipment: u.equipment, upgrades: u.upgrades, cost: u.cost, currency: u.currency, skills: u.skills, injuries: u.injuries },
 				profile,
 				rules,
-				w.fireteams
+				w.fireteams,
+				tables
 			),
+			powers: profile?.powers ?? null,
+			/** Each skill and injury with what it does (its table text), or nothing for free text. */
+			campaign: [...u.skills, ...u.injuries].map((n) => ({ name: n, text: rowNamed(tables, n.replace(/\s*\(.*\)\s*$/, ''))?.row.text ?? null })),
 			weapons: kit.filter((k) => k.category === 'ranged' || k.category === 'melee' || k.category === 'grenade'),
 			other: kit.filter((k) => !(k.category === 'ranged' || k.category === 'melee' || k.category === 'grenade')),
 			abilities: profile?.abilities ?? [],

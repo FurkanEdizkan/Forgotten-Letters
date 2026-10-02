@@ -117,6 +117,26 @@ export interface TcImport {
 
 const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 
+/** Our own JSON export (Export Warband), read back: settings, models with their kit and progress, arsenal. */
+export function fromOwnExport(raw: unknown): TcImport | null {
+	const o = raw as { app?: string; warband?: Record<string, unknown>; models?: unknown[]; arsenal?: unknown[] };
+	if (o?.app !== 'carcass-front-warband' || !o.warband) return null;
+	const w = o.warband;
+	const units = (o.models ?? []) as RosterUnit[];
+	return {
+		name: String(w.name ?? 'Imported warband').slice(0, 80),
+		ducats: Number(w.ducats) || 0,
+		glory: Number(w.glory) || 0,
+		units: units.map((u) => ({ ...u, profileId: null, status: u.status ?? 'active' })),
+		stash: (o.arsenal ?? []) as Item[],
+		faction: typeof w.faction === 'string' ? w.faction : null,
+		variant: typeof w.variant === 'string' ? w.variant : null,
+		sourceFaction: typeof w.faction === 'string' ? w.faction : null,
+		fireteams: Array.isArray(w.fireteams) ? (w.fireteams as { name: string; members: number[] }[]).map((f) => ({ name: f.name, members: f.members.filter((i) => i >= 0) })) : [],
+		patron: typeof w.patron === 'string' ? w.patron : null
+	};
+}
+
 /**
  * Trench Companion names a list's faction like `fc_cultoftheblackgrail_fv_dirgeofthegreathegemon`:
  * the faction, then (after `_fv_`) the variant, both as run-together lowercase names.

@@ -70,12 +70,14 @@ export const actions: Actions = {
 			units: units.map(({ id: _i, warbandId: _w, campaignId: _c, sort: _s, createdAt: _t, photo: _p, profileId: _pr, ...u }) => u as unknown as RosterUnit),
 			stash: stash.map((s) => ({ name: s.name, kind: s.kind, cost: s.cost, currency: s.currency })),
 			ducats: list.treasuryDucats,
-			glory: list.treasuryGlory
+			glory: list.treasuryGlory,
+			// Fireteams by position in the list, so they follow the models across.
+			fireteams: list.fireteams.map((f) => ({ name: f.name, members: f.members.map((id) => units.findIndex((u) => u.id === id)).filter((i) => i >= 0) }))
 		});
 		// Keep each model tied to its rules entry.
 		const fresh = await db.select().from(unit).where(eq(unit.warbandId, target.id));
 		for (const [i, u] of fresh.entries()) if (units[i]?.profileId) await db.update(unit).set({ profileId: units[i].profileId }).where(eq(unit.id, u.id));
-		await db.update(warband).set({ fireteams: [], unrestricted: list.unrestricted }).where(eq(warband.id, target.id));
+		await db.update(warband).set({ patron: list.patron, unrestricted: list.unrestricted }).where(eq(warband.id, target.id));
 		publish(c.id);
 		redirect(303, `/warbands/${target.id}`);
 	}

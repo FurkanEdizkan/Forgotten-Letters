@@ -5,7 +5,7 @@ import { player, warband } from './db/schema';
 import { currentCampaign } from './campaign';
 import { canEditWarband, type SessionUser } from './auth';
 import { roster } from './roster';
-import { allPatrons, factionRulesText, itemsOf, unitsOf } from './rules-data';
+import { allPatrons, campaignTables, factionRulesText, itemsOf, unitsOf } from './rules-data';
 import { findPatron } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import type { BuilderInput, ProfileData } from '$lib/builder-state';
@@ -15,13 +15,15 @@ import { letters, readRules, type ArmouryItem } from '$lib/warband-rules';
  * A warband for the builder: a campaign warband (public to view, its player and the CM may edit) or a
  * player's own list (only its owner and the CM may see or edit it).
  */
-export async function builderWarband(id: string, user: SessionUser | null) {
+export async function builderWarband(id: string, user: SessionUser | null, share?: string | null) {
 	const [w] = await db.select().from(warband).where(eq(warband.id, id));
 	if (!w) error(404, 'No such warband');
 	const c = await currentCampaign();
 	const isList = !w.campaignId;
 	if (!isList && w.campaignId !== c?.id) error(404, 'No such warband');
-	if (isList && !(user && (user.role === 'cm' || user.id === w.listOwnerId))) error(404, 'No such warband');
+	// A private list: its owner and the CM, or anyone with its share link (read-only).
+	const shared = !!share && !!w.shareToken && share === w.shareToken;
+	if (isList && !shared && !(user && (user.role === 'cm' || user.id === w.listOwnerId))) error(404, 'No such warband');
 	const p = w.playerId ? ((await db.select().from(player).where(eq(player.id, w.playerId)))[0] ?? null) : null;
 	const canEdit = isList ? !!user && (user.role === 'cm' || user.id === w.listOwnerId) : canEditWarband(user, w.id);
 	return { w, p, c: c ?? null, isList, canEdit };
@@ -30,7 +32,7 @@ export async function builderWarband(id: string, user: SessionUser | null) {
 /** Everything the rules engine needs about a warband, from the imported rules data. */
 export async function builderInput(w: typeof warband.$inferSelect): Promise<BuilderInput & { profiles: ProfileData[] }> {
 	const faction = FACTIONS.find((f) => f.id === w.faction);
-	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }, patrons] = await Promise.all([
+	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }, patrons, campaign] = await Promise.all([
 		unitsOf(w.faction),
 		unitsOf('mercenaries'),
 		itemsOf(w.faction),
@@ -39,7 +41,8 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		itemsOf('exploration'),
 		factionRulesText(w.faction, w.variant),
 		roster(w.id),
-		allPatrons()
+		allPatrons(),
+		campaignTables()
 	]);
 	// The faction's own entries and this variant's, never another variant's; a variant's entry replaces the base
 	// entry of the same name (it costs more there, or gains a keyword).
@@ -67,7 +70,8 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		battlekitNote: u.battlekitNote,
 		description: u.description,
 		abilities: u.abilities,
-		kit: u.kit
+		kit: u.kit,
+		powers: u.powers
 	}));
 	const mercKit = mercItems
 		.filter((i) => carriers(i.name).length && !items.some((x) => letters(x.name) === letters(i.name)))
@@ -117,7 +121,8 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 			upgrades: u.upgrades,
 			cost: u.cost,
 			currency: u.currency,
-			skills: u.skills
+			skills: u.skills,
+			injuries: u.injuries
 		})),
 		stash: stash.map((s) => ({ name: s.name, cost: s.cost, currency: s.currency })),
 		ducats: w.treasuryDucats,
@@ -125,6 +130,7 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		unrestricted: w.unrestricted,
 		openExploration: w.openExploration,
 		fireteams: w.fireteams,
-		patron: findPatron(patrons, w.patron)
+		patron: findPatron(patrons, w.patron),
+		tables: campaign.tables
 	};
 }

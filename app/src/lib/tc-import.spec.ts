@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { factionByName, fromTcText, matchToBook, readTcExport, type Book } from './tc-import';
-import { fromTrenchCompanion } from './roster';
+import { factionByName, fromTcText, matchToBook, readTcExport, toTcText, type Book } from './tc-import';
+import { fromOwnExport, fromTrenchCompanion } from './roster';
 import type { ArmouryItem } from './warband-rules';
 import type { ProfileData } from './builder-state';
 
@@ -192,5 +192,56 @@ describe('the JSON', () => {
 		expect(matchToBook(imp, book).imported.units[0].upgrades).toEqual(['Guard']);
 		expect(imp.units.map((u) => u.status)).toEqual(['active', 'retired', 'dead']);
 		expect(imp.fireteams).toEqual([{ name: 'Fireteam 1', members: [1, 0] }]);
+	});
+});
+
+describe('our text export', () => {
+	it('reads back as the same warband', () => {
+		const item = (name: string, cost: number, currency: 'ducats' | 'glory' = 'ducats') => ({ name, kind: 'equipment' as const, cost, currency });
+		const text = toTcText({
+			name: 'The Grey Company',
+			faction: 'Papal States Intervention Force',
+			patron: 'A Patron',
+			ducats: 12,
+			glory: 2,
+			units: [
+				{ id: 'a', name: 'Anselm', type: 'Officer', category: 'elite', cost: 60, currency: 'ducats', experience: 3, status: 'active', equipment: [item('Long Rifle', 10), item('Relic', 3, 'glory')], upgrades: ['Guard'], skills: ['Fleet'], injuries: ['Lame'] },
+				{ id: 'b', name: '', type: 'Grunt', category: 'troop', cost: 35, currency: 'ducats', experience: 0, status: 'active', equipment: [item('Knife', 2)], upgrades: [], skills: [], injuries: [] },
+				{ id: 'c', name: '', type: 'Sellsword', category: 'mercenary', cost: 6, currency: 'glory', experience: 0, status: 'active', equipment: [], upgrades: [], skills: [], injuries: [] }
+			],
+			stash: [item('Medi-kit', 5)],
+			fireteams: [{ name: 'Pair', members: ['b', 'a'] }]
+		});
+		const back = fromTcText(text);
+		expect(back.name).toBe('The Grey Company');
+		expect(factionByName(back.sourceFaction).variant).toBe('Papal States Intervention Force');
+		expect(back.patron).toBe('A Patron');
+		expect(back.units.map((u) => [u.name, u.type, u.category])).toEqual([
+			['Anselm', 'Officer', 'elite'],
+			['Grunt', 'Grunt', 'troop'],
+			['Sellsword', 'Sellsword', 'mercenary']
+		]);
+		expect(back.units[0]).toMatchObject({ experience: 3, skills: ['Fleet'], injuries: ['Lame'], upgrades: ['Guard'], tcTotal: { ducats: 70, glory: 3 } });
+		expect(back.units[0].equipment.map((e) => e.name)).toEqual(['Long Rifle', 'Relic']);
+		expect(back.ducats).toBe(12);
+		expect(back.glory).toBe(2);
+		expect(back.stash.map((s) => s.name)).toEqual(['Medi-kit']);
+		expect(back.fireteams?.[0]).toMatchObject({ name: "Pair", members: [1, 0] });
+	});
+});
+
+describe('our JSON export', () => {
+	it('reads back with its patron, progress and fireteams', () => {
+		const raw = {
+			app: 'carcass-front-warband',
+			version: 1,
+			warband: { name: 'W', faction: 'new-antioch', variant: null, patron: 'A Patron', ducats: 5, glory: 1, fireteams: [{ name: 'T', members: [0, -1] }] },
+			models: [{ name: 'A', type: 'Officer', category: 'elite', leader: false, cost: 60, currency: 'ducats', experience: 4, equipment: [], upgrades: [], skills: ['Fleet'], injuries: [], stats: {}, status: 'active' }],
+			arsenal: [{ name: 'Knife', kind: 'melee', cost: 2, currency: 'ducats' }]
+		};
+		const imp = readTcExport(JSON.stringify(raw), (r) => fromOwnExport(r) ?? fromTrenchCompanion(r));
+		expect(imp).toMatchObject({ name: 'W', faction: 'new-antioch', patron: 'A Patron', ducats: 5, glory: 1, fireteams: [{ name: 'T', members: [0] }] });
+		expect(imp.units[0]).toMatchObject({ experience: 4, skills: ['Fleet'] });
+		expect(fromOwnExport({ app: 'something-else' })).toBeNull();
 	});
 });

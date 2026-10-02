@@ -7,10 +7,12 @@
 	import Portrait from '$lib/components/Portrait.svelte';
 	import EquipmentDialog from '$lib/components/EquipmentDialog.svelte';
 	import AddModelDialog, { type EntryRow } from '$lib/components/AddModelDialog.svelte';
+	import AftermathPanel from '$lib/components/AftermathPanel.svelte';
 	import { ARMOURY_ORDER, armouryCategory } from '$lib/builder';
 	import { armourOf, builderState, entryOf, modelKeywords } from '$lib/builder-state';
 	import { entryPrice, equipCheck, letters, priceFor, recruitCheck, upgradeCheck, type ArmouryCategory, type ArmouryItem } from '$lib/warband-rules';
 	import { rosterTotals } from '$lib/roster';
+	import { applyStat, advancementsDue, effectsOf, nextAdvancement, rowNamed } from '$lib/progression';
 
 	let { data, form } = $props();
 
@@ -43,7 +45,7 @@
 	const profile = $derived(selected ? profileOf(selected.profileId) : null);
 	const selState = $derived(selected ? st.state.models.find((m) => m.id === selected.id) ?? null : null);
 	const keywords = $derived(
-		selected ? modelKeywords({ ...selected, type: selected.type }, profile, st.rules, data.warband.fireteams) : []
+		selected ? modelKeywords({ ...selected, type: selected.type }, profile, st.rules, data.warband.fireteams, data.campaign.tables) : []
 	);
 	const kitByCategory = $derived(
 		selected
@@ -54,7 +56,18 @@
 				}))
 			: []
 	);
-	const armourValue = $derived(selected ? armourOf({ armour: selected.stats.armour ?? profile?.stats?.armour }, selected.equipment, data.input.armoury, selState?.kit.fixed ?? []) : '—');
+	// What its skills and injuries do (the Campaign Phase's tables), and its profile with them.
+	const effects = $derived(selected ? effectsOf([...selected.skills, ...selected.injuries], data.campaign.tables) : null);
+	const stat = (k: 'movement' | 'melee' | 'ranged') => applyStat(selected?.stats[k] ?? profile?.stats?.[k], effects?.stats[k] ?? 0) ?? '—';
+	const armourValue = $derived(
+		selected
+			? (applyStat(armourOf({ armour: selected.stats.armour ?? profile?.stats?.armour }, selected.equipment, data.input.armoury, selState?.kit.fixed ?? []), effects?.stats.armour ?? 0) ?? '—')
+			: '—'
+	);
+	const progression = $derived(data.campaign.progression);
+	const advancing = $derived(selected && progression && selected.category !== 'troop' ? advancementsDue(progression, selected.experience, selected.skills.length) : 0);
+	const rowText = (name: string) => rowNamed(data.campaign.tables, name.replace(/\s*\(.*\)\s*$/, ''))?.row.text ?? null;
+	const itemOf = (name: string) => data.input.armoury.find((a) => letters(a.name) === letters(name)) ?? null;
 	const modelCost = (m: (typeof data.models)[number]) => {
 		const d = (m.currency === 'ducats' ? m.cost : 0) + m.equipment.reduce((s, e) => s + (e.currency === 'ducats' ? e.cost : 0), 0);
 		const g = (m.currency === 'glory' ? m.cost : 0) + m.equipment.reduce((s, e) => s + (e.currency === 'glory' ? e.cost : 0), 0);
@@ -84,6 +97,7 @@
 					active: active.filter((m) => m.profileId === p.id || letters(m.type) === letters(p.name)).length,
 					max: cap,
 					picture: data.profileArt[p.id] ?? null,
+					profile: { stats: p.stats, keywords: p.keywords, abilities: p.abilities, note: p.battlekitNote, powers: p.powers },
 					check: recruitCheck(e, st.state, st.rules, data.input.faction)
 				};
 			});
@@ -114,6 +128,21 @@
 		await invalidateAll();
 	}
 	let renaming = $state(false);
+	// A share-link view keeps its token on every link it offers.
+	const q = $derived(data.share ? `?share=${data.share}` : '');
+	let copied = $state(false);
+	let shareCopied = $state(false);
+	async function copyText() {
+		const res = await fetch(`/warbands/${data.warband.id}/export${q ? `${q}&` : '?'}format=text&view`);
+		await navigator.clipboard.writeText(await res.text());
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
+	async function copyShare() {
+		await navigator.clipboard.writeText(`${location.origin}/warbands/${data.warband.id}?share=${data.warband.shareToken}`);
+		shareCopied = true;
+		setTimeout(() => (shareCopied = false), 2000);
+	}
 	let showIssues = $state(false);
 </script>
 
@@ -141,9 +170,19 @@
 			<details class="menu top">
 				<summary aria-label="Warband menu">⋮</summary>
 				<div class="menu-body">
-					<a href="/warbands/{data.warband.id}/play">Enter Play Mode</a>
-					<a href="/warbands/{data.warband.id}/print" target="_blank" rel="noopener">Print Warband</a>
-					<a href="/warbands/{data.warband.id}/export">Export Warband</a>
+					<a href="/warbands/{data.warband.id}/play{q}">Enter Play Mode</a>
+					<a href="/warbands/{data.warband.id}/print{q}" target="_blank" rel="noopener">Print Warband</a>
+					<a href="/warbands/{data.warband.id}/export{q}">Export Warband (JSON)</a>
+					<a href="/warbands/{data.warband.id}/export{q ? `${q}&` : '?'}format=text">Export as Text</a>
+					<button type="button" onclick={copyText}>{copied ? 'Copied' : 'Copy as Text (Trench Companion layout)'}</button>
+					{#if data.canEdit}
+						{#if data.warband.shareToken}
+							<button type="button" onclick={copyShare}>{shareCopied ? 'Link copied' : 'Copy Share Link'}</button>
+							<form method="POST" action="?/share" use:enhance={keep}><button name="op" value="revoke">Stop Sharing</button></form>
+						{:else}
+							<form method="POST" action="?/share" use:enhance={keep}><button name="op" value="make">Make a Share Link (read-only)</button></form>
+						{/if}
+					{/if}
 					{#if data.canEdit}
 						<button type="button" onclick={(e) => ((renaming = true), closeMenus(e))}>Rename Warband</button>
 						<form method="POST" action="?/duplicate"><button>Duplicate as a new list</button></form>
@@ -284,8 +323,29 @@
 					</h2>
 					{#each data.warband.fireteams as t, i (i)}
 						<div class="panel fireteam">
-							<strong>{t.name}</strong>
-							<span>{t.members.map((id) => data.models.find((m) => m.id === id)?.type ?? '?').join(' + ') || 'No models yet'}</span>
+							{#if data.canEdit}
+								<form method="POST" action="?/fireteam" use:enhance={keep} class="inline">
+									<input type="hidden" name="team" value={i} />
+									<input type="hidden" name="op" value="rename" />
+									<input name="name" value={t.name} maxlength="60" aria-label="Fireteam name" onchange={(e) => e.currentTarget.form?.requestSubmit()} />
+								</form>
+							{:else}
+								<strong>{t.name}</strong>
+							{/if}
+							<span class="members">
+								{#each t.members as id (id)}
+									<span class="member">
+										{data.models.find((m) => m.id === id)?.name || data.models.find((m) => m.id === id)?.type || '?'}
+										{#if data.canEdit}
+											<form method="POST" action="?/fireteam" use:enhance={keep} class="inline">
+												<input type="hidden" name="team" value={i} />
+												<input type="hidden" name="unit" value={id} />
+												<button class="mini" name="op" value="leave" aria-label="Take out of {t.name}">×</button>
+											</form>
+										{/if}
+									</span>
+								{:else}No models yet{/each}
+							</span>
 							{#if data.canEdit}
 								<form method="POST" action="?/fireteam" use:enhance={keep} class="inline">
 									<input type="hidden" name="team" value={i} />
@@ -301,6 +361,15 @@
 						</div>
 					{/each}
 				</section>
+			{/if}
+
+			{#if data.canEdit && data.warband.inCampaign}
+				<AftermathPanel
+					battles={data.aftermath}
+					skillTables={data.campaign.tables.filter((t) => t.id.startsWith('skills-')).map((t) => ({ id: t.id, name: t.name }))}
+					tablesToPick={data.campaign.progression?.advancement.tablesToPick ?? 2}
+					message={form && 'aftermathMessage' in form ? (form.aftermathMessage as string) : null}
+				/>
 			{/if}
 
 			{#if st.rules.paragraphs.length}
@@ -449,9 +518,9 @@
 					</div>
 				</div>
 				<div class="stats">
-					<div><span>Movement</span><strong>{selected.stats.movement ?? '—'}</strong></div>
-					<div><span>Melee</span><strong>{selected.stats.melee ?? '—'}</strong></div>
-					<div><span>Ranged</span><strong>{selected.stats.ranged ?? '—'}</strong></div>
+					<div><span>Movement</span><strong>{stat('movement')}</strong></div>
+					<div><span>Melee</span><strong>{stat('melee')}</strong></div>
+					<div><span>Ranged</span><strong>{stat('ranged')}</strong></div>
 					<div><span>Armour</span><strong>{armourValue}</strong></div>
 				</div>
 				{#if keywords.length}
@@ -488,8 +557,15 @@
 							{#if data.canEdit}<button type="button" class="plus" aria-label="Add {g.label}" onclick={() => ((equipCat = g.cat), (equipOpen = true))}>+</button>{/if}
 						</h4>
 						{#each g.items as it (it.index)}
+							{@const a = itemOf(it.name)}
 							<div class="kititem">
-								<span>{it.name}</span>
+								<details class="profile">
+									<summary>{it.name}</summary>
+									{#if a}
+										<p class="dim">{[a.type, a.range, ...a.keywords].filter(Boolean).join(' · ')}</p>
+										{#if a.text}<p>{a.text}</p>{/if}
+									{/if}
+								</details>
 								<span class="cost">{it.cost ? money(it.cost, it.currency) : (selState?.kit.fixed ?? []).some((f) => letters(f) === letters(it.name)) ? 'fixed' : 'free'}</span>
 								{#if data.canEdit}
 									<details class="menu">
@@ -524,13 +600,23 @@
 				{#if form?.message}<p class="error" role="alert">{form.message}</p>{/if}
 
 				<h3>Campaign</h3>
+				{#if progression && selected.category !== 'troop'}
+					<p class="xp">
+						<b>Experience:</b> {selected.experience}{nextAdvancement(progression, selected.experience) != null ? ` · next Advancement at ${nextAdvancement(progression, selected.experience)}` : ''}
+						{#if advancing > 0}<span class="tag due">{advancing} Advancement{advancing > 1 ? 's' : ''} due</span>{/if}
+						{#if effects?.noExperience}<span class="tag">Gains no more Experience</span>{/if}
+					</p>
+				{/if}
+				{#each [...selected.injuries.map((n) => ['Injury', n] as const), ...selected.skills.map((n) => ['Skill', n] as const)] as [kind, n] (kind + n)}
+					<p class="ability" class:unmatched={!rowText(n)}><b>{n}</b> <small class="dim">{kind}</small>{#if rowText(n)}: {rowText(n)}{/if}</p>
+				{/each}
 				{#if data.canEdit}
 					<form method="POST" action="?/unit" class="campaign" use:enhance={keep}>
 						<input type="hidden" name="unit" value={selected.id} />
 						<label>Name <input name="name" value={selected.name} maxlength="80" /></label>
-						<label>Experience <input name="experience" type="number" min="0" value={selected.experience} /></label>
-						<label class="wide">Battle Scars and Injuries <small>(one per line)</small><textarea name="injuries" rows="2">{selected.injuries.join('\n')}</textarea></label>
-						<label class="wide">Advancements <small>(one per line)</small><textarea name="skills" rows="2">{selected.skills.join('\n')}</textarea></label>
+						<label>Experience <input name="experience" type="number" min="0" value={selected.experience} disabled={effects?.noExperience} /></label>
+						<label class="wide">Battle Scars and Injuries <small>(one per line; names from the Trauma Table)</small><textarea name="injuries" rows="2">{selected.injuries.join('\n')}</textarea></label>
+						<label class="wide">Skills <small>(one per line; names from the Skill Tables)</small><textarea name="skills" rows="2">{selected.skills.join('\n')}</textarea></label>
 						<label>Fighter Status
 							<select name="status" value={selected.status}>
 								<option value="active">Active</option>
@@ -556,6 +642,10 @@
 					<p><b>Fighter Rank:</b> {selected.category === 'elite' ? 'Elite' : selected.category === 'mercenary' ? 'Mercenary' : 'Troop'}</p>
 				{/if}
 
+				{#if profile?.powers}
+					<h3>Powers</h3>
+					<p>{profile.powers}</p>
+				{/if}
 				{#if profile?.abilities.length}
 					<h3>Abilities</h3>
 					{#each profile.abilities as a (a.name)}<p class="ability"><b>{a.name}:</b> {a.text}</p>{/each}
@@ -904,8 +994,22 @@
 		padding: 8px 12px;
 		border-top: 0;
 	}
-	.fireteam .inline {
+	.fireteam > .inline:last-child {
 		margin-left: auto;
+	}
+	.fireteam input[name='name'] {
+		width: 12rem;
+		font-weight: 700;
+	}
+	.members {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.member {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
 	}
 	.inline {
 		display: inline-flex;
@@ -1114,6 +1218,19 @@
 		gap: 10px;
 		align-items: center;
 		margin-top: 8px;
+	}
+	.unmatched b {
+		opacity: 0.7;
+	}
+	.tag.due {
+		color: var(--gold, #c9a24a);
+	}
+	.profile summary {
+		cursor: pointer;
+	}
+	.profile p {
+		margin: 4px 0 0;
+		font-size: 0.85rem;
 	}
 	.ability {
 		font-size: 0.9rem;

@@ -48,6 +48,55 @@ export function factionByName(name: string | null | undefined) {
 	return { faction: null, variant: null };
 }
 
+/** A warband as `toTcText` writes it. */
+export interface TextWarband {
+	name: string;
+	/** The variant's name, else the faction's (what Trench Companion prints as the Faction). */
+	faction: string;
+	patron: string | null;
+	ducats: number;
+	glory: number;
+	units: { id: string; name: string; type: string; category: Category; cost: number; currency: 'ducats' | 'glory'; experience: number; status: string; equipment: Item[]; upgrades: string[]; skills: string[]; injuries: string[] }[];
+	stash: Item[];
+	fireteams: { name: string; members: string[] }[];
+}
+
+/** A warband in Trench Companion's "Full" text layout, which `fromTcText` (and Trench Companion's readers) take back. */
+export function toTcText(w: TextWarband): string {
+	const priced = (d: number, g: number) => `${d} Ducats | ${g} Glory`;
+	const totalOf = (u: TextWarband['units'][number]) => {
+		const t = { ducats: u.currency === 'ducats' ? u.cost : 0, glory: u.currency === 'glory' ? u.cost : 0 };
+		for (const e of u.equipment) t[e.currency] += e.cost;
+		return t;
+	};
+	const active = w.units.filter((u) => u.status !== 'dead');
+	const rating = active.filter((u) => u.status === 'active').reduce((r, u) => ((r.ducats += totalOf(u).ducats), (r.glory += totalOf(u).glory), r), { ducats: 0, glory: 0 });
+	const out = [`## ${w.name} ##`, '', `Faction: ${w.faction}`, `Rating: ${priced(rating.ducats, rating.glory)}`, ...(w.patron ? [`Patron: ${w.patron}`] : [])];
+	for (const [cat, title] of [['elite', 'Elites'], ['troop', 'Troops'], ['mercenary', 'Mercenaries']] as const) {
+		const us = active.filter((u) => u.category === cat);
+		if (!us.length) continue;
+		out.push('', `## ${title} ##`);
+		for (const u of us) {
+			const t = totalOf(u);
+			out.push('', `**${u.name && u.name !== u.type ? `${u.name} (${u.type})` : u.type}**`, `• Cost: ${priced(t.ducats, t.glory)}`);
+			if (u.upgrades.length) out.push(`• Upgrades & Choices: ${u.upgrades.join(', ')}`);
+			out.push(`• Battlekit: ${u.equipment.map((e) => e.name).join(', ')}`);
+			if (u.experience) out.push(`• Experience: ${u.experience}`);
+			if (u.skills.length) out.push(`• Skills: ${u.skills.join(', ')}`);
+			if (u.injuries.length) out.push(`• Injuries: ${u.injuries.join(', ')}`);
+			if (u.status !== 'active') out.push(`• Status: ${u.status === 'retired' ? 'Retired' : 'Dead'}`);
+		}
+	}
+	out.push('', '## Stash ##', '', `Stashed Ducats: ${w.ducats}`, `Unspent Glory: ${w.glory}`);
+	if (w.stash.length) out.push(`Battlekit: ${w.stash.map((s) => s.name).join(', ')}`);
+	const teams = w.fireteams.filter((f) => f.members.length);
+	if (teams.length) {
+		out.push('', '## Fireteams ##');
+		for (const f of teams) out.push('', f.name, ...f.members.map((id) => `• ${w.units.find((u) => u.id === id)?.type ?? '?'}`));
+	}
+	return out.join('\n') + '\n';
+}
+
 /** Read Trench Companion's text export (Full, Compact or TTS Text, with any options). */
 export function fromTcText(text: string): TcImport {
 	const lines = text.split(/\r?\n/);

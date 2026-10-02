@@ -11,6 +11,8 @@
 		max: number | null;
 		picture: string | null;
 		check: Check;
+		/** The entry's profile, shown when it is picked. */
+		profile?: { stats: Record<string, string | undefined>; keywords: string[]; abilities: { name: string; text: string }[]; note: string | null; powers?: string | null };
 	}
 
 	/** Trench Companion's "Add Elite / Troop / Mercenary": the entries this warband may recruit, with why not. */
@@ -72,6 +74,20 @@
 					</span>
 					<span class="cost">{r.cost} {r.currency === 'glory' ? 'G' : 'D'}</span>
 				</label>
+				{#if chosen === r.id && r.profile}
+					{@const p = r.profile}
+					<div class="profile">
+						<p class="stats">
+							{#each [['movement', 'M'], ['ranged', 'Ranged'], ['melee', 'Melee'], ['armour', 'Armour'], ['base', 'Base']] as [k, l] (k)}
+								{#if p.stats[k]}<span><small>{l}</small> {p.stats[k]}</span>{/if}
+							{/each}
+						</p>
+						{#if p.keywords.length}<p class="kw">{p.keywords.join(' · ')}</p>{/if}
+						{#if p.note}<p class="dim">{p.note}</p>{/if}
+						{#if p.powers}<p class="dim">{p.powers}</p>{/if}
+						{#each p.abilities as a (a.name)}<p><b>{a.name}:</b> {a.text}</p>{/each}
+					</div>
+				{/if}
 			{:else}
 				<p class="empty">No entries are loaded for this list yet (Admin → Rules).</p>
 			{/each}
@@ -130,6 +146,29 @@
 		border: 0;
 		margin: 0;
 		padding: 0;
+	}
+	.profile {
+		padding: 6px 14px 10px 62px;
+		font-size: 0.85rem;
+		background: rgba(0, 0, 0, 0.18);
+	}
+	.profile p {
+		margin: 4px 0;
+	}
+	.profile .stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.profile small {
+		opacity: 0.7;
+	}
+	.profile .kw {
+		font-size: 0.78rem;
+		letter-spacing: 0.04em;
+	}
+	.profile .dim {
+		opacity: 0.75;
 	}
 	.sr {
 		position: absolute;

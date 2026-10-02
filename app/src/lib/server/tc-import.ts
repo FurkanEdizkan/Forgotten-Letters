@@ -9,7 +9,7 @@ import { builderInput } from './builder';
 import { replaceRoster } from './roster';
 import { publish } from './hub';
 import { builderState } from '$lib/builder-state';
-import { fromTrenchCompanion, importMismatch, trenchCompanionId, type TcImport } from '$lib/roster';
+import { fromOwnExport, fromTrenchCompanion, importMismatch, trenchCompanionId, type TcImport } from '$lib/roster';
 import { matchToBook, readTcExport, type MatchReport } from '$lib/tc-import';
 import { readRules, warbandIssues } from '$lib/warband-rules';
 
@@ -34,7 +34,8 @@ export async function readTcSource(source: { link?: string | null; text?: string
 	}
 	if (source.link?.trim()) throw new Error('That is not a Trench Companion warband link or number.');
 	if (!source.text?.trim()) throw new Error('Paste a Trench Companion link, or its exported warband (text or JSON).');
-	return readTcExport(source.text, fromTrenchCompanion);
+	// Our own export comes back with everything; anything else is Trench Companion's.
+	return readTcExport(source.text, (raw) => fromOwnExport(raw) ?? fromTrenchCompanion(raw));
 }
 
 /**

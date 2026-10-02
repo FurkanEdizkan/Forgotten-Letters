@@ -27,14 +27,22 @@
 				<table class="kit">
 					<thead><tr><th>Weapon</th><th>Type</th><th>Range</th><th>Keywords</th><th>Cost</th></tr></thead>
 					<tbody>
-						{#each m.weapons as w, i (i)}<tr><td>{w.name}</td><td>{w.type ?? ''}</td><td>{w.range ?? ''}</td><td>{w.keywords.join(', ')}</td><td>{w.cost ? money(w.cost, w.currency) : 'fixed'}</td></tr>{/each}
+						{#each m.weapons as w, i (i)}
+							<tr><td>{w.name}</td><td>{w.type ?? ''}</td><td>{w.range ?? ''}</td><td>{w.keywords.join(', ')}</td><td>{w.cost ? money(w.cost, w.currency) : 'fixed'}</td></tr>
+							{#if w.text}<tr class="rules"><td colspan="5">{w.text}</td></tr>{/if}
+						{/each}
 					</tbody>
 				</table>
 			{/if}
-			{#if m.other.length}<p><b>Kit:</b> {m.other.map((o) => `${o.name}${o.cost ? ` (${money(o.cost, o.currency)})` : ''}`).join(', ')}</p>{/if}
+			{#if m.other.length}
+				<p><b>Kit:</b> {m.other.map((o) => `${o.name}${o.cost ? ` (${money(o.cost, o.currency)})` : ''}`).join(', ')}</p>
+				{#each m.other.filter((o) => o.text) as o (o.name)}<p class="abilities"><b>{o.name}:</b> {o.text}</p>{/each}
+			{/if}
+			{#if m.powers}<p class="abilities"><b>Powers:</b> {m.powers}</p>{/if}
 			{#if m.abilities.length}<p class="abilities">{#each m.abilities as a (a.name)}<span><b>{a.name}:</b> {a.text} </span>{/each}</p>{/if}
-			{#if m.upgrades.length || m.skills.length || m.injuries.length}
-				<p><b>Campaign:</b> XP {m.experience}{m.upgrades.length ? ` · ${m.upgrades.join(', ')}` : ''}{m.skills.length ? ` · ${m.skills.join(', ')}` : ''}{m.injuries.length ? ` · ${m.injuries.join(', ')}` : ''}</p>
+			{#if m.upgrades.length || m.skills.length || m.injuries.length || m.experience}
+				<p><b>Campaign:</b> XP {m.experience}{m.upgrades.length ? ` · ${m.upgrades.join(', ')}` : ''}</p>
+				{#each m.campaign as c (c.name)}<p class="abilities"><b>{c.name}</b>{c.text ? `: ${c.text}` : ''}</p>{/each}
 			{/if}
 		</section>
 	{/each}

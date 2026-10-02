@@ -19,6 +19,31 @@
 	{#each data.sides as side (side.id)}
 		<section>
 			<h2>{side.player} <small>{side.name}{data.game.winner === side.id ? ' · victorious' : ''}</small></h2>
+			{#if side.report}
+				{@const l = side.report.lines}
+				<div class="report">
+					<h3>The player's report · {side.report.status}</h3>
+					{#each l.models.filter((m) => m.trauma || m.promotion?.promoted || m.xp || m.advancements.length) as m (m.unitId)}
+						<p>
+							<b>{m.name || m.type}</b>
+							{#if m.trauma}· {m.trauma.result} ({m.trauma.dice.join('·')}){/if}
+							{#if m.promotion?.promoted}· promoted ({m.promotion.dice.join('·')}){/if}
+							{#if m.xp}· +{m.xp} XP{/if}
+							{#each m.advancements as a, k (k)}· learns {a.chosen ?? '?'} ({a.rolls.map((x) => `${x.table} ${x.total}`).join(', ')}){/each}
+						</p>
+					{/each}
+					<p>Promotion dice: {l.promotion.pool} · Income: {l.income.ducats} D, {l.income.glory} G</p>
+					{#if l.notes}<p class="muted">{l.notes}</p>{/if}
+					{#if side.report.status === 'submitted'}
+						<form method="POST" action="?/report" use:enhance>
+							<input type="hidden" name="warband" value={side.id} />
+							<button name="op" value="approve">Approve onto the roster</button>
+							<input name="reply" placeholder="Why it goes back" />
+							<button name="op" value="decline">Send back</button>
+						</form>
+					{/if}
+				</div>
+			{/if}
 			{#each side.units as u (u.id)}
 				<UnitCard unit={u as RosterUnit} photo={u.photo} compact>
 					{#snippet actions()}

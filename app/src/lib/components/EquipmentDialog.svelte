@@ -100,9 +100,9 @@
 								};
 							}}
 						>
-							<input type="hidden" name="unit" value={unitId} />
 							<input type="hidden" name="item" value={i.id} />
-							<button class="add" disabled={!c.ok || busy}>+ Add Equipment</button>
+							<button class="add" name="unit" value={unitId} disabled={!c.ok || busy}>+ Add Equipment</button>
+							<button class="add stash" name="unit" value="stash" disabled={busy} title="Buy it into the arsenal, to give to a fighter later">Into the Arsenal</button>
 						</form>
 						{#if failed}<p class="why" role="alert">{failed}</p>{/if}
 					</div>
@@ -241,6 +241,11 @@
 		font: inherit;
 		font-weight: 600;
 		cursor: pointer;
+	}
+	.add.stash {
+		margin-top: 6px;
+		background: transparent;
+		border: 1px solid #b3261e;
 	}
 	.add:disabled {
 		opacity: 0.45;

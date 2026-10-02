@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advancementsOwed, applyReport, experienceOf, newReport, rollAdvancement, rollPromotionStep, rollTrauma, type UnitFacts } from './aftermath';
-import type { CampaignTable, Progression } from './progression';
+import { effectsOf, type CampaignTable, type Progression } from './progression';
 
 // Made-up tables in the books' shapes.
 const survival: CampaignTable = { id: 'survival', name: 'Survival', dice: 'D6', source: null, text: '', rows: [{ roll: '1-2', name: 'Dead', text: '', effects: { dead: true } }, { roll: '3-6', name: 'Survived', text: '' }] };
@@ -73,5 +73,57 @@ describe('the aftermath', () => {
 		const out = applyReport({ ...r, models: [a, b] }, units);
 		expect(out[0]).toMatchObject({ category: 'elite', experience: 1 });
 		expect(out[1]).toMatchObject({ status: 'dead' });
+	});
+});
+
+describe('scars, lost kit and skills that change the Campaign Phase', () => {
+	const scars: CampaignTable = {
+		id: 'trauma',
+		name: 'Trauma',
+		dice: 'D66',
+		source: null,
+		text: '',
+		rows: [
+			{ roll: '11-26', name: 'Wound', text: '', effects: { scar: true } },
+			{ roll: '31-36', name: 'Robbed', text: '', effects: { lose_kit: true } },
+			{ roll: '41-66', name: 'Full Recovery', text: '' }
+		]
+	};
+	const luck: CampaignTable = { id: 'skills-x', name: 'X', dice: 'D6', source: null, text: '', rows: [{ roll: '1-6', name: 'War-Luck', text: '', effects: { extra_scars: 1 } }] };
+	const vet = unit('vet', { category: 'elite', injuries: ['Wound', 'Wound'] });
+	const hit = (result: string) => ({ ...newReport([vet]).models[0], outOfAction: true, trauma: { dice: [1, 1], total: 11, result, text: '' } });
+
+	it('a third Battle Scar leaves the model Unfit for Duty; War-Luck allows one more', () => {
+		expect(applyReport({ ...newReport([vet]), models: [hit('Wound')] }, [vet], [scars])[0]).toMatchObject({ status: 'retired', unfit: true });
+		const lucky = { ...vet, skills: ['War-Luck'] };
+		expect(applyReport({ ...newReport([lucky]), models: [hit('Wound')] }, [lucky], [scars, luck])[0]).toMatchObject({ status: undefined, unfit: false });
+	});
+
+	it('Robbed takes the kit, gives no scar; Full Recovery records nothing', () => {
+		expect(applyReport({ ...newReport([vet]), models: [hit('Robbed')] }, [vet], [scars])[0]).toMatchObject({ injuries: ['Wound', 'Wound'], loseKit: true });
+		expect(applyReport({ ...newReport([vet]), models: [hit('Full Recovery')] }, [vet], [scars])[0].injuries).toEqual(['Wound', 'Wound']);
+	});
+
+	const units = [unit('sergeant', { category: 'elite', experience: 1 }), unit('a'), unit('b')];
+	it('Show Off adds a Promotion die', () => {
+		const r = rollPromotionStep(newReport(units), p, 1, 0, dice(1, 1, 1), 1);
+		expect(r.promotion.pool).toBe(2);
+	});
+
+	it('War Stories: +1 Experience to the other ELITE models', () => {
+		const [s] = newReport(units).models;
+		expect(experienceOf(s, units[0], dice(), 1)).toBe(2);
+	});
+});
+
+describe('Head Wound', () => {
+	it('an ELITE model that gains no Experience takes Promotion Dice; a 6 heals it, the scar stays', () => {
+		const tables: CampaignTable[] = [{ id: 'trauma', name: 'T', dice: 'D6', source: null, text: '', rows: [{ roll: '1-6', name: 'Head Wound', text: '', effects: { scar: true, no_experience: true } }] }];
+		const hurt = unit('hurt', { category: 'elite', injuries: ['Head Wound'], noExperience: true, experience: 3 });
+		const r = rollPromotionStep(newReport([hurt]), p, 1, 0, dice(6), 0, ['hurt']);
+		expect(r.models[0].promotion?.promoted).toBe(true);
+		const [c] = applyReport(r, [hurt], tables);
+		expect(c).toMatchObject({ category: 'elite', injuries: ['Head Wound (healed)'], experience: 3 });
+		expect(effectsOf(c.injuries, tables)).toMatchObject({ noExperience: false, scars: 1 });
 	});
 });

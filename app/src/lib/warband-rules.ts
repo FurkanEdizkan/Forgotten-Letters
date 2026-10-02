@@ -391,6 +391,8 @@ export interface ModelState {
 	cost: number;
 	currency: Currency;
 	skills: string[];
+	/** Battle Scars and injuries (a limit's `skills` selector matches these too). */
+	injuries?: string[];
 	/** The entry it counts as for "X only" (see `UnitKitOverride.countsAs`). */
 	countsAs?: string;
 }
@@ -411,6 +413,8 @@ export interface WarbandState {
 	patron?: string | null;
 	/** Its variant, if any. */
 	variant?: string | null;
+	/** A campaign warband (not a list of one's own). */
+	inCampaign?: boolean;
 }
 
 export type Check = { ok: true } | { ok: false; reason: string };
@@ -540,7 +544,7 @@ function asCarried(m: ModelState, i: ArmouryItem): ArmouryItem {
 /** May this item be bought into the arsenal (no model yet): found through Exploration only, its Limit, its price. */
 export function stashCheck(item: ArmouryItem, w: WarbandState): Check {
 	if (w.unrestricted) return ok;
-	if (itemFacts(item).explorationOnly && !w.openExploration) return no('Found through Exploration only');
+	if (itemFacts(item).explorationOnly && !w.openExploration) return no('Needs an Exploration discovery (the Campaign Master opens it)');
 	if (item.limit != null) {
 		const held = limitCount(item, w);
 		if (held >= item.limit) return no(`Limit ${held}/${item.limit} used`);
@@ -574,7 +578,7 @@ export function equipCheck(m: ModelState, armouryItem: ArmouryItem, w: WarbandSt
 	if (!w.unrestricted) {
 		if (m.kit.nothingElse) return no(`A ${m.type} cannot have any other Battlekit`);
 		if (m.kit.except.includes(item.category)) return no(`A ${m.type} cannot take ${item.category === 'armour' ? 'Armour' : item.category + ' kit'}`);
-		if (f.explorationOnly && !w.openExploration) return no('Found through Exploration only');
+		if (f.explorationOnly && !w.openExploration) return no('Needs an Exploration discovery (the Campaign Master opens it)');
 		if (f.only.length && !f.only.some((x) => qualifies(m, x))) return no(`${f.only.join(' or ')} only`);
 		if (item.limit != null && !(f.limitExcludes && matchModel(m, f.limitExcludes, world(w)))) {
 			const held = limitCount(item, w);
@@ -747,6 +751,8 @@ export function warbandIssues(w: WarbandState, rules: VariantRules, entries: Ent
 		for (const m of on) if (u.for.length && !u.for.some((x) => qualifies(m, x))) out.push(`${u.name} is only for ${u.for.join(', ')} (${m.type} has it).`);
 	}
 	if (rules.requiresVariant && w.variant === null) out.push('The warband must be one of its faction\'s variants.');
+	// "Once they have recruited their Warband, they must pick a Patron for it" (Rulebook, Campaign Rules).
+	if (w.inCampaign && !w.patron) out.push('A campaign warband must pick a Patron.');
 	if (rules.patron && !(w.patron && letters(w.patron).startsWith(letters(rules.patron)))) out.push(`The warband must serve ${rules.patron} as its Patron.`);
 	if (w.ducats < 0) out.push(`The strongbox is ${-w.ducats} Ducats short.`);
 	if (w.glory < 0) out.push(`The strongbox is ${-w.glory} Glory short.`);

@@ -12,7 +12,7 @@ import { copyCheck, entryPrice, equipCheck, stashCheck, findItem, letters, price
 import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
-import { d6, reportFor, reportsOf, saveLines, unitFacts, withExperience } from '$lib/server/aftermath';
+import { d6, promotionInputs, reportFor, reportsOf, saveLines, unitFacts, withExperience } from '$lib/server/aftermath';
 import { currentVersion, versionById } from '$lib/server/versions';
 import { affecting, diff } from '$lib/rules-versions';
 import { advancementsOwed, rollAdvancement, rollPromotionStep, rollTrauma, type AftermathLines } from '$lib/aftermath';
@@ -504,8 +504,8 @@ export const actions: Actions = {
 		} else if (op === 'promote') {
 			if (!progression) return fail(400, { aftermathMessage: 'The campaign tables are not loaded.' });
 			if (lines.models.some((m) => m.outOfAction && !m.trauma)) return fail(400, { aftermathMessage: 'Roll Trauma for every model taken Out of Action first.' });
-			const eliteNow = units.filter((u) => u.category === 'elite').length;
-			lines = rollPromotionStep(lines, progression, eliteNow, w.promotionStreak, d6);
+			const { eliteNow, extraDice, asTroops } = promotionInputs(units);
+			lines = rollPromotionStep(lines, progression, eliteNow, w.promotionStreak, d6, extraDice, asTroops);
 		} else if (op === 'advance') {
 			const m = model(str(d, 'unit'));
 			const u = units.find((x) => x.id === m?.unitId);

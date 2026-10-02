@@ -4,7 +4,8 @@
  * each ELITE model that survived, a second for one that did a Glorious Deed) and Advancement Rolls on the Skill
  * Tables. Every roll is made once, by the server, and kept on the report; the Campaign Master approves it.
  */
-import { advancementsDue, assignPromotionDice, roll, rollPromotions, rowFor, skillFrom, type CampaignTable, type Progression } from './progression';
+import { advancementsDue, assignPromotionDice, effectsOf, roll, rollPromotions, rowFor, skillFrom, type CampaignTable, type Progression } from './progression';
+import type { ItemSel } from './warband-limits';
 
 export interface RolledResult {
 	dice: number[];
@@ -101,11 +102,13 @@ const survives = (m: AftermathModel) => !m.trauma?.dead && !m.trauma?.retire;
  * Roll Promotions: 1 die (`baseDice`) and one per Glorious Deed, handed to the surviving Troops evenly; at most
  * `maxElite` ELITE models after it. Marks the promoted models ELITE in the report.
  */
-export function rollPromotionStep(r: AftermathLines, p: Progression, eliteNow: number, streak: number, d6: () => number): AftermathLines {
+/** `extraDice`: dice skills add to the pool (Show Off); `eliteNow` leaves out models that don't count (Bad Company). */
+export function rollPromotionStep(r: AftermathLines, p: Progression, eliteNow: number, streak: number, d6: () => number, extraDice = 0, asTroops: string[] = []): AftermathLines {
 	if (r.promotion.rolled) return r;
 	const deeds = r.models.reduce((s, m) => s + m.deeds, 0);
-	const pool = p.promotion.baseDice + deeds * p.promotion.perGloriousDeed;
-	const troops = r.models.filter((m) => !m.elite && survives(m));
+	const pool = p.promotion.baseDice + deeds * p.promotion.perGloriousDeed + extraDice;
+	// ELITE models that can no longer gain Experience (Head Wound) take Promotion Dice as if they were Troops.
+	const troops = r.models.filter((m) => (!m.elite || asTroops.includes(m.unitId)) && survives(m));
 	const room = Math.max(0, p.promotion.maxElite - eliteNow);
 	if (!troops.length || room === 0) return { ...r, promotion: { pool, rolled: true, streakAfter: streak } };
 	const per = assignPromotionDice(pool, troops.length);
@@ -119,9 +122,9 @@ export function rollPromotionStep(r: AftermathLines, p: Progression, eliteNow: n
 }
 
 /** Experience each model gains: 1 for an ELITE model that survived, a second for one that did a Glorious Deed. */
-export function experienceOf(m: AftermathModel, u: UnitFacts | undefined, d6: () => number): number {
+export function experienceOf(m: AftermathModel, u: UnitFacts | undefined, d6: () => number, bonus = 0): number {
 	if (!m.elite || !survives(m) || u?.noExperience) return 0;
-	let xp = 1 + (m.deeds > 0 ? 1 : 0);
+	let xp = 1 + (m.deeds > 0 ? 1 : 0) + bonus;
 	const extra = m.trauma?.extraXp;
 	if (typeof extra === 'number') xp += extra;
 	else if (typeof extra === 'string' && /^d3$/i.test(extra)) xp += Math.ceil(d6() / 2);
@@ -156,22 +159,37 @@ export function rollAdvancement(
 	};
 }
 
-/** What the approved report does to each unit: its new Experience, skills, injuries, rank and status. */
-export function applyReport(r: AftermathLines, units: UnitFacts[]) {
+/**
+ * What the approved report does to each unit: its new Experience, skills, injuries, rank and status. A third
+ * Battle Scar (more with War-Luck) leaves it Unfit for Duty: it goes home, its kit to the arsenal. `loseKit`: kit
+ * an injury takes (all it can lose, or what matches).
+ */
+export function applyReport(r: AftermathLines, units: UnitFacts[], tables: CampaignTable[] = []) {
 	return r.models.flatMap((m) => {
 		const u = units.find((x) => x.id === m.unitId);
 		if (!u) return [];
-		const promoted = !!m.promotion?.promoted;
+		// A promoted ELITE model (one that took dice as a Troop) heals its Head Wound instead of a new rank.
+		const healed = !!m.promotion?.promoted && u.category === 'elite';
+		const promoted = !!m.promotion?.promoted && !healed;
 		const injury = m.elite && m.trauma && !m.trauma.dead && !m.trauma.retire && m.trauma.result !== '?' ? m.trauma.result : null;
-		const skills = m.advancements.map((a) => a.chosen).filter((s): s is string => !!s);
+		const skills = [...u.skills, ...m.advancements.map((a) => a.chosen).filter((s): s is string => !!s)];
+		const row = m.trauma && injury ? tables.flatMap((t) => t.rows).find((x) => x.name === injury) : null;
+		const keepsInjury = !!injury && !!row && (row.effects?.scar || !!row.effects?.stats || !!row.effects?.keywords || !!row.effects?.limits || !!row.effects?.remove_keywords);
+		const kept = keepsInjury || (injury && !row && !/full recovery/i.test(injury)) ? [...u.injuries, injury!] : u.injuries;
+		const injuries = healed ? kept.map((n) => (tables.flatMap((t) => t.rows).find((x) => x.name === n)?.effects?.no_experience && !/\(healed\)/i.test(n) ? `${n} (healed)` : n)) : kept;
+		const fx = effectsOf([...skills, ...injuries], tables);
+		const unfit = !!tables.length && fx.scars >= 3 + fx.extraScars;
+		const loseKit: true | ItemSel | null = row?.effects?.lose_kit ?? null;
 		return [
 			{
 				unitId: u.id,
 				experience: (promoted ? 0 : u.experience) + m.xp,
-				injuries: injury && !/full recovery/i.test(injury) ? [...u.injuries, injury] : u.injuries,
-				skills: [...u.skills, ...skills],
+				injuries,
+				skills,
 				category: promoted ? ('elite' as const) : u.category,
-				status: m.trauma?.dead ? ('dead' as const) : m.trauma?.retire ? ('retired' as const) : undefined
+				status: m.trauma?.dead ? ('dead' as const) : m.trauma?.retire || unfit ? ('retired' as const) : undefined,
+				unfit,
+				loseKit
 			}
 		];
 	});

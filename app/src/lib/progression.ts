@@ -4,6 +4,8 @@
  * reading a pack's tables, rolling on one, when a model advances, what a Skill roll gives it, and what its skills
  * and injuries do to its profile.
  */
+import { readItemSel, readLimits, type ItemSel, type Limit } from './warband-limits';
+
 export type Dice = 'D3' | 'D6' | '2D6' | 'D66';
 export type Stat = 'movement' | 'ranged' | 'melee' | 'armour';
 
@@ -19,6 +21,20 @@ export interface Effects {
 	patron_skill?: boolean;
 	pick_skill?: boolean;
 	scar?: boolean;
+	/** Keywords the model loses (Insomniac: INFILTRATOR). */
+	remove_keywords?: string[];
+	/** Building limits on the model while it has this (Muscle Damage: no HEAVY kit; Lost Arm: hands). */
+	limits?: Limit[];
+	/** When the result is recorded, the model loses its kit: all it can lose, or what matches (Muscle Damage: HEAVY). */
+	lose_kit?: true | ItemSel;
+	/** More Battle Scars it can take before it is Unfit for Duty (War-Luck). */
+	extra_scars?: number;
+	/** It doesn't count towards the ELITE models at the Promotion step (Bad Company). */
+	not_counted_elite?: boolean;
+	/** Dice it adds to the Promotion Pool (Show Off). */
+	promotion_dice?: number;
+	/** Experience each other ELITE model gains when Experience is recorded (War Stories). */
+	xp_to_others?: number;
 }
 
 export interface TableRow {
@@ -127,11 +143,17 @@ export function rowNamed(tables: CampaignTable[], name: string): { table: Campai
 	return null;
 }
 
-/** What a model's skills and injuries do: summed stat changes, keywords gained, and the flags that hold. */
+/** What a model's skills and injuries do: summed stat changes, keywords gained and lost, and the flags that hold. */
 export function effectsOf(names: string[], tables: CampaignTable[]) {
 	const stats: Record<Stat, number> = { movement: 0, ranged: 0, melee: 0, armour: 0 };
 	const keywords = new Set<string>();
+	const removed = new Set<string>();
 	let noExperience = false;
+	let scars = 0;
+	let extraScars = 0;
+	let promotionDice = 0;
+	let xpToOthers = 0;
+	let notCountedElite = false;
 	const unmatched: string[] = [];
 	for (const n of names) {
 		const hit = rowNamed(tables, n.replace(/\s*\(.*\)\s*$/, ''));
@@ -139,12 +161,19 @@ export function effectsOf(names: string[], tables: CampaignTable[]) {
 			unmatched.push(n);
 			continue;
 		}
-		const e = hit.row.effects ?? {};
+		// "Head Wound (healed)": a Promotion 6 gave back the Experience; only the Battle Scar remains.
+		const e = /\(healed\)\s*$/i.test(n) ? { scar: hit.row.effects?.scar } : (hit.row.effects ?? {});
 		for (const s of STATS) stats[s] += e.stats?.[s] ?? 0;
 		for (const k of e.keywords ?? []) keywords.add(k.toUpperCase());
+		for (const k of e.remove_keywords ?? []) removed.add(k.toUpperCase());
 		if (e.no_experience) noExperience = true;
+		if (e.scar) scars++;
+		extraScars += e.extra_scars ?? 0;
+		promotionDice += e.promotion_dice ?? 0;
+		xpToOthers += e.xp_to_others ?? 0;
+		if (e.not_counted_elite) notCountedElite = true;
 	}
-	return { stats, keywords: [...keywords], noExperience, unmatched };
+	return { stats, keywords: [...keywords], removedKeywords: [...removed], noExperience, scars, extraScars, promotionDice, xpToOthers, notCountedElite, unmatched };
 }
 
 /** A characteristic as printed ('6"/Infantry', '+1 DICE', '-1') with a change applied. */
@@ -208,7 +237,7 @@ const int = (v: unknown, path: string, err: Err, d: number) => {
 function readEffects(v: unknown, path: string, err: Err): Effects | undefined {
 	if (v == null) return undefined;
 	if (!isObj(v)) return err(path, 'must be a map of effects'), undefined;
-	keys(v, 'dead stats keywords no_experience miss_next_battle retire extra_xp patron_skill pick_skill scar', path, err);
+	keys(v, 'dead stats keywords no_experience miss_next_battle retire extra_xp patron_skill pick_skill scar remove_keywords limits lose_kit extra_scars not_counted_elite promotion_dice xp_to_others', path, err);
 	const e: Effects = {};
 	for (const k of ['dead', 'no_experience', 'miss_next_battle', 'retire', 'patron_skill', 'pick_skill', 'scar'] as const) if (v[k] != null) e[k] = v[k] === true;
 	if (v.stats != null) {
@@ -220,6 +249,12 @@ function readEffects(v: unknown, path: string, err: Err): Effects | undefined {
 	}
 	if (v.keywords != null) e.keywords = Array.isArray(v.keywords) ? v.keywords.map((k) => str(k).toUpperCase()) : (err(`${path}.keywords`, 'must be a list'), []);
 	if (v.extra_xp != null) e.extra_xp = typeof v.extra_xp === 'number' ? v.extra_xp : str(v.extra_xp);
+	if (v.remove_keywords != null) e.remove_keywords = Array.isArray(v.remove_keywords) ? v.remove_keywords.map((k) => str(k).toUpperCase()) : (err(`${path}.remove_keywords`, 'must be a list'), []);
+	const limits = readLimits(v.limits, `${path}.limits`, err);
+	if (limits) e.limits = limits;
+	if (v.lose_kit != null) e.lose_kit = v.lose_kit === true ? true : readItemSel(v.lose_kit, `${path}.lose_kit`, err);
+	for (const k of ['extra_scars', 'promotion_dice', 'xp_to_others'] as const) if (v[k] != null) e[k] = int(v[k], `${path}.${k}`, err, 0);
+	if (v.not_counted_elite != null) e.not_counted_elite = v.not_counted_elite === true;
 	return e;
 }
 

@@ -98,7 +98,10 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 				(!i.stipulations?.factions?.length || i.stipulations.factions.includes(w.faction) || i.stipulations.factions.includes(faction?.under ?? '')) &&
 				!excluded.has(letters(i.name))
 		)
-		.map((i) => (items.some((x) => letters(x.name) === letters(i.name)) ? { ...i, name: `${i.name} (${i.faction === 'glory-items' ? 'Glory Item' : 'Exploration'})` } : i));
+		.map((i) => (items.some((x) => letters(x.name) === letters(i.name)) ? { ...i, name: `${i.name} (${i.faction === 'glory-items' ? 'Glory Item' : 'Exploration'})` } : i))
+		// Glory Items are bought only in a campaign, after an Exploration discovery allows it (Rulebook, Glory Items):
+		// the Campaign Master opens them with Open Exploration.
+		.map((i) => (i.faction === 'glory-items' ? { ...i, stipulations: { ...(i.stipulations ?? {}), explorationOnly: true } } : i));
 	const armoury: ArmouryItem[] = [...mine(items).filter((i) => !excluded.has(letters(i.name))), ...mercKit, ...shared].map((i) => ({
 		id: i.id,
 		name: i.name,
@@ -139,6 +142,7 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 		unrestricted: w.unrestricted,
 		openExploration: w.openExploration,
 		fireteams: w.fireteams,
+		inCampaign: !!w.campaignId,
 		patron: findPatron(patrons, w.patron),
 		tables: campaign.tables
 	};

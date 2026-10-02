@@ -75,6 +75,8 @@ export interface BuilderInput {
 	openExploration: boolean;
 	fireteams: { name: string; members: string[] }[];
 	patron?: PatronRules | null;
+	/** A campaign warband (not a list of one's own). */
+	inCampaign?: boolean;
 	/** The Campaign Phase's tables, whose rows a model's skills and injuries are (their keywords apply). */
 	tables?: CampaignTable[];
 }
@@ -105,7 +107,9 @@ export function modelKeywords(m: ModelData, profile: ProfileData | null, rules: 
 	if (rules.leader && same(m.type, rules.leader)) kw.add('LEADER');
 	if (fireteams.some((f) => f.members.includes(m.id))) kw.add('FIRETEAM');
 	if (m.category === 'elite') kw.add('ELITE');
-	for (const k of effectsOf([...m.skills, ...(m.injuries ?? [])], tables).keywords) kw.add(k);
+	const fx = effectsOf([...m.skills, ...(m.injuries ?? [])], tables);
+	for (const k of fx.keywords) kw.add(k);
+	for (const k of fx.removedKeywords) kw.delete(k);
 	return [...kw];
 }
 
@@ -126,6 +130,7 @@ export function builderState(d: BuilderInput) {
 			cost: m.cost,
 			currency: m.currency,
 			skills: m.skills,
+			injuries: m.injuries ?? [],
 			countsAs: p?.kit?.countsAs
 		};
 	});
@@ -137,7 +142,9 @@ export function builderState(d: BuilderInput) {
 		...d.profiles.flatMap((p) => scoped(p.kit?.limits, { entries: [p.name] })),
 		...d.armoury.flatMap((i) => scoped(i.stipulations?.limits, { holding: { names: [i.name] } })),
 		...rules.upgrades.flatMap((u) => scoped(u.limits, { upgrades: [u.name] })),
-		...(d.patron?.skills ?? []).flatMap((s) => scoped(s.limits, { skills: [s.name] }))
+		...(d.patron?.skills ?? []).flatMap((s) => scoped(s.limits, { skills: [s.name] })),
+		// A skill's or an injury's limits (Muscle Damage: no HEAVY kit), on the models that have it.
+		...(d.tables ?? []).flatMap((t) => t.rows.flatMap((r) => scoped(r.effects?.limits, { skills: [r.name] })))
 	];
 	// A Skill's prices hold while a model with it is in the warband, unless they name who buys.
 	const prices: PriceRule[] = [...rules.prices, ...(d.patron?.skills ?? []).flatMap((s) => (s.prices ?? []).map((r) => (r.who || r.while ? r : { ...r, while: { skills: [s.name] } })))];
@@ -153,7 +160,8 @@ export function builderState(d: BuilderInput) {
 		prices,
 		upgrades: rules.upgrades,
 		patron: d.patron?.name ?? null,
-		variant: d.faction.variant
+		variant: d.faction.variant,
+		inCampaign: d.inCampaign
 	};
 	return { rules, state, profileOf, entries: d.profiles.map(entryOf) };
 }

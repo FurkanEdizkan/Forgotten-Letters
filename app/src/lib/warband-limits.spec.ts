@@ -222,7 +222,7 @@ describe('prices by rule', () => {
 describe('the arsenal and copies follow the same rules', () => {
 	it('an exploration find, or kit over its Limit, cannot be bought into the arsenal', () => {
 		const found = { ...A.knife, name: 'Relic', restrictions: 'Exploration only' };
-		expect(reason(stashCheck(found, wb([])))).toMatch(/Exploration only/);
+		expect(reason(stashCheck(found, wb([])))).toMatch(/Exploration discovery/);
 		expect(stashCheck(found, wb([], [], { openExploration: true })).ok).toBe(true);
 		const one = { ...A.sword, limit: 1 };
 		expect(stashCheck(one, wb([], [], { stash: held(A.sword) })).ok).toBe(false);
@@ -236,5 +236,35 @@ describe('the arsenal and copies follow the same rules', () => {
 		const three = [1, 2, 3].map(() => model('Ranger', { equipment: held(A.greatsword) }));
 		expect(reason(copyCheck({ ...three[0], id: 'c' }, wb(three, [great]), rules))).toMatch(/At most 3 Great Swords/);
 		expect(copyCheck({ ...three[0], id: 'c' }, wb(three.slice(1), [great]), rules).ok).toBe(true);
+	});
+});
+
+describe('injuries and skills that limit a model', () => {
+	it('Muscle Damage: no HEAVY kit; Insomniac loses INFILTRATOR; a campaign warband needs a Patron', async () => {
+		const { builderState } = await import('./builder-state');
+		const tables = [{ id: 'trauma', name: 'T', dice: 'D6' as const, source: null, text: '', rows: [
+			{ roll: '1-3', name: 'Muscle Damage', text: '', effects: { limits: [{ items: { keywords: ['HEAVY'] }, max: 0 }] } },
+			{ roll: '4-6', name: 'Insomniac', text: '', effects: { remove_keywords: ['INFILTRATOR'] } }
+		] }];
+		const st = builderState({
+			faction,
+			rulesText: { faction: null, variant: null },
+			profiles: [{ id: 'p', name: 'Scout', faction: 'x', variant: null, category: 'troop', availabilityMax: null, cost: 10, currency: 'ducats', keywords: ['INFILTRATOR'], stats: {}, battlekitNote: null, description: null, abilities: [] }],
+			armoury,
+			models: [{ id: 'a', type: 'Scout', name: '', category: 'troop', status: 'active', profileId: 'p', equipment: [], upgrades: [], cost: 10, currency: 'ducats', skills: [], injuries: ['Muscle Damage', 'Insomniac'] }],
+			stash: [],
+			ducats: 1000,
+			glory: 0,
+			unrestricted: false,
+			openExploration: false,
+			fireteams: [],
+			inCampaign: true,
+			tables
+		});
+		const m = st.state.models[0];
+		expect(reason(equipCheck(m, A.mine, st.state))).toMatch(/at most 0/);
+		expect(equipCheck(m, A.sword, st.state).ok).toBe(true);
+		expect(m.keywords).not.toContain('INFILTRATOR');
+		expect(warbandIssues(st.state, st.rules, [])).toContain('A campaign warband must pick a Patron.');
 	});
 });

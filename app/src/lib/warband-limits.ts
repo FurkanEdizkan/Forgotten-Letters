@@ -130,7 +130,7 @@ export function matchModel(m: ModelState, sel: ModelSel | undefined, w: Pick<Lim
 	if (sel.entries && !sel.entries.some((x) => sameEntry(x, m.type) || (!!m.countsAs && sameEntry(x, m.countsAs)))) return false;
 	if (sel.keywords && !sel.keywords.some((k) => m.keywords.some((x) => isName(x, k)))) return false;
 	if (sel.upgrades && !sel.upgrades.some((x) => m.upgrades.some((u) => upgradeIs(u, x, w.upgrades)))) return false;
-	if (sel.skills && !sel.skills.some((x) => m.skills.some((s) => isName(s, x) || letters(s).startsWith(letters(x))))) return false;
+	if (sel.skills && !sel.skills.some((x) => [...m.skills, ...(m.injuries ?? [])].some((s) => isName(s, x) || letters(s).startsWith(letters(x))))) return false;
 	if (sel.holding && !m.equipment.some((e) => matchItem(e, sel.holding, w.armoury))) return false;
 	if (sel.category && !sel.category.includes(m.category)) return false;
 	if (sel.value_under != null && !(valueOf(m) < sel.value_under)) return false;

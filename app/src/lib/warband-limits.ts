@@ -23,6 +23,8 @@ export interface ModelSel {
 	category?: ('elite' | 'troop' | 'mercenary')[];
 	/** Its cost with its kit, in Ducats, is under this. */
 	value_under?: number;
+	/** Its base is larger than this many mm ("only a model on a 40mm base or smaller"). */
+	base_over?: number;
 	not?: ModelSel;
 }
 
@@ -46,6 +48,8 @@ export interface Limit {
 	text?: string;
 	/** Per model (each model `who` picks): its kit, or its upgrades. */
 	who?: ModelSel;
+	/** Count kit by the weapons it makes up: a 2-Handed one counts two (unless the entry carries it in one hand). */
+	count?: 'items' | 'weapons';
 	items?: ItemSel;
 	upgrades?: string[];
 	/** Warband-wide: its models, the distinct entries among these present, or the kit its models carry. */
@@ -72,6 +76,8 @@ export interface PriceRule {
 	while?: ModelSel;
 	/** Only the first one in the warband (of each item, or of the entry). */
 	first?: boolean;
+	/** Only the Nth copy on one model ("the second Grail Devotee taken for a model is paid in Glory"). */
+	copy?: number;
 	cost?: number;
 	currency?: Currency;
 	less?: number;
@@ -134,8 +140,24 @@ export function matchModel(m: ModelState, sel: ModelSel | undefined, w: Pick<Lim
 	if (sel.holding && !m.equipment.some((e) => matchItem(e, sel.holding, w.armoury))) return false;
 	if (sel.category && !sel.category.includes(m.category)) return false;
 	if (sel.value_under != null && !(valueOf(m) < sel.value_under)) return false;
+	if (sel.base_over != null && !((m.base ?? 0) > sel.base_over)) return false;
 	if (sel.not && matchModel(m, sel.not, w)) return false;
 	return true;
+}
+
+/**
+ * Kit counted as weapons: a 2-Handed weapon is two, except the first ones the entry carries in one hand
+ * (`kit.heavyOneHand`: an Amalgam's two HEAVY 2-Handed weapons).
+ */
+function weaponCount(kit: HeldItem[], m: ModelState, armoury: ArmouryItem[]) {
+	let oneHanded = m.kit.heavyOneHand ?? 0;
+	return kit.reduce((n, e) => {
+		const a = findItem(armoury, e.name);
+		const two = /2/.test(a?.type ?? '');
+		if (!two) return n + 1;
+		if (oneHanded > 0 && a?.keywords.some((k) => isName(k, 'HEAVY'))) return oneHanded--, n + 1;
+		return n + 2;
+	}, 0);
 }
 
 const usesFloor = (s: ModelSel | undefined): boolean => !!s && (s.value_under != null || usesFloor(s.not));
@@ -171,8 +193,11 @@ export function limitIssues(w: LimitWorld): LimitIssue[] {
 		if (l.items || l.upgrades) {
 			for (const m of active) {
 				if (!matchModel(m, l.scope, w) || !matchModel(m, l.who, w)) continue;
+				const kit = l.items ? m.equipment.filter((e) => matchItem(e, l.items, w.armoury)) : [];
 				const count = l.items
-					? m.equipment.filter((e) => matchItem(e, l.items, w.armoury)).length
+					? l.count === 'weapons'
+						? weaponCount(kit, m, w.armoury)
+						: kit.length
 					: m.upgrades.filter((u) => l.upgrades!.some((x) => upgradeIs(u, x, w.upgrades))).length;
 				check(count, m.id, `: ${m.type}`);
 			}
@@ -279,7 +304,7 @@ export function readItemSel(v: unknown, path: string, err: Err): ItemSel | undef
 export function readModelSel(v: unknown, path: string, err: Err): ModelSel | undefined {
 	if (v == null) return undefined;
 	if (!isObj(v)) return err(path, 'must be { entries, keywords, upgrades, skills, holding, category, value_under, not }'), undefined;
-	keysOf(v, ['entries', 'keywords', 'upgrades', 'skills', 'holding', 'category', 'value_under', 'not'], path, err);
+	keysOf(v, ['entries', 'keywords', 'upgrades', 'skills', 'holding', 'category', 'value_under', 'base_over', 'not'], path, err);
 	const category = names(v.category, `${path}.category`, err)?.map((c) => c.toLowerCase());
 	for (const c of category ?? []) if (!['elite', 'troop', 'mercenary'].includes(c)) err(`${path}.category`, `"${c}" is not elite, troop or mercenary`);
 	return defined({
@@ -290,6 +315,7 @@ export function readModelSel(v: unknown, path: string, err: Err): ModelSel | und
 		holding: readItemSel(v.holding, `${path}.holding`, err),
 		category: category as ModelSel['category'],
 		value_under: count(v.value_under, `${path}.value_under`, err),
+		base_over: count(v.base_over, `${path}.base_over`, err),
 		not: readModelSel(v.not, `${path}.not`, err)
 	});
 }
@@ -300,7 +326,8 @@ export function readLimits(v: unknown, path: string, err: Err): Limit[] | undefi
 	return v.map((o, i) => {
 		const p = `${path}[${i}]`;
 		if (!isObj(o)) return err(p, 'must be a limit'), {};
-		keysOf(o, ['name', 'text', 'who', 'items', 'upgrades', 'models', 'entries', 'warband_items', 'min', 'max', 'per', 'when'], p, err);
+		keysOf(o, ['name', 'text', 'who', 'items', 'upgrades', 'models', 'entries', 'warband_items', 'min', 'max', 'per', 'when', 'count'], p, err);
+		if (o.count != null && o.count !== 'items' && o.count !== 'weapons') err(`${p}.count`, 'must be items or weapons');
 		const what = ['items', 'upgrades', 'models', 'entries', 'warband_items'].filter((k) => o[k] != null);
 		if (what.length !== 1) err(p, 'must count one thing: items or upgrades (per model), or models, entries or warband_items');
 		if (o.min == null && o.max == null) err(p, 'needs a min or a max');
@@ -338,6 +365,7 @@ export function readLimits(v: unknown, path: string, err: Err): Limit[] | undefi
 			name: o.name == null ? undefined : String(o.name),
 			text: o.text == null ? undefined : String(o.text),
 			who: readModelSel(o.who, `${p}.who`, err),
+			count: o.count as Limit['count'],
 			items: readItemSel(o.items, `${p}.items`, err),
 			upgrades: names(o.upgrades, `${p}.upgrades`, err),
 			models: readModelSel(o.models, `${p}.models`, err),
@@ -357,7 +385,7 @@ export function readPrices(v: unknown, path: string, err: Err): PriceRule[] | un
 	return v.map((o, i) => {
 		const p = `${path}[${i}]`;
 		if (!isObj(o)) return err(p, 'must be a price'), {};
-		keysOf(o, ['items', 'entries', 'who', 'while', 'first', 'cost', 'currency', 'less', 'factor'], p, err);
+		keysOf(o, ['items', 'entries', 'who', 'while', 'first', 'copy', 'cost', 'currency', 'less', 'factor'], p, err);
 		if ((o.items == null) === (o.entries == null)) err(p, 'prices items or entries');
 		if ([o.cost, o.less, o.factor].filter((x) => x != null).length !== 1) err(p, 'needs one of cost, less or factor');
 		if (o.currency != null && o.currency !== 'ducats' && o.currency !== 'glory') err(`${p}.currency`, 'must be ducats or glory');
@@ -367,6 +395,7 @@ export function readPrices(v: unknown, path: string, err: Err): PriceRule[] | un
 			who: readModelSel(o.who, `${p}.who`, err),
 			while: readModelSel(o.while, `${p}.while`, err),
 			first: o.first === true || undefined,
+			copy: count(o.copy, `${p}.copy`, err),
 			cost: count(o.cost, `${p}.cost`, err),
 			currency: o.currency as Currency | undefined,
 			less: count(o.less, `${p}.less`, err),

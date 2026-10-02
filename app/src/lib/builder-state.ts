@@ -131,6 +131,7 @@ export function builderState(d: BuilderInput) {
 			currency: m.currency,
 			skills: m.skills,
 			injuries: m.injuries ?? [],
+			base: Number.parseInt(p?.stats.base ?? '') || undefined,
 			countsAs: p?.kit?.countsAs
 		};
 	});

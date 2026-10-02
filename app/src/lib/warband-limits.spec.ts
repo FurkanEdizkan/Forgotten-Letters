@@ -268,3 +268,31 @@ describe('injuries and skills that limit a model', () => {
 		expect(warbandIssues(st.state, st.rules, [])).toContain('A campaign warband must pick a Patron.');
 	});
 });
+
+describe('base sizes, kit an entry carries otherwise, Nth copies and weapon counts', () => {
+	it('an entry may carry a HEAVY item without HEAVY (the Mamluk\'s Greatsword)', () => {
+		const kit = { fixed: [], swap: null, except: [], nothingElse: false, items: { 'Mine': { dropKeywords: ['HEAVY'] } } };
+		const m = model('Mamluk', { kit, equipment: held(A.lmg) });
+		expect(equipCheck(m, A.mine, wb([m])).ok).toBe(true);
+		expect(equipCheck({ ...m, kit: { ...kit, items: undefined } }, A.mine, wb([m])).ok).toBe(false);
+	});
+	it('a skill only for models on 40mm bases or smaller', () => {
+		const only40: ScopedLimit = { text: 'Only a 40mm base or smaller', models: { skills: ['Suffering'], base_over: 40 }, max: 0 };
+		expect(warbandIssues(wb([model('Shrine', { base: 60, skills: ['Suffering'] })], [only40]), rules, []).join()).toMatch(/40mm/);
+		expect(warbandIssues(wb([model('Pilgrim', { base: 25, skills: ['Suffering'] })], [only40]), rules, [])).toEqual([]);
+	});
+	it('the second copy on one model costs Glory', () => {
+		const devotee = { ...A.knife, name: 'Devotee', category: 'equipment' as const, type: 'Equipment', cost: 15 };
+		const w = wb([], [], { armoury: [...armoury, devotee], prices: [{ items: { names: ['Devotee'] }, copy: 2, cost: 2, currency: 'glory' }] });
+		expect(priceFor(model('Lord'), devotee, w)).toMatchObject({ cost: 15, currency: 'ducats' });
+		expect(priceFor(model('Lord', { equipment: held(devotee) }), devotee, w)).toMatchObject({ cost: 2, currency: 'glory' });
+	});
+	it('an Amalgam counts a 2-Handed weapon as two, but its first two HEAVY ones as one', () => {
+		const six: ScopedLimit = { text: 'Six weapons', items: { categories: ['ranged', 'melee'] }, count: 'weapons', max: 6 };
+		const kit = { fixed: [], swap: null, except: [], nothingElse: false, hands: { ranged: 6, melee: 6 }, heavyOneHand: 2 };
+		const ok = model('Amalgam', { kit, equipment: held(A.lmg, A.flamer, A.greatsword, A.sword, A.knife) });
+		expect(warbandIssues(wb([ok], [six]), rules, []).join()).not.toMatch(/Six weapons/);
+		const over = model('Amalgam', { kit, equipment: held(A.greatsword, A.polearm, A.sword, A.knife, A.pistol) });
+		expect(warbandIssues(wb([over], [six]), rules, []).join()).toMatch(/Six weapons/);
+	});
+});

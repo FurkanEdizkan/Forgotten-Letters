@@ -151,7 +151,7 @@ export const actions: Actions = {
 		if (!pack) return failed(errors, s('id') || 'new-unit');
 		const row = { ...pack.units[0], id: s('id') || pack.units[0].id };
 		const was = (await packOf(params.id))?.units.find((u) => u.id === row.id)?.kit;
-		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit', 'items']) };
+		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit', 'items', 'heavyOneHand']) };
 		await saveUnit(row);
 		return { saved: row.id };
 	},
@@ -185,7 +185,7 @@ export const actions: Actions = {
 		const row = { ...pack.items[0], id: s('id') || pack.items[0].id };
 		// Ticks that say what the book's own wording already says keep the wording (and the entry stays the book's).
 		const old = (await packOf(params.id))?.items.find((i) => i.id === row.id);
-		if (row.stipulations && old?.stipulations) row.stipulations = { ...row.stipulations, ...keep(old.stipulations, ['alignment', 'factions', 'limits', 'limitExcludes']) };
+		if (row.stipulations && old?.stipulations) row.stipulations = { ...row.stipulations, ...keep(old.stipulations, ['alignment', 'factions', 'limits', 'limitExcludes', 'dropKeywords']) };
 		if (old && !old.stipulations) {
 			const same = (a: object, b: object) => (Object.keys(row.stipulations ?? {}) as (keyof typeof a)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 			if (same(itemFacts({ ...row, restrictions: old.restrictions, stipulations: null }), itemFacts(row))) Object.assign(row, { stipulations: null, restrictions: old.restrictions });

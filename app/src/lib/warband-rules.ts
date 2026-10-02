@@ -65,6 +65,8 @@ export interface StipulationsOverride {
 	limits?: Limit[];
 	/** Models whose copies don't count towards its `limit`. */
 	limitExcludes?: ModelSel;
+	/** Keywords it doesn't have when an entry carries it (`kit.items`: the Mamluk's Greatsword is not HEAVY). */
+	dropKeywords?: string[];
 }
 
 export interface ItemFacts {
@@ -142,6 +144,7 @@ export interface UnitKit {
 	countsAs?: string;
 	recruit?: boolean;
 	items?: Record<string, StipulationsOverride>;
+	heavyOneHand?: number;
 }
 
 const CATEGORY_WORDS: [RegExp, ArmouryCategory][] = [
@@ -174,6 +177,8 @@ export interface UnitKitOverride {
 	recruit?: boolean;
 	/** Stipulations an armoury item has when this entry carries it, by item name. */
 	items?: Record<string, StipulationsOverride>;
+	/** HEAVY 2-Handed weapons it carries in one hand (an Amalgam: two). */
+	heavyOneHand?: number;
 }
 
 export function unitKit(note: string | null | undefined, override?: UnitKitOverride | null): UnitKit {
@@ -393,6 +398,8 @@ export interface ModelState {
 	skills: string[];
 	/** Battle Scars and injuries (a limit's `skills` selector matches these too). */
 	injuries?: string[];
+	/** Its base, in mm. */
+	base?: number;
 	/** The entry it counts as for "X only" (see `UnitKitOverride.countsAs`). */
 	countsAs?: string;
 }
@@ -444,6 +451,7 @@ export function priceFor<T extends { name: string; cost: number; currency: Curre
 		if (r.who && !(m && 'id' in m && matchModel(m as ModelState, r.who, world(w)))) continue;
 		if (r.while && !w.models.some((x) => x.status === 'active' && matchModel(x, r.while, world(w)))) continue;
 		if (r.first && held.some((h) => letters(h.name) === letters(item.name))) continue;
+		if (r.copy != null && (m?.kit && 'equipment' in m ? (m as ModelState).equipment.filter((e) => letters(e.name) === letters(item.name)).length : 0) !== r.copy - 1) continue;
 		p = applyPrice(p, r);
 	}
 	return p;
@@ -538,7 +546,9 @@ function handsOf(m: ModelState, w: WarbandState) {
 /** An item as this model carries it: its entry may give it other stipulations ("its Jezzail has Shield Combo"). */
 function asCarried(m: ModelState, i: ArmouryItem): ArmouryItem {
 	const own = m.kit.items && Object.entries(m.kit.items).find(([name]) => letters(name) === letters(i.name))?.[1];
-	return own ? { ...i, stipulations: { ...(i.stipulations ?? {}), ...own } } : i;
+	if (!own) return i;
+	const drop = new Set((own.dropKeywords ?? []).map(letters));
+	return { ...i, keywords: i.keywords.filter((k) => !drop.has(letters(k))), stipulations: { ...(i.stipulations ?? {}), ...own } };
 }
 
 /** May this item be bought into the arsenal (no model yet): found through Exploration only, its Limit, its price. */

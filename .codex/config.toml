@@ -1,0 +1,8 @@
+[mcp_servers.blender]
+command = "uv"
+args = [
+    "run",
+    "--directory",
+    "tools/blender-mcp/bundle",
+    "blender-mcp",
+]

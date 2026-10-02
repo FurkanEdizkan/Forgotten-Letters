@@ -3,6 +3,7 @@
  * rules, units, armoury and new keywords. The same format is exported from the Studio, so a faction can be
  * written by hand, downloaded, edited and uploaded again.
  */
+import { readProgression, readTables, type CampaignTable, type Progression } from './progression';
 import { readHands, readLimits, readLoadouts, readModelSel, readPrices } from './warband-limits';
 import { parse, stringify } from 'yaml';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride, Upgrade } from './warband-rules';
@@ -84,6 +85,9 @@ export interface FactionPack {
 	keywords: KeywordRow[];
 	/** Patrons (a book pack of Patrons; empty otherwise). */
 	patrons?: Patron[];
+	/** The Campaign Phase's tables and progression settings (the campaign pack). */
+	tables?: CampaignTable[];
+	progression?: Progression;
 }
 
 // ---------------------------------------------------------------- ids, the same as the book importer's
@@ -191,7 +195,7 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 	const keys = (o: unknown, allowed: string, path: string) => {
 		if (isObj(o)) for (const k of Object.keys(o)) if (!allowed.split(' ').includes(k)) err(path ? `${path}.${k}` : k, 'is not a key of this format');
 	};
-	keys(doc, 'faction rules units armoury keywords patrons', '');
+	keys(doc, 'faction rules units armoury keywords patrons tables progression', '');
 	/** An item's stipulations (on the item, or as an entry carries it). */
 	const readStips = (st: Obj, q: string): StipulationsOverride => {
 		keys(st, STIPULATION_KEYS, q);
@@ -411,7 +415,20 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 	});
 
 	const patrons = readPatrons(doc.patrons, err);
-	const pack: FactionPack = { faction, factionId, variant, rules, units, items, keywords, ...(patrons.length ? { patrons } : {}) };
+	const tables = readTables(doc.tables, err);
+	const progression = readProgression(doc.progression, err);
+	const pack: FactionPack = {
+		faction,
+		factionId,
+		variant,
+		rules,
+		units,
+		items,
+		keywords,
+		...(patrons.length ? { patrons } : {}),
+		...(tables.length ? { tables } : {}),
+		...(progression ? { progression } : {})
+	};
 	return errors.length ? { pack: null, errors } : { pack, errors };
 }
 

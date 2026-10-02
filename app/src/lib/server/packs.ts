@@ -11,7 +11,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { and, eq, isNull, notInArray } from 'drizzle-orm';
 import { db } from './db';
-import { rulesFaction, rulesItem, rulesKeyword, rulesPatron, rulesUnit } from './db/schema';
+import { rulesFaction, rulesItem, rulesKeyword, rulesPatron, rulesTable, rulesUnit } from './db/schema';
 import { announceReload } from './hub';
 import { loadCustomFactions } from './factions';
 import { FACTIONS } from '$lib/rules/factions';
@@ -24,6 +24,7 @@ export interface PackResult {
 	items: number;
 	keywords: number;
 	patrons?: number;
+	tables?: number;
 	kept: number;
 	removed: number;
 }
@@ -32,7 +33,7 @@ export interface PackResult {
 const known = {
 	factions: [
 		...FACTIONS.map((f) => ({ id: f.id, name: f.name })),
-		...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration'].map((id) => ({ id, name: id }))
+		...['mercenaries', 'glossary', 'patrons', 'glory-items', 'exploration', 'campaign'].map((id) => ({ id, name: id }))
 	]
 };
 
@@ -94,8 +95,23 @@ export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
 					else await tx.insert(rulesPatron).values(row);
 				}
 			}
-			if (p.factionId === 'glossary' || p.factionId === 'patrons') {
-				out.push({ pack: label, units: 0, items: 0, keywords: p.keywords.length, patrons: p.patrons?.length ?? 0, kept: 0, removed: 0 });
+			// The Campaign Phase's tables: the pack's replace the book's; the CM's own stay.
+			if (p.tables?.length || p.progression) {
+				const rows = [
+					...(p.tables ?? []).map((t) => ({ ...t, settings: null })),
+					...(p.progression ? [{ id: 'progression', name: 'Progression', dice: 'D6' as const, text: p.progression.text, rows: [], source: null, settings: p.progression }] : [])
+				];
+				await tx.delete(rulesTable).where(and(eq(rulesTable.origin, 'book'), notInArray(rulesTable.id, rows.map((r) => r.id))));
+				for (const r of rows) {
+					const [old] = await tx.select({ origin: rulesTable.origin }).from(rulesTable).where(eq(rulesTable.id, r.id));
+					if (old && old.origin !== 'book') continue;
+					const row = { ...r, verified: true, origin: 'book' as const };
+					if (old) await tx.update(rulesTable).set(row).where(eq(rulesTable.id, r.id));
+					else await tx.insert(rulesTable).values(row);
+				}
+			}
+			if (p.factionId === 'glossary' || p.factionId === 'patrons' || p.factionId === 'campaign') {
+				out.push({ pack: label, units: 0, items: 0, keywords: p.keywords.length, patrons: p.patrons?.length ?? 0, tables: p.tables?.length ?? 0, kept: 0, removed: 0 });
 				continue;
 			}
 			const r = p.rules;

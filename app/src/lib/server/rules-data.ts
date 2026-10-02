@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { asc, count, eq, ilike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
-import { rulesPatron, rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from './db/schema';
+import { rulesPatron, rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesTable, rulesUnit } from './db/schema';
+import type { CampaignTable, Progression } from '$lib/progression';
 
 type Unit = typeof rulesUnit.$inferInsert;
 type Item = typeof rulesItem.$inferInsert;
@@ -233,6 +234,15 @@ export async function factionRulesText(faction: string, variant: string | null) 
 export const allFactionRules = () => db.select().from(rulesFaction).orderBy(asc(rulesFaction.faction), asc(rulesFaction.variant));
 
 /** Every Patron, from the book packs (see `lib/patrons.ts` for who may take one). */
+/** The Campaign Phase's tables, and the progression settings (null until the campaign pack is loaded). */
+export async function campaignTables(): Promise<{ tables: CampaignTable[]; progression: Progression | null }> {
+	const rows = await db.select().from(rulesTable);
+	return {
+		tables: rows.filter((r) => r.id !== 'progression').map((r) => ({ id: r.id, name: r.name, dice: r.dice, source: r.source, text: r.text, rows: r.rows })),
+		progression: rows.find((r) => r.id === 'progression')?.settings ?? null
+	};
+}
+
 export async function allPatrons(): Promise<Patron[]> {
 	return (await db.select().from(rulesPatron).orderBy(asc(rulesPatron.name))).map((p) => ({
 		id: p.id,

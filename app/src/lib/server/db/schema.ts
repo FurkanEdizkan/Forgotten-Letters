@@ -1,4 +1,6 @@
 import type { PatronSkill } from '$lib/patrons';
+import type { CampaignTable, Progression } from '$lib/progression';
+import type { AftermathLines } from '$lib/aftermath';
 import { type AnyPgColumn, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
@@ -121,6 +123,10 @@ export const warband = pgTable(
 		fireteams: jsonb('fireteams').$type<{ name: string; members: string[] }[]>().notNull().default([]),
 		/** The warband's own lore (notes are rosterNotes). */
 		lore: text('lore'),
+		/** A read-only link to a private list: /warbands/<id>?share=<token>; null when not shared. */
+		shareToken: text('share_token'),
+		/** Promotion Dice rolled in a row without a 6 (the sixth after five misses is a 6). */
+		promotionStreak: integer('promotion_streak').notNull().default(0),
 
 		createdAt: createdAt()
 	},
@@ -679,6 +685,43 @@ export const rulesPatron = pgTable('rules_patron', {
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 });
+
+/** The Campaign Phase's tables (Trauma, the Skill Tables), and the progression settings (id `progression`). */
+export const rulesTable = pgTable('rules_table', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	dice: text('dice', { enum: ['D3', 'D6', '2D6', 'D66'] }).notNull().default('D6'),
+	text: text('text').notNull().default(''),
+	rows: jsonb('rows').$type<CampaignTable['rows']>().notNull().default([]),
+	/** On the `progression` row only. */
+	settings: jsonb('settings').$type<Progression>(),
+	source: text('source'),
+	verified: boolean('verified').notNull().default(false),
+	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
+});
+
+/** A warband's record of a battle's aftermath: the player fills it (the server rolls), the CM approves it. */
+export const aftermathReport = pgTable(
+	'aftermath_report',
+	{
+		id: id(),
+		gameId: text('game_id')
+			.notNull()
+			.references(() => game.id, { onDelete: 'cascade' }),
+		warbandId: text('warband_id')
+			.notNull()
+			.references(() => warband.id, { onDelete: 'cascade' }),
+		status: text('status', { enum: ['draft', 'submitted', 'approved', 'declined'] })
+			.notNull()
+			.default('draft'),
+		lines: jsonb('lines').$type<AftermathLines>().notNull(),
+		/** Why the CM sent it back. */
+		reply: text('reply'),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+		createdAt: createdAt()
+	},
+	(t) => [uniqueIndex('aftermath_game_warband').on(t.gameId, t.warbandId)]
+);
 
 /** Core rules, campaign rules and scenarios, one page per heading of the book. */
 export const rulesPage = pgTable('rules_page', {

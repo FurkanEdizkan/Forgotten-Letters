@@ -1,49 +1,17 @@
-# Rulebooks and campaign PDFs (copyrighted — bring your own copy); design specs are tracked
+# The books and what we read from them are copyrighted: bring your own copy (design specs are tracked)
 /docs/*
 !/docs/superpowers/
 
-# Blender Lab MCP bridge (download: see README)
-/tools/blender-mcp/
+# The campaign map extracted from the book (local only)
+/assets/map/
 
-# Python caches (render/pack scripts)
-__pycache__/
-graphify-out/
-.impeccable/review/
-rules.json
-
-# Deployment: settings with passwords, and database dumps
-/.env
+# Local backups: the old app's git bundle, its settings
 /backups/
+/.env
 
-# Agent skills: listed in skills-lock.json, downloaded by ./install_skills.sh
-/.agents/skills/
-/.claude/skills/
-
-# Local secrets and build output
-.env.local
+# Blender MCP bridge (download: see tools/README) and tool dependencies
+/tools/blender-mcp/
 node_modules/
-.next/
-tsconfig.tsbuildinfo
-next-env.d.ts
-
-# Agent skill copies and links, restored from skills-lock.json
-/skills/
-/agent/skills/
-/.github/skills/
 
 # Personal Claude Code settings
 .claude/settings.local.json
-
-# Design-system sync and design lab: generated bundles, deps and build output
-/.ds-sync/
-/ds-bundle/
-/design-lab/
-
-# Playwright output
-app/test-results/
-app/playwright-report/
-app/blob-report/
-
-# Architecture: the built site and the atlas cache (facts, to-do) are rebuilt on demand
-architecture/site/
-architecture/.atlas/

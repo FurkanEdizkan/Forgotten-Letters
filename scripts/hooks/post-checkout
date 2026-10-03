@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# After switching branches: say if this branch changed code without updating the architecture (never blocks).
-[[ "${3:-0}" == "1" && -d tools/atlas/node_modules ]] || exit 0
-node tools/atlas/src/cli.ts status --brief 2>/dev/null || true

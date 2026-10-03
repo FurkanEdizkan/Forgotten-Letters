@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { Check } from '$lib/warband-rules';
+	import KeywordChips from './KeywordChips.svelte';
+	import RulesText from './RulesText.svelte';
 
 	export interface EntryRow {
 		id: string;
@@ -16,7 +18,13 @@
 	}
 
 	/** Trench Companion's "Add Elite / Troop / Mercenary": the entries this warband may recruit, with why not. */
-	let { open = $bindable(false), title, rows, onrecruited }: { open: boolean; title: string; rows: EntryRow[]; onrecruited?: (id: string | null) => void } = $props();
+	let {
+		open = $bindable(false),
+		title,
+		rows,
+		glossary = {},
+		onrecruited
+	}: { open: boolean; title: string; rows: EntryRow[]; glossary?: Record<string, string>; onrecruited?: (id: string | null) => void } = $props();
 
 	let dialog = $state<HTMLDialogElement>();
 	let chosen = $state<string | null>(null);
@@ -86,10 +94,10 @@
 								{#if p.stats[k]}<span><small>{l}</small> {p.stats[k]}</span>{/if}
 							{/each}
 						</p>
-						{#if p.keywords.length}<p class="kw">{p.keywords.join(' · ')}</p>{/if}
+						{#if p.keywords.length}<KeywordChips keywords={p.keywords} {glossary} dark />{/if}
 						{#if p.note}<p class="dim">{p.note}</p>{/if}
 						{#if p.powers}<p class="dim">{p.powers}</p>{/if}
-						{#each p.abilities as a (a.name)}<p><b>{a.name}:</b> {a.text}</p>{/each}
+						{#each p.abilities as a (a.name)}<p><b>{a.name}:</b> <RulesText text={a.text} {glossary} /></p>{/each}
 					</div>
 				{/if}
 			{/snippet}
@@ -173,10 +181,6 @@
 	}
 	.profile small {
 		opacity: 0.7;
-	}
-	.profile .kw {
-		font-size: 0.78rem;
-		letter-spacing: 0.04em;
 	}
 	.profile .dim {
 		opacity: 0.75;

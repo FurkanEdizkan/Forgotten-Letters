@@ -4,6 +4,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import KeywordChips from '$lib/components/KeywordChips.svelte';
+	import RulesText from '$lib/components/RulesText.svelte';
 	import Portrait from '$lib/components/Portrait.svelte';
 	import EquipmentDialog from '$lib/components/EquipmentDialog.svelte';
 	import AddModelDialog, { type EntryRow } from '$lib/components/AddModelDialog.svelte';
@@ -582,8 +583,9 @@
 								<details class="profile">
 									<summary>{it.name}</summary>
 									{#if a}
-										<p class="dim">{[a.type, a.range, ...a.keywords].filter(Boolean).join(' · ')}</p>
-										{#if a.text}<p>{a.text}</p>{/if}
+										<p class="dim">{[a.type, a.range].filter(Boolean).join(' · ')}</p>
+										{#if a.keywords.length}<KeywordChips keywords={a.keywords} glossary={data.glossary} dark />{/if}
+										{#if a.text}<p><RulesText text={a.text} glossary={data.glossary} /></p>{/if}
 									{/if}
 								</details>
 								<span class="cost">{it.cost ? money(it.cost, it.currency) : (selState?.kit.fixed ?? []).some((f) => letters(f) === letters(it.name)) ? 'fixed' : 'free'}</span>
@@ -628,7 +630,7 @@
 					</p>
 				{/if}
 				{#each [...selected.injuries.map((n) => ['Injury', n] as const), ...selected.skills.map((n) => ['Skill', n] as const)] as [kind, n] (kind + n)}
-					<p class="ability" class:unmatched={!rowText(n)}><b>{n}</b> <small class="dim">{kind}</small>{#if rowText(n)}: {rowText(n)}{/if}</p>
+					<p class="ability" class:unmatched={!rowText(n)}><b>{n}</b> <small class="dim">{kind}</small>{#if rowText(n)}: <RulesText text={rowText(n) ?? ''} glossary={data.glossary} />{/if}</p>
 				{/each}
 				{#if data.canEdit}
 					<form method="POST" action="?/unit" class="campaign" use:enhance={keep}>
@@ -668,7 +670,7 @@
 				{/if}
 				{#if profile?.abilities.length}
 					<h3>Abilities</h3>
-					{#each profile.abilities as a (a.name)}<p class="ability"><b>{a.name}:</b> {a.text}</p>{/each}
+					{#each profile.abilities as a (a.name)}<p class="ability"><b>{a.name}:</b> <RulesText text={a.text} glossary={data.glossary} /></p>{/each}
 				{/if}
 				{#if profile?.description}
 					<h3>Lore</h3>
@@ -686,6 +688,7 @@
 		bind:open={addOpen}
 		title={adding === 'elite' ? 'Add Elite' : adding === 'troop' ? 'Add Troop' : 'Add Mercenary'}
 		rows={addRows}
+		glossary={data.glossary}
 		onrecruited={(id) => id && (selectedId = id)}
 	/>
 	{#if selected && equipCat}

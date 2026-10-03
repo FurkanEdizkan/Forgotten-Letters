@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { keywordKey } from '$lib/keywords';
+	import { explain } from '$lib/keywords';
 
 	/** Keyword chips; each shows its glossary text on hover, focus or tap. */
 	let { keywords, glossary = {}, dark = false }: { keywords: string[]; glossary?: Record<string, string>; dark?: boolean } = $props();
@@ -8,7 +8,7 @@
 
 <ul class="chips" class:dark>
 	{#each keywords as k, i (i)}
-		{@const text = glossary[keywordKey(k)]}
+		{@const text = explain(glossary, k)}
 		<li>
 			{#if text}
 				<button type="button" class="chip" aria-expanded={open === i} onclick={() => (open = open === i ? null : i)} onblur={() => open === i && (open = null)}>{k}</button>
@@ -58,6 +58,7 @@
 		color: var(--ink-soft);
 	}
 	.tip {
+		white-space: pre-line;
 		position: absolute;
 		z-index: 20;
 		left: 0;

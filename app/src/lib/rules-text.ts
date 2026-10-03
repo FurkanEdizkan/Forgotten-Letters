@@ -1,4 +1,4 @@
-import { keywordKey } from './keywords';
+import { explain, keywordKey } from './keywords';
 
 /** A rules page body (see `rules_page.body`) as blocks to render. */
 export type Block =
@@ -33,7 +33,7 @@ export function segments(text: string, glossary: Record<string, string>) {
 		const words = m[0].split(' ');
 		for (let n = words.length; n > 0; n--) {
 			const k = words.slice(0, n).join(' ');
-			const rule = glossary[keywordKey(k)];
+			const rule = explain(glossary, k);
 			if (!rule) continue;
 			if (m.index! > at) out.push({ text: text.slice(at, m.index) });
 			out.push({ text: k, keyword: keywordKey(k), rule });

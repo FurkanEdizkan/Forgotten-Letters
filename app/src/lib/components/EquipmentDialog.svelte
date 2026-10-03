@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import KeywordChips from './KeywordChips.svelte';
+	import RulesText from './RulesText.svelte';
 	import { itemFacts, letters, type ArmouryItem, type Check, type HeldItem } from '$lib/warband-rules';
 
 	/**
@@ -108,7 +109,7 @@
 						{#if i.type && !hands(i)}<dt>Type</dt><dd>{i.type}</dd>{/if}
 					</dl>
 					{#if i.keywords.length}<KeywordChips keywords={i.keywords} {glossary} dark />{/if}
-					{#if rulesText(i)}<p class="rules">{rulesText(i)}</p>{/if}
+					{#if rulesText(i)}<p class="rules"><RulesText text={rulesText(i) ?? ''} {glossary} /></p>{/if}
 					<form method="POST" action="?/buy" use:enhance={buy(i)}>
 						<input type="hidden" name="item" value={i.id} />
 						<button class="add stash" name="unit" value="stash" disabled={busy} title="Buy it into the arsenal, to give to a fighter later">Into the Arsenal</button>

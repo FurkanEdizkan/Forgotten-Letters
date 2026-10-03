@@ -2,6 +2,7 @@ import type { PatronSkill } from '$lib/patrons';
 import type { CampaignTable, Progression } from '$lib/progression';
 import type { AftermathLines } from '$lib/aftermath';
 import type { Snapshot } from '$lib/rules-versions';
+import { sql } from 'drizzle-orm';
 import { type AnyPgColumn, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { SealSettings } from '$lib/seals';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride } from '$lib/warband-rules';
@@ -126,7 +127,9 @@ export const warband = pgTable(
 		lore: text('lore'),
 		/** A read-only link to a private list: /warbands/<id>?share=<token>; null when not shared. */
 		shareToken: text('share_token'),
-		/** The rules version it was built under (or last brought up to): see rules_version. */
+		/** The edition of the rules it is built and checked under (see `edition`). */
+		edition: text('edition').notNull().default('1.0.2'),
+		/** The rules version it was built under (or last brought up to), within its edition: see rules_version. */
 		rulesVersion: text('rules_version'),
 		/** Promotion Dice rolled in a row without a 6 (the sixth after five misses is a 6). */
 		promotionStreak: integer('promotion_streak').notNull().default(0),
@@ -577,10 +580,30 @@ export const userActivity = pgTable(
  * Rules data, imported from the group's own rulebooks (scripts/import-rules.py) and shared by every
  * campaign on this install. Never committed. Rows the CM marks verified survive later imports.
  */
+/**
+ * An edition of the rules (1.0.2, a later one, a house edition): every rules row belongs to one, and a warband is
+ * checked against its own. One edition is current: new warbands and the compendium use it.
+ */
+export const edition = pgTable(
+	'edition',
+	{
+		id: text('id').primaryKey(),
+		name: text('name').notNull(),
+		basedOn: text('based_on'),
+		status: text('status', { enum: ['draft', 'live', 'retired'] }).notNull().default('draft'),
+		current: boolean('current').notNull().default(false),
+		notes: text('notes'),
+		createdAt: createdAt()
+	},
+	(t) => [uniqueIndex('edition_one_current').on(t.current).where(sql`${t.current}`)]
+);
+
 export const rulesUnit = pgTable(
 	'rules_unit',
 	{
-		id: text('id').primaryKey(),
+		/** The edition of the rules this row belongs to (see `edition`). */
+		edition: text('edition').notNull(),
+		id: text('id').notNull(),
 		faction: text('faction').notNull(),
 		variant: text('variant'),
 		name: text('name').notNull(),
@@ -603,15 +626,19 @@ export const rulesUnit = pgTable(
 		/** Builder facts set by hand (they win over what is read from the battlekit note). */
 		kit: jsonb('kit').$type<UnitKitOverride>(),
 		/** The book's version, kept when an entry is first edited, for "Revert to book". */
-		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>()
+		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>(),
+		/** Its place in the faction's list (the editor's order). */
+		sort: integer('sort').notNull().default(0)
 	},
-	(t) => [index('rules_unit_faction_idx').on(t.faction)]
+	(t) => [primaryKey({ columns: [t.edition, t.id] }), index('rules_unit_faction_idx').on(t.edition, t.faction)]
 );
 
 export const rulesItem = pgTable(
 	'rules_item',
 	{
-		id: text('id').primaryKey(),
+		/** The edition of the rules this row belongs to (see `edition`). */
+		edition: text('edition').notNull(),
+		id: text('id').notNull(),
 		faction: text('faction').notNull(),
 		variant: text('variant'),
 		category: text('category', { enum: ['ranged', 'melee', 'grenade', 'armour', 'shield', 'equipment', 'special'] }).notNull(),
@@ -631,15 +658,17 @@ export const rulesItem = pgTable(
 		origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book'),
 		/** Stipulations set by hand (they win over what is read from the restrictions text). */
 		stipulations: jsonb('stipulations').$type<StipulationsOverride>(),
-		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>()
+		bookCopy: jsonb('book_copy').$type<Record<string, unknown>>(),
+		sort: integer('sort').notNull().default(0)
 	},
-	(t) => [index('rules_item_faction_idx').on(t.faction)]
+	(t) => [primaryKey({ columns: [t.edition, t.id] }), index('rules_item_faction_idx').on(t.edition, t.faction)]
 );
 
 /** Each faction's (variant null) and variant's special rules as printed: starting money, exclusions, upgrades… */
 export const rulesFaction = pgTable('rules_faction', {
+	edition: text('edition').notNull(),
 	/** `${faction}:${variant ?? ''}` */
-	id: text('id').primaryKey(),
+	id: text('id').notNull(),
 	faction: text('faction').notNull(),
 	variant: text('variant'),
 	/** Paragraphs separated by blank lines, one per rule ("* Name: text"). */
@@ -649,7 +678,7 @@ export const rulesFaction = pgTable('rules_faction', {
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book'),
 	/** Builder rules set by hand (starting money, exclusions, upgrades…); they win over the parsed text. */
 	overrides: jsonb('overrides').$type<RulesOverride>()
-});
+}, (t) => [primaryKey({ columns: [t.edition, t.id] })]);
 
 /** A faction or variant authored in the Faction Studio (the books' own are in lib/rules/factions.ts). */
 export const customFaction = pgTable('custom_faction', {
@@ -665,19 +694,21 @@ export const customFaction = pgTable('custom_faction', {
 });
 
 export const rulesKeyword = pgTable('rules_keyword', {
-	name: text('name').primaryKey(),
+	edition: text('edition').notNull(),
+	name: text('name').notNull(),
 	kind: text('kind'),
 	text: text('text').notNull(),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
-});
+}, (t) => [primaryKey({ columns: [t.edition, t.name] })]);
 
 /**
  * A Patron a warband may serve (Rulebook, Carcass Front): who may take it (an alignment, factions, variants of those
  * factions), what it is, and its Skills. From the book packs, like the rest of the rules.
  */
 export const rulesPatron = pgTable('rules_patron', {
-	id: text('id').primaryKey(),
+	edition: text('edition').notNull(),
+	id: text('id').notNull(),
 	name: text('name').notNull(),
 	alignment: text('alignment', { enum: ['faithful', 'fallen'] }),
 	factions: jsonb('factions').$type<string[]>().notNull().default([]),
@@ -687,11 +718,12 @@ export const rulesPatron = pgTable('rules_patron', {
 	source: text('source'),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
-});
+}, (t) => [primaryKey({ columns: [t.edition, t.id] })]);
 
 /** The Campaign Phase's tables (Trauma, the Skill Tables), and the progression settings (id `progression`). */
 export const rulesTable = pgTable('rules_table', {
-	id: text('id').primaryKey(),
+	edition: text('edition').notNull(),
+	id: text('id').notNull(),
 	name: text('name').notNull(),
 	dice: text('dice', { enum: ['D3', 'D6', '2D6', 'D66'] }).notNull().default('D6'),
 	text: text('text').notNull().default(''),
@@ -701,7 +733,7 @@ export const rulesTable = pgTable('rules_table', {
 	source: text('source'),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
-});
+}, (t) => [primaryKey({ columns: [t.edition, t.id] })]);
 
 /**
  * The rules as they stood at a point: each load of the book packs (`book`) and each Campaign Master's Studio edit
@@ -709,6 +741,7 @@ export const rulesTable = pgTable('rules_table', {
  */
 export const rulesVersion = pgTable('rules_version', {
 	id: id(),
+	edition: text('edition').notNull().default('1.0.2'),
 	label: text('label').notNull(),
 	kind: text('kind', { enum: ['book', 'house', 'baseline'] }).notNull().default('book'),
 	hash: text('hash').notNull(),

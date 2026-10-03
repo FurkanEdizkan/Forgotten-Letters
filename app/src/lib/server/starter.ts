@@ -3,6 +3,7 @@
  * regional weather set-ups and Faction Studio factions of our own. Never the book's map, rules or lore, and never
  * accounts, players or uploads. Download the current one from Admin → Backup to refresh the committed copy.
  */
+import { currentEditionId } from './editions';
 import { existsSync, readFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
@@ -36,13 +37,18 @@ export async function exportStarter(campaignId: string): Promise<Starter> {
 			fx: r.fx
 		})),
 		// Authored work only: book rows, and book rows edited as house rules, carry the books' text.
-		studio: {
-			factions: await db.select().from(customFaction),
-			units: custom(await db.select().from(rulesUnit)).map(({ bookCopy: _b, ...r }) => r),
-			items: custom(await db.select().from(rulesItem)).map(({ bookCopy: _b, ...r }) => r),
-			keywords: custom(await db.select().from(rulesKeyword)),
-			rules: custom(await db.select().from(rulesFaction))
-		}
+		// The current edition's authored rows, without their edition (a starter pack seeds whatever edition is current).
+		studio: await (async () => {
+			const ed = await currentEditionId();
+			const strip = <T extends { edition: string }>({ edition: _e, ...r }: T) => r;
+			return {
+				factions: await db.select().from(customFaction),
+				units: custom(await db.select().from(rulesUnit).where(eq(rulesUnit.edition, ed))).map(({ bookCopy: _b, ...r }) => strip(r)),
+				items: custom(await db.select().from(rulesItem).where(eq(rulesItem.edition, ed))).map(({ bookCopy: _b, ...r }) => strip(r)),
+				keywords: custom(await db.select().from(rulesKeyword).where(eq(rulesKeyword.edition, ed))).map(strip),
+				rules: custom(await db.select().from(rulesFaction).where(eq(rulesFaction.edition, ed))).map(strip)
+			};
+		})()
 	};
 }
 
@@ -76,11 +82,14 @@ export async function seedStudio() {
 	const s = starter();
 	if (!s?.studio.factions.length) return;
 	if ((await db.select({ id: customFaction.id }).from(customFaction).limit(1)).length) return;
+	// A starter pack's rows (made before editions, or for another install) go into the current edition.
+	const edition = await currentEditionId();
+	const into = <T>(r: unknown) => ({ ...(r as object), edition }) as T;
 	await db.transaction(async (tx) => {
 		for (const r of s.studio.factions) await tx.insert(customFaction).values({ ...(r as typeof customFaction.$inferInsert), createdAt: new Date() }).onConflictDoNothing();
-		for (const r of s.studio.units) await tx.insert(rulesUnit).values(r as typeof rulesUnit.$inferInsert).onConflictDoNothing();
-		for (const r of s.studio.items) await tx.insert(rulesItem).values(r as typeof rulesItem.$inferInsert).onConflictDoNothing();
-		for (const r of s.studio.keywords) await tx.insert(rulesKeyword).values(r as typeof rulesKeyword.$inferInsert).onConflictDoNothing();
-		for (const r of s.studio.rules) await tx.insert(rulesFaction).values(r as typeof rulesFaction.$inferInsert).onConflictDoNothing();
+		for (const r of s.studio.units) await tx.insert(rulesUnit).values(into<typeof rulesUnit.$inferInsert>(r)).onConflictDoNothing();
+		for (const r of s.studio.items) await tx.insert(rulesItem).values(into<typeof rulesItem.$inferInsert>(r)).onConflictDoNothing();
+		for (const r of s.studio.keywords) await tx.insert(rulesKeyword).values(into<typeof rulesKeyword.$inferInsert>(r)).onConflictDoNothing();
+		for (const r of s.studio.rules) await tx.insert(rulesFaction).values(into<typeof rulesFaction.$inferInsert>(r)).onConflictDoNothing();
 	});
 }

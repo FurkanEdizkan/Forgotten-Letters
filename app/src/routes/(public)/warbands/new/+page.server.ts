@@ -17,6 +17,7 @@ import { forgetUserSessions } from '$lib/server/auth';
 import { suggestedEntry } from '$lib/seating';
 import { importInto, readTcSource } from '$lib/server/tc-import';
 import { recruitRequired } from '$lib/server/builder';
+import { currentEditionId } from '$lib/server/editions';
 
 /** The book's starting strongbox. */
 const START_DUCATS = 700;
@@ -57,7 +58,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const mySeat = locals.isAdmin ? null : await seatOf(c, locals.user.id);
 	const [art, leaders] = await Promise.all([
 		artIndex(c.id),
-		db.select({ faction: rulesUnit.faction, name: rulesUnit.name, keywords: rulesUnit.keywords }).from(rulesUnit).orderBy(asc(rulesUnit.cost))
+		db
+			.select({ faction: rulesUnit.faction, name: rulesUnit.name, keywords: rulesUnit.keywords })
+			.from(rulesUnit)
+			.where(eq(rulesUnit.edition, await currentEditionId()))
+			.orderBy(asc(rulesUnit.cost))
 	]);
 	/** The card picture: the CM's art for the faction's leader, else for any of its units. */
 	const cover = (faction: string) => {
@@ -85,7 +90,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			cover: cover(f.id),
 			subs: subFactions(f.id).map((x) => ({ id: x.id, name: x.name, book: x.book ?? null, variants: x.variants }))
 		})),
-		patrons: await allPatrons(),
+		patrons: await allPatrons(await currentEditionId()),
 		entryZones: [...buildGraph(c.houseZones).zones.values()].filter((z) => z.type === 'entry').map((z) => ({ id: z.id, name: z.name })),
 		players: players.map((p) => ({ ...p, hasWarband: taken.has(p.id) })),
 		startDucats: START_DUCATS,
@@ -98,7 +103,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		 * Glory), what it must and cannot include, its caps and upgrades, and its special rules as printed.
 		 */
 		rulesFor: await (async () => {
-			const rows = await allFactionRules();
+			const rows = await allFactionRules(await currentEditionId());
 			const out: Record<string, PickRules> = {};
 			const lines = (t: string | null | undefined) =>
 				(t ?? '')
@@ -135,7 +140,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 /** A pick's rules: its faction's, with its variant's over them. */
 async function rulesOf(faction: string, variant: string | null) {
-	const rows = await allFactionRules();
+	const rows = await allFactionRules(await currentEditionId());
 	const base = rows.find((r) => r.faction === faction && !r.variant);
 	const vr = variant ? rows.find((r) => r.faction === faction && r.variant === variant) : undefined;
 	return readRules(base?.text ?? null, vr?.text ?? null, [base?.overrides, vr?.overrides]);
@@ -178,10 +183,11 @@ export const actions: Actions = {
 			.insert(warband)
 			.values({
 				listOwnerId: locals.user.id,
+				edition: await currentEditionId(),
 				name: imported.name.slice(0, 80),
 				faction: imported.faction,
 				variant: imported.variant,
-				patron: findPatron(await allPatrons(), imported.patron)?.name ?? imported.patron ?? null,
+				patron: findPatron(await allPatrons(await currentEditionId()), imported.patron)?.name ?? imported.patron ?? null,
 				treasuryDucats: 0,
 				treasuryGlory: 0
 			})
@@ -199,7 +205,7 @@ export const actions: Actions = {
 		const patronName = String(data.get('patron') ?? '').trim();
 		if (patronName) {
 			const [pf, pv] = String(data.get('pick') ?? '').split('::');
-			const pat = (await allPatrons()).find((p) => p.name === patronName);
+			const pat = (await allPatrons(await currentEditionId())).find((p) => p.name === patronName);
 			const fac = FACTIONS.find((x) => x.id === pf);
 			if (!pat || !fac || !patronAllowed(pat, { faction: fac.id, variant: pv || null, alignment: fac.alignment }))
 				return fail(400, { message: `${patronName} is not a Patron this warband may serve.` });
@@ -224,6 +230,7 @@ export const actions: Actions = {
 				.insert(warband)
 				.values({
 					listOwnerId: locals.user.id,
+					edition: await currentEditionId(),
 					name,
 					faction: f.id,
 					variant: variant && f.variants.includes(variant) ? variant : null,
@@ -276,6 +283,7 @@ export const actions: Actions = {
 				.insert(warband)
 				.values({
 					campaignId: c.id,
+					edition: await currentEditionId(),
 					playerId: p.id,
 					name: values.name,
 					faction: values.faction,

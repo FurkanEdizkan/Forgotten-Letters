@@ -17,7 +17,8 @@ export const d6 = () => randomInt(1, 7);
 
 /** The warband's models as the report reads them. */
 export async function unitFacts(warbandId: string): Promise<UnitFacts[]> {
-	const [{ units }, { tables }] = await Promise.all([roster(warbandId), campaignTables()]);
+	const [w] = await db.select({ edition: warband.edition }).from(warband).where(eq(warband.id, warbandId));
+	const [{ units }, { tables }] = await Promise.all([roster(warbandId), campaignTables(w?.edition ?? '1.0.2')]);
 	return units
 		.filter((u) => u.status === 'active')
 		.map((u) => ({
@@ -89,7 +90,7 @@ export async function approve(reportId: string) {
 	if (!r || r.status !== 'submitted') return null;
 	const units = await unitFacts(r.warbandId);
 	const [w] = await db.select().from(warband).where(eq(warband.id, r.warbandId));
-	const { tables } = await campaignTables();
+	const { tables } = await campaignTables(w.edition);
 	const input = await builderInput(w);
 	const { units: roster_ } = await roster(r.warbandId);
 	for (const c of applyReport(r.lines, units, tables)) {

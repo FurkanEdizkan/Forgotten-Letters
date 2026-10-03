@@ -1,7 +1,8 @@
+import { studioEdition } from '$lib/server/editions';
 import { allVersions, versionById } from '$lib/server/versions';
 import { diff } from '$lib/rules-versions';
 import { fail } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesUnit } from '$lib/server/db/schema';
 import { allFactionRules, allKeywords, importRules, itemsOf, pagesOf, rulesSummary, unitsOf } from '$lib/server/rules-data';
@@ -11,15 +12,17 @@ import type { Actions, PageServerLoad } from './$types';
 
 const RULE_FACTIONS = [...FACTIONS.map((f) => ({ id: f.id, name: f.name })), { id: 'mercenaries', name: 'Mercenaries' }];
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, cookies }) => {
 	const f = url.searchParams.get('f') ?? '';
 	const todo = url.searchParams.has('todo');
-	const summary = await rulesSummary();
+	// The edition shown and edited: ?edition=, else the current one.
+	const ed = await studioEdition({ url, cookies });
+	const summary = await rulesSummary(ed);
 	const book = (['core', 'campaign', 'scenario'] as const).find((b) => f === `pages-${b}`);
 	const isFaction = RULE_FACTIONS.some((x) => x.id === f);
 	const pick = <T extends { verified: boolean }>(rows: T[]) => (todo ? rows.filter((r) => !r.verified) : rows);
 	// Rules versions, newest first; one picked (`?version=`) is compared with the one before it.
-	const versions = await allVersions();
+	const versions = await allVersions(ed);
 	const picked = url.searchParams.get('version');
 	const k = versions.findIndex((v) => v.id === picked);
 	const compare =
@@ -43,11 +46,11 @@ export const load: PageServerLoad = async ({ url }) => {
 		})),
 		selected: f,
 		todo,
-		units: isFaction ? pick(await unitsOf(f)) : [],
-		items: isFaction ? pick(await itemsOf(f)) : [],
-		keywords: f === 'keywords' ? pick(await allKeywords()) : [],
+		units: isFaction ? pick(await unitsOf(f, ed)) : [],
+		items: isFaction ? pick(await itemsOf(f, ed)) : [],
+		keywords: f === 'keywords' ? pick(await allKeywords(ed)) : [],
 		pages: book ? pick(await pagesOf(book)) : [],
-		factionRules: f === 'faction-rules' ? pick(await allFactionRules()) : []
+		factionRules: f === 'faction-rules' ? pick(await allFactionRules(ed)) : []
 	};
 };
 
@@ -61,25 +64,26 @@ const list = (d: FormData, k: string) =>
 
 export const actions: Actions = {
 	// Book packs (Faction Studio YAML, several at once): they become the book; the CM's Studio edits stay.
-	packs: async ({ request }) => {
+	packs: async ({ request, url, cookies }) => {
 		const files = (await request.formData()).getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
 		if (!files.length) return fail(400, { packsMessage: 'Choose one or more pack files (.yaml).' });
 		const { packs, errors } = readPacks(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
 		if (errors.length) return fail(400, { packsMessage: `Nothing loaded: ${errors.slice(0, 12).join(' · ')}${errors.length > 12 ? ` · and ${errors.length - 12} more` : ''}` });
-		return { packsLoaded: await loadPacks(packs) };
+		return { packsLoaded: await loadPacks(packs, await studioEdition({ url, cookies })) };
 	},
-	import: async ({ request }) => {
+	import: async ({ request, url, cookies }) => {
 		const file = (await request.formData()).get('file');
 		if (!(file instanceof File) || !file.size) return fail(400, { importMessage: 'Choose the rules.json file made by import-rules.py.' });
 		try {
-			const r = await importRules(JSON.parse(await file.text()));
+			const r = await importRules(JSON.parse(await file.text()), await studioEdition({ url, cookies }));
 			return { imported: r };
 		} catch (e) {
 			return fail(400, { importMessage: (e as Error).message });
 		}
 	},
 
-	unit: async ({ request }) => {
+	unit: async ({ request, url, cookies }) => {
+		const ed = await studioEdition({ url, cookies });
 		const d = await request.formData();
 		const id = String(d.get('id'));
 		await db
@@ -106,11 +110,12 @@ export const actions: Actions = {
 				description: str(d, 'description'),
 				verified: d.has('verified')
 			})
-			.where(eq(rulesUnit.id, id));
+			.where(and(eq(rulesUnit.edition, ed), eq(rulesUnit.id, id)));
 		return { saved: id };
 	},
 
-	item: async ({ request }) => {
+	item: async ({ request, url, cookies }) => {
+		const ed = await studioEdition({ url, cookies });
 		const d = await request.formData();
 		const id = String(d.get('id'));
 		await db
@@ -127,7 +132,7 @@ export const actions: Actions = {
 				text: str(d, 'text'),
 				verified: d.has('verified')
 			})
-			.where(eq(rulesItem.id, id));
+			.where(and(eq(rulesItem.edition, ed), eq(rulesItem.id, id)));
 		return { saved: id };
 	},
 
@@ -141,23 +146,25 @@ export const actions: Actions = {
 		return { saved: slug };
 	},
 
-	factionRule: async ({ request }) => {
+	factionRule: async ({ request, url, cookies }) => {
+		const ed = await studioEdition({ url, cookies });
 		const d = await request.formData();
 		const id = String(d.get('id'));
 		await db
 			.update(rulesFaction)
 			.set({ text: str(d, 'text', 20_000) ?? '', verified: d.has('verified') })
-			.where(eq(rulesFaction.id, id));
+			.where(and(eq(rulesFaction.edition, ed), eq(rulesFaction.id, id)));
 		return { saved: id };
 	},
 
-	keyword: async ({ request }) => {
+	keyword: async ({ request, url, cookies }) => {
+		const ed = await studioEdition({ url, cookies });
 		const d = await request.formData();
 		const name = String(d.get('name'));
 		await db
 			.update(rulesKeyword)
 			.set({ text: str(d, 'text') ?? '', verified: d.has('verified') })
-			.where(eq(rulesKeyword.name, name));
+			.where(and(eq(rulesKeyword.edition, ed), eq(rulesKeyword.name, name)));
 		return { saved: name };
 	}
 };

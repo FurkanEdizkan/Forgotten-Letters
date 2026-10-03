@@ -13,7 +13,8 @@ import { findPatron, patronAllowed } from '$lib/patrons';
 import { FACTIONS } from '$lib/rules/factions';
 import { importInto, readTcSource } from '$lib/server/tc-import';
 import { d6, promotionInputs, reportFor, reportsOf, saveLines, unitFacts, withExperience } from '$lib/server/aftermath';
-import { currentVersion, versionById } from '$lib/server/versions';
+import { currentVersion, snapshotNow, versionById } from '$lib/server/versions';
+import { editionById, editions, moveWarbands } from '$lib/server/editions';
 import { affecting, diff } from '$lib/rules-versions';
 import { advancementsOwed, rollAdvancement, rollPromotionStep, rollTrauma, type AftermathLines } from '$lib/aftermath';
 import { KIND_OF } from '$lib/builder';
@@ -28,10 +29,10 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 	const { w, p, c, isList, canEdit } = await builderWarband(params.id, locals.user, share);
 	const [input, keywords, art, patronList, campaign] = await Promise.all([
 		builderInput(w),
-		allKeywords(),
+		allKeywords(w.edition),
 		c ? artIndex(c.id) : Promise.resolve(new Map<string, string>()),
-		allPatrons(),
-		campaignTables()
+		allPatrons(w.edition),
+		campaignTables(w.edition)
 	]);
 	const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
 	const { units } = await roster(w.id);
@@ -68,7 +69,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		 * faction and variant rules, Patron, campaign tables), then the rest of its faction's changes.
 		 */
 		rules: await (async () => {
-			const [pinned, current] = await Promise.all([versionById(w.rulesVersion), currentVersion()]);
+			const [pinned, current] = await Promise.all([versionById(w.rulesVersion), currentVersion(w.edition)]);
 			if (!pinned || !current) return null;
 			const base = { pinned: { label: pinned.label, at: pinned.createdAt.toISOString() }, current: { label: current.label, at: current.createdAt.toISOString() } };
 			if (pinned.id === current.id) return { ...base, upToDate: true, mine: [], faction: [] };
@@ -82,6 +83,27 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 				patron: w.patron
 			});
 			return { ...base, upToDate: false, mine, faction };
+		})(),
+		/**
+		 * Its edition of the rules, the editions it may move to (live ones; the CM sees drafts too), and, for one picked
+		 * with ?toEdition=, what would change for it.
+		 */
+		edition: await (async () => {
+			const all = await editions();
+			const options = all.filter((e) => e.id !== w.edition && (e.status === 'live' || locals.isAdmin)).map((e) => ({ id: e.id, name: e.name, status: e.status }));
+			const to = url.searchParams.get('toEdition');
+			const target = to && options.some((e) => e.id === to) ? to : null;
+			const preview = target
+				? affecting(diff(await snapshotNow(w.edition), await snapshotNow(target)), {
+						faction: w.faction,
+						variant: w.variant,
+						profileIds: units.map((u) => u.profileId).filter((x): x is string => !!x),
+						entryNames: units.map((u) => u.type),
+						itemNames: [...units.flatMap((u) => u.equipment.map((e) => e.name)), ...(await roster(w.id)).stash.map((s) => s.name)],
+						patron: w.patron
+					})
+				: null;
+			return { id: w.edition, name: all.find((e) => e.id === w.edition)?.name ?? w.edition, options: canEdit ? options : [], target, preview };
 		})(),
 		/** The battles it fought and its aftermath report on each (its player and the CM only). */
 		aftermath: canEdit && w.campaignId
@@ -404,7 +426,7 @@ export const actions: Actions = {
 		if (d.has('patronForm')) {
 			const name = str(d, 'patron', 120);
 			if (rules.patron && !w.unrestricted && !name.toLowerCase().startsWith(rules.patron.toLowerCase())) return fail(400, { message: `This warband serves ${rules.patron}.` });
-			const pat = (await allPatrons()).find((x) => x.name === name);
+			const pat = (await allPatrons(w.edition)).find((x) => x.name === name);
 			const alignment = FACTIONS.find((f) => f.id === w.faction)?.alignment ?? null;
 			if (name && (!pat || !patronAllowed(pat, { faction: w.faction, variant: w.variant, alignment }))) return fail(400, { message: `${name} is not a Patron this warband may serve.` });
 			set.patron = name || null;
@@ -447,7 +469,7 @@ export const actions: Actions = {
 		const r = await reportFor(str(d, 'game'), w.id);
 		if (!r) return fail(404, { aftermathMessage: 'No such battle for this warband.' });
 		if (r.status === 'approved' || (r.status === 'submitted' && op !== 'withdraw')) return fail(400, { aftermathMessage: 'This report is with the Campaign Master.' });
-		const { tables, progression } = await campaignTables();
+		const { tables, progression } = await campaignTables(w.edition);
 		const units = await unitFacts(w.id);
 		const table = (id: string) => tables.find((t) => t.id === id);
 		let lines: AftermathLines = r.lines;
@@ -484,7 +506,7 @@ export const actions: Actions = {
 			if (advancementsOwed(model(u.id)!, u, progression) < 1) return fail(400, { aftermathMessage: `${m.name || m.type} has no Advancement Roll due.` });
 			if (picked.length !== progression.advancement.tablesToPick || !picked.every((t) => t.id.startsWith('skills-')))
 				return fail(400, { aftermathMessage: `Pick ${progression.advancement.tablesToPick} different Skill Tables.` });
-			const patron = (await allPatrons()).find((x) => x.name === w.patron)?.skills.map((s) => s.name) ?? [];
+			const patron = (await allPatrons(w.edition)).find((x) => x.name === w.patron)?.skills.map((s) => s.name) ?? [];
 			const known = [...u.skills, ...model(u.id)!.advancements.map((a) => a.chosen ?? '')];
 			const adv = rollAdvancement(picked, progression.advancement.dice, known, patron, d6);
 			lines = { ...lines, models: lines.models.map((x) => (x.unitId === u.id ? { ...x, advancements: [...x.advancements, adv] } : x)) };
@@ -512,10 +534,21 @@ export const actions: Actions = {
 		return {};
 	},
 
+	/** Move this warband to another edition of the rules (a live one; the CM may also use a draft). */
+	moveEdition: async ({ params, request, locals }) => {
+		const { w } = await editable(params.id, locals);
+		const to = str(await request.formData(), 'edition', 40);
+		const e = await editionById(to);
+		if (!e || (e.status !== 'live' && !locals.isAdmin)) return fail(400, { message: 'That edition is not open for warbands.' });
+		await moveWarbands([w.id], to);
+		done(w.campaignId);
+		redirect(303, `/warbands/${w.id}`);
+	},
+
 	/** The rules changed since this warband was built: take note, and pin it to the current version. */
 	rulesAck: async ({ params, locals }) => {
 		const { w } = await editable(params.id, locals);
-		const v = await currentVersion();
+		const v = await currentVersion(w.edition);
 		if (v) await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
 		return {};
 	},

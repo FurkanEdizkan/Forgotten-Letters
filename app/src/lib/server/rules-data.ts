@@ -1,13 +1,14 @@
 import type { Patron } from '$lib/patrons';
 import { existsSync, readFileSync } from 'node:fs';
-import { asc, count, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
 import { rulesPatron, rulesFaction, rulesItem, rulesKeyword, rulesPage, rulesTable, rulesUnit } from './db/schema';
 import type { CampaignTable, Progression } from '$lib/progression';
+import { currentEditionId } from './editions';
 
-type Unit = typeof rulesUnit.$inferInsert;
-type Item = typeof rulesItem.$inferInsert;
+type Unit = Omit<typeof rulesUnit.$inferInsert, 'edition'>;
+type Item = Omit<typeof rulesItem.$inferInsert, 'edition'>;
 
 const str = (v: unknown, max = 4000) => (typeof v === 'string' ? v.trim().slice(0, max) : null) || null;
 const int = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0);
@@ -98,7 +99,7 @@ function itemRow(i: any): Item | null {
  * Load an import-rules.py file. Entries the CM has verified are left alone; everything else is
  * replaced. Returns what changed.
  */
-export async function importRules(data: unknown) {
+export async function importRules(data: unknown, edition: string) {
 	const d = data as { units?: unknown[]; items?: unknown[]; keywords?: unknown[]; pages?: unknown[]; rules?: unknown[] };
 	if (!d || !Array.isArray(d.units) || !Array.isArray(d.items)) throw new Error('Not an import-rules.py file');
 	const units = d.units.map(unitRow).filter((u): u is Unit => !!u);
@@ -122,28 +123,29 @@ export async function importRules(data: unknown) {
 			table: typeof rulesUnit | typeof rulesItem | typeof rulesKeyword | typeof rulesPage | typeof rulesFaction,
 			key: 'id' | 'name' | 'slug'
 		) => {
-			const verified = new Set(
-				(await tx.select().from(table as typeof rulesUnit).where(eq((table as typeof rulesUnit).verified, true))).map((r: any) => r[key])
-			);
+			const t = table as typeof rulesUnit;
+			// Rules rows are per edition; the rules pages are not.
+			const inEdition = table === rulesPage ? undefined : eq(t.edition, edition);
+			const verified = new Set((await tx.select().from(t).where(and(eq(t.verified, true), inEdition))).map((r: any) => r[key]));
 			n.kept += verified.size;
 			return rows.filter((r: any) => !verified.has(r[key]));
 		};
 		const u = await keep(units, rulesUnit, 'id');
-		await tx.delete(rulesUnit).where(eq(rulesUnit.verified, false));
-		for (const row of u) await tx.insert(rulesUnit).values(row).onConflictDoNothing();
+		await tx.delete(rulesUnit).where(and(eq(rulesUnit.edition, edition), eq(rulesUnit.verified, false)));
+		for (const row of u) await tx.insert(rulesUnit).values({ ...row, edition }).onConflictDoNothing();
 		n.units = u.length;
 		const it = await keep(items, rulesItem, 'id');
-		await tx.delete(rulesItem).where(eq(rulesItem.verified, false));
-		for (const row of it) await tx.insert(rulesItem).values(row).onConflictDoNothing();
+		await tx.delete(rulesItem).where(and(eq(rulesItem.edition, edition), eq(rulesItem.verified, false)));
+		for (const row of it) await tx.insert(rulesItem).values({ ...row, edition }).onConflictDoNothing();
 		n.items = it.length;
 		const kw = await keep(keywords, rulesKeyword, 'name');
-		await tx.delete(rulesKeyword).where(eq(rulesKeyword.verified, false));
-		for (const row of kw) await tx.insert(rulesKeyword).values(row).onConflictDoNothing();
+		await tx.delete(rulesKeyword).where(and(eq(rulesKeyword.edition, edition), eq(rulesKeyword.verified, false)));
+		for (const row of kw) await tx.insert(rulesKeyword).values({ ...row, edition }).onConflictDoNothing();
 		n.keywords = kw.length;
 		if (factionRules.length) {
 			const fr = await keep(factionRules, rulesFaction, 'id');
-			await tx.delete(rulesFaction).where(eq(rulesFaction.verified, false));
-			for (const row of fr) await tx.insert(rulesFaction).values(row).onConflictDoNothing();
+			await tx.delete(rulesFaction).where(and(eq(rulesFaction.edition, edition), eq(rulesFaction.verified, false)));
+			for (const row of fr) await tx.insert(rulesFaction).values({ ...row, edition }).onConflictDoNothing();
 			n.rules = fr.length;
 		}
 		// An older file without pages leaves the pages already loaded alone.
@@ -163,17 +165,18 @@ export async function loadRulesFileIfEmpty() {
 	if (!existsSync(path)) return;
 	const [{ n }] = await db.select({ n: count() }).from(rulesUnit);
 	if (n > 0) return;
-	const r = await importRules(JSON.parse(readFileSync(path, 'utf8')));
+	const r = await importRules(JSON.parse(readFileSync(path, 'utf8')), await currentEditionId());
 	console.log(`Loaded rules from ${path}: ${r.units} units, ${r.items} items, ${r.keywords} keywords, ${r.pages} pages.`);
 }
 
-export async function rulesSummary() {
+export async function rulesSummary(edition: string) {
 	const units = await db
 		.select({ faction: rulesUnit.faction, n: count(), unverified: sql<number>`count(*) filter (where not ${rulesUnit.verified})::int` })
 		.from(rulesUnit)
+		.where(eq(rulesUnit.edition, edition))
 		.groupBy(rulesUnit.faction);
-	const items = await db.select({ faction: rulesItem.faction, n: count() }).from(rulesItem).groupBy(rulesItem.faction);
-	const [{ keywords }] = await db.select({ keywords: count() }).from(rulesKeyword);
+	const items = await db.select({ faction: rulesItem.faction, n: count() }).from(rulesItem).where(eq(rulesItem.edition, edition)).groupBy(rulesItem.faction);
+	const [{ keywords }] = await db.select({ keywords: count() }).from(rulesKeyword).where(eq(rulesKeyword.edition, edition));
 	const pages = await db
 		.select({ book: rulesPage.book, n: count(), unverified: sql<number>`count(*) filter (where not ${rulesPage.verified})::int` })
 		.from(rulesPage)
@@ -181,11 +184,19 @@ export async function rulesSummary() {
 	return { units, items, keywords, pages };
 }
 
-export const unitsOf = (faction: string) =>
-	db.select().from(rulesUnit).where(eq(rulesUnit.faction, faction)).orderBy(asc(rulesUnit.category), asc(rulesUnit.cost));
-export const itemsOf = (faction: string) =>
-	db.select().from(rulesItem).where(eq(rulesItem.faction, faction)).orderBy(asc(rulesItem.category), asc(rulesItem.name));
-export const allKeywords = () => db.select().from(rulesKeyword).orderBy(asc(rulesKeyword.name));
+export const unitsOf = (faction: string, edition: string) =>
+	db
+		.select()
+		.from(rulesUnit)
+		.where(and(eq(rulesUnit.edition, edition), eq(rulesUnit.faction, faction)))
+		.orderBy(asc(rulesUnit.sort), asc(rulesUnit.category), asc(rulesUnit.cost));
+export const itemsOf = (faction: string, edition: string) =>
+	db
+		.select()
+		.from(rulesItem)
+		.where(and(eq(rulesItem.edition, edition), eq(rulesItem.faction, faction)))
+		.orderBy(asc(rulesItem.sort), asc(rulesItem.category), asc(rulesItem.name));
+export const allKeywords = (edition: string) => db.select().from(rulesKeyword).where(eq(rulesKeyword.edition, edition)).orderBy(asc(rulesKeyword.name));
 
 /** The contents of the rules pages (no bodies), in book order. */
 export const pageIndex = () =>
@@ -197,16 +208,18 @@ export const rulePage = async (slug: string) => (await db.select().from(rulesPag
 export const pagesOf = (book: 'core' | 'campaign' | 'scenario') =>
 	db.select().from(rulesPage).where(eq(rulesPage.book, book)).orderBy(asc(rulesPage.order));
 
-export async function searchRules(q: string) {
+export async function searchRules(q: string, edition: string) {
 	const like = `%${q.replace(/[%_]/g, '')}%`;
 	const [units, items, keywords, pages] = await Promise.all([
 		db
 			.select()
 			.from(rulesUnit)
-			.where(or(ilike(rulesUnit.name, like), sql`${rulesUnit.keywords}::text ilike ${like}`, sql`${rulesUnit.abilities}::text ilike ${like}`))
+			.where(
+				and(eq(rulesUnit.edition, edition), or(ilike(rulesUnit.name, like), sql`${rulesUnit.keywords}::text ilike ${like}`, sql`${rulesUnit.abilities}::text ilike ${like}`))
+			)
 			.limit(40),
-		db.select().from(rulesItem).where(or(ilike(rulesItem.name, like), ilike(rulesItem.text, like))).limit(40),
-		db.select().from(rulesKeyword).where(or(ilike(rulesKeyword.name, like), ilike(rulesKeyword.text, like))).limit(40),
+		db.select().from(rulesItem).where(and(eq(rulesItem.edition, edition), or(ilike(rulesItem.name, like), ilike(rulesItem.text, like)))).limit(40),
+		db.select().from(rulesKeyword).where(and(eq(rulesKeyword.edition, edition), or(ilike(rulesKeyword.name, like), ilike(rulesKeyword.text, like)))).limit(40),
 		db
 			.select({ slug: rulesPage.slug, book: rulesPage.book, title: rulesPage.title, chapter: rulesPage.chapter, body: rulesPage.body })
 			.from(rulesPage)
@@ -225,26 +238,27 @@ export async function searchRules(q: string) {
 }
 
 /** A faction's rules and (when given) its variant's, as printed. */
-export async function factionRulesText(faction: string, variant: string | null) {
-	const rows = await db.select().from(rulesFaction).where(eq(rulesFaction.faction, faction));
+export async function factionRulesText(faction: string, variant: string | null, edition: string) {
+	const rows = await db.select().from(rulesFaction).where(and(eq(rulesFaction.edition, edition), eq(rulesFaction.faction, faction)));
 	const f = rows.find((r) => !r.variant);
 	const v = variant ? rows.find((r) => r.variant === variant) : undefined;
 	return { faction: f?.text ?? null, variant: v?.text ?? null, overrides: [f?.overrides ?? null, v?.overrides ?? null] };
 }
-export const allFactionRules = () => db.select().from(rulesFaction).orderBy(asc(rulesFaction.faction), asc(rulesFaction.variant));
+export const allFactionRules = (edition: string) =>
+	db.select().from(rulesFaction).where(eq(rulesFaction.edition, edition)).orderBy(asc(rulesFaction.faction), asc(rulesFaction.variant));
 
 /** Every Patron, from the book packs (see `lib/patrons.ts` for who may take one). */
 /** The Campaign Phase's tables, and the progression settings (null until the campaign pack is loaded). */
-export async function campaignTables(): Promise<{ tables: CampaignTable[]; progression: Progression | null }> {
-	const rows = await db.select().from(rulesTable);
+export async function campaignTables(edition: string): Promise<{ tables: CampaignTable[]; progression: Progression | null }> {
+	const rows = await db.select().from(rulesTable).where(eq(rulesTable.edition, edition));
 	return {
 		tables: rows.filter((r) => r.id !== 'progression').map((r) => ({ id: r.id, name: r.name, dice: r.dice, source: r.source, text: r.text, rows: r.rows })),
 		progression: rows.find((r) => r.id === 'progression')?.settings ?? null
 	};
 }
 
-export async function allPatrons(): Promise<Patron[]> {
-	return (await db.select().from(rulesPatron).orderBy(asc(rulesPatron.name))).map((p) => ({
+export async function allPatrons(edition: string): Promise<Patron[]> {
+	return (await db.select().from(rulesPatron).where(eq(rulesPatron.edition, edition)).orderBy(asc(rulesPatron.name))).map((p) => ({
 		id: p.id,
 		name: p.name,
 		alignment: p.alignment ?? null,

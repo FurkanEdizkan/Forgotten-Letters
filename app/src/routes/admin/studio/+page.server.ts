@@ -1,10 +1,16 @@
+import { editions, studioEdition } from '$lib/server/editions';
 import { fail, redirect } from '@sveltejs/kit';
 import { FACTIONS } from '$lib/rules/factions';
 import { parseTemplate, slug } from '$lib/faction-template';
 import { applyPack, previewPack, saveFaction, studioEntries } from '$lib/server/studio';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => ({ entries: await studioEntries() });
+export const load: PageServerLoad = async ({ url, cookies }) => ({
+	entries: await studioEntries(),
+	// The edition being edited, and the others to switch to.
+	edition: await studioEdition({ url, cookies }),
+	editions: (await editions()).map((e) => ({ id: e.id, name: e.name, status: e.status, current: e.current }))
+});
 
 const known = () => ({ factions: FACTIONS.map((f) => ({ id: f.id, name: f.name })) });
 
@@ -37,14 +43,15 @@ export const actions: Actions = {
 	},
 
 	/** Read a template and show what it would do; `apply` writes it. */
-	import: async ({ request }) => {
+	import: async ({ request, url, cookies }) => {
+		const ed = await studioEdition({ url, cookies });
 		const d = await request.formData();
 		const yaml = await yamlOf(d);
 		if (!yaml.trim()) return fail(400, { message: 'Choose a template file or paste one.' });
 		const { pack, errors } = parseTemplate(yaml, known());
 		if (!pack) return fail(400, { yaml, errors });
-		if (!d.has('apply')) return { yaml, preview: { name: pack.faction.name, id: pack.faction.id, ...(await previewPack(pack)) } };
-		await applyPack(pack);
+		if (!d.has('apply')) return { yaml, preview: { name: pack.faction.name, id: pack.faction.id, ...(await previewPack(pack, ed)) } };
+		await applyPack(pack, ed);
 		redirect(303, `/admin/studio/${pack.faction.id}`);
 	}
 };

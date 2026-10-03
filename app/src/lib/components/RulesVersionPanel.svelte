@@ -8,7 +8,8 @@
 	import type { EntryChange } from '$lib/rules-versions';
 
 	type Info = { pinned: { label: string; at: string }; current: { label: string; at: string }; upToDate: boolean; mine: EntryChange[]; faction: EntryChange[] };
-	let { rules, canEdit }: { rules: Info; canEdit: boolean } = $props();
+	type Edition = { id: string; name: string; options: { id: string; name: string; status: string }[]; target: string | null; preview: { mine: EntryChange[]; faction: EntryChange[] } | null };
+	let { rules, canEdit, edition }: { rules: Info | null; canEdit: boolean; edition: Edition } = $props();
 
 	const KIND: Record<string, string> = { units: 'Unit', items: 'Battlekit', factions: 'Rules', patrons: 'Patron', tables: 'Campaign table' };
 	const FIELD: Record<string, string> = {
@@ -43,10 +44,33 @@
 				: c.fields.map((f) => (f.from === '' ? `${label(f.field)} ${f.to}` : `${label(f.field)} ${f.from} → ${f.to}`)).join('; ');
 </script>
 
-<details class="panel rulespanel version" class:changed={!rules.upToDate} open={!rules.upToDate && rules.mine.length > 0}>
+<details class="panel rulespanel version" class:changed={rules && !rules.upToDate} open={(!!rules && !rules.upToDate && rules.mine.length > 0) || !!edition.target}>
 	<summary>
-		<h2>Rules{rules.upToDate ? '' : ` · ${rules.mine.length} change${rules.mine.length === 1 ? ' affects' : 's affect'} this warband`}</h2>
+		<h2>Rules · edition {edition.id}{rules && !rules.upToDate ? ` · ${rules.mine.length} change${rules.mine.length === 1 ? ' affects' : 's affect'} this warband` : ''}</h2>
 	</summary>
+	<p>Checked under edition <b>{edition.id}</b>{edition.name !== edition.id ? ` (${edition.name})` : ''}.</p>
+	{#if edition.options.length}
+		<form method="GET" class="move">
+			<label>Move to edition
+				<select name="toEdition" value={edition.target ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+					<option value="">—</option>
+					{#each edition.options as o (o.id)}<option value={o.id}>{o.id}{o.status !== 'live' ? ` (${o.status})` : ''}</option>{/each}
+				</select>
+			</label>
+		</form>
+		{#if edition.target && edition.preview}
+			<h3>What changes for this warband in {edition.target}</h3>
+			<ul>{#each edition.preview.mine as c (c.kind + c.id)}<li><span class="k">{KIND[c.kind]}</span> <b>{c.name}</b>: {what(c)}</li>{:else}<li class="dim">Nothing that touches this warband.</li>{/each}</ul>
+			{#if edition.preview.faction.length}<details><summary>Other changes in your faction ({edition.preview.faction.length})</summary><ul>{#each edition.preview.faction as c (c.kind + c.id)}<li><span class="k">{KIND[c.kind]}</span> <b>{c.name}</b>: {what(c)}</li>{/each}</ul></details>{/if}
+			<form method="POST" action="?/moveEdition">
+				<input type="hidden" name="edition" value={edition.target} />
+				<button class="action small">Move this warband to {edition.target}</button>
+			</form>
+		{/if}
+	{/if}
+	{#if !rules}
+		<!-- no version recorded yet -->
+	{:else}
 	<p>Built under <b>{rules.pinned.label}</b> <small class="dim">({date(rules.pinned.at)})</small>.</p>
 	{#if rules.upToDate}
 		<p class="dim">These are the current rules.</p>
@@ -68,9 +92,15 @@
 			</form>
 		{/if}
 	{/if}
+	{/if}
 </details>
 
 <style>
+	.move label {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
 	.version.changed {
 		border-left: 3px solid var(--gold, #c9a24a);
 	}

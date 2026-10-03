@@ -14,6 +14,7 @@ import { importLegacySqlite } from '$lib/server/db/legacy';
 import { loadRulesFileIfEmpty } from '$lib/server/rules-data';
 import { loadPacksDirIfEmpty } from '$lib/server/packs';
 import { ensureBaseline, recordVersion } from '$lib/server/versions';
+import { studioEdition } from '$lib/server/editions';
 import { clientMeta, pruneAudit, recordAudit } from '$lib/server/audit';
 import { countRequest, flushActivity } from '$lib/server/activity';
 import { adminActionName, isPageView } from '$lib/server/activity-rules';
@@ -84,13 +85,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// A change to the rules (book packs loaded, a Studio edit) makes a new rules version, if the rules changed.
 	const rulesEdit = event.request.method === 'POST' && /^\/admin\/(rules|studio)(\/|$)/.test(path);
-	const edition = rulesEdit ? await event.request.clone().formData().then((d) => String(d.get('edition') ?? '').trim()).catch(() => '') : '';
+	const label = rulesEdit ? await event.request.clone().formData().then((d) => String(d.get('label') ?? '').trim()).catch(() => '') : '';
+	// The edition the change is made in (read now: it may remember ?edition= in a cookie).
+	const editedEdition = rulesEdit ? await studioEdition(event) : null;
 
 	const response = await resolve(event);
 
 	if (rulesEdit && response.status < 400) {
 		const day = new Date().toISOString().slice(0, 10);
-		await recordVersion(edition || (path.startsWith('/admin/studio') ? `House rules (${day})` : `Rules loaded (${day})`), path.startsWith('/admin/studio') ? 'house' : 'book').catch((e) => console.error('rules version:', e));
+		await recordVersion(label || (path.startsWith('/admin/studio') ? `House rules (${day})` : `Rules loaded (${day})`), path.startsWith('/admin/studio') ? 'house' : 'book', editedEdition!).catch((e) =>
+			console.error('rules version:', e)
+		);
 	}
 
 	const mutation = event.request.method !== 'GET' && event.request.method !== 'HEAD';

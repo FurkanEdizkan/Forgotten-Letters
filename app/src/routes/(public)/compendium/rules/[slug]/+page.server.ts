@@ -1,9 +1,10 @@
+import { editionOr } from '$lib/server/editions';
 import { error } from '@sveltejs/kit';
 import { allKeywords, pageIndex, rulePage } from '$lib/server/rules-data';
 import { keywordKey } from '$lib/keywords';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, url }) => {
 	const page = await rulePage(params.slug);
 	if (!page) error(404, 'No such rules page');
 	const index = (await pageIndex()).filter((p) => p.book === page.book);
@@ -13,6 +14,6 @@ export const load: PageServerLoad = async ({ params }) => {
 		index,
 		prev: index[at - 1] ?? null,
 		next: index[at + 1] ?? null,
-		glossary: Object.fromEntries((await allKeywords()).map((k) => [keywordKey(k.name), k.text]))
+		glossary: Object.fromEntries((await allKeywords(await editionOr(url.searchParams.get('edition')))).map((k) => [keywordKey(k.name), k.text]))
 	};
 };

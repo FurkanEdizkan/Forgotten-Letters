@@ -1,3 +1,4 @@
+import { currentEditionId } from '$lib/server/editions';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { allPatrons } from '$lib/server/rules-data';
 import { and, eq, or } from 'drizzle-orm';
@@ -55,7 +56,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const s = state.players.get(w.id)!;
 	const vision = visionById(w.visionCard ?? undefined);
 	return {
-		patrons: (await allPatrons()).map((x) => x.name),
+		patrons: (await allPatrons(await currentEditionId())).map((x) => x.name),
 		expectedPlayers: Math.max(c.expectedPlayers, rows.length),
 		entryZones: [...buildGraph(c.houseZones).zones.values()].filter((z) => z.type === 'entry'),
 		warband: w,

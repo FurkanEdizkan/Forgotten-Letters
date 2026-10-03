@@ -13,7 +13,7 @@ export async function warbandSheet(id: string, user: SessionUser | null, share?:
 	const { w, p } = await builderWarband(id, user, share);
 	const input = await builderInput(w);
 	const { rules, state } = builderState(input);
-	const [{ units, stash }, keywords] = await Promise.all([roster(w.id), allKeywords()]);
+	const [{ units, stash }, keywords] = await Promise.all([roster(w.id), allKeywords(w.edition)]);
 	const active = units.filter((u) => u.status === 'active');
 	const tables = input.tables ?? [];
 	const profile0 = (id: string | null) => input.profiles.find((x) => x.id === id) ?? null;

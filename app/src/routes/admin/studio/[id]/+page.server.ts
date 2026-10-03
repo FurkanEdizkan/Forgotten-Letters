@@ -1,3 +1,5 @@
+import { studioEdition } from '$lib/server/editions';
+import type { Cookies } from '@sveltejs/kit';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { FACTIONS } from '$lib/rules/factions';
 import { parseTemplate, readTemplate, toTemplate } from '$lib/faction-template';
@@ -8,12 +10,15 @@ import type { Actions, PageServerLoad } from './$types';
 
 const TABS = ['identity', 'rules', 'units', 'armoury', 'keywords', 'yaml'] as const;
 
-export const load: PageServerLoad = async ({ params, url }) => {
+/** The edition being edited: ?edition=, else the current one. */
+const ed = (url: URL, cookies: Cookies) => studioEdition({ url, cookies });
+
+export const load: PageServerLoad = async ({ params, url, cookies }) => {
 	const r = await resolve(params.id);
-	const pack = r && (await packOf(params.id));
+	const pack = r && (await packOf(params.id, await ed(url, cookies)));
 	if (!r || !pack) error(404, 'No such faction or variant');
-	const text = await factionRulesText(r.factionId, r.variant);
-	const glossary = await allKeywords();
+	const text = await factionRulesText(r.factionId, r.variant, await ed(url, cookies));
+	const glossary = await allKeywords(await ed(url, cookies));
 	return {
 		id: params.id,
 		tab: TABS.find((t) => t === url.searchParams.get('tab')) ?? (r.custom ? 'identity' : 'units'),
@@ -58,7 +63,7 @@ const keep = <T extends object>(o: T, ks: (keyof T)[]): Partial<T> => Object.fro
 const failed = (errors: { path: string; message: string }[], at: string) => fail(400, { errors, at });
 
 export const actions: Actions = {
-	identity: async ({ params, request }) => {
+	identity: async ({ params, request, url, cookies }) => {
 		const r = await resolve(params.id);
 		if (!r?.custom) return fail(400, { message: 'Book factions keep their names; edit their rules, units and armoury.' });
 		const { s, opt } = reader(await request.formData());
@@ -74,7 +79,7 @@ export const actions: Actions = {
 		return { saved: 'identity' };
 	},
 
-	rules: async ({ params, request }) => {
+	rules: async ({ params, request, url, cookies }) => {
 		const d = await request.formData();
 		const { s, lines } = reader(d);
 		const up = (k: string) => d.getAll(k).map(String);
@@ -98,7 +103,7 @@ export const actions: Actions = {
 		});
 		if (!pack) return failed(errors, 'rules');
 		// What this form doesn't edit (limits, prices, an upgrade's models and limits) stays as it was.
-		const old = (await packOf(params.id))?.rules.overrides ?? {};
+		const old = (await packOf(params.id, await ed(url, cookies)))?.rules.overrides ?? {};
 		const o = (pack.rules.overrides ??= {});
 		if (old.limits) o.limits = old.limits;
 		if (old.prices) o.prices = old.prices;
@@ -108,11 +113,11 @@ export const actions: Actions = {
 			const was = old.upgrades?.find((x) => x.name === u.name);
 			return was ? { ...u, for: was.for, ...keep(was, ['keywords', 'group', 'hands', 'limits']) } : u;
 		});
-		await saveRules(pack.rules);
+		await saveRules(pack.rules, await ed(url, cookies));
 		return { saved: 'rules' };
 	},
 
-	unit: async ({ params, request }) => {
+	unit: async ({ params, request, url, cookies }) => {
 		const d = await request.formData();
 		const { s, opt } = reader(d);
 		const { pack, errors } = await withFaction(params.id, {
@@ -150,13 +155,13 @@ export const actions: Actions = {
 		});
 		if (!pack) return failed(errors, s('id') || 'new-unit');
 		const row = { ...pack.units[0], id: s('id') || pack.units[0].id };
-		const was = (await packOf(params.id))?.units.find((u) => u.id === row.id)?.kit;
+		const was = (await packOf(params.id, await ed(url, cookies)))?.units.find((u) => u.id === row.id)?.kit;
 		if (row.kit && was) row.kit = { ...row.kit, ...keep(was, ['prices', 'limits', 'hands', 'loadouts', 'countsAs', 'recruit', 'items', 'heavyOneHand']) };
-		await saveUnit(row);
+		await saveUnit(row, await ed(url, cookies));
 		return { saved: row.id };
 	},
 
-	item: async ({ params, request }) => {
+	item: async ({ params, request, url, cookies }) => {
 		const d = await request.formData();
 		const { s, opt } = reader(d);
 		const { pack, errors } = await withFaction(params.id, {
@@ -184,42 +189,42 @@ export const actions: Actions = {
 		if (!pack) return failed(errors, s('id') || 'new-item');
 		const row = { ...pack.items[0], id: s('id') || pack.items[0].id };
 		// Ticks that say what the book's own wording already says keep the wording (and the entry stays the book's).
-		const old = (await packOf(params.id))?.items.find((i) => i.id === row.id);
+		const old = (await packOf(params.id, await ed(url, cookies)))?.items.find((i) => i.id === row.id);
 		if (row.stipulations && old?.stipulations) row.stipulations = { ...row.stipulations, ...keep(old.stipulations, ['alignment', 'factions', 'limits', 'limitExcludes', 'dropKeywords']) };
 		if (old && !old.stipulations) {
 			const same = (a: object, b: object) => (Object.keys(row.stipulations ?? {}) as (keyof typeof a)[]).every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
 			if (same(itemFacts({ ...row, restrictions: old.restrictions, stipulations: null }), itemFacts(row))) Object.assign(row, { stipulations: null, restrictions: old.restrictions });
 		}
-		await saveItem(row);
+		await saveItem(row, await ed(url, cookies));
 		return { saved: row.id };
 	},
 
-	keyword: async ({ request }) => {
+	keyword: async ({ request, url, cookies }) => {
 		const { s } = reader(await request.formData());
 		const name = s('name').toUpperCase().slice(0, 80);
 		if (!name || !s('text')) return fail(400, { message: 'A keyword needs a name and its text.' });
-		await saveKeyword({ name, kind: ['Tag', 'Effect', 'Tag, Effect'].find((k) => k === s('kind')) ?? null, text: s('text').slice(0, 4000) });
+		await saveKeyword({ name, kind: ['Tag', 'Effect', 'Tag, Effect'].find((k) => k === s('kind')) ?? null, text: s('text').slice(0, 4000) }, await ed(url, cookies));
 		return { saved: name };
 	},
 
-	revert: async ({ request }) => {
+	revert: async ({ request, url, cookies }) => {
 		const { s } = reader(await request.formData());
-		await revert(s('kind') === 'item' ? 'item' : 'unit', s('id'));
+		await revert(s('kind') === 'item' ? 'item' : 'unit', s('id'), await ed(url, cookies));
 		return { saved: s('id') };
 	},
 
-	remove: async ({ request }) => {
+	remove: async ({ request, url, cookies }) => {
 		const { s } = reader(await request.formData());
-		await removeRow(s('kind') === 'item' ? 'item' : 'unit', s('id'));
+		await removeRow(s('kind') === 'item' ? 'item' : 'unit', s('id'), await ed(url, cookies));
 		return { saved: 'removed' };
 	},
 
-	yaml: async ({ params, request }) => {
+	yaml: async ({ params, request, url, cookies }) => {
 		const { s } = reader(await request.formData());
 		const { pack, errors } = parseTemplate(s('yaml'), known());
 		if (!pack) return failed(errors, 'yaml');
 		if (pack.faction.id !== params.id) return failed([{ path: 'faction', message: `this file is for “${pack.faction.name}”; import it from the Studio's front page` }], 'yaml');
-		await applyPack(pack);
+		await applyPack(pack, await ed(url, cookies));
 		return { saved: 'yaml' };
 	},
 

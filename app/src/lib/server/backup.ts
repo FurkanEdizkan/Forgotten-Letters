@@ -7,6 +7,7 @@ import {
 	adjustment,
 	campaign,
 	customFaction,
+	edition,
 	rulesFaction,
 	rulesItem,
 	rulesKeyword,
@@ -50,7 +51,7 @@ export interface Backup {
 	/** Players' own warband lists (outside the campaign), with their models and stash. */
 	lists?: { warbands: Row[]; units: Row[]; stash: Row[] };
 	/** Faction Studio: authored factions and every custom or edited rules row (book rows come from rules.json). */
-	studio?: { factions: Row[]; units: Row[]; items: Row[]; keywords: Row[]; rules: Row[] };
+	studio?: { factions: Row[]; units: Row[]; items: Row[]; keywords: Row[]; rules: Row[]; editions?: Row[] };
 	/** The map's zones (Map Studio). */
 	zones?: Row[];
 	/** Rounds of battles, their entries, and the seats' invite links (v7). */
@@ -136,7 +137,9 @@ export async function exportCampaign(campaignId: string): Promise<Backup> {
 			units: await db.select().from(rulesUnit).where(ne(rulesUnit.origin, 'book')),
 			items: await db.select().from(rulesItem).where(ne(rulesItem.origin, 'book')),
 			keywords: await db.select().from(rulesKeyword).where(ne(rulesKeyword.origin, 'book')),
-			rules: await db.select().from(rulesFaction).where(ne(rulesFaction.origin, 'book'))
+			rules: await db.select().from(rulesFaction).where(ne(rulesFaction.origin, 'book')),
+			// The editions themselves (their book rows come back from the packs).
+			editions: await db.select().from(edition)
 		},
 		images
 	};
@@ -225,10 +228,15 @@ export async function importCampaign(raw: unknown) {
 		if (b.studio) {
 			await tx.delete(customFaction);
 			for (const r of b.studio.factions) await tx.insert(customFaction).values(revive<typeof customFaction.$inferInsert>(r));
+			// A backup from before editions files every row under 1.0.2.
+			for (const e of b.studio.editions ?? [])
+				await tx.insert(edition).values(revive<typeof edition.$inferInsert>(e)).onConflictDoNothing();
 			const upsert = async (table: typeof rulesUnit | typeof rulesItem | typeof rulesKeyword | typeof rulesFaction, rows: Row[], key: 'id' | 'name') => {
-				for (const r of rows) {
-					await tx.delete(table).where(eq((table as typeof rulesUnit)[key as 'id'], r[key] as string));
-					await tx.insert(table as typeof rulesUnit).values(r as typeof rulesUnit.$inferInsert);
+				for (const r0 of rows) {
+					const r: Row = { ...r0, edition: (r0.edition as string | undefined) ?? '1.0.2' };
+					const t = table as typeof rulesUnit;
+					await tx.delete(t).where(and(eq(t.edition, r.edition as string), eq(t[key as 'id'], r[key] as string)));
+					await tx.insert(t).values(r as typeof rulesUnit.$inferInsert);
 				}
 			};
 			await upsert(rulesUnit, b.studio.units, 'id');

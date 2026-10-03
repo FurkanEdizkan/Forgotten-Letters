@@ -380,7 +380,7 @@
 				</section>
 			{/if}
 
-			{#if data.rules}<RulesVersionPanel rules={data.rules} canEdit={data.canEdit} />{/if}
+			<RulesVersionPanel rules={data.rules} canEdit={data.canEdit} edition={data.edition} />
 
 			{#if data.canEdit && data.warband.inCampaign}
 				<AftermathPanel

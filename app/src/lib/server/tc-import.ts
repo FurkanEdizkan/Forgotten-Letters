@@ -53,7 +53,7 @@ export async function importInto(w: typeof warband.$inferSelect, imported: TcImp
 	const { imported: matched, report } = matchToBook(imported, { profiles: input.profiles, armoury: input.armoury, upgrades: rules.upgrades, leader: rules.leader, paragraphs: rules.paragraphs });
 	await replaceRoster(w.campaignId, w.id, matched);
 	// Brought in against the rules as they are now.
-	const v = await currentVersion();
+	const v = await currentVersion(w.edition);
 	if (v) await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
 	if (w.campaignId) publish(w.campaignId);
 	const after = builderState(await builderInput(w));

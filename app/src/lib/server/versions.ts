@@ -3,54 +3,57 @@
  * each Studio edit, made only when the rules actually changed; and what changed since the version a warband pins.
  */
 import { createHash } from 'node:crypto';
-import { desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
 import { rulesFaction, rulesItem, rulesPatron, rulesTable, rulesUnit, rulesVersion, warband } from './db/schema';
 import { stable, type Snapshot, type SnapRow } from '$lib/rules-versions';
+import { editions } from './editions';
 
-/** The effective rules now, keyed by stable id. */
-export async function snapshotNow(): Promise<Snapshot> {
+/** An edition's effective rules now, keyed by stable id. */
+export async function snapshotNow(edition: string): Promise<Snapshot> {
 	const [units, items, factions, patrons, tables] = await Promise.all([
-		db.select().from(rulesUnit),
-		db.select().from(rulesItem),
-		db.select().from(rulesFaction),
-		db.select().from(rulesPatron),
-		db.select().from(rulesTable)
+		db.select().from(rulesUnit).where(eq(rulesUnit.edition, edition)),
+		db.select().from(rulesItem).where(eq(rulesItem.edition, edition)),
+		db.select().from(rulesFaction).where(eq(rulesFaction.edition, edition)),
+		db.select().from(rulesPatron).where(eq(rulesPatron.edition, edition)),
+		db.select().from(rulesTable).where(eq(rulesTable.edition, edition))
 	]);
 	const by = <T extends { id: string }>(rows: T[], row: (r: T) => SnapRow) => Object.fromEntries(rows.map((r) => [r.id, row(r)]));
 	return {
-		units: by(units, ({ id: _i, origin: _o, verified: _v, bookCopy: _b, ...r }) => r as SnapRow),
-		items: by(items, ({ id: _i, origin: _o, verified: _v, bookCopy: _b, ...r }) => r as SnapRow),
-		factions: by(factions, ({ id: _i, origin: _o, verified: _v, ...r }) => ({ ...r, name: r.variant ?? r.faction }) as SnapRow),
-		patrons: by(patrons, ({ id: _i, origin: _o, verified: _v, ...r }) => r as SnapRow),
-		tables: by(tables, ({ id: _i, origin: _o, verified: _v, ...r }) => r as SnapRow)
+		units: by(units, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, sort: _s, ...r }) => r as SnapRow),
+		items: by(items, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, sort: _s, ...r }) => r as SnapRow),
+		factions: by(factions, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => ({ ...r, name: r.variant ?? r.faction }) as SnapRow),
+		patrons: by(patrons, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => r as SnapRow),
+		tables: by(tables, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => r as SnapRow)
 	};
 }
 
 export const hashOf = (s: Snapshot) => createHash('sha256').update(stable(s)).digest('hex').slice(0, 16);
 
-export async function currentVersion() {
-	const [v] = await db.select().from(rulesVersion).orderBy(desc(rulesVersion.createdAt)).limit(1);
+/** An edition's latest version. */
+export async function currentVersion(edition: string) {
+	const [v] = await db.select().from(rulesVersion).where(eq(rulesVersion.edition, edition)).orderBy(desc(rulesVersion.createdAt)).limit(1);
 	return v ?? null;
 }
 
-/** Record the rules as they are now, unless they are the same as the latest version; returns the current version. */
-export async function recordVersion(label: string, kind: 'book' | 'house' | 'baseline') {
-	const snapshot = await snapshotNow();
+/** Record an edition's rules as they are now, unless they equal its latest version; returns its current version. */
+export async function recordVersion(label: string, kind: 'book' | 'house' | 'baseline', edition: string) {
+	const snapshot = await snapshotNow(edition);
 	const hash = hashOf(snapshot);
-	const latest = await currentVersion();
+	const latest = await currentVersion(edition);
 	if (latest?.hash === hash) return latest;
-	const [v] = await db.insert(rulesVersion).values({ label: label.slice(0, 120), kind, hash, snapshot }).returning();
+	const [v] = await db.insert(rulesVersion).values({ edition, label: label.slice(0, 120), kind, hash, snapshot }).returning();
 	return v;
 }
 
-/** At start: a baseline version if there is none (and rules exist), and every unpinned warband pinned to the current one. */
+/** At start: a baseline version for every edition that has rules and none yet; unpinned warbands pinned to their edition's. */
 export async function ensureBaseline() {
-	const [anyUnit] = await db.select({ id: rulesUnit.id }).from(rulesUnit).limit(1);
-	if (!anyUnit) return null;
-	const v = (await currentVersion()) ?? (await recordVersion('Rules as first recorded', 'baseline'));
-	await db.update(warband).set({ rulesVersion: v.id }).where(isNull(warband.rulesVersion));
-	return v;
+	for (const e of await editions()) {
+		const [anyUnit] = await db.select({ id: rulesUnit.id }).from(rulesUnit).where(eq(rulesUnit.edition, e.id)).limit(1);
+		if (!anyUnit) continue;
+		const v = (await currentVersion(e.id)) ?? (await recordVersion(e.name, 'baseline', e.id));
+		await db.update(warband).set({ rulesVersion: v.id }).where(and(isNull(warband.rulesVersion), eq(warband.edition, e.id)));
+	}
 }
 
 export async function versionById(id: string | null) {
@@ -59,7 +62,11 @@ export async function versionById(id: string | null) {
 	return v ?? null;
 }
 
-export async function allVersions() {
-	return db.select({ id: rulesVersion.id, label: rulesVersion.label, kind: rulesVersion.kind, createdAt: rulesVersion.createdAt }).from(rulesVersion).orderBy(desc(rulesVersion.createdAt));
+export async function allVersions(edition: string) {
+	return db
+		.select({ id: rulesVersion.id, label: rulesVersion.label, kind: rulesVersion.kind, createdAt: rulesVersion.createdAt })
+		.from(rulesVersion)
+		.where(eq(rulesVersion.edition, edition))
+		.orderBy(desc(rulesVersion.createdAt));
 }
 

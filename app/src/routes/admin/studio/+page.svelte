@@ -8,6 +8,15 @@
 </script>
 
 <h1>Faction Studio</h1>
+<form method="GET" class="edition">
+	<label>
+		Editing edition
+		<select name="edition" value={data.edition} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+			{#each data.editions as e (e.id)}<option value={e.id}>{e.id}{e.current ? ' (current)' : e.status !== 'live' ? ` (${e.status})` : ''}</option>{/each}
+		</select>
+	</label>
+	<a href="/admin/studio/editions">Editions…</a>
+</form>
 <p class="lede">
 	Write your own factions and variants, or change book entries as house rules. Everything saved here is kept when the books are imported
 	again; an edited book entry can be put back as printed. The builder, New Warband and the compendium pick changes up at once.
@@ -96,6 +105,12 @@
 </ul>
 
 <style>
+	.edition {
+		display: flex;
+		gap: 14px;
+		align-items: center;
+		margin: 0 0 12px;
+	}
 	.lede {
 		max-width: 64ch;
 		color: var(--ink-soft);

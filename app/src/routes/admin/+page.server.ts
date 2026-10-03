@@ -1,3 +1,4 @@
+import { currentEditionId } from '$lib/server/editions';
 import { fail, redirect } from '@sveltejs/kit';
 import { and, count, eq, inArray, or } from 'drizzle-orm';
 import { db } from '$lib/server/db';
@@ -44,7 +45,7 @@ export async function load() {
 	const c = await currentCampaign();
 	if (!c) return { reckoning: null, setup: null };
 	// First steps of a new deployment: what is still missing, with where to do it.
-	const [{ units }] = await db.select({ units: count() }).from(rulesUnit);
+	const [{ units }] = await db.select({ units: count() }).from(rulesUnit).where(eq(rulesUnit.edition, await currentEditionId()));
 	const setup = [
 		{ done: !!c.mapImage, label: 'Upload the campaign map and place its zones', href: '/admin/map' },
 		{ done: units > 0, label: 'Load the rules (rules.json from your books) or write factions in the Faction Studio', href: '/admin/rules' },

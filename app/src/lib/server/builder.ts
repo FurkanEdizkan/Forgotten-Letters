@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from './db';
 import { player, rulesUnit, unit, warband } from './db/schema';
 import { currentCampaign } from './campaign';
@@ -29,7 +29,7 @@ export async function builderWarband(id: string, user: SessionUser | null, share
 	if (isList && !shared && !(user && (user.role === 'cm' || user.id === w.listOwnerId))) error(404, 'No such warband');
 	// A warband not yet pinned to a rules version (just made) is pinned to the current one.
 	if (!w.rulesVersion) {
-		const v = await currentVersion();
+		const v = await currentVersion(w.edition);
 		if (v) {
 			await db.update(warband).set({ rulesVersion: v.id }).where(eq(warband.id, w.id));
 			w.rulesVersion = v.id;
@@ -44,16 +44,17 @@ export async function builderWarband(id: string, user: SessionUser | null, share
 export async function builderInput(w: typeof warband.$inferSelect): Promise<BuilderInput & { profiles: ProfileData[] }> {
 	const faction = FACTIONS.find((f) => f.id === w.faction);
 	const [own, mercs, items, mercItems, glory, explore, text, { units, stash }, patrons, campaign] = await Promise.all([
-		unitsOf(w.faction),
-		unitsOf('mercenaries'),
-		itemsOf(w.faction),
-		itemsOf('mercenaries'),
-		itemsOf('glory-items'),
-		itemsOf('exploration'),
-		factionRulesText(w.faction, w.variant),
+		// Everything from the warband's own edition of the rules.
+		unitsOf(w.faction, w.edition),
+		unitsOf('mercenaries', w.edition),
+		itemsOf(w.faction, w.edition),
+		itemsOf('mercenaries', w.edition),
+		itemsOf('glory-items', w.edition),
+		itemsOf('exploration', w.edition),
+		factionRulesText(w.faction, w.variant, w.edition),
 		roster(w.id),
-		allPatrons(),
-		campaignTables()
+		allPatrons(w.edition),
+		campaignTables(w.edition)
 	]);
 	// The faction's own entries and this variant's, never another variant's; a variant's entry replaces the base
 	// entry of the same name (it costs more there, or gains a keyword).
@@ -157,7 +158,7 @@ export async function builderInput(w: typeof warband.$inferSelect): Promise<Buil
 export async function recruitEntry(w: typeof warband.$inferSelect, profile: ProfileData, name = '') {
 	const input = await builderInput(w);
 	const { rules, state } = builderState(input);
-	const [row] = await db.select().from(rulesUnit).where(eq(rulesUnit.id, profile.id));
+	const [row] = await db.select().from(rulesUnit).where(and(eq(rulesUnit.edition, w.edition), eq(rulesUnit.id, profile.id)));
 	const kit = unitKit(profile.battlekitNote, profile.kit);
 	const fixed: Item[] = kit.fixed.map((n) => {
 		const a = findItem(input.armoury, n);

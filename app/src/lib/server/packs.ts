@@ -13,6 +13,7 @@ import { and, eq, isNull, notInArray } from 'drizzle-orm';
 import { db } from './db';
 import { rulesFaction, rulesItem, rulesKeyword, rulesPatron, rulesTable, rulesUnit } from './db/schema';
 import { announceReload } from './hub';
+import { currentEditionId } from './editions';
 import { loadCustomFactions } from './factions';
 import { FACTIONS } from '$lib/rules/factions';
 import { parseTemplate, type FactionPack, type ItemRow, type UnitRow } from '$lib/faction-template';
@@ -49,49 +50,53 @@ export function readPacks(files: { name: string; text: string }[]) {
 	return { packs: errors.length ? [] : packs, errors };
 }
 
-async function writeRows(tx: Tx, table: typeof rulesUnit | typeof rulesItem, rows: (UnitRow | ItemRow)[], faction: string, variant: string | null) {
+async function writeRows(tx: Tx, table: typeof rulesUnit | typeof rulesItem, rows: (UnitRow | ItemRow)[], faction: string, variant: string | null, edition: string) {
 	const t = table as typeof rulesUnit;
+	const at = (id: string) => and(eq(t.edition, edition), eq(t.id, id));
 	let kept = 0;
-	for (const row of rows) {
-		const [old] = await tx.select().from(t).where(eq(t.id, row.id));
+	for (const [n, row] of rows.entries()) {
+		const [old] = await tx.select().from(t).where(at(row.id));
 		if (old && old.origin !== 'book') {
 			// The CM's edit stands; the book copy it reverts to is now the pack's.
-			if (old.origin === 'edited') await tx.update(t).set({ bookCopy: row as unknown as Record<string, unknown> }).where(eq(t.id, row.id));
+			if (old.origin === 'edited') await tx.update(t).set({ bookCopy: row as unknown as Record<string, unknown> }).where(at(row.id));
 			kept++;
 			continue;
 		}
-		const values = { ...row, verified: true, origin: 'book', bookCopy: null } as typeof rulesUnit.$inferInsert;
-		if (old) await tx.update(t).set(values).where(eq(t.id, row.id));
+		// In the pack's order (the editor reorders them later).
+		const values = { ...row, edition, sort: n, verified: true, origin: 'book', bookCopy: null } as typeof rulesUnit.$inferInsert;
+		if (old) await tx.update(t).set(values).where(at(row.id));
 		else await tx.insert(t).values(values);
 	}
 	// Book rows of this faction or variant that the pack no longer has.
-	const scope = and(eq(t.faction, faction), variant ? eq(t.variant, variant) : isNull(t.variant), eq(t.origin, 'book'));
+	const scope = and(eq(t.edition, edition), eq(t.faction, faction), variant ? eq(t.variant, variant) : isNull(t.variant), eq(t.origin, 'book'));
 	const ids = rows.map((r) => r.id);
 	const gone = await tx.delete(t).where(ids.length ? and(scope, notInArray(t.id, ids)) : scope).returning({ id: t.id });
 	return { kept, removed: gone.length };
 }
 
-/** Load packs as the book (see the module note). */
-export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
+/** Load packs as the book of an edition (see the module note). */
+export async function loadPacks(packs: FactionPack[], edition: string): Promise<PackResult[]> {
 	const out: PackResult[] = [];
 	await db.transaction(async (tx) => {
 		for (const p of packs) {
 			const label = p.variant ? `${p.factionId} / ${p.variant}` : p.factionId;
 			for (const k of p.keywords) {
-				const [old] = await tx.select().from(rulesKeyword).where(eq(rulesKeyword.name, k.name));
+				const at = and(eq(rulesKeyword.edition, edition), eq(rulesKeyword.name, k.name));
+				const [old] = await tx.select().from(rulesKeyword).where(at);
 				if (old && old.origin !== 'book') continue;
-				if (old) await tx.update(rulesKeyword).set({ ...k, verified: true }).where(eq(rulesKeyword.name, k.name));
-				else await tx.insert(rulesKeyword).values({ ...k, verified: true, origin: 'book' });
+				if (old) await tx.update(rulesKeyword).set({ ...k, verified: true }).where(at);
+				else await tx.insert(rulesKeyword).values({ ...k, edition, verified: true, origin: 'book' });
 			}
 			// Patrons: the pack's own replace the book's; the CM's edited or own Patrons stay.
 			if (p.patrons?.length) {
 				const ids = p.patrons.map((x) => x.id);
-				await tx.delete(rulesPatron).where(and(eq(rulesPatron.origin, 'book'), notInArray(rulesPatron.id, ids)));
+				await tx.delete(rulesPatron).where(and(eq(rulesPatron.edition, edition), eq(rulesPatron.origin, 'book'), notInArray(rulesPatron.id, ids)));
 				for (const x of p.patrons) {
-					const [old] = await tx.select({ origin: rulesPatron.origin }).from(rulesPatron).where(eq(rulesPatron.id, x.id));
+					const at = and(eq(rulesPatron.edition, edition), eq(rulesPatron.id, x.id));
+					const [old] = await tx.select({ origin: rulesPatron.origin }).from(rulesPatron).where(at);
 					if (old && old.origin !== 'book') continue;
-					const row = { ...x, verified: true, origin: 'book' as const };
-					if (old) await tx.update(rulesPatron).set(row).where(eq(rulesPatron.id, x.id));
+					const row = { ...x, edition, verified: true, origin: 'book' as const };
+					if (old) await tx.update(rulesPatron).set(row).where(at);
 					else await tx.insert(rulesPatron).values(row);
 				}
 			}
@@ -101,12 +106,13 @@ export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
 					...(p.tables ?? []).map((t) => ({ ...t, settings: null })),
 					...(p.progression ? [{ id: 'progression', name: 'Progression', dice: 'D6' as const, text: p.progression.text, rows: [], source: null, settings: p.progression }] : [])
 				];
-				await tx.delete(rulesTable).where(and(eq(rulesTable.origin, 'book'), notInArray(rulesTable.id, rows.map((r) => r.id))));
+				await tx.delete(rulesTable).where(and(eq(rulesTable.edition, edition), eq(rulesTable.origin, 'book'), notInArray(rulesTable.id, rows.map((r) => r.id))));
 				for (const r of rows) {
-					const [old] = await tx.select({ origin: rulesTable.origin }).from(rulesTable).where(eq(rulesTable.id, r.id));
+					const at = and(eq(rulesTable.edition, edition), eq(rulesTable.id, r.id));
+					const [old] = await tx.select({ origin: rulesTable.origin }).from(rulesTable).where(at);
 					if (old && old.origin !== 'book') continue;
-					const row = { ...r, verified: true, origin: 'book' as const };
-					if (old) await tx.update(rulesTable).set(row).where(eq(rulesTable.id, r.id));
+					const row = { ...r, edition, verified: true, origin: 'book' as const };
+					if (old) await tx.update(rulesTable).set(row).where(at);
 					else await tx.insert(rulesTable).values(row);
 				}
 			}
@@ -115,11 +121,12 @@ export async function loadPacks(packs: FactionPack[]): Promise<PackResult[]> {
 				continue;
 			}
 			const r = p.rules;
-			const [old] = await tx.select().from(rulesFaction).where(eq(rulesFaction.id, r.id));
-			if (!old) await tx.insert(rulesFaction).values({ id: r.id, faction: r.faction, variant: r.variant, text: r.text, overrides: r.overrides, verified: true, origin: 'book' });
-			else if (old.origin === 'book') await tx.update(rulesFaction).set({ text: r.text, overrides: r.overrides, verified: true }).where(eq(rulesFaction.id, r.id));
-			const u = await writeRows(tx, rulesUnit, p.units, p.factionId, p.variant);
-			const i = await writeRows(tx, rulesItem, p.items, p.factionId, p.variant);
+			const at = and(eq(rulesFaction.edition, edition), eq(rulesFaction.id, r.id));
+			const [old] = await tx.select().from(rulesFaction).where(at);
+			if (!old) await tx.insert(rulesFaction).values({ edition, id: r.id, faction: r.faction, variant: r.variant, text: r.text, overrides: r.overrides, verified: true, origin: 'book' });
+			else if (old.origin === 'book') await tx.update(rulesFaction).set({ text: r.text, overrides: r.overrides, verified: true }).where(at);
+			const u = await writeRows(tx, rulesUnit, p.units, p.factionId, p.variant, edition);
+			const i = await writeRows(tx, rulesItem, p.items, p.factionId, p.variant, edition);
 			out.push({ pack: label, units: p.units.length, items: p.items.length, keywords: p.keywords.length, kept: u.kept + i.kept, removed: u.removed + i.removed });
 		}
 	});
@@ -144,5 +151,5 @@ export async function loadPacksDirIfEmpty(dir = process.env.RULES_PACKS ?? '/dat
 		console.error(`rules packs in ${dir} not loaded:\n  ${errors.join('\n  ')}`);
 		return null;
 	}
-	return loadPacks(packs);
+	return loadPacks(packs, await currentEditionId());
 }

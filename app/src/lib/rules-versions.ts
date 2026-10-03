@@ -3,6 +3,8 @@
  * of the effective rules (units, armoury, faction and variant rules, Patrons, campaign tables) keyed by their
  * stable ids; two snapshots give the entries added, removed and changed, with the fields that changed.
  */
+import { sameEntry } from './warband-rules';
+
 export type Kind = 'units' | 'items' | 'factions' | 'patrons' | 'tables';
 export const KINDS: Kind[] = ['units', 'items', 'factions', 'patrons', 'tables'];
 
@@ -122,14 +124,13 @@ const letters = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
  * Patron, the campaign tables) and the rest of its faction's; changes elsewhere are dropped.
  */
 export function affecting(changes: EntryChange[], w: WarbandRef) {
-	const names = new Set(w.entryNames.map(letters));
 	const items = new Set(w.itemNames.map(letters));
 	const mine: EntryChange[] = [];
 	const faction: EntryChange[] = [];
 	for (const c of changes) {
 		const ours = c.faction === w.faction && (!c.variant || c.variant === w.variant);
 		const touches =
-			(c.kind === 'units' && (w.profileIds.includes(c.id) || (ours && names.has(letters(c.name))))) ||
+			(c.kind === 'units' && (w.profileIds.includes(c.id) || (ours && w.entryNames.some((n) => sameEntry(n, c.name))))) ||
 			(c.kind === 'items' && items.has(letters(c.name))) ||
 			(c.kind === 'factions' && ours) ||
 			(c.kind === 'patrons' && !!w.patron && letters(c.name).startsWith(letters(w.patron))) ||

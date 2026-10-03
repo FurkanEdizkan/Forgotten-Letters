@@ -167,7 +167,7 @@ export function limitIssues(w: LimitWorld): LimitIssue[] {
 	const active = w.models.filter((m) => m.status === 'active');
 	const out: LimitIssue[] = [];
 	w.limits.forEach((l, n) => {
-		const label = l.text ?? l.name ?? 'A rule of this warband';
+		const label = l.text ?? l.name ?? describeLimit(l).slice(0, -1);
 		const floor = usesFloor(l.models) || usesFloor(l.who) || usesFloor(l.scope);
 		const countWarband = (s: { models?: ModelSel; items?: ItemSel }) =>
 			s.models
@@ -214,6 +214,74 @@ export function limitIssues(w: LimitWorld): LimitIssue[] {
 export function newlyBroken(before: LimitWorld, after: LimitWorld): string | null {
 	const had = new Set(limitIssues(before).map((i) => i.key));
 	return limitIssues(after).find((i) => i.blocking && !had.has(i.key))?.text ?? null;
+}
+
+// ---------------------------------------------------------------- in words
+
+const CATEGORY_NAMES: Record<ArmouryCategory, string> = {
+	ranged: 'Ranged Weapons',
+	grenade: 'Grenades',
+	melee: 'Melee Weapons',
+	armour: 'Armour',
+	shield: 'Shields',
+	equipment: 'Equipment',
+	special: 'Special items'
+};
+const or = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? '…') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
+const coin = (c?: Currency) => (c === 'glory' ? 'Glory' : 'Ducats');
+
+/** "2-Handed HEAVY Melee Weapons costing 10 Ducats or less". */
+export function describeItems(s: ItemSel | undefined): string {
+	if (!s) return 'items';
+	const noun = s.names ? or(s.names) : s.categories?.length ? or(s.categories.map((c) => CATEGORY_NAMES[c] ?? c)) : 'items';
+	const parts = [[...(s.types ?? []), ...(s.keywords ?? []), noun].join(' ')];
+	if (s.min_cost != null && s.max_cost != null) parts.push(`costing ${s.min_cost}–${s.max_cost} ${coin(s.currency)}`);
+	else if (s.min_cost != null) parts.push(`costing ${s.min_cost} ${coin(s.currency)} or more`);
+	else if (s.max_cost != null) parts.push(`costing ${s.max_cost} ${coin(s.currency)} or less`);
+	else if (s.currency) parts.push(`paid in ${coin(s.currency)}`);
+	if (s.not) parts.push(`other than ${describeItems(s.not)}`);
+	return parts.join(' ');
+}
+
+/** "Elite models with the keyword ARTILLERY, holding Rifles". */
+export function describeModels(s: ModelSel | undefined, noun = 'models'): string {
+	if (!s) return noun;
+	const head = s.entries ? or(s.entries) : [...(s.category ?? []).map((c) => c[0].toUpperCase() + c.slice(1)), noun].join(' ');
+	const parts = [head];
+	if (s.keywords?.length) parts.push(`with ${or(s.keywords)}`);
+	if (s.upgrades?.length) parts.push(`with the upgrade ${or(s.upgrades)}`);
+	if (s.skills?.length) parts.push(`with the Skill ${or(s.skills)}`);
+	if (s.holding) parts.push(`holding ${describeItems(s.holding)}`);
+	if (s.value_under != null) parts.push(`worth under ${s.value_under} Ducats`);
+	if (s.base_over != null) parts.push(`on a base over ${s.base_over}mm`);
+	if (s.not) parts.push(`but not ${describeModels(s.not)}`);
+	return parts.join(', ');
+}
+
+/** A limit in plain words, for the editor's preview and a broken rule with no text of its own. */
+export function describeLimit(l: Limit): string {
+	const amount = l.min != null && l.max != null ? (l.min === l.max ? `exactly ${l.min}` : `${l.min}–${l.max}`) : l.max === 0 ? 'no' : l.max != null ? `at most ${l.max}` : `at least ${l.min ?? 0}`;
+	let s: string;
+	if (l.items || l.upgrades) {
+		const who = l.who ? `Each of ${describeModels(l.who)}` : 'Each model';
+		s = l.items
+			? `${who} carries ${amount} ${describeItems(l.items)}${l.count === 'weapons' ? ' (counted as weapons: a 2-Handed one is two)' : ''}`
+			: `${who} has ${amount} of the upgrades ${or(l.upgrades!)}`;
+	} else if (l.entries) s = `The warband has ${amount} of ${or(l.entries)}`;
+	else if (l.warband_items) s = `The warband carries ${amount} ${describeItems(l.warband_items)}`;
+	else s = `The warband has ${amount} ${describeModels(l.models)}`;
+	if (l.per && l.max != null) {
+		const each = l.per.each && l.per.each > 1 ? `${l.per.each} ` : '';
+		s += ` for each ${each}${l.per.models || !l.per.items ? describeModels(l.per.models) : describeItems(l.per.items)}`;
+		if (l.per.round === 'up') s += ' (a part counts)';
+		if (l.per.strict) s += ', less one';
+	}
+	const c = l.when;
+	if (c?.rating_min != null) s += `, while its other models are worth ${c.rating_min} Ducats or more`;
+	if (c?.rating_under != null) s += `, while its other models are worth under ${c.rating_under} Ducats`;
+	if (c?.present) s += `, while it has ${describeModels(c.present)}`;
+	if (c?.absent) s += `, unless it has ${describeModels(c.absent)}`;
+	return `${s}.`;
 }
 
 // ---------------------------------------------------------------- loadouts

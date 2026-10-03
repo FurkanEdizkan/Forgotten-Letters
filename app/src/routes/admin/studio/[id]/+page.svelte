@@ -1,41 +1,62 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import Seal from '$lib/components/Seal.svelte';
-	import { ITEM_CATEGORIES, KIT_EXCEPT, UNIT_CATEGORIES } from '$lib/faction-template';
+	import ItemForm from '$lib/components/ItemForm.svelte';
+	import RulesForm from '$lib/components/RulesForm.svelte';
+	import RulesLibrary from '$lib/components/RulesLibrary.svelte';
+	import SortableList from '$lib/components/SortableList.svelte';
+	import UnitForm from '$lib/components/UnitForm.svelte';
 
 	let { data, form } = $props();
 	const p = $derived(data.pack);
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 	const TABS = { identity: 'Identity', rules: 'Rules', units: 'Units', armoury: 'Armoury', keywords: 'Keywords', yaml: 'Template (YAML)' } as const;
-	const cats = { elite: 'Elites', troop: 'Troops', mercenary: 'Mercenaries' } as const;
-	const itemCats = { ranged: 'Ranged Weapons', melee: 'Melee Weapons', grenade: 'Grenades', armour: 'Armour', shield: 'Shields', equipment: 'Equipment', special: 'Special' } as const;
 	const avail = (min: number, max: number | null) => (max == null ? 'any' : min ? `${min}-${max}` : `0-${max}`);
-	const abilitiesText = (a: { name: string; text: string }[]) => a.map((x) => `${x.name}: ${x.text}`).join('\n\n');
 	const pairs = (xs: { name: string }[], key: 'n' | 'max') => xs.map((x) => `${x.name}: ${(x as Record<string, unknown>)[key]}`).join('\n');
 	const errorsAt = (at: string) => (form && 'errors' in form && form.at === at ? form.errors : null);
 	const saved = (id: string) => form && 'saved' in form && form.saved === id;
 	const ORIGIN = { custom: 'yours', edited: 'house rule', book: '' } as Record<string, string>;
-	const unitNames = $derived(p.units.map((u) => u.name));
-	const itemNames = $derived(p.items.map((i) => i.name));
-	const STIPS = [
-		['shield_combo', 'shieldCombo', 'Shield Combo'],
-		['bayonet_lug', 'bayonetLug', 'Bayonet Lug'],
-		['consumable', 'consumable', 'Consumable'],
-		['headgear', 'headgear', 'Headgear'],
-		['exploration_only', 'explorationOnly', 'Exploration only']
-	] as const;
+	const upgradeNames = $derived([...new Set(data.rules.upgrades.flatMap((u) => [u.name, ...(u.keyword ? [u.keyword] : [])]))]);
 	const blankUnit = $derived({
 		id: '', faction: '', variant: null, name: '', category: (data.id === 'mercenaries' ? 'mercenary' : 'troop') as 'troop' | 'mercenary', cost: 0, currency: 'ducats' as const, availabilityMin: 0, availabilityMax: null,
 		stats: {}, keywords: [], abilities: [], battlekitNote: null, powers: null, description: null, kit: null
 	} as (typeof p.units)[number]);
 	const blankItem = { id: '', name: '', category: 'equipment', cost: 0, currency: 'ducats', limit: null, restrictions: null, type: null, range: null, keywords: [], text: null, description: null, unique: false, stipulations: null } as unknown as (typeof p.items)[number];
+
+	// The entry list: its order (dragged, saved as it changes), a filter, and the entries picked for a bulk copy.
+	let order = $state({ unit: [] as string[], item: [] as string[] });
+	$effect(() => {
+		order.unit = p.units.map((u) => u.id);
+		order.item = p.items.map((i) => i.id);
+	});
+	let filter = $state('');
+	let picked = $state<string[]>([]);
+	const kindOf = $derived(data.tab === 'armoury' ? 'item' : 'unit');
+	const tabOf = (kind: 'unit' | 'item') => (kind === 'unit' ? 'units' : 'armoury');
+	const entryOf = (kind: 'unit' | 'item', id: string) => (kind === 'unit' ? p.units.find((u) => u.id === id) : p.items.find((i) => i.id === id));
+	const selectedId = $derived(data.entry === 'new' ? '' : (data.entry ?? (kindOf === 'unit' ? p.units[0]?.id : p.items[0]?.id) ?? ''));
+	async function saveOrder(kind: 'unit' | 'item', ids: string[]) {
+		const body = new FormData();
+		body.set('kind', kind);
+		for (const id of ids) body.append('id', id);
+		await fetch('?/order', { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
+	}
+	// A new entry, once saved, becomes the one open.
+	$effect(() => {
+		if (data.entry === 'new' && form && 'saved' in form && entryOf(kindOf, String(form.saved))) goto(`?tab=${data.tab}&entry=${encodeURIComponent(String(form.saved))}`, { replaceState: true, noScroll: true });
+	});
 </script>
 
 <svelte:head><title>{p.faction.name} · Faction Studio</title></svelte:head>
 
-<datalist id="kw">{#each data.keywordNames as k (k)}<option value={k}></option>{/each}</datalist>
-<datalist id="units">{#each unitNames as n (n)}<option value={n}></option>{/each}</datalist>
-<datalist id="items">{#each itemNames as n (n)}<option value={n}></option>{/each}</datalist>
+<datalist id="dl-keyword">{#each data.keywordNames as k (k)}<option value={k}></option>{/each}</datalist>
+<datalist id="dl-unit">{#each p.units as u (u.id)}<option value={u.name}></option>{/each}</datalist>
+<datalist id="dl-item">{#each data.itemNames as n (n)}<option value={n}></option>{/each}</datalist>
+<datalist id="dl-upgrade">{#each upgradeNames as n (n)}<option value={n}></option>{/each}</datalist>
+<datalist id="dl-faction">{#each data.factionIds as n (n)}<option value={n}></option>{/each}</datalist>
+<datalist id="dl-skill"></datalist>
+<datalist id="dl-patron">{#each data.patronNames as n (n)}<option value={n}></option>{/each}</datalist>
 
 <p class="crumb"><a href="/admin/studio">Faction Studio</a>{#if data.parentName} · {data.parentName}{/if}</p>
 <div class="head">
@@ -43,7 +64,7 @@
 	<div>
 		<h1>{p.faction.name}</h1>
 		<p class="meta">
-			{p.faction.parent ? 'Variant' : 'Faction'} · {p.faction.alignment} · {data.custom ? 'yours' : 'from the books'} · {p.units.length} units · {p.items.length} armoury items
+			{p.faction.parent ? 'Variant' : 'Faction'} · {p.faction.alignment} · {data.custom ? 'yours' : 'from the books'} · {p.units.length} units · {p.items.length} armoury items · edition <a href="/admin/studio/editions">{data.edition}</a>
 		</p>
 	</div>
 	<a class="button" href="/admin/studio/{data.id}/export.yaml" download>Download as template</a>
@@ -60,82 +81,6 @@
 	{#if errorsAt(at)}
 		<ul class="error" role="alert">{#each errorsAt(at) ?? [] as e, i (i)}<li><code>{e.path.replace(/^(units|armoury)\[0\]\./, '')}</code> {e.message}</li>{/each}</ul>
 	{/if}
-{/snippet}
-
-{#snippet unitForm(u: (typeof p.units)[number])}
-	{@const kit = data.kits[u.id] ?? { fixed: [], except: [], nothingElse: false, swap: null }}
-	<form method="POST" action="?/unit&tab=units" use:enhance={keep} class="grid">
-		<input type="hidden" name="id" value={u.id} />
-		<label class="wide">Name <input name="name" value={u.name} required /></label>
-		<label>Kind <select name="category" value={u.category}>{#each UNIT_CATEGORIES as c (c)}<option value={c}>{c}</option>{/each}</select></label>
-		<label>Cost <input name="cost" type="number" min="0" value={u.cost} /></label>
-		<label>In <select name="currency" value={u.currency}><option value="ducats">Ducats</option><option value="glory">Glory</option></select></label>
-		<label>At least <input name="min" type="number" min="0" value={u.availabilityMin} /></label>
-		<label>At most <input name="max" type="number" min="0" value={u.availabilityMax ?? ''} placeholder="any" /></label>
-		{#each ['movement', 'ranged', 'melee', 'armour', 'base'] as k (k)}
-			<label>{k} <input name={k} value={u.stats[k as keyof typeof u.stats] ?? ''} /></label>
-		{/each}
-		<label class="wide">Keywords <small>(comma between; new ones go in the Keywords tab)</small><input name="keywords" value={u.keywords.join(', ')} list="kw" /></label>
-		<label class="wide">Abilities <small>(Name: text, a blank line between)</small><textarea name="abilities" rows="5">{abilitiesText(u.abilities)}</textarea></label>
-		<label class="wide">Battlekit note <small>(as printed; the builder reads it unless the kit below is set)</small><input name="battlekit_note" value={u.battlekitNote ?? ''} /></label>
-		<fieldset class="wide">
-			<legend><label class="check"><input type="checkbox" name="kit_on" checked={!!u.kit} /> Set the kit by hand</label></legend>
-			<label>Always has <small>(armoury items, comma between)</small><input name="kit_fixed" value={kit.fixed.join(', ')} list="items" /></label>
-			<div class="checks">
-				No other: {#each KIT_EXCEPT as c (c)}<label class="check"><input type="checkbox" name="kit_except" value={c} checked={kit.except.includes(c)} /> {c}</label>{/each}
-			</div>
-			<label class="check"><input type="checkbox" name="kit_nothing_else" checked={kit.nothingElse} /> Cannot have any other battlekit</label>
-			<div class="row3">
-				<label>Upgrade: swap <input name="swap_from" value={kit.swap?.from ?? ''} list="items" /></label>
-				<label>for <input name="swap_to" value={kit.swap?.to ?? ''} list="items" /></label>
-				<label>costing more <input name="swap_extra" type="number" min="0" value={kit.swap?.extra ?? ''} /></label>
-			</div>
-		</fieldset>
-		{#if u.category === 'mercenary'}
-			<fieldset class="wide">
-				<legend>Hired by <small>(leave empty to read it from the text)</small></legend>
-				<div class="row3">
-					<label>Alignment <select name="hire_alignment" value={u.kit?.hire?.alignment ?? ''}><option value="">Any</option><option value="faithful">Faithful</option><option value="fallen">Fallen</option></select></label>
-					<label class="span2">Only these factions or variants <input name="hire_by" value={u.kit?.hire?.by.join(', ') ?? ''} /></label>
-				</div>
-			</fieldset>
-		{/if}
-		{#if u.powers !== null}<label class="wide">Powers <input name="powers" value={u.powers ?? ''} /></label>{/if}
-		<label class="wide">Description <textarea name="description" rows="3">{u.description ?? ''}</textarea></label>
-		{@render errs(u.id || 'new-unit')}
-		<div class="actions wide">
-			<button>{u.id ? 'Save' : 'Add unit'}</button>
-			{#if saved(u.id)}<span class="ok">Saved.</span>{/if}
-		</div>
-	</form>
-{/snippet}
-
-{#snippet itemForm(i: (typeof p.items)[number])}
-	{@const f = data.facts[i.id]}
-	<form method="POST" action="?/item&tab=armoury" use:enhance={keep} class="grid">
-		<input type="hidden" name="id" value={i.id} />
-		<label class="wide">Name <input name="name" value={i.name} required /></label>
-		<label>Kind <select name="category" value={i.category}>{#each ITEM_CATEGORIES as c (c)}<option value={c}>{c}</option>{/each}</select></label>
-		<label>Type <select name="type" value={i.type ?? ''}><option value="">—</option>{#each ['1-Handed', '2-Handed', 'Grenade', 'Armour', 'Shield', 'Equipment', 'Special'] as t (t)}<option value={t}>{t}</option>{/each}</select></label>
-		<label>Range <input name="range" value={i.range ?? ''} placeholder={'24" or Melee'} /></label>
-		<label>Cost <input name="cost" type="number" min="0" value={i.cost} /></label>
-		<label>In <select name="currency" value={i.currency}><option value="ducats">Ducats</option><option value="glory">Glory</option></select></label>
-		<label>Limit <small>(warband)</small><input name="limit" type="number" min="0" value={i.limit ?? ''} /></label>
-		<label>Per model <input name="per_model" type="number" min="0" value={f?.perModel ?? ''} /></label>
-		<label class="wide">Only for <small>(ELITE, unit names or keywords; empty = anyone)</small><input name="only" value={f?.only.join(', ') ?? ''} list="units" /></label>
-		<div class="checks wide">
-			{#each STIPS as [name, key, label] (name)}<label class="check"><input type="checkbox" {name} checked={!!f?.[key]} /> {label}</label>{/each}
-			<label class="check"><input type="checkbox" name="unique" checked={i.unique} /> Unique to this faction (•)</label>
-		</div>
-		<label class="wide">Keywords <input name="keywords" value={i.keywords.join(', ')} list="kw" /></label>
-		<label class="wide">Rules <textarea name="text" rows="3">{i.text ?? ''}</textarea></label>
-		<label class="wide">Description <textarea name="description" rows="2">{i.description ?? ''}</textarea></label>
-		{@render errs(i.id || 'new-item')}
-		<div class="actions wide">
-			<button>{i.id ? 'Save' : 'Add item'}</button>
-			{#if saved(i.id)}<span class="ok">Saved.</span>{/if}
-		</div>
-	</form>
 {/snippet}
 
 {#snippet rowTools(kind: 'unit' | 'item', id: string)}
@@ -174,89 +119,92 @@
 		<p class="lede">A faction from the books keeps its name and seal. Change its rules, units and armoury in the other tabs; each change is kept as a house rule.</p>
 	{/if}
 {:else if data.tab === 'rules'}
-	{@const r = data.rules}
-	<p class="lede">
-		What the builder uses{p.faction.parent ? ' for this variant (on top of the faction’s own)' : ''}. It starts from what is read from the rule text; saving pins these
-		values, whatever the text says.
-	</p>
-	<form method="POST" action="?/rules&tab=rules" use:enhance={keep} class="grid">
-		<label>Starting Ducats <input name="start_ducats" type="number" min="0" value={r.startDucats} /></label>
-		<label>Starting Glory <input name="start_glory" type="number" min="0" value={r.startGlory} /></label>
-		<label>Fireteams <input name="fireteams" type="number" min="0" value={r.fireteams} /></label>
-		<label>Leader <input name="leader" value={r.leader ?? ''} list="units" /></label>
-		<label class="wide">Cannot include <small>(unit names, or “Mercenaries”; comma between)</small><input name="excluded" value={r.excluded.join(', ')} list="units" /></label>
-		<label class="half">Must include <small>(one per line, “Name: how many”)</small><textarea name="must_include" rows="3">{pairs(r.mustInclude, 'n')}</textarea></label>
-		<label class="half">At most <small>(one per line, “Name: max”)</small><textarea name="caps" rows="3">{pairs(r.caps, 'max')}</textarea></label>
-		<label class="wide">No longer required <small>(entries whose usual “must include” is lifted)</small><input name="optional" value={r.optional.join(', ')} list="units" /></label>
-		<label class="wide">Free items <small>(given free the first time)</small><input name="free_items" value={r.freeItems.join(', ')} list="items" /></label>
-		<fieldset class="wide">
-			<legend>Upgrades <small>(a keyword a number of models may take)</small></legend>
-			{#each [...r.upgrades, { name: '', keyword: '', max: null, cost: 0, currency: 'ducats', text: '' }] as u, i (i)}
-				<div class="upgrade">
-					<label>Name <input name="up_name" value={u.name} /></label>
-					<label>Keyword <input name="up_keyword" value={u.keyword ?? ''} list="kw" /></label>
-					<label>Models <input name="up_max" type="number" min="0" value={u.max ?? ''} placeholder="any" /></label>
-					<label>Cost <input name="up_cost" type="number" min="0" value={u.cost} /></label>
-					<label>In <select name="up_currency" value={u.currency}><option value="ducats">Ducats</option><option value="glory">Glory</option></select></label>
-					<label class="wide">Text <input name="up_text" value={u.text} /></label>
-				</div>
-			{/each}
-		</fieldset>
-		<label class="wide">Rule text <small>(shown in the builder’s special rules; “* Name: text”, a blank line between)</small><textarea name="text" rows="10">{p.rules.text}</textarea></label>
-		{@render errs('rules')}
-		<div class="actions wide"><button>Save rules</button>{#if saved('rules')}<span class="ok">Saved.</span>{/if}</div>
-	</form>
-{:else if data.tab === 'units'}
-	{#each Object.entries(cats) as [cat, label] (cat)}
-		{@const list = p.units.filter((u) => u.category === cat)}
-		{#if list.length}
-			<h3>{label}</h3>
-			{#each list as u (u.id)}
-				<details class="entry" open={saved(u.id) || !!errorsAt(u.id)}>
-					<summary>
-						<strong>{u.name}</strong>
-						<span class="meta">{avail(u.availabilityMin, u.availabilityMax)} · {u.cost} {u.currency}</span>
-						{#if ORIGIN[p.origins[u.id]]}<span class="tick">{ORIGIN[p.origins[u.id]]}</span>{/if}
-					</summary>
-					{@render unitForm(u)}
-					{@render rowTools('unit', u.id)}
-				</details>
-			{/each}
+	{#snippet rulesErrors()}{@render errs('rules')}{/snippet}
+	<div class="workbench two">
+		<section class="pane" aria-label="Rules">
+			<RulesForm r={data.rules} own={p.rules.overrides ?? {}} text={p.rules.text} isVariant={!!p.faction.parent} patrons={data.patronNames} errors={rulesErrors} saved={!!saved('rules')} />
+		</section>
+		<div class="lib"><RulesLibrary {...data.library} /></div>
+	</div>
+{:else if data.tab === 'units' || data.tab === 'armoury'}
+	{@const kind = kindOf}
+	{@const ids = order[kind]}
+	{@const sel = (selectedId && entryOf(kind, selectedId)) || (kind === 'unit' ? blankUnit : blankItem)}
+	{#snippet entryRow(id: string)}
+		{@const e = entryOf(kind, id)}
+		{#if e}
+			<div class="ent" class:on={sel.id === id}>
+				<input
+					type="checkbox"
+					aria-label="Pick {e.name}"
+					checked={picked.includes(id)}
+					onchange={(ev) => (picked = ev.currentTarget.checked ? [...picked, id] : picked.filter((x) => x !== id))}
+				/>
+				<a href="?tab={tabOf(kind)}&entry={encodeURIComponent(id)}" aria-current={sel.id === id ? 'true' : undefined} data-sveltekit-noscroll>
+					{'unique' in e && e.unique ? '• ' : ''}{e.name}
+				</a>
+				<span class="meta">{e.cost}{e.currency === 'glory' ? 'G' : ''}{'availabilityMax' in e ? ` · ${avail(e.availabilityMin, e.availabilityMax)}` : ''}</span>
+				{#if ORIGIN[p.origins[id]]}<span class="tick">{ORIGIN[p.origins[id]]}</span>{/if}
+			</div>
 		{/if}
-	{/each}
-	<details class="entry add" open={!!errorsAt('new-unit')}>
-		<summary><strong>+ Add a unit</strong></summary>
-		{@render unitForm(blankUnit)}
-	</details>
-{:else if data.tab === 'armoury'}
-	{#each Object.entries(itemCats) as [cat, label] (cat)}
-		{@const list = p.items.filter((i) => i.category === cat)}
-		{#if list.length}
-			<h3>{label}</h3>
-			{#each list as i (i.id)}
-				<details class="entry" open={saved(i.id) || !!errorsAt(i.id)}>
-					<summary>
-						<strong>{i.unique ? '• ' : ''}{i.name}</strong>
-						<span class="meta">{i.cost} {i.currency}{i.restrictions ? ` · ${i.restrictions}` : ''}</span>
-						{#if ORIGIN[p.origins[i.id]]}<span class="tick">{ORIGIN[p.origins[i.id]]}</span>{/if}
-					</summary>
-					{@render itemForm(i)}
-					{@render rowTools('item', i.id)}
-				</details>
-			{/each}
-		{/if}
-	{/each}
-	<details class="entry add" open={!!errorsAt('new-item')}>
-		<summary><strong>+ Add an armoury item</strong></summary>
-		{@render itemForm(blankItem)}
-	</details>
+	{/snippet}
+	{#snippet formErrors()}{@render errs(sel.id || (kind === 'unit' ? 'new-unit' : 'new-item'))}{/snippet}
+	<div class="workbench">
+		<nav class="entries" aria-label={kind === 'unit' ? 'Units' : 'Armoury'}>
+			<input type="search" bind:value={filter} placeholder="Find {kind === 'unit' ? 'a unit' : 'an item'}…" aria-label="Find" />
+			<div class="bulk">
+				<label class="check">
+					<input type="checkbox" checked={picked.length > 0 && picked.length === ids.length} onchange={(e) => (picked = e.currentTarget.checked ? [...ids] : [])} />
+					{picked.length ? `${picked.length} picked` : 'Pick all'}
+				</label>
+				{#if picked.length}
+					<form method="POST" action="?/copyTo" use:enhance={keep} class="copy">
+						<input type="hidden" name="kind" value={kind} />
+						{#each picked as id (id)}<input type="hidden" name="id" value={id} />{/each}
+						<select name="to" aria-label="Copy to edition" required>
+							<option value="">Copy to edition…</option>
+							{#each data.editions.filter((e) => e.id !== data.edition) as e (e.id)}<option value={e.id}>{e.id}{e.status !== 'live' ? ` (${e.status})` : ''}</option>{/each}
+						</select>
+						<button class="ghost mini">Copy</button>
+					</form>
+				{/if}
+			</div>
+			{#if form && 'copied' in form}<p class="ok" role="status">{form.copied} copied to {form.to}.</p>{/if}
+			{#if filter.trim()}
+				<ul class="flat">
+					{#each ids.filter((id) => entryOf(kind, id)?.name.toLowerCase().includes(filter.trim().toLowerCase())) as id (id)}<li>{@render entryRow(id)}</li>{/each}
+				</ul>
+			{:else}
+				<SortableList bind:items={order[kind]} label="Order of the {kind === 'unit' ? 'units' : 'armoury'}" keyOf={(id) => id} onmove={(xs) => saveOrder(kind, xs)}>
+					{#snippet row(id)}{@render entryRow(id)}{/snippet}
+				</SortableList>
+			{/if}
+			<a class="add" href="?tab={tabOf(kind)}&entry=new" aria-current={!sel.id ? 'true' : undefined} data-sveltekit-noscroll>+ New {kind === 'unit' ? 'unit' : 'armoury item'}</a>
+		</nav>
+		<section class="pane" aria-label={sel.name || 'New entry'}>
+			{#key sel.id || 'new'}
+				{#if kind === 'unit'}
+					{@const u = sel as (typeof p.units)[number]}
+					<UnitForm {u} kit={data.kits[u.id] ?? { fixed: [], except: [], nothingElse: false, swap: null }} glossary={data.glossary} errors={formErrors} saved={!!saved(u.id)} />
+				{:else}
+					{@const i = sel as (typeof p.items)[number]}
+					<ItemForm {i} facts={data.facts[i.id]} glossary={data.glossary} errors={formErrors} saved={!!saved(i.id)} />
+				{/if}
+			{/key}
+			{#if sel.id}{@render rowTools(kind, sel.id)}{/if}
+		</section>
+		<div class="lib"><RulesLibrary {...data.library} /></div>
+	</div>
 {:else if data.tab === 'keywords'}
-	<p class="lede">Keywords you write join the glossary: chips in the builder and compendium show their text. Writing one the books already have replaces its text as a house rule.</p>
+	<p class="lede">
+		Keywords you write join the glossary: chips in the builder and compendium show their text. Writing one the books already have replaces its text as a house rule.
+		<a href="/admin/studio/keywords">Open the keyword library</a> for every keyword of the edition, what carries it, and the ones still missing an explanation.
+	</p>
 	{#each p.keywords as k (k.name)}
 		<p><strong>{k.name}</strong> <span class="meta">{k.kind ?? ''}</span><br />{k.text}</p>
 	{/each}
 	<form method="POST" action="?/keyword&tab=keywords" use:enhance={keep} class="grid">
-		<label>Keyword <input name="name" required list="kw" /></label>
+		<label>Keyword <input name="name" required list="dl-keyword" /></label>
 		<label>Kind <select name="kind"><option value="Tag">Tag</option><option value="Effect">Effect</option><option value="Tag, Effect">Tag, Effect</option></select></label>
 		<label class="wide">What it means <textarea name="text" rows="3" required></textarea></label>
 		<div class="actions wide"><button>Save keyword</button>{#if form && 'saved' in form && data.keywordNames.includes(String(form.saved))}<span class="ok">Saved.</span>{/if}</div>
@@ -316,20 +264,6 @@
 		color: var(--blood);
 		border-bottom-color: var(--blood);
 	}
-	.entry {
-		border-bottom: 1px solid var(--rule);
-	}
-	.entry summary {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 4px 12px;
-		padding: 8px 2px;
-		cursor: pointer;
-	}
-	.entry.add summary strong {
-		color: var(--blood);
-	}
 	.meta {
 		color: var(--muted);
 		font-size: 0.9rem;
@@ -355,52 +289,13 @@
 	.grid label small {
 		color: var(--muted);
 	}
-	.grid .wide,
-	.grid fieldset {
+	.grid .wide {
 		grid-column: 1 / -1;
-	}
-	.grid .half {
-		grid-column: span 2;
-	}
-	fieldset {
-		display: grid;
-		gap: 8px;
-		border: 1px solid var(--rule);
-		padding: 8px 12px 12px;
-	}
-	legend {
-		font-size: 0.85rem;
-		font-weight: 600;
 	}
 	.check {
 		display: inline-flex !important;
 		align-items: center;
 		gap: 6px;
-	}
-	.checks {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 16px;
-		align-items: center;
-		font-size: 0.85rem;
-	}
-	.row3 {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-		gap: 8px 12px;
-	}
-	.span2 {
-		grid-column: span 2;
-	}
-	.upgrade {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
-		gap: 6px 10px;
-		padding-bottom: 8px;
-		border-bottom: 1px dashed var(--rule);
-	}
-	.upgrade .wide {
-		grid-column: 1 / -1;
 	}
 	.actions {
 		display: flex;
@@ -432,10 +327,117 @@
 		cursor: pointer;
 		color: var(--blood);
 	}
-	@media (max-width: 34rem) {
-		.grid .half,
-		.span2 {
+	/* The Rules Editor: entries | form | library; each side pane scrolls on its own. */
+	.workbench {
+		display: grid;
+		grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(14rem, 18rem);
+		gap: 20px;
+		align-items: start;
+	}
+	.entries,
+	.lib {
+		position: sticky;
+		top: 8px;
+		display: grid;
+		gap: 6px;
+		max-height: calc(100dvh - 16px);
+		overflow: auto;
+	}
+	.lib {
+		display: flex;
+		flex-direction: column;
+	}
+	.lib > :global(.library) {
+		flex: 1;
+		min-height: 0;
+	}
+	.entries {
+		border-top: 2px solid var(--ink);
+		padding-top: 6px;
+	}
+	.ent {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0 8px;
+		font-size: 0.92rem;
+	}
+	.ent a {
+		color: var(--ink);
+		text-decoration: none;
+		font-weight: 600;
+	}
+	.ent a:hover,
+	.ent.on a {
+		color: var(--blood);
+	}
+	.ent.on {
+		box-shadow: inset 2px 0 0 var(--blood);
+		padding-left: 6px;
+	}
+	.ent input[type='checkbox'] {
+		align-self: center;
+	}
+	.flat {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.flat li {
+		padding: 6px 0;
+		border-bottom: 1px solid var(--rule);
+	}
+	.bulk {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 10px;
+		align-items: center;
+		font-size: 0.85rem;
+	}
+	.copy {
+		display: flex;
+		gap: 4px;
+	}
+	.copy select {
+		padding: 2px 4px;
+		font-size: 0.85rem;
+	}
+	.mini {
+		padding: 2px 10px;
+	}
+	.add {
+		padding: 6px 0;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.add[aria-current='true'] {
+		color: var(--blood);
+	}
+	.pane {
+		min-width: 0;
+	}
+	.workbench.two {
+		grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+	}
+	@media (max-width: 78rem) {
+		.workbench,
+		.workbench.two {
+			grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
+		}
+		.lib {
 			grid-column: 1 / -1;
+			position: static;
+			max-height: 28rem;
+		}
+	}
+	@media (max-width: 48rem) {
+		.workbench,
+		.workbench.two {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.entries {
+			position: static;
+			max-height: 15rem;
 		}
 	}
 </style>

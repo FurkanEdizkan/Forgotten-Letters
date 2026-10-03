@@ -45,6 +45,8 @@ describe('rules versions', () => {
 		const { mine, faction } = affecting(diff(v1(), v2), { faction: 'new-antioch', variant: null, profileIds: ['na-yeoman'], entryNames: ['Yeoman'], itemNames: ['Rifle'], patron: null });
 		expect(mine.map((c) => c.id).sort()).toEqual(['na-rifle', 'na-yeoman', 'new-antioch:']);
 		expect(faction.map((c) => c.id)).toEqual(['na-sniper']);
+		// A model filed under the plural ("Yeomen") is still that entry.
+		expect(affecting(diff(v1(), v2), { faction: 'new-antioch', variant: null, profileIds: [], entryNames: ['Yeomen'], itemNames: [], patron: null }).mine.map((c) => c.id)).toContain('na-yeoman');
 	});
 });
 

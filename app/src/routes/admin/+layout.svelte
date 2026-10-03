@@ -56,6 +56,10 @@
 	main:has(:global(.studio)) {
 		max-width: none;
 	}
+	/* The Rules Editor's three panes. */
+	main:has(:global(.workbench)) {
+		max-width: 100rem;
+	}
 	main {
 		min-width: 0;
 		max-width: 64rem;

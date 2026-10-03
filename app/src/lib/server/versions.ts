@@ -23,8 +23,8 @@ export async function snapshotNow(edition: string): Promise<Snapshot> {
 		units: by(units, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, sort: _s, ...r }) => r as SnapRow),
 		items: by(items, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, sort: _s, ...r }) => r as SnapRow),
 		factions: by(factions, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => ({ ...r, name: r.variant ?? r.faction }) as SnapRow),
-		patrons: by(patrons, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => r as SnapRow),
-		tables: by(tables, ({ id: _i, edition: _e, origin: _o, verified: _v, ...r }) => r as SnapRow)
+		patrons: by(patrons, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, ...r }) => r as SnapRow),
+		tables: by(tables, ({ id: _i, edition: _e, origin: _o, verified: _v, bookCopy: _b, ...r }) => r as SnapRow)
 	};
 }
 

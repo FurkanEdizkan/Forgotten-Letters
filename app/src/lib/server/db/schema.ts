@@ -716,6 +716,8 @@ export const rulesPatron = pgTable('rules_patron', {
 	text: text('text').notNull().default(''),
 	skills: jsonb('skills').$type<PatronSkill[]>().notNull().default([]),
 	source: text('source'),
+	/** The book's version of an edited Patron, for "Revert to book". */
+	bookCopy: jsonb('book_copy').$type<Record<string, unknown>>(),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 }, (t) => [primaryKey({ columns: [t.edition, t.id] })]);
@@ -731,6 +733,8 @@ export const rulesTable = pgTable('rules_table', {
 	/** On the `progression` row only. */
 	settings: jsonb('settings').$type<Progression>(),
 	source: text('source'),
+	/** The book's version of an edited table, for "Revert to book". */
+	bookCopy: jsonb('book_copy').$type<Record<string, unknown>>(),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 }, (t) => [primaryKey({ columns: [t.edition, t.id] })]);

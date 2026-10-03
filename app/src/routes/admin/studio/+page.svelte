@@ -16,6 +16,9 @@
 		</select>
 	</label>
 	<a href="/admin/studio/editions">Editions…</a>
+	<a href="/admin/studio/keywords">Keywords…</a>
+	<a href="/admin/studio/patrons">Patrons…</a>
+	<a href="/admin/studio/campaign">Campaign Phase…</a>
 </form>
 <p class="lede">
 	Write your own factions and variants, or change book entries as house rules. Everything saved here is kept when the books are imported

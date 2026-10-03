@@ -269,3 +269,9 @@ export async function allPatrons(edition: string): Promise<Patron[]> {
 		source: p.source
 	}));
 }
+
+/** Every battlekit name in an edition (the editor's suggestions for rules naming kit). */
+export async function allItemNames(edition: string) {
+	const rows = await db.selectDistinct({ name: rulesItem.name }).from(rulesItem).where(eq(rulesItem.edition, edition)).orderBy(asc(rulesItem.name));
+	return rows.map((r) => r.name);
+}

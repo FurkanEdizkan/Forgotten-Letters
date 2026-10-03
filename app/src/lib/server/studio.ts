@@ -4,7 +4,7 @@
  * their book version in `bookCopy` for "Revert to book".
  */
 import { announceReload } from './hub';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, max } from 'drizzle-orm';
 import { db } from './db';
 import { customFaction, rulesFaction, rulesItem, rulesKeyword, rulesUnit } from './db/schema';
 import { loadCustomFactions } from './factions';
@@ -121,7 +121,11 @@ async function upsert(tx: Tx, table: typeof rulesUnit | typeof rulesItem, row: U
 	const bookCopy = old?.origin === 'book' ? old : (old?.bookCopy ?? null);
 	const values = { ...row, edition, verified: true, origin, bookCopy } as typeof rulesUnit.$inferInsert;
 	if (old) await tx.update(t).set(values).where(at);
-	else await tx.insert(t).values(values);
+	else {
+		// A new entry goes last in its edition's order.
+		const [{ last }] = await tx.select({ last: max(t.sort) }).from(t).where(eq(t.edition, edition));
+		await tx.insert(t).values({ ...values, sort: (last ?? 0) + 1 });
+	}
 	return old ? 'changed' : 'created';
 }
 
@@ -230,4 +234,17 @@ export async function deleteFaction(id: string) {
 	await loadCustomFactions();
 	announceReload('factions');
 	return true;
+}
+
+/** Put the units (or the armoury) in this order, as dragged in the editor: their `sort`. */
+export async function setOrder(kind: 'unit' | 'item', ids: string[], edition: string) {
+	const t = (kind === 'unit' ? rulesUnit : rulesItem) as typeof rulesUnit;
+	await db.transaction(async (tx) => {
+		for (const [n, id] of ids.entries()) await tx.update(t).set({ sort: n }).where(and(eq(t.edition, edition), eq(t.id, id)));
+	});
+}
+
+/** Remove a keyword you wrote, where nothing in the edition uses it (book keywords are edited, never deleted). */
+export async function removeKeyword(name: string, edition: string) {
+	await db.delete(rulesKeyword).where(and(eq(rulesKeyword.edition, edition), eq(rulesKeyword.name, name), eq(rulesKeyword.origin, 'custom')));
 }

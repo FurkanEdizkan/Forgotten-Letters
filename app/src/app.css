@@ -5,6 +5,13 @@
  * (olive-black smoke, bone text, ember) around the live map.
  */
 :root {
+	/* Keyword kinds on the dark warband register (see keyword-look.ts). */
+	--look-bonus: #8fb04a;
+	--look-attack: #6aa2d6;
+	--look-kit: #b583d4;
+	--look-harm: #e0574b;
+	--look-body: #e0a23a;
+	--look-ground: #55aab4;
 	/* Page register */
 	--paper: #fbfaf7;
 	--parchment: #f1efea; /* the book's grey wash: boxes, rows, cells */

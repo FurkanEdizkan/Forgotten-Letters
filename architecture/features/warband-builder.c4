@@ -28,8 +28,10 @@ views {
         and a warband is built and checked under its own. A new edition starts as a copy of another; entries are
         copied between editions singly or together, and warbands move one at a time (after a preview of what changes
         for them) or all together. The Campaign Master edits one edition at a time.
-      - A faction or variant opens as a board: its units, its armoury and its rules as cards in three lanes. A
-        card opens its form in a side panel; cards reorder by drag; a unit or kit card dragged in from the library
+      - A faction or variant opens as a board in Trench Companion's dark look: its units, its armoury and its rules
+        as cards in three lanes. Every value on a unit or item card (name, cost, profile, keywords, abilities) is
+        edited where it stands and saved on its own; armoury cards dropped on a unit's kit join what it always has,
+        and a new warband starts as an empty board. "More…" opens the full form in a side panel; cards reorder by drag; a unit or kit card dragged in from the library
         (other factions, mercenaries, Glory Items) is copied into this warband, a ready rule joins its rules, and
         a book card can be excluded (the rules' "cannot include"). A variant's board shows its faction's cards too.
       - The Campaign Master fits the rules to the books in the Rules Editor (Faction Studio), with visual forms

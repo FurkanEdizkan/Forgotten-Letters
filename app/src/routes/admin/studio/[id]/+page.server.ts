@@ -67,7 +67,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		parentName: r.faction.parent ? FACTIONS.find((f) => f.id === r.faction.parent)?.name : null,
 		// What the builder reads now (book text with any overrides), so the Rules form starts from it.
 		rules,
-		kits: Object.fromEntries(pack.units.map((u) => [u.id, unitKit(u.battlekitNote, u.kit)])),
+		kits: Object.fromEntries([...pack.units, ...(r.variant ? ((await packOf(r.factionId, edition))?.units ?? []) : [])].map((u) => [u.id, unitKit(u.battlekitNote, u.kit)])),
 		facts: Object.fromEntries(pack.items.map((i) => [i.id, itemFacts(i)])),
 		keywordNames: glossary.map((k) => k.name),
 		yaml: toTemplate(pack)
@@ -365,6 +365,64 @@ export const actions: Actions = {
 		if (!name || !s('text')) return fail(400, { message: 'A keyword needs a name and its text.' });
 		await saveKeyword({ name, kind: ['Tag', 'Effect', 'Tag, Effect'].find((k) => k === s('kind')) ?? null, text: s('text').slice(0, 4000) }, await ed(url, cookies));
 		return { saved: name };
+	},
+
+	/** One change made on a unit's card (its name, cost, stats, keywords, abilities or kit): only that is saved. */
+	patchUnit: async ({ params, request, url, cookies }) => {
+		const { s } = reader(await request.formData());
+		const edition = await ed(url, cookies);
+		const row = (await packOf(params.id, edition))?.units.find((u) => u.id === s('id'));
+		if (!row) return fail(400, { message: 'No such unit here.' });
+		let p: Record<string, unknown>;
+		try {
+			p = JSON.parse(s('patch'));
+		} catch {
+			return fail(400, { message: 'That change could not be read.' });
+		}
+		const int = (v: unknown) => Math.max(0, Math.round(Number(v)) || 0);
+		const names = (v: unknown, upper = false) => (Array.isArray(v) ? [...new Set(v.map((x) => String(x).trim()).filter(Boolean).map((x) => (upper ? x.toUpperCase() : x)))] : null);
+		const next = { ...row };
+		if (typeof p.name === 'string' && p.name.trim()) next.name = p.name.trim().slice(0, 80);
+		if ('cost' in p) next.cost = int(p.cost);
+		if (p.currency === 'ducats' || p.currency === 'glory') next.currency = p.currency;
+		if (p.category === 'elite' || p.category === 'troop' || p.category === 'mercenary') next.category = p.category;
+		if ('min' in p) next.availabilityMin = int(p.min);
+		if ('max' in p) next.availabilityMax = p.max === '' || p.max == null ? null : int(p.max);
+		if (p.stats && typeof p.stats === 'object')
+			next.stats = { ...row.stats, ...Object.fromEntries(Object.entries(p.stats as Record<string, unknown>).filter(([k]) => ['movement', 'ranged', 'melee', 'armour', 'base'].includes(k)).map(([k, v]) => [k, String(v).trim().slice(0, 40)])) };
+		const kw = names(p.keywords, true);
+		if (kw) next.keywords = kw;
+		if (Array.isArray(p.abilities))
+			next.abilities = (p.abilities as { name?: unknown; text?: unknown }[]).map((a) => ({ name: String(a.name ?? '').trim(), text: String(a.text ?? '').trim() })).filter((a) => a.name);
+		const fixed = names(p.fixed);
+		if (fixed) next.kit = { ...(row.kit ?? {}), fixed };
+		await saveUnit(next, edition);
+		return { saved: row.id };
+	},
+
+	/** One change made on an item's card. */
+	patchItem: async ({ params, request, url, cookies }) => {
+		const { s } = reader(await request.formData());
+		const edition = await ed(url, cookies);
+		const row = (await packOf(params.id, edition))?.items.find((i) => i.id === s('id'));
+		if (!row) return fail(400, { message: 'No such item here.' });
+		let p: Record<string, unknown>;
+		try {
+			p = JSON.parse(s('patch'));
+		} catch {
+			return fail(400, { message: 'That change could not be read.' });
+		}
+		const int = (v: unknown) => Math.max(0, Math.round(Number(v)) || 0);
+		const next = { ...row };
+		if (typeof p.name === 'string' && p.name.trim()) next.name = p.name.trim().slice(0, 80);
+		if ('cost' in p) next.cost = int(p.cost);
+		if (p.currency === 'ducats' || p.currency === 'glory') next.currency = p.currency;
+		if ('limit' in p) next.limit = p.limit === '' || p.limit == null ? null : int(p.limit);
+		if (typeof p.range === 'string') next.range = p.range.trim().slice(0, 40) || null;
+		if (typeof p.text === 'string') next.text = p.text.trim().slice(0, 4000) || null;
+		if (Array.isArray(p.keywords)) next.keywords = [...new Set(p.keywords.map((x) => String(x).trim().toUpperCase()).filter(Boolean))];
+		await saveItem(next, edition);
+		return { saved: row.id };
 	},
 
 	/** Take a unit or item from elsewhere in the edition into this warband: a copy of it, filed here. */

@@ -338,7 +338,7 @@ model {
       }
     }
     route_admin_studio_id = page '/admin/studio/[id]' {
-      description 'actions: addLimit, adopt, copyTo, delete, exclude, identity, item, keyword, order, remove, revert, rules, unit, yaml'
+      description 'actions: addLimit, adopt, copyTo, delete, exclude, identity, item, keyword, order, patchItem, patchUnit, remove, revert, rules, unit, yaml'
       metadata {
         generated 'true'
         route '/admin/studio/[id]'

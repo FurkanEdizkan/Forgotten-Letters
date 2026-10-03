@@ -68,22 +68,22 @@
 		text-decoration-thickness: 2px;
 	}
 	:global(.tc) .look-bonus {
-		--edge: #8fb04a;
+		--edge: var(--look-bonus);
 	}
 	:global(.tc) .look-attack {
-		--edge: #6aa2d6;
+		--edge: var(--look-attack);
 	}
 	:global(.tc) .look-kit {
-		--edge: #b583d4;
+		--edge: var(--look-kit);
 	}
 	:global(.tc) .look-harm {
-		--edge: #e0574b;
+		--edge: var(--look-harm);
 	}
 	:global(.tc) .look-body {
-		--edge: #e0a23a;
+		--edge: var(--look-body);
 	}
 	:global(.tc) .look-ground {
-		--edge: #55aab4;
+		--edge: var(--look-ground);
 	}
 	:global(.tc) .rule-name {
 		color: var(--blood-pale, #d98c80);

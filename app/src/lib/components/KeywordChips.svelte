@@ -123,22 +123,22 @@
 		font-size: 1.05em;
 	}
 	.dark .look-bonus {
-		--edge: #8fb04a;
+		--edge: var(--look-bonus);
 	}
 	.dark .look-attack {
-		--edge: #6aa2d6;
+		--edge: var(--look-attack);
 	}
 	.dark .look-kit {
-		--edge: #b583d4;
+		--edge: var(--look-kit);
 	}
 	.dark .look-harm {
-		--edge: #e0574b;
+		--edge: var(--look-harm);
 	}
 	.dark .look-body {
-		--edge: #e0a23a;
+		--edge: var(--look-body);
 	}
 	.dark .look-ground {
-		--edge: #55aab4;
+		--edge: var(--look-ground);
 	}
 	.dark .look-tag :global(.mark) {
 		color: var(--bone-dim);

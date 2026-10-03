@@ -32,7 +32,8 @@
 		<a class="button" href="/admin/studio/template.yaml" download>Download the template</a>
 	</section>
 	<section>
-		<h3>New faction</h3>
+		<h3>New warband</h3>
+		<p>Starts an empty board: build it card by card.</p>
 		<form method="POST" action="?/newFaction" class="stack">
 			<label>Name <input name="name" required maxlength="80" placeholder="Carnival of Saints" /></label>
 			<label>Alignment <select name="alignment"><option value="faithful">Faithful</option><option value="fallen">Fallen</option></select></label>

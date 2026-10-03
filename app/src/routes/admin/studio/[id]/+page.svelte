@@ -129,6 +129,7 @@
 			library={{ keywords: data.library.keywords, items: data.others.items, units: data.others.units, limits: data.library.limits }}
 			card={data.card}
 			inherited={data.inherited}
+			kits={data.kits}
 			{drawer}
 		/>
 {:else if data.tab === 'identity'}

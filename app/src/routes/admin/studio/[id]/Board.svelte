@@ -13,10 +13,23 @@
 	import RulesLibrary from '$lib/components/RulesLibrary.svelte';
 	import { accepts, drag, endDrag, startDrag, target, type Kind } from '$lib/components/drag.svelte';
 	import { describeLimit, type Limit, type PriceRule } from '$lib/warband-limits';
+	import ItemCard from './ItemCard.svelte';
+	import UnitCard from './UnitCard.svelte';
 	import type { VariantRules } from '$lib/warband-rules';
 
-	type Unit = { id: string; name: string; category: string; cost: number; currency: string; availabilityMin: number; availabilityMax: number | null; stats: Record<string, unknown>; keywords: string[] };
-	type Item = { id: string; name: string; category: string; cost: number; currency: string; limit: number | null; keywords: string[]; unique: boolean; type: string | null; range: string | null };
+	type Unit = {
+		id: string;
+		name: string;
+		category: string;
+		cost: number;
+		currency: string;
+		availabilityMin: number;
+		availabilityMax: number | null;
+		stats: Record<string, unknown>;
+		keywords: string[];
+		abilities: { name: string; text: string }[];
+	};
+	type Item = { id: string; name: string; category: string; cost: number; currency: string; limit: number | null; keywords: string[]; unique: boolean; type: string | null; range: string | null; text: string | null };
 	type LibEntry = { name: string; note?: string; title?: string; missing?: boolean; value?: unknown };
 	let {
 		units,
@@ -26,6 +39,7 @@
 		glossary,
 		library,
 		card,
+		kits,
 		inherited = { units: [], items: [] },
 		drawer
 	}: {
@@ -36,6 +50,7 @@
 		glossary: Record<string, string>;
 		library: { keywords: LibEntry[]; items: LibEntry[]; units: LibEntry[]; limits: { from: string; label?: string; limit: Limit }[] };
 		card: string | null;
+		kits: Record<string, { fixed: string[] }>;
 		inherited?: { units: (Unit & { faction: string })[]; items: (Item & { faction: string })[] };
 		drawer: Snippet;
 	} = $props();
@@ -59,6 +74,7 @@
 		else if (done) note = { text: done };
 		await invalidateAll();
 	}
+	const patch = (kind: 'unit' | 'item', id: string) => (p: Record<string, unknown>) => act(kind === 'unit' ? 'patchUnit' : 'patchItem', { id, patch: JSON.stringify(p) });
 	const adopt = (v: unknown) => {
 		const c = v as { adopt?: string; id?: string; name?: string };
 		if (c?.adopt && c.id) act('adopt', { kind: c.adopt, id: c.id }, `${c.name} added to the board.`);
@@ -121,6 +137,9 @@
 
 <div class="boardwrap workbench" class:withdrawer={!!card}>
 	<div class="board">
+		{#if !units.length && !items.length && !inherited.units.length}
+			<p class="start">An empty board. Make the warband card by card: <b>+ New unit</b>, <b>+ New item</b> and <b>+ New rule</b>, or bring cards in from the library on the right.</p>
+		{/if}
 		{#if note}<p class={note.bad ? 'error' : 'ok'} role="status">{note.text} <button type="button" class="ghost mini" onclick={() => (note = null)}>×</button></p>{/if}
 
 		{#each [['unit', 'Units', 'unit'], ['item', 'Armoury', 'item']] as [kind, title, lib] (kind)}
@@ -144,63 +163,52 @@
 						{@const it = k === 'item' ? items.find((x) => x.id === id) : undefined}
 						{@const c = u ?? it}
 						{#if c}
-							<article
-								class="card {k}"
-								class:open={card === `${k}:${id}`}
-								class:out={isOut(c.name)}
-								draggable="true"
-								ondragstart={(e) => startDrag(e, 'row', { kind: k, id }, lane, i)}
-								ondragend={endDrag}
-								ondragover={(e) => canDrop(k) && (e.preventDefault(), (over = k))}
-								ondrop={(e) => dropOn(e, k, i)}
-							>
-								<header>
-									<button type="button" class="opener" aria-label="Edit {c.name} (Alt and arrows move it)" onclick={() => open(`${k}:${id}`)} onkeydown={(e) => keyMove(e, k, i)}
-										>{#if it}<Mark name={CAT_MARK[it.category] ?? 'equipment'} /> {/if}{it?.unique ? '• ' : ''}{c.name}</button
-									>
-									<span class="cost">{coin(c.cost, c.currency)}</span>
-								</header>
+							<div class="slot" role="listitem" ondragover={(e) => canDrop(k) && (e.preventDefault(), (over = k))} ondrop={(e) => dropOn(e, k, i)}>
+								{#snippet tools()}
+									<button type="button" class="ghost mini" onclick={() => act('exclude', { name: c.name, on: isOut(c.name) ? '0' : '1' })}>{isOut(c.name) ? 'Include' : 'Exclude'}</button>
+									{#if origins[id] === 'custom'}<button type="button" class="ghost mini" onclick={() => act('remove', { kind: k, id }, `${c.name} removed.`)}>Remove</button>{/if}
+								{/snippet}
 								{#if u}
-									<p class="meta">{u.category} · {avail(u.availabilityMin, u.availabilityMax)}</p>
-									<p class="stats">
-										{#each ['movement', 'melee', 'ranged', 'armour'] as s (s)}<span><small>{s.slice(0, 3)}</small>{short(u.stats[s])}</span>{/each}
-									</p>
+									<UnitCard
+										{u}
+										fixed={kits[u.id]?.fixed ?? []}
+										{glossary}
+										tag={ORIGIN[origins[id]] ?? ''}
+										out={isOut(u.name)}
+										open={card === `unit:${id}`}
+										patch={patch('unit', id)}
+										onmore={() => open(`unit:${id}`)}
+										ondragstart={(e) => startDrag(e, 'row', { kind: 'unit', id, name: u.name }, lane, i)}
+										children={tools}
+									/>
 								{:else if it}
-									<p class="meta">{it.category}{it.type ? ` · ${it.type}` : ''}{it.range ? ` · ${it.range}` : ''}{it.limit != null ? ` · limit ${it.limit}` : ''}</p>
+									<ItemCard
+										{it}
+										{glossary}
+										tag={ORIGIN[origins[id]] ?? ''}
+										out={isOut(it.name)}
+										open={card === `item:${id}`}
+										patch={patch('item', id)}
+										onmore={() => open(`item:${id}`)}
+										ondragstart={(e) => startDrag(e, 'row', { kind: 'item', id, name: it.name }, lane, i)}
+										children={tools}
+									/>
 								{/if}
-								{#if c.keywords.length}<div class="kw"><KeywordChips keywords={c.keywords.slice(0, 5)} {glossary} /></div>{/if}
-								<footer>
-									{#if ORIGIN[origins[id]]}<span class="tick">{ORIGIN[origins[id]]}</span>{/if}
-									{#if isOut(c.name)}<span class="tick out">excluded</span>{/if}
-									<span class="tools">
-										<button type="button" class="ghost mini" onclick={(e) => (e.stopPropagation(), act('exclude', { name: c.name, on: isOut(c.name) ? '0' : '1' }))}>
-											{isOut(c.name) ? 'Include' : 'Exclude'}
-										</button>
-										{#if origins[id] === 'custom'}
-											<button type="button" class="ghost mini danger" onclick={(e) => (e.stopPropagation(), act('remove', { kind: k, id }, `${c.name} removed.`))}>Remove</button>
-										{/if}
-									</span>
-								</footer>
-							</article>
+							</div>
 						{/if}
 					{/each}
 					{#each k === 'unit' ? inherited.units : inherited.items as c (c.id)}
-						<article class="card {k} inherited" class:out={isOut(c.name)}>
-							<header>
-								<b>{c.name}</b>
-								<span class="cost">{coin(c.cost, c.currency)}</span>
-							</header>
-							{#if 'availabilityMin' in c}<p class="meta">{c.category} · {avail(c.availabilityMin, c.availabilityMax)}</p>{:else}<p class="meta">{c.category}</p>{/if}
-							{#if c.keywords.length}<div class="kw"><KeywordChips keywords={c.keywords.slice(0, 5)} {glossary} /></div>{/if}
-							<footer>
-								<span class="tick inh">from the faction</span>
-								{#if isOut(c.name)}<span class="tick out">excluded</span>{/if}
-								<span class="tools">
-									<button type="button" class="ghost mini" onclick={() => act('exclude', { name: c.name, on: isOut(c.name) ? '0' : '1' })}>{isOut(c.name) ? 'Include' : 'Exclude'}</button>
-									<button type="button" class="ghost mini" title="A copy of its own for this variant, to change" onclick={() => act('adopt', { kind: k, id: c.id }, `${c.name} now has a card of its own here.`)}>Change here</button>
-								</span>
-							</footer>
-						</article>
+						<div class="slot">
+							{#snippet itools()}
+								<button type="button" class="ghost mini" onclick={() => act('exclude', { name: c.name, on: isOut(c.name) ? '0' : '1' })}>{isOut(c.name) ? 'Include' : 'Exclude'}</button>
+								<button type="button" class="ghost mini" title="A copy of its own for this variant, to change" onclick={() => act('adopt', { kind: k, id: c.id }, `${c.name} now has a card of its own here.`)}>Change here</button>
+							{/snippet}
+							{#if 'abilities' in c}
+								<UnitCard u={c as Unit} fixed={kits[c.id]?.fixed ?? []} {glossary} tag="from the faction" out={isOut(c.name)} open={false} inherited patch={() => {}} onmore={() => {}} ondragstart={(e) => startDrag(e, 'row', { kind: 'unit', id: c.id, name: c.name })} children={itools} />
+							{:else}
+								<ItemCard it={c as Item} {glossary} tag="from the faction" out={isOut(c.name)} open={false} inherited patch={() => {}} onmore={() => {}} ondragstart={(e) => startDrag(e, 'row', { kind: 'item', id: c.id, name: c.name })} children={itools} />
+							{/if}
+						</div>
 					{/each}
 					<button type="button" class="card new" onclick={() => open(`${k}:new`)}>+ New {k === 'unit' ? 'unit' : 'item'}<small>or drop one from the library</small></button>
 				</div>
@@ -248,198 +256,101 @@
 </div>
 
 <style>
+	/* The board is Trench Companion's dark register, like the warband pages; the side panel stays a book page. */
 	.boardwrap {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(15rem, 18rem);
-		gap: 20px;
+		grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
+		gap: 18px;
 		align-items: start;
+		padding: 16px;
+		background: #1b1916;
+		color: var(--bone);
 	}
 	.boardwrap.withdrawer {
-		grid-template-columns: minmax(0, 1fr) minmax(26rem, 34rem) minmax(14rem, 16rem);
+		grid-template-columns: minmax(0, 1fr) minmax(28rem, 36rem) minmax(15rem, 17rem);
 	}
 	.board {
 		display: grid;
-		gap: 22px;
+		gap: 20px;
 		min-width: 0;
 	}
-	.lane {
-		border-top: 2px solid var(--ink);
-		padding-top: 6px;
-	}
 	.lane.over {
-		outline: 2px dashed var(--blood);
+		outline: 2px dashed var(--blood-bright);
 		outline-offset: 4px;
 	}
 	.lane > header {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
+		align-items: center;
 		gap: 6px 10px;
-		margin-bottom: 8px;
+		margin-bottom: 10px;
+		padding: 6px 12px;
+		background: var(--blood);
 	}
 	.lane h2 {
 		margin: 0 auto 0 0;
-		font-size: 1.4rem;
+		color: var(--bone);
+		font-family: var(--font-body);
+		font-size: 1.05rem;
+		font-weight: 700;
 	}
 	.lane h2 small {
-		font-family: var(--font-body);
-		font-size: 0.9rem;
-		color: var(--muted);
+		font-weight: 400;
+		opacity: 0.75;
+	}
+	.lane > header :global(.mini) {
+		color: var(--bone);
+		border-color: rgba(236, 229, 211, 0.4);
 	}
 	.cards {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-		gap: 10px;
+		grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+		gap: 12px;
+		align-items: start;
+	}
+	.lane[aria-label='Armoury'] .cards {
+		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
 	}
 	.cards.rules {
-		grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+	}
+	.slot {
+		min-width: 0;
 	}
 	.card {
 		display: grid;
 		align-content: start;
 		gap: 4px;
-		min-height: 6.5rem;
-		padding: 8px 10px;
-		border: 1px solid var(--rule);
-		border-top: 2px solid var(--ink);
-		background: #fff;
-		color: var(--ink);
+		min-height: 5rem;
+		padding: 8px 12px;
+		border: 1px solid rgba(236, 229, 211, 0.1);
+		border-left: 3px solid var(--blood);
+		background: #2a2824;
+		color: var(--bone);
 		text-align: left;
 		text-transform: none;
 		letter-spacing: 0;
 		font-weight: 400;
-		font-size: 0.9rem;
+		font-size: 0.88rem;
 		cursor: pointer;
-		transition: box-shadow 0.15s var(--ease-out);
 	}
-	.card:hover,
-	.card:focus-visible {
-		box-shadow: 0 0 0 1px var(--blood);
-		background: #fff;
-		color: var(--ink);
+	.card:hover {
+		background: #33302b;
+		color: var(--bone);
+		border-color: rgba(236, 229, 211, 0.25);
 	}
 	.card.open {
-		box-shadow: 0 0 0 2px var(--blood);
+		box-shadow: 0 0 0 2px var(--blood-bright);
 	}
-	.card.out {
-		border-style: dashed;
-		opacity: 0.55;
-	}
-	/* The card's name is its button, stretched over the whole card; the tools sit above it. */
-	.card {
-		position: relative;
-	}
-	.opener {
-		padding: 0;
-		border: 0;
-		background: none;
-		color: inherit;
-		font: inherit;
-		font-weight: 700;
-		text-align: left;
-		text-transform: none;
-		letter-spacing: 0;
-	}
-	.opener::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-	}
-	.opener:hover {
-		background: none;
-		color: var(--blood);
-	}
-	.opener:focus-visible {
-		outline: none;
-	}
-	.card:has(.opener:focus-visible) {
-		box-shadow: 0 0 0 2px var(--blood);
-	}
-	.card footer,
-	.card .kw {
-		position: relative;
-		z-index: 1;
-	}
-	.card header {
-		min-width: 0;
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
-		align-items: baseline;
-	}
-	.cost {
-		white-space: nowrap;
-		font-variant-numeric: lining-nums tabular-nums;
-	}
-	.meta {
-		margin: 0;
-		color: var(--muted);
-		font-size: 0.8rem;
-		text-transform: capitalize;
-	}
-	.stats {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px 10px;
-		min-width: 0;
-		margin: 0;
-		font-size: 0.8rem;
-		font-variant-numeric: lining-nums tabular-nums;
-	}
-	.stats small {
-		margin-right: 2px;
-		color: var(--muted);
-		text-transform: uppercase;
-		font-size: 0.65rem;
-	}
-	.kw :global(.chip) {
-		font-size: 0.62rem;
-		padding: 1px 5px;
-	}
-	.card footer {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 4px 8px;
-		margin-top: auto;
-	}
-	.tools {
-		display: flex;
-		gap: 4px;
-		margin-left: auto;
-		opacity: 0;
-	}
-	.card:hover .tools,
-	.card:focus-within .tools,
-	.card:focus .tools {
-		opacity: 1;
-	}
-	.tick {
+	.rule .kind {
 		font-size: 0.68rem;
 		font-weight: 700;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--supplies);
-	}
-	.card.inherited {
-		border-top-color: var(--rule);
-		background: var(--parchment);
-	}
-	.tick.inh {
-		color: var(--muted);
-	}
-	.tick.out {
-		color: var(--blood);
-	}
-	.rule .kind {
-		font-size: 0.7rem;
-		font-weight: 700;
-		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--blood);
+		color: var(--blood-pale);
 	}
 	.rule .body {
-		color: var(--ink-soft);
+		color: var(--bone-dim);
 		font-size: 0.82rem;
 		display: -webkit-box;
 		-webkit-line-clamp: 3;
@@ -450,30 +361,33 @@
 	.card.new {
 		place-content: center;
 		justify-items: center;
-		border: 1px dashed var(--rule);
+		min-height: 7rem;
+		border: 1px dashed rgba(236, 229, 211, 0.25);
 		background: transparent;
-		color: var(--blood);
+		color: var(--blood-pale);
 		font-weight: 600;
 	}
 	.card.new small {
-		color: var(--muted);
+		color: var(--bone-dim);
 		font-weight: 400;
 		font-size: 0.78rem;
 	}
 	.mini {
-		padding: 1px 7px;
-		font-size: 0.68rem;
+		padding: 1px 8px;
+		font-size: 0.7rem;
 		letter-spacing: 0.03em;
 		white-space: nowrap;
+		background: transparent;
 	}
 	.drawer {
 		position: sticky;
 		top: 8px;
 		max-height: calc(100dvh - 16px);
 		overflow: auto;
-		padding: 0 12px 0 14px;
-		border-left: 2px solid var(--blood);
+		padding: 0 14px;
 		background: var(--paper);
+		color: var(--ink);
+		border-top: 3px solid var(--blood);
 	}
 	.drawer > header {
 		position: sticky;
@@ -491,23 +405,65 @@
 		flex-direction: column;
 		max-height: calc(100dvh - 16px);
 		overflow: auto;
+		padding: 8px 10px;
+		background: #23211d;
 	}
 	.lib > :global(.library) {
 		flex: 1;
 		min-height: 0;
 	}
+	/* The library on the dark board. */
+	.lib :global(.library .tabs) {
+		border-bottom-color: var(--bone-dim);
+	}
+	.lib :global(.library .tabs button) {
+		color: var(--bone-dim);
+		background: transparent;
+	}
+	.lib :global(.library .tabs button[aria-selected='true']) {
+		color: var(--bone);
+		border-bottom-color: var(--blood-bright);
+	}
+	.lib :global(.library input) {
+		background: #2a2824;
+		border-color: rgba(236, 229, 211, 0.2);
+		color: var(--bone);
+	}
+	.lib :global(.library ul) {
+		border-top-color: rgba(236, 229, 211, 0.15);
+	}
+	.lib :global(.library .entry) {
+		color: var(--bone);
+		border-bottom-color: rgba(236, 229, 211, 0.1);
+	}
+	.lib :global(.library .entry:hover) {
+		background: #33302b;
+		color: var(--bone);
+	}
+	.lib :global(.library .hint),
+	.lib :global(.library .note) {
+		color: var(--bone-dim);
+	}
+	.start {
+		margin: 0;
+		padding: 10px 12px;
+		border: 1px dashed rgba(236, 229, 211, 0.25);
+		color: var(--bone-dim);
+	}
 	.ok {
-		color: var(--supplies);
+		color: #9cc06a;
 	}
-	.error,
-	.danger {
-		color: var(--blood);
+	.board > p :global(button) {
+		border: 0;
+		color: inherit;
+		background: transparent;
 	}
-	/* Narrower: the panel lies over the board, the library goes below it. */
+	.error {
+		color: var(--blood-pale);
+	}
 	@media (max-width: 100rem) {
-		.boardwrap,
 		.boardwrap.withdrawer {
-			grid-template-columns: minmax(0, 1fr) minmax(14rem, 17rem);
+			grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
 		}
 		.drawer {
 			position: fixed;
@@ -515,18 +471,8 @@
 			top: 0;
 			right: 0;
 			bottom: 0;
-			width: min(36rem, 100vw);
+			width: min(38rem, 100vw);
 			max-height: none;
-		}
-	}
-	@media (max-width: 48rem) {
-		.boardwrap,
-		.boardwrap.withdrawer {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.lib {
-			position: static;
-			max-height: 26rem;
 		}
 	}
 </style>

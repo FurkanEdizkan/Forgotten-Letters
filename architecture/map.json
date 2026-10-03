@@ -358,7 +358,7 @@
    "id": "cf.app.web.admin",
    "kind": "page",
    "title": "Admin console",
-   "description": "The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and the log.",
+   "description": "The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, the Rules Editor (Faction Studio: units, kit, rules, keywords, Patrons, campaign tables, editions), lore, backup and the log.",
    "tags": [
     "cm-only"
    ],
@@ -729,7 +729,7 @@
    "id": "cf.app.web.admin.route_admin_studio_id",
    "kind": "page",
    "title": "/admin/studio/[id]",
-   "description": "actions: delete, identity, item, keyword, remove, revert, rules, unit, yaml",
+   "description": "actions: copyTo, delete, identity, item, keyword, order, remove, revert, rules, unit, yaml",
    "tags": [],
    "code": [
     "app/src/routes/admin/studio/[id]/+page.server.ts",
@@ -755,6 +755,21 @@
    "parent": "cf.app.web.admin"
   },
   {
+   "id": "cf.app.web.admin.route_admin_studio_campaign",
+   "kind": "page",
+   "title": "/admin/studio/campaign",
+   "description": "actions: progression, remove, revert, table",
+   "tags": [],
+   "code": [
+    "app/src/routes/admin/studio/campaign/+page.server.ts",
+    "app/src/routes/admin/studio/campaign/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "cf.app.web.admin"
+  },
+  {
    "id": "cf.app.web.admin.route_admin_studio_editions",
    "kind": "page",
    "title": "/admin/studio/editions",
@@ -763,6 +778,36 @@
    "code": [
     "app/src/routes/admin/studio/editions/+page.server.ts",
     "app/src/routes/admin/studio/editions/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "cf.app.web.admin"
+  },
+  {
+   "id": "cf.app.web.admin.route_admin_studio_keywords",
+   "kind": "page",
+   "title": "/admin/studio/keywords",
+   "description": "actions: remove, save",
+   "tags": [],
+   "code": [
+    "app/src/routes/admin/studio/keywords/+page.server.ts",
+    "app/src/routes/admin/studio/keywords/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "cf.app.web.admin"
+  },
+  {
+   "id": "cf.app.web.admin.route_admin_studio_patrons",
+   "kind": "page",
+   "title": "/admin/studio/patrons",
+   "description": "actions: remove, revert, save",
+   "tags": [],
+   "code": [
+    "app/src/routes/admin/studio/patrons/+page.server.ts",
+    "app/src/routes/admin/studio/patrons/+page.svelte"
    ],
    "tables": [],
    "services": [],
@@ -1758,12 +1803,12 @@
    "id": "cf.app.server.rules",
    "kind": "module",
    "title": "Rules and Faction Studio",
-   "description": "Rules from the books (book packs read from the group's own copies, or the import-rules.py file), the Faction Studio's own factions and house rules, the committed starter pack, and the rules versions every load or edit makes.",
+   "description": "Rules from the books (book packs read from the group's own copies, or the import-rules.py file), the Faction Studio's own factions and house rules (Patrons and Campaign Phase tables too, each revertible to the book), the committed starter pack, and the rules versions every load or edit makes.",
    "tags": [
     "server-only"
    ],
    "code": [
-    "app/src/lib/server/{rules-data,studio,factions,starter,packs,versions,editions}{,.spec}.ts"
+    "app/src/lib/server/{rules-data,studio,studio-campaign,factions,starter,packs,versions,editions}{,.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -1900,12 +1945,13 @@
    "id": "cf.app.ui.components",
    "kind": "module",
    "title": "Components",
-   "description": "Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.",
+   "description": "Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs, and the Rules Editor's parts: chip lists and sortable lists with drag and drop, the visual rule (limit), price and loadout editors, the unit, item and rules forms, and the library.",
    "tags": [
     "client"
    ],
    "code": [
-    "app/src/lib/components/*.svelte"
+    "app/src/lib/components/*.svelte",
+    "app/src/lib/components/drag.svelte.ts"
    ],
    "tables": [],
    "services": [],
@@ -1938,7 +1984,8 @@
    ],
    "code": [
     "app/src/lib/rules/**",
-    "app/src/lib/{builder,builder-state,warband-rules,warband-limits,progression,aftermath,rules-versions,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts"
+    "app/src/lib/{builder,builder-state,warband-rules,warband-limits,limit-edit,progression,aftermath,rules-versions,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts",
+    "app/src/lib/warband-limits.*.spec.ts"
    ],
    "tables": [],
    "services": [],
@@ -2980,13 +3027,28 @@
   {
    "id": "warband_builder",
    "title": "Warband builder and Trench Companion import",
-   "description": "**Every warband follows the books.** The rules come from book packs: complete Faction Studio files\nfor each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the\ngroup's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,\npurchase and upgrade against them.\n\n**Decisions**\n- The books' rules always apply. Only the Campaign Master lifts them (Remove Restrictions, Open\n  Exploration) or sets a strongbox; a new warband starts with its variant's money.\n- Every building rule is a key in the packs, never only text: one limit shape counts a model's kit or\n  upgrades, or the warband's models, entries or kit, with a min and/or max, per something else, and only\n  when something holds, on a unit, item, upgrade, Patron Skill or the warband. Hands, loadouts, prices\n  (first copy, Skill discounts) and \"counts as\" complete it. A broken maximum refuses the action; a minimum\n  or a cost floor is reported until the finished list meets it. Unknown keys are refused.\n- Rules that widen what a warband may have (another faction's armoury, unlocks) the CM grants by hand.\n- Campaign progression comes from the book too: the Trauma Table, the Skill Tables and the Experience at\n  which a model advances. Skills and injuries stay names on the model, matched to table rows, whose\n  effects (stat changes, keywords, no more Experience) the builder applies.\n- After a battle the player records the aftermath; the server rolls Trauma, Promotion and Advancement\n  dice, so no roll can be redone, and the Campaign Master approves the report before it changes the roster.\n- Editions of the rules stand side by side (1.0.2, later ones, house editions): every rules row belongs to one,\n  and a warband is built and checked under its own. A new edition starts as a copy of another; entries are\n  copied between editions singly or together, and warbands move one at a time (after a preview of what changes\n  for them) or all together. The Campaign Master edits one edition at a time.\n- The rules are versioned: each load of the books and each Studio edit that changes them is a version (a\n  snapshot of every entry). Each warband records the version it was built under and shows what changed\n  since in the rules that touch it, field by field; the builder always checks against the current rules.\n- A list exports as Trench Companion's text and as our JSON, both of which import again; a private list\n  can be shared read-only by a link its owner can revoke.\n- A variant's entry replaces the faction's entry of the same name; its rules merge onto the\n  faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,\n  an armoury item or an upgrade.\n- An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries\n  they are for. A Leader is required only where a variant names one.\n- A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched\n  to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;\n  Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is\n  checked like any warband.\n- Loading packs keeps the Campaign Master's Studio edits.\n- Carcass Front's own lists are picked under the faction whose variant they replace (Trench Pilgrims →\n  Procession of the Sacred Affliction, Heretic Legions → Heretic Naval Raiders), each with its own variants.\n  Picking a faction or variant shows its starting money, must-includes, exclusions, caps, upgrades and rules.\n- Patrons come from the packs too; only those a faction and variant may serve are offered, with their Skills.\n  Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.",
+   "description": "**Every warband follows the books.** The rules come from book packs: complete Faction Studio files\nfor each faction and variant (units, armoury, upgrades, faction rules, keywords), read from the\ngroup's own copies of the books and loaded in Admin → Rules. The builder checks each recruit,\npurchase and upgrade against them.\n\n**Decisions**\n- The books' rules always apply. Only the Campaign Master lifts them (Remove Restrictions, Open\n  Exploration) or sets a strongbox; a new warband starts with its variant's money.\n- Every building rule is a key in the packs, never only text: one limit shape counts a model's kit or\n  upgrades, or the warband's models, entries or kit, with a min and/or max, per something else, and only\n  when something holds, on a unit, item, upgrade, Patron Skill or the warband. Hands, loadouts, prices\n  (first copy, Skill discounts) and \"counts as\" complete it. A broken maximum refuses the action; a minimum\n  or a cost floor is reported until the finished list meets it. Unknown keys are refused.\n- Rules that widen what a warband may have (another faction's armoury, unlocks) the CM grants by hand.\n- Campaign progression comes from the book too: the Trauma Table, the Skill Tables and the Experience at\n  which a model advances. Skills and injuries stay names on the model, matched to table rows, whose\n  effects (stat changes, keywords, no more Experience) the builder applies.\n- After a battle the player records the aftermath; the server rolls Trauma, Promotion and Advancement\n  dice, so no roll can be redone, and the Campaign Master approves the report before it changes the roster.\n- Editions of the rules stand side by side (1.0.2, later ones, house editions): every rules row belongs to one,\n  and a warband is built and checked under its own. A new edition starts as a copy of another; entries are\n  copied between editions singly or together, and warbands move one at a time (after a preview of what changes\n  for them) or all together. The Campaign Master edits one edition at a time.\n- The Campaign Master fits the rules to the books in the Rules Editor (Faction Studio), with visual forms\n  instead of YAML: entries | form with a live preview of the builder's card | a library of the edition's\n  keywords, kit, units and ready rules. Every rule is a sentence (what it counts, at least / at most, for\n  each what, only while what) read back in plain words. Keywords, kit, units and rules are dragged onto\n  entries and lists, and every list is reordered by drag (or ↑ / ↓ and the keyboard; a click adds from the\n  library). A save pins only what changed, and the keyword library shows every keyword still unexplained.\n- The rules are versioned: each load of the books and each Studio edit that changes them is a version (a\n  snapshot of every entry). Each warband records the version it was built under and shows what changed\n  since in the rules that touch it, field by field; the builder always checks against the current rules.\n- A list exports as Trench Companion's text and as our JSON, both of which import again; a private list\n  can be shared read-only by a link its owner can revoke.\n- A variant's entry replaces the faction's entry of the same name; its rules merge onto the\n  faction's (upgrades and caps by name, exclusions add up), and excluding a name takes away a unit,\n  an armoury item or an upgrade.\n- An entry may price an item itself (the Yeoman's rifle); upgrades have a currency and the entries\n  they are for. A Leader is required only where a variant names one.\n- A Trench Companion warband comes in from a link, its JSON or its text export. Each model is matched\n  to its entry (by name, Trench Companion's id, or the rule that names it), each item to the armoury;\n  Trench Companion's prices are kept, what doesn't match is kept and reported, and the result is\n  checked like any warband.\n- Loading packs keeps the Campaign Master's Studio edits.\n- Carcass Front's own lists are picked under the faction whose variant they replace (Trench Pilgrims →\n  Procession of the Sacred Affliction, Heretic Legions → Heretic Naval Raiders), each with its own variants.\n  Picking a faction or variant shows its starting money, must-includes, exclusions, caps, upgrades and rules.\n- Patrons come from the packs too; only those a faction and variant may serve are offered, with their Skills.\n  Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.",
    "dynamic": true,
    "steps": [
     {
      "from": "cm",
      "to": "cf.app.web.admin",
      "label": "Admin → Rules: load the book packs"
+    },
+    {
+     "from": "cm",
+     "to": "cf.app.web.admin",
+     "label": "Rules Editor: edit units, kit, rules and keywords; drag keywords and rules onto entries"
+    },
+    {
+     "from": "cf.app.web.admin",
+     "to": "cf.app.ui.engine",
+     "label": "describeLimit, readLimits: a rule in words, checked"
+    },
+    {
+     "from": "cf.app.web.admin",
+     "to": "cf.app.server.rules",
+     "label": "saveUnit, saveItem, saveRules, saveKeyword, setOrder (pins only what changed)"
     },
     {
      "from": "cf.app.web.admin",

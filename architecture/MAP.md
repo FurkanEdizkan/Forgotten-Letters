@@ -19,10 +19,10 @@ shortest unique end of their id.
         code: app/src/routes/(public)/**
         uses: campaign server.live battle components engine ui.live livemap shared rules uploads audit stores accounts warbands flow world
         routes: / · /compendium · /compendium/[faction] · /compendium/keywords · /compendium/rules/[slug] · /history · /muster (actions: vision) · /players · /players/[id] · /settings (actions: password) · /warbands (actions: useForCampaign) · /warbands/[id] (actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, moveEdition, rank, recruit, rulesAck, settings, share, unit, upgrade) · /warbands/[id]/export (GET) · /warbands/[id]/play · /warbands/[id]/print · /warbands/new (actions: create, fromTc) · /zones · /zones/[id]
-      - `cf.app.web.admin` Admin console #cm-only — The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and…
-        files: app/src/routes/admin/weather/ AirPanel.svelte PortentsPanel.svelte RegionsPanel.svelte SettingsPanels.svelte SkyPanel.svelte
+      - `cf.app.web.admin` Admin console #cm-only — The Campaign Master's console: campaign stages and muster, battles and rounds, players and requests, map, weather, the Rules Editor (Faction…
+        files: app/src/routes/admin/studio/campaign/ EffectsFields.svelte TableForm.svelte; app/src/routes/admin/studio/patrons/ PatronForm.svelte; app/src/routes/admin/weather/ AirPanel.svelte PortentsPanel.svelte RegionsPanel.svelte SettingsPanels.svelte SkyPanel.svelte
         uses: campaign server.live rules stores world components engine flow backup uploads shared warbands audit accounts requests fx livemap
-        routes: /admin (actions: create, update) · /admin/adjustments (actions: add, delete) · /admin/api/battles (POST) · /admin/api/battles/[id] (POST) · /admin/api/battles/options (GET) · /admin/backup (actions: restore) · /admin/backup/export (GET) · /admin/backup/starter (GET) · /admin/factions (actions: art, artRemove) · /admin/games · /admin/games/[id] (actions: commit, delete, reopen) · /admin/games/[id]/aftermath (actions: report, update) · /admin/games/[id]/preview (POST) · /admin/games/new (actions: default) · /admin/log · /admin/lore (actions: import, save) · /admin/map (actions: clearImage, image, import, preset, rings, save) · /admin/map/zones.yaml (GET) · /admin/muster (actions: advance, choose, deal, entry, invite, rename, revoke, seats) · /admin/players (actions: approve, assign, create, decline, remove, reset, resolveReset, signOut, toggle) · /admin/players/[id] (actions: email, endDevice) · /admin/round (actions: answer, open, pass, pick, roll) · /admin/rules (actions: factionRule, import, item, keyword, packs, page, unit) · /admin/studio (actions: import, newFaction, newVariant) · /admin/studio/[id] (actions: delete, identity, item, keyword, remove, revert, rules, unit, yaml) · /admin/studio/[id]/export.yaml (GET) · /admin/studio/editions (actions: copy, create, current, move, remove, status) · /admin/studio/template.yaml (GET) · /admin/visions (actions: deal, keep) · /admin/warbands (actions: create) · /admin/warbands/[id] (actions: delete, display, strongbox, update, vision) · /admin/warbands/[id]/roster (actions: addUnit, bank, buyItem, importFile, importTc, itemOp, moveUnit, removeUnit, saveUnit) · /admin/weather (actions: addRegion, deleteRegion, toggleRegion, trigger, zeppelin) · /admin/weather/fx (POST)
+        routes: /admin (actions: create, update) · /admin/adjustments (actions: add, delete) · /admin/api/battles (POST) · /admin/api/battles/[id] (POST) · /admin/api/battles/options (GET) · /admin/backup (actions: restore) · /admin/backup/export (GET) · /admin/backup/starter (GET) · /admin/factions (actions: art, artRemove) · /admin/games · /admin/games/[id] (actions: commit, delete, reopen) · /admin/games/[id]/aftermath (actions: report, update) · /admin/games/[id]/preview (POST) · /admin/games/new (actions: default) · /admin/log · /admin/lore (actions: import, save) · /admin/map (actions: clearImage, image, import, preset, rings, save) · /admin/map/zones.yaml (GET) · /admin/muster (actions: advance, choose, deal, entry, invite, rename, revoke, seats) · /admin/players (actions: approve, assign, create, decline, remove, reset, resolveReset, signOut, toggle) · /admin/players/[id] (actions: email, endDevice) · /admin/round (actions: answer, open, pass, pick, roll) · /admin/rules (actions: factionRule, import, item, keyword, packs, page, unit) · /admin/studio (actions: import, newFaction, newVariant) · /admin/studio/[id] (actions: copyTo, delete, identity, item, keyword, order, remove, revert, rules, unit, yaml) · /admin/studio/[id]/export.yaml (GET) · /admin/studio/campaign (actions: progression, remove, revert, table) · /admin/studio/editions (actions: copy, create, current, move, remove, status) · /admin/studio/keywords (actions: remove, save) · /admin/studio/patrons (actions: remove, revert, save) · /admin/studio/template.yaml (GET) · /admin/visions (actions: deal, keep) · /admin/warbands (actions: create) · /admin/warbands/[id] (actions: delete, display, strongbox, update, vision) · /admin/warbands/[id]/roster (actions: addUnit, bank, buyItem, importFile, importTc, itemOp, moveUnit, removeUnit, saveUnit) · /admin/weather (actions: addRegion, deleteRegion, toggleRegion, trigger, zeppelin) · /admin/weather/fx (POST)
       - `cf.app.web.door` The doors — Signing in and out: players at /login (with account and reset requests), the Campaign Master at /admin/login, seat invites at /join/<token>.
         code: app/src/routes/login/** app/src/routes/admin/login/** app/src/routes/join/** app/src/routes/logout/**
         uses: access accounts components audit campaign server.live requests
@@ -83,7 +83,7 @@ shortest unique end of their id.
         uses: stores server.live campaign rules uploads t_map
         used by: shell public admin api hooks campaign server.live rules
       - `cf.app.server.rules` Rules and Faction Studio #server-only — Rules from the books (book packs read from the group's own copies, or the import-rules.py file), the Faction Studio's own factions and house…
-        files: app/src/lib/server/ editions.ts factions.ts packs.ts rules-data.ts starter.ts studio.ts versions.ts
+        files: app/src/lib/server/ editions.ts factions.ts packs.ts rules-data.ts starter.ts studio-campaign.ts studio.ts versions.ts
         uses: stores server.live world t_rules
         used by: shell public admin hooks warbands world
       - `cf.app.server.uploads` Files #server-only — Images re-encoded to WebP, rendered model tokens with their STL sources, and unit art, on the data volume.
@@ -115,8 +115,8 @@ shortest unique end of their id.
         files: app/src/lib/components/ ArrangeBattle.svelte BattleBrief.svelte BattleControls.svelte BattleHud.svelte BattlePanel.svelte Dice.svelte ResultBanner.svelte RollToasts.svelte RoundPanel.svelte
         uses: flow engine components ui.live shared
         used by: public
-      - `cf.app.ui.components` Components #client — Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.
-        files: app/src/lib/components/ AddModelDialog.svelte AftermathPanel.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte KeywordChips.svelte Lockup.svelte Mark.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte RulesText.svelte RulesVersionPanel.svelte Seal.svelte SealEditor.svelte SealStudio.svelte TrackerSheet.svelte UnitCard.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte
+      - `cf.app.ui.components` Components #client — Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs, and the Rules Editor's…
+        files: app/src/lib/components/ AddModelDialog.svelte AftermathPanel.svelte ChipList.svelte CoverBand.svelte EffectsEditor.svelte EquipmentDialog.svelte ExplorationEditor.svelte ItemForm.svelte ItemSelEditor.svelte KeywordChips.svelte LimitEditor.svelte LoadoutEditor.svelte Lockup.svelte Mark.svelte ModelSelEditor.svelte ModelStudio.svelte NavPanel.svelte Portrait.svelte PriceEditor.svelte RulesForm.svelte RulesLibrary.svelte RulesText.svelte RulesVersionPanel.svelte Seal.svelte SealEditor.svelte SealStudio.svelte SortableList.svelte TrackerSheet.svelte UnitCard.svelte UnitForm.svelte UnitProfile.svelte WarbandFields.svelte ZoneFacts.svelte drag.svelte.ts
         uses: engine shared ui.live
         used by: public admin door battle
       - `cf.app.ui.live` Live client #client — Starts from the server-rendered snapshot and follows /api/stream; the snapshot's shape.
@@ -124,7 +124,7 @@ shortest unique end of their id.
         uses: engine shared api
         used by: public livemap battle components fx flow shared server.live
       - `cf.app.ui.engine` Rules engine #pure — The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.
-        files: app/src/lib/ aftermath.ts builder-state.ts builder.ts effects.ts keywords.ts progression.ts roster.ts rules-text.ts rules-versions.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
+        files: app/src/lib/ aftermath.ts builder-state.ts builder.ts effects.ts keywords.ts limit-edit.ts progression.ts roster.ts rules-text.ts rules-versions.ts tc-import.ts warband-limits.ts warband-rules.ts; app/src/lib/rules/ engine.ts exploration.ts factions.ts legality.ts round.ts scenario.ts scoring.ts tracker.ts types.ts visions.ts weather.ts zones.ts
         used by: shell public admin api livemap battle components flow ui.live shared fx server
       - `cf.app.ui.flow` Campaign flow #pure — The campaign's life from founding to the final reckoning, seats, where battles stand on the map, and how a finished battle reads.
         files: app/src/lib/ battle-hud.ts battle-outcome.ts campaign-flow.ts map-battles.ts seating.ts
@@ -215,17 +215,20 @@ group's own copies of the books and loaded in Admin → Rules. The builder check
 purchase and upgrade against them.
 
 1. cm → admin: Admin → Rules: load the book packs
-2. admin → rules: readPacks, loadPacks (verified book rows)
-3. rules → t_rules: units, armoury, faction rules, keywords
-4. player → public: Import from Trench Companion (link, text or JSON)
-5. public → warbands: readTcSource, importInto
-6. warbands → engine: fromTcText / fromTrenchCompanion, matchToBook
-7. warbands → t_rosters: replace the roster, fireteams
-8. warbands → engine: warbandIssues: what the books find wrong
-9. player → public: recruit, buy, upgrade
-10. public → engine: recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit
-11. player → public: record the aftermath: Trauma, Promotion and Advancement rolls
-12. public → warbands: aftermath report (server-rolled)
-13. warbands → t_campaign: aftermath_report
-14. cm → admin: approve the aftermath
-15. admin → warbands: apply the report to the roster
+2. cm → admin: Rules Editor: edit units, kit, rules and keywords; drag keywords and rules onto entries
+3. admin → engine: describeLimit, readLimits: a rule in words, checked
+4. admin → rules: saveUnit, saveItem, saveRules, saveKeyword, setOrder (pins only what changed)
+5. admin → rules: readPacks, loadPacks (verified book rows)
+6. rules → t_rules: units, armoury, faction rules, keywords
+7. player → public: Import from Trench Companion (link, text or JSON)
+8. public → warbands: readTcSource, importInto
+9. warbands → engine: fromTcText / fromTrenchCompanion, matchToBook
+10. warbands → t_rosters: replace the roster, fireteams
+11. warbands → engine: warbandIssues: what the books find wrong
+12. player → public: recruit, buy, upgrade
+13. public → engine: recruitCheck, equipCheck (priceFor), upgradeCheck: no action may break a limit
+14. player → public: record the aftermath: Trauma, Promotion and Advancement rolls
+15. public → warbands: aftermath report (server-rolled)
+16. warbands → t_campaign: aftermath_report
+17. cm → admin: approve the aftermath
+18. admin → warbands: apply the report to the roster

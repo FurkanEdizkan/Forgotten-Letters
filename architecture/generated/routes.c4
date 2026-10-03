@@ -338,7 +338,7 @@ model {
       }
     }
     route_admin_studio_id = page '/admin/studio/[id]' {
-      description 'actions: delete, identity, item, keyword, remove, revert, rules, unit, yaml'
+      description 'actions: copyTo, delete, identity, item, keyword, order, remove, revert, rules, unit, yaml'
       metadata {
         generated 'true'
         route '/admin/studio/[id]'
@@ -353,12 +353,36 @@ model {
         code ['app/src/routes/admin/studio/[id]/export.yaml/+server.ts']
       }
     }
+    route_admin_studio_campaign = page '/admin/studio/campaign' {
+      description 'actions: progression, remove, revert, table'
+      metadata {
+        generated 'true'
+        route '/admin/studio/campaign'
+        code ['app/src/routes/admin/studio/campaign/+page.server.ts', 'app/src/routes/admin/studio/campaign/+page.svelte']
+      }
+    }
     route_admin_studio_editions = page '/admin/studio/editions' {
       description 'actions: copy, create, current, move, remove, status'
       metadata {
         generated 'true'
         route '/admin/studio/editions'
         code ['app/src/routes/admin/studio/editions/+page.server.ts', 'app/src/routes/admin/studio/editions/+page.svelte']
+      }
+    }
+    route_admin_studio_keywords = page '/admin/studio/keywords' {
+      description 'actions: remove, save'
+      metadata {
+        generated 'true'
+        route '/admin/studio/keywords'
+        code ['app/src/routes/admin/studio/keywords/+page.server.ts', 'app/src/routes/admin/studio/keywords/+page.svelte']
+      }
+    }
+    route_admin_studio_patrons = page '/admin/studio/patrons' {
+      description 'actions: remove, revert, save'
+      metadata {
+        generated 'true'
+        route '/admin/studio/patrons'
+        code ['app/src/routes/admin/studio/patrons/+page.server.ts', 'app/src/routes/admin/studio/patrons/+page.svelte']
       }
     }
     route_admin_studio_template_yaml = endpoint '/admin/studio/template.yaml' {
@@ -1313,6 +1337,14 @@ model {
     metadata { generated 'true' }
   }
 
+  cf.app.web.admin.route_admin_studio_campaign -[imports]-> cf.app.server.rules {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_campaign -[imports]-> cf.app.ui.engine {
+    metadata { generated 'true' }
+  }
+
   cf.app.web.admin.route_admin_studio_editions -[imports]-> cf.app.server.rules {
     metadata { generated 'true' }
   }
@@ -1322,6 +1354,30 @@ model {
   }
 
   cf.app.web.admin.route_admin_studio_editions -[imports]-> cf.app.ui.engine {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_keywords -[imports]-> cf.app.server.rules {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_keywords -[imports]-> cf.app.server.stores {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_keywords -[imports]-> cf.app.ui.engine {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_patrons -[imports]-> cf.app.server.rules {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_patrons -[imports]-> cf.app.ui.engine {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_patrons -[imports]-> cf.app.ui.shared {
     metadata { generated 'true' }
   }
 

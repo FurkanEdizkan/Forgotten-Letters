@@ -1,6 +1,6 @@
 // Feature: building a warband by the books, and bringing one in from Trench Companion.
 // Code: lib/warband-rules.ts, lib/warband-limits.ts, lib/builder-state.ts, lib/tc-import.ts, lib/roster.ts, lib/server/{builder,packs,tc-import}.ts,
-// routes (public)/warbands/[id] and /new, admin/rules. Data: book packs in docs/packs (the group's own, never committed).
+// routes (public)/warbands/[id] and /new, admin/rules, admin/studio (the Rules Editor: lib/components/{UnitForm,ItemForm,RulesForm,LimitEditor,ChipList,SortableList,RulesLibrary}.svelte, lib/limit-edit.ts). Data: book packs in docs/packs (the group's own, never committed).
 views {
   dynamic view warband_builder {
     title 'Warband builder and Trench Companion import'
@@ -28,6 +28,12 @@ views {
         and a warband is built and checked under its own. A new edition starts as a copy of another; entries are
         copied between editions singly or together, and warbands move one at a time (after a preview of what changes
         for them) or all together. The Campaign Master edits one edition at a time.
+      - The Campaign Master fits the rules to the books in the Rules Editor (Faction Studio), with visual forms
+        instead of YAML: entries | form with a live preview of the builder's card | a library of the edition's
+        keywords, kit, units and ready rules. Every rule is a sentence (what it counts, at least / at most, for
+        each what, only while what) read back in plain words. Keywords, kit, units and rules are dragged onto
+        entries and lists, and every list is reordered by drag (or ↑ / ↓ and the keyboard; a click adds from the
+        library). A save pins only what changed, and the keyword library shows every keyword still unexplained.
       - The rules are versioned: each load of the books and each Studio edit that changes them is a version (a
         snapshot of every entry). Each warband records the version it was built under and shows what changed
         since in the rules that touch it, field by field; the builder always checks against the current rules.
@@ -50,6 +56,9 @@ views {
         Glory Items and Carcass Front's exploration finds join every armoury their restrictions allow.
     '''
     cm -> cf.app.web.admin 'Admin → Rules: load the book packs'
+    cm -> cf.app.web.admin 'Rules Editor: edit units, kit, rules and keywords; drag keywords and rules onto entries'
+    cf.app.web.admin -> cf.app.ui.engine 'describeLimit, readLimits: a rule in words, checked'
+    cf.app.web.admin -> cf.app.server.rules 'saveUnit, saveItem, saveRules, saveKeyword, setOrder (pins only what changed)'
     cf.app.web.admin -> cf.app.server.rules 'readPacks, loadPacks (verified book rows)'
     cf.app.server.rules -> cf.db.t_rules 'units, armoury, faction rules, keywords'
     player -> cf.app.web.public 'Import from Trench Companion (link, text or JSON)'

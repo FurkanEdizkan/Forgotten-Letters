@@ -37,7 +37,7 @@ model {
       admin = page 'Admin console' {
         #cm-only
         technology '/admin'
-        description 'The Campaign Master\'s console: campaign stages and muster, battles and rounds, players and requests, map, weather, studio, lore, backup and the log.'
+        description 'The Campaign Master\'s console: campaign stages and muster, battles and rounds, players and requests, map, weather, the Rules Editor (Faction Studio: units, kit, rules, keywords, Patrons, campaign tables, editions), lore, backup and the log.'
         metadata {
           code 'app/src/routes/admin/**'
         }
@@ -93,9 +93,9 @@ model {
       components = module 'Components' {
         #client
         technology 'Svelte 5'
-        description 'Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs.'
+        description 'Navigation panel, cover band, unit cards and profiles, seals and the model and seal studios, editors and dialogs, and the Rules Editor\'s parts: chip lists and sortable lists with drag and drop, the visual rule (limit), price and loadout editors, the unit, item and rules forms, and the library.'
         metadata {
-          code 'app/src/lib/components/*.svelte'
+          code ['app/src/lib/components/*.svelte', 'app/src/lib/components/drag.svelte.ts']
         }
       }
 
@@ -113,7 +113,7 @@ model {
         technology 'lib/rules · builder · warband-rules · warband-limits · roster'
         description 'The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.'
         metadata {
-          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,warband-limits,progression,aftermath,rules-versions,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts']
+          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,warband-limits,limit-edit,progression,aftermath,rules-versions,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts', 'app/src/lib/warband-limits.*.spec.ts']
         }
       }
 

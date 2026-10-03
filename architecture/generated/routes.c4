@@ -1365,6 +1365,10 @@ model {
     metadata { generated 'true' }
   }
 
+  cf.app.web.admin.route_admin_studio_keywords -[imports]-> cf.app.ui.components {
+    metadata { generated 'true' }
+  }
+
   cf.app.web.admin.route_admin_studio_keywords -[imports]-> cf.app.ui.engine {
     metadata { generated 'true' }
   }

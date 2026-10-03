@@ -142,6 +142,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		profileArt: Object.fromEntries(input.profiles.map((pr) => [pr.id, artFor(art, w.faction, pr.name)])),
 		issues: warbandIssues(state, rules, entries),
 		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text])),
+		looks: Object.fromEntries(keywords.filter((k) => k.look).map((k) => [keywordKey(k.name), k.look])),
 		// The Patron it serves (its rules and Skills), and the ones it may change to.
 		patron: findPatron(patronList, w.patron) ?? (w.patron ? { name: w.patron, text: '', skills: [], source: null } : null),
 		patrons: patronList

@@ -10,7 +10,14 @@
 		| 'melee'
 		| 'armour'
 		| 'equipment'
-		| 'external';
+		| 'external'
+		| 'die'
+		| 'burst'
+		| 'grip'
+		| 'drop'
+		| 'figure'
+		| 'ground'
+		| 'tag';
 </script>
 
 <script lang="ts">
@@ -68,6 +75,25 @@
 		<path d="M8.5 9V6.5a3.5 3.5 0 017 0V9M4 13h16" />
 	{:else if name === 'external'}
 		<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />
+	{:else if name === 'die'}
+		<!-- A die showing three -->
+		<path d="M4 4h16v16H4z" />
+		<path stroke-width="2.6" d="M8 8h.01M12 12h.01M16 16h.01" />
+	{:else if name === 'burst'}
+		<!-- A shot striking -->
+		<path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5L19 19M19 5l-3.5 3.5M8.5 15.5L5 19" />
+	{:else if name === 'grip'}
+		<!-- A hand-grip with its strap -->
+		<path d="M9 21V9h6v12M7 9h10M12 9V3M9 13h6M9 17h6" />
+	{:else if name === 'drop'}
+		<path d="M12 2.5c3.5 5 6 8.4 6 11.5a6 6 0 01-12 0c0-3.1 2.5-6.5 6-11.5z" />
+	{:else if name === 'figure'}
+		<path d="M12 3a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM7 21l2-8-3-2 6-2 6 2-3 2 2 8M10 13h4" />
+	{:else if name === 'ground'}
+		<!-- Broken ground and a wall of sandbags -->
+		<path d="M2 20h20M4 20l4-6 3 3 4-7 5 10" />
+	{:else if name === 'tag'}
+		<path d="M12 4l7 8-7 8-7-8z" />
 	{/if}
 </svg>
 

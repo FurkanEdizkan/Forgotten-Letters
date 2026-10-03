@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import KeywordChips from '$lib/components/KeywordChips.svelte';
+	import { LOOKS, lookOf } from '$lib/keyword-look';
 
 	let { data, form } = $props();
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
@@ -25,7 +27,7 @@
 
 <svelte:head><title>Keywords · Faction Studio</title></svelte:head>
 
-{#snippet editor(name: string, kind: string | null, text: string, fixedName: boolean)}
+{#snippet editor(name: string, kind: string | null, text: string, fixedName: boolean, look: string | null = null)}
 	<form method="POST" action="?/save" use:enhance={keep} class="edit">
 		{#if fixedName}<input type="hidden" name="name" value={name} />{:else}<label>Keyword <input name="name" value={name} required maxlength="80" /></label>{/if}
 		<label>
@@ -34,6 +36,14 @@
 				<option value="Tag">Tag</option><option value="Effect">Effect</option><option value="Tag, Effect">Tag, Effect</option>
 			</select>
 		</label>
+		<label>
+			Looks like
+			<select name="look" value={look ?? ''}>
+				<option value="">As its name says ({LOOKS[lookOf(name || 'X')]})</option>
+				{#each Object.entries(LOOKS) as [l, label] (l)}<option value={l}>{label}</option>{/each}
+			</select>
+		</label>
+		{#if name}<div class="chipview" aria-label="On the warband page"><KeywordChips keywords={[name]} glossary={{}} looks={look ? { [name]: look } : {}} dark /></div>{/if}
 		<label class="wide">What it means <textarea name="text" rows="3" required>{text}</textarea></label>
 		<div class="actions">
 			<button>Save</button>
@@ -93,7 +103,7 @@
 					<span class="meta uses" title={k.carriers ? names(k.carriers) : undefined}>{k.uses ? `carried ${k.uses}×` : 'unused'}</span>
 					<span class="text">{k.text || '— no text —'}</span>
 				</summary>
-				{@render editor(k.name, k.kind, k.text, true)}
+				{@render editor(k.name, k.kind, k.text, true, k.look)}
 				{#if k.origin === 'custom' && !k.uses}
 					<form method="POST" action="?/remove" use:enhance={keep} class="remove">
 						<input type="hidden" name="name" value={k.name} />
@@ -196,6 +206,11 @@
 	.edit textarea {
 		width: 100%;
 		box-sizing: border-box;
+	}
+	.chipview {
+		align-self: end;
+		padding: 6px 8px;
+		background: var(--night);
 	}
 	.actions {
 		display: flex;

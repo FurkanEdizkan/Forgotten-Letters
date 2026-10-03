@@ -698,6 +698,8 @@ export const rulesKeyword = pgTable('rules_keyword', {
 	name: text('name').notNull(),
 	kind: text('kind'),
 	text: text('text').notNull(),
+	/** How its chip looks (its kind: dice, attack, handling, …); empty: read from its name. */
+	look: text('look'),
 	verified: boolean('verified').notNull().default(false),
 	origin: text('origin', { enum: ['book', 'custom', 'edited'] }).notNull().default('book')
 }, (t) => [primaryKey({ columns: [t.edition, t.name] })]);

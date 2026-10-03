@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { setContext } from 'svelte';
 	import ModelStudio from '$lib/components/ModelStudio.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -17,6 +18,8 @@
 	import { applyStat, advancementsDue, effectsOf, nextAdvancement, rowNamed } from '$lib/progression';
 
 	let { data, form } = $props();
+	// Keyword chips take their library-set kind from here.
+	setContext('keyword-looks', (() => data.looks)());
 
 	const st = $derived(builderState(data.input));
 	const live = $derived(page.data.snapshot?.warbands.find((x: { id: string }) => x.id === data.warband.id));

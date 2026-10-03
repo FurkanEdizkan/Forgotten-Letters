@@ -1,0 +1,1 @@
+ALTER TABLE "rules_keyword" ADD COLUMN "look" text;

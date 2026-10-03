@@ -5,6 +5,7 @@
  */
 import { readProgression, readTables, type CampaignTable, type Progression } from './progression';
 import { readHands, readLimits, readLoadouts, readModelSel, readPrices } from './warband-limits';
+import { LOOKS, type Look } from './keyword-look';
 import { parse, stringify } from 'yaml';
 import type { RulesOverride, StipulationsOverride, UnitKitOverride, Upgrade } from './warband-rules';
 import { readPatrons, type Patron } from './patrons';
@@ -66,6 +67,8 @@ export interface KeywordRow {
 	name: string;
 	kind: string | null;
 	text: string;
+	/** Its chip's kind (see keyword-look.ts); left out: read from its name. */
+	look?: string | null;
 }
 export interface RulesRow {
 	id: string;
@@ -300,7 +303,8 @@ export function readTemplate(doc: unknown, known: Known = { factions: [] }): { p
 		return {
 			name: (str(o.name, `keywords[${i}].name`, true) ?? '').toUpperCase(),
 			kind: o.kind ? oneOf(o.kind, ['Tag', 'Effect', 'Tag, Effect'] as const, `keywords[${i}].kind`, 'Effect') : null,
-			text: str(o.text, `keywords[${i}].text`, true) ?? ''
+			text: str(o.text, `keywords[${i}].text`, true) ?? '',
+			...(o.look ? { look: oneOf(o.look, Object.keys(LOOKS) as Look[], `keywords[${i}].look`, 'tag') } : {})
 		};
 	});
 
@@ -504,7 +508,7 @@ export function toTemplate(p: Omit<FactionPack, 'factionId'> & { factionId?: str
 			prices: o.prices,
 			text: p.rules.text || undefined
 		}, true),
-		keywords: p.keywords.map((k) => drop({ name: k.name, kind: k.kind ?? undefined, text: k.text })),
+		keywords: p.keywords.map((k) => drop({ name: k.name, kind: k.kind ?? undefined, text: k.text, look: k.look ?? undefined })),
 		units: p.units.map((u) =>
 			drop({
 				name: u.name,

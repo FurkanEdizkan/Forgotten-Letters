@@ -80,6 +80,7 @@ export async function warbandSheet(id: string, user: SessionUser | null, share?:
 		},
 		rules: rules.paragraphs,
 		models,
-		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text]))
+		glossary: Object.fromEntries(keywords.map((k) => [keywordKey(k.name), k.text])),
+		looks: Object.fromEntries(keywords.filter((k) => k.look).map((k) => [keywordKey(k.name), k.look]))
 	};
 }

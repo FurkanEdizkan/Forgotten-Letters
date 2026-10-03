@@ -113,7 +113,7 @@ model {
         technology 'lib/rules · builder · warband-rules · warband-limits · roster'
         description 'The campaign rules as pure functions: replay, scoring, scenarios, weather, visions, exploration, and warband building and legality.'
         metadata {
-          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,warband-limits,limit-edit,progression,aftermath,rules-versions,roster,keywords,rules-text,effects,tc-import}{,.spec}.ts', 'app/src/lib/warband-limits.*.spec.ts']
+          code ['app/src/lib/rules/**', 'app/src/lib/{builder,builder-state,warband-rules,warband-limits,limit-edit,progression,aftermath,rules-versions,roster,keywords,keyword-look,rules-text,effects,tc-import}{,.spec}.ts', 'app/src/lib/warband-limits.*.spec.ts']
         }
       }
 

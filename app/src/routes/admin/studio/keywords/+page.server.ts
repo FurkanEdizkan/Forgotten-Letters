@@ -5,6 +5,7 @@ import { rulesFaction, rulesItem, rulesKeyword, rulesUnit } from '$lib/server/db
 import { studioEdition } from '$lib/server/editions';
 import { removeKeyword, saveKeyword } from '$lib/server/studio';
 import { explain, keywordKey } from '$lib/keywords';
+import { LOOKS } from '$lib/keyword-look';
 import type { RulesOverride } from '$lib/warband-rules';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -61,7 +62,8 @@ export const actions: Actions = {
 		const text = String(d.get('text') ?? '').trim().slice(0, 4000);
 		if (!name || !text) return fail(400, { message: 'A keyword needs a name and what it means.', at: name });
 		const kind = KINDS.find((k) => k === d.get('kind')) ?? null;
-		await saveKeyword({ name, kind, text }, await studioEdition({ url, cookies }));
+		const look = (Object.keys(LOOKS) as string[]).find((l) => l === d.get('look')) ?? null;
+		await saveKeyword({ name, kind, text, look }, await studioEdition({ url, cookies }));
 		return { saved: name };
 	},
 	remove: async ({ request, url, cookies }) => {

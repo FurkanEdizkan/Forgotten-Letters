@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { setContext } from 'svelte';
 	import KeywordChips from '$lib/components/KeywordChips.svelte';
 
 	/** Play Mode: the warband at the table — each model's profile, weapons with their full rules, and trackers for the game. */
 	let { data } = $props();
+	// Keyword chips take their library-set kind from here.
+	setContext('keyword-looks', (() => data.looks)());
 
 	type Track = { blood: number; down: boolean; out: boolean; used: string[] };
 	const key = $derived(`cf-play-${data.warband.id}`);

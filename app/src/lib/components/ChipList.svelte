@@ -31,6 +31,8 @@
 	let text = $state('');
 	let box: HTMLDivElement;
 
+	/** A library card carries its name (and what it is); a chip list takes the name. */
+	const nameOf = (v: unknown) => (typeof v === 'string' ? v : v && typeof v === 'object' && 'name' in v ? String(v.name) : null);
 	const tidy = (v: string) => (upper ? v.trim().toUpperCase() : v.trim());
 	function add(v: string, at = values.length) {
 		const t = tidy(v);
@@ -55,12 +57,12 @@
 	}
 	function drop(e: DragEvent, at = values.length) {
 		// What this list can't take goes on to the list or rule around it.
-		if (drag.from !== me && !(accepts(kinds) && typeof drag.value === 'string')) return;
+		if (drag.from !== me && !(accepts(kinds) && nameOf(drag.value))) return;
 		e.preventDefault();
 		e.stopPropagation();
 		over = false;
 		if (drag.from === me) move(drag.index, Math.min(at, values.length - 1));
-		else if (typeof drag.value === 'string') add(drag.value, at);
+		else if (nameOf(drag.value)) add(nameOf(drag.value)!, at);
 		endDrag();
 	}
 	function dragover(e: DragEvent) {
@@ -77,7 +79,7 @@
 			queueMicrotask(() => box?.querySelectorAll<HTMLElement>('.chip')[to]?.focus());
 		}
 	}
-	const claim = () => Object.assign(target, { kind: kinds[0], label, add: (v: unknown) => typeof v === 'string' && add(v) });
+	const claim = () => Object.assign(target, { kind: kinds[0], label, add: (v: unknown) => nameOf(v) && add(nameOf(v)!) });
 </script>
 
 <div class="chips" class:over bind:this={box} role="group" aria-label={label} ondragover={dragover} ondragleave={() => (over = false)} ondrop={(e) => drop(e)}>

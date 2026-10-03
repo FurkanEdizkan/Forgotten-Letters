@@ -28,6 +28,10 @@ views {
         and a warband is built and checked under its own. A new edition starts as a copy of another; entries are
         copied between editions singly or together, and warbands move one at a time (after a preview of what changes
         for them) or all together. The Campaign Master edits one edition at a time.
+      - A faction or variant opens as a board: its units, its armoury and its rules as cards in three lanes. A
+        card opens its form in a side panel; cards reorder by drag; a unit or kit card dragged in from the library
+        (other factions, mercenaries, Glory Items) is copied into this warband, a ready rule joins its rules, and
+        a book card can be excluded (the rules' "cannot include"). A variant's board shows its faction's cards too.
       - The Campaign Master fits the rules to the books in the Rules Editor (Faction Studio), with visual forms
         instead of YAML: entries | form with a live preview of the builder's card | a library of the edition's
         keywords, kit, units and ready rules. Every rule is a sentence (what it counts, at least / at most, for

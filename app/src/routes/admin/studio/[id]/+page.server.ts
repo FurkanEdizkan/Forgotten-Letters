@@ -1,9 +1,12 @@
 import { copyEntries, editions, studioEdition } from '$lib/server/editions';
-import type { Limit } from '$lib/warband-limits';
+import { readLimits, type Limit } from '$lib/warband-limits';
 import type { Cookies } from '@sveltejs/kit';
 import { error, fail, redirect } from '@sveltejs/kit';
+import { and, eq } from 'drizzle-orm';
+import { db } from '$lib/server/db';
+import { rulesItem, rulesUnit } from '$lib/server/db/schema';
 import { FACTIONS } from '$lib/rules/factions';
-import { parseTemplate, readTemplate, toTemplate } from '$lib/faction-template';
+import { itemId, parseTemplate, readTemplate, toTemplate, unitId } from '$lib/faction-template';
 import { itemFacts, readRules, unitKit, type StipulationsOverride } from '$lib/warband-rules';
 import { stable } from '$lib/rules-versions';
 import { keywordKey } from '$lib/keywords';
@@ -11,7 +14,7 @@ import { allItemNames, allKeywords, allPatrons, factionRulesText } from '$lib/se
 import { applyPack, deleteFaction, packOf, removeRow, resolve, revert, saveFaction, saveItem, saveKeyword, saveRules, saveUnit, setOrder } from '$lib/server/studio';
 import type { Actions, PageServerLoad } from './$types';
 
-const TABS = ['identity', 'rules', 'units', 'armoury', 'keywords', 'yaml'] as const;
+const TABS = ['board', 'identity', 'rules', 'units', 'armoury', 'keywords', 'yaml'] as const;
 
 /** The edition being edited: ?edition=, else the current one. */
 const ed = (url: URL, cookies: Cookies) => studioEdition({ url, cookies });
@@ -23,7 +26,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 	const edition = await ed(url, cookies);
 	const text = await factionRulesText(r.factionId, r.variant, edition);
 	const glossary = await allKeywords(edition);
-	const tab = TABS.find((t) => t === url.searchParams.get('tab')) ?? (r.custom ? 'identity' : 'units');
+	const tab = TABS.find((t) => t === url.searchParams.get('tab')) ?? 'board';
 	// The rules already written in this faction, to copy from the library.
 	const rules = readRules(text.faction, text.variant, text.overrides);
 	const written: { from: string; label?: string; limit: Limit }[] = [
@@ -38,6 +41,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		edition,
 		editions: (await editions()).map((e) => ({ id: e.id, status: e.status })),
 		entry: url.searchParams.get('entry'),
+		card: url.searchParams.get('card'),
 		glossary: Object.fromEntries(glossary.map((k) => [keywordKey(k.name), k.text])),
 		library: {
 			keywords: glossary.map((k) => ({ name: k.name, note: k.kind ?? '', title: k.text, missing: !k.text?.trim() })),
@@ -46,6 +50,16 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 			limits: [...PRESETS.map((p) => ({ from: 'Ready rule', ...p })), ...written]
 		},
 		itemNames: await allItemNames(edition),
+		// The edition's other cards, to add to this warband from the board's library.
+		others: await otherCards(edition, r.factionId, r.variant),
+		// A variant's warbands also take its faction's units and kit (unless it replaces or excludes them).
+		inherited: await (async () => {
+			if (!r.variant) return { units: [], items: [] };
+			const base = await packOf(r.factionId, edition);
+			const own = (xs: { name: string }[]) => new Set(xs.map((x) => x.name.toLowerCase()));
+			const ou = own(pack.units), oi = own(pack.items);
+			return { units: (base?.units ?? []).filter((u) => !ou.has(u.name.toLowerCase())), items: (base?.items ?? []).filter((i) => !oi.has(i.name.toLowerCase())) };
+		})(),
 		patronNames: (await allPatrons(edition)).map((x) => x.name),
 		factionIds: FACTIONS.map((f) => f.id),
 		custom: r.custom,
@@ -59,6 +73,20 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		yaml: toTemplate(pack)
 	};
 };
+
+/** Units and kit elsewhere in the edition (other factions, mercenaries, Glory Items, finds) a warband may take in. */
+async function otherCards(edition: string, faction: string, variant: string | null) {
+	const mine = (f: string, v: string | null) => f === faction && (v ?? null) === variant;
+	const [units, items] = await Promise.all([
+		db.select({ id: rulesUnit.id, name: rulesUnit.name, faction: rulesUnit.faction, variant: rulesUnit.variant, cost: rulesUnit.cost, currency: rulesUnit.currency }).from(rulesUnit).where(eq(rulesUnit.edition, edition)),
+		db.select({ id: rulesItem.id, name: rulesItem.name, faction: rulesItem.faction, variant: rulesItem.variant, cost: rulesItem.cost, currency: rulesItem.currency, category: rulesItem.category }).from(rulesItem).where(eq(rulesItem.edition, edition))
+	]);
+	const from = (f: string, v: string | null) => (v ? `${v}` : (FACTIONS.find((x) => x.id === f)?.name ?? f.replace(/-/g, ' ')));
+	return {
+		units: units.filter((u) => !mine(u.faction, u.variant)).map((u) => ({ name: u.name, note: from(u.faction, u.variant), value: { name: u.name, adopt: 'unit', id: u.id } })),
+		items: items.filter((i) => !mine(i.faction, i.variant)).map((i) => ({ name: i.name, note: `${from(i.faction, i.variant)} · ${i.cost}${i.currency === 'glory' ? 'G' : 'D'}`, value: { name: i.name, adopt: 'item', id: i.id } }))
+	};
+}
 
 /** Ready rules for the library: the shapes the books use most. */
 const PRESETS: { label: string; limit: Limit }[] = [
@@ -337,6 +365,55 @@ export const actions: Actions = {
 		if (!name || !s('text')) return fail(400, { message: 'A keyword needs a name and its text.' });
 		await saveKeyword({ name, kind: ['Tag', 'Effect', 'Tag, Effect'].find((k) => k === s('kind')) ?? null, text: s('text').slice(0, 4000) }, await ed(url, cookies));
 		return { saved: name };
+	},
+
+	/** Take a unit or item from elsewhere in the edition into this warband: a copy of it, filed here. */
+	adopt: async ({ params, request, url, cookies }) => {
+		const { s } = reader(await request.formData());
+		const edition = await ed(url, cookies);
+		const r = await resolve(params.id);
+		if (!r) error(404, 'No such faction or variant');
+		const kind = s('kind') === 'item' ? 'item' : 'unit';
+		const t = (kind === 'unit' ? rulesUnit : rulesItem) as typeof rulesUnit;
+		const [src] = await db.select().from(t).where(and(eq(t.edition, edition), eq(t.id, s('id'))));
+		if (!src) return fail(400, { message: 'That card is not in this edition.' });
+		const id = (kind === 'unit' ? unitId : itemId)(r.factionId, r.variant, src.name);
+		const pack = await packOf(params.id, edition);
+		if ((kind === 'unit' ? pack?.units : pack?.items)?.some((x) => x.id === id)) return fail(400, { message: `${src.name} already has a card of its own here.` });
+		const { edition: _e, origin: _o, verified: _v, bookCopy: _b, sort: _s, ...row } = src;
+		const copy = { ...row, id, faction: r.factionId, variant: r.variant };
+		if (kind === 'unit') await saveUnit(copy as Parameters<typeof saveUnit>[0], edition);
+		else await saveItem(copy as unknown as Parameters<typeof saveItem>[0], edition);
+		return { adopted: src.name, card: `${kind}:${id}` };
+	},
+
+	/** Take an entry, item or upgrade away from this warband (or give it back): the rules' "cannot include". */
+	exclude: async ({ params, request, url, cookies }) => {
+		const { s } = reader(await request.formData());
+		const edition = await ed(url, cookies);
+		const pack = await packOf(params.id, edition);
+		if (!pack) error(404, 'No such faction or variant');
+		const name = s('name');
+		const o = { ...(pack.rules.overrides ?? {}) };
+		const was = o.excluded ?? [];
+		o.excluded = s('on') === '1' ? [...was.filter((x) => x !== name), name] : was.filter((x) => x !== name);
+		await saveRules({ ...pack.rules, overrides: o }, edition);
+		return { saved: 'rules' };
+	},
+
+	/** A rule dropped on the board's Rules lane: one more of the warband's building limits. */
+	addLimit: async ({ params, request, url, cookies }) => {
+		const { json } = reader(await request.formData());
+		const errs: { path: string; message: string }[] = [];
+		const [limit] = readLimits([json('limit')], 'limit', (path, message) => errs.push({ path, message })) ?? [];
+		if (!limit || errs.length) return fail(400, { message: `That rule is not complete: ${errs.map((e) => e.message).join('; ')}` });
+		const edition = await ed(url, cookies);
+		const pack = await packOf(params.id, edition);
+		if (!pack) error(404, 'No such faction or variant');
+		const o = { ...(pack.rules.overrides ?? {}) };
+		o.limits = [...(o.limits ?? []), limit];
+		await saveRules({ ...pack.rules, overrides: o }, edition);
+		return { saved: 'rules' };
 	},
 
 	/** A new order of the units or the armoury (dragged in the list): saved as their `sort`. */

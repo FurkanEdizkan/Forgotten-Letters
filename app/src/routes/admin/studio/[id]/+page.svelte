@@ -7,11 +7,12 @@
 	import RulesLibrary from '$lib/components/RulesLibrary.svelte';
 	import SortableList from '$lib/components/SortableList.svelte';
 	import UnitForm from '$lib/components/UnitForm.svelte';
+	import Board from './Board.svelte';
 
 	let { data, form } = $props();
 	const p = $derived(data.pack);
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
-	const TABS = { identity: 'Identity', rules: 'Rules', units: 'Units', armoury: 'Armoury', keywords: 'Keywords', yaml: 'Template (YAML)' } as const;
+	const TABS = { board: 'Board', identity: 'Identity', rules: 'Rules', units: 'Units', armoury: 'Armoury', keywords: 'Keywords', yaml: 'Template (YAML)' } as const;
 	const avail = (min: number, max: number | null) => (max == null ? 'any' : min ? `${min}-${max}` : `0-${max}`);
 	const pairs = (xs: { name: string }[], key: 'n' | 'max') => xs.map((x) => `${x.name}: ${(x as Record<string, unknown>)[key]}`).join('\n');
 	const errorsAt = (at: string) => (form && 'errors' in form && form.at === at ? form.errors : null);
@@ -42,6 +43,13 @@
 		for (const id of ids) body.append('id', id);
 		await fetch('?/order', { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
 	}
+	// The board's open card: "unit:<id>", "item:<id>" (or ":new"), or "rules".
+	const cardKind = $derived(data.card?.split(':')[0] ?? null);
+	const cardId = $derived(data.card?.slice(data.card.indexOf(':') + 1) ?? '');
+	$effect(() => {
+		if (data.tab === 'board' && cardId === 'new' && form && 'saved' in form && (cardKind === 'unit' || cardKind === 'item') && entryOf(cardKind, String(form.saved)))
+			goto(`?tab=board&card=${cardKind}:${encodeURIComponent(String(form.saved))}`, { replaceState: true, noScroll: true });
+	});
 	// A new entry, once saved, becomes the one open.
 	$effect(() => {
 		if (data.entry === 'new' && form && 'saved' in form && entryOf(kindOf, String(form.saved))) goto(`?tab=${data.tab}&entry=${encodeURIComponent(String(form.saved))}`, { replaceState: true, noScroll: true });
@@ -97,7 +105,33 @@
 	{/if}
 {/snippet}
 
-{#if data.tab === 'identity'}
+{#if data.tab === 'board'}
+	{#snippet cardErrors()}{@render errs(cardKind === 'rules' ? 'rules' : cardId === 'new' ? `new-${cardKind}` : cardId)}{/snippet}
+	{#snippet drawer()}
+		{#key data.card}
+			{#if cardKind === 'unit'}
+				{@const u = (cardId !== 'new' && p.units.find((x) => x.id === cardId)) || blankUnit}
+				<UnitForm {u} kit={data.kits[u.id] ?? { fixed: [], except: [], nothingElse: false, swap: null }} glossary={data.glossary} errors={cardErrors} saved={!!saved(u.id)} />
+			{:else if cardKind === 'item'}
+				{@const i = (cardId !== 'new' && p.items.find((x) => x.id === cardId)) || blankItem}
+				<ItemForm {i} facts={data.facts[i.id]} glossary={data.glossary} errors={cardErrors} saved={!!saved(i.id)} />
+			{:else}
+				<RulesForm r={data.rules} own={p.rules.overrides ?? {}} text={p.rules.text} isVariant={!!p.faction.parent} patrons={data.patronNames} errors={cardErrors} saved={!!saved('rules')} />
+			{/if}
+		{/key}
+	{/snippet}
+	<Board
+			units={p.units}
+			items={p.items}
+			rules={data.rules}
+			origins={p.origins}
+			glossary={data.glossary}
+			library={{ keywords: data.library.keywords, items: data.others.items, units: data.others.units, limits: data.library.limits }}
+			card={data.card}
+			inherited={data.inherited}
+			{drawer}
+		/>
+{:else if data.tab === 'identity'}
 	{#if data.custom}
 		<form method="POST" action="?/identity&tab=identity" use:enhance={keep} class="grid">
 			<label class="wide">Name <input name="name" value={p.faction.name} disabled={!!p.faction.parent} /></label>

@@ -6,7 +6,7 @@
 	import { describeLimit, type Limit } from '$lib/warband-limits';
 	import { endDrag, startDrag, target, type Kind } from './drag.svelte';
 
-	type Entry = { name: string; note?: string; title?: string; missing?: boolean };
+	type Entry = { name: string; note?: string; title?: string; missing?: boolean; value?: unknown };
 	let {
 		keywords,
 		items,
@@ -21,7 +21,7 @@
 	const shown = $derived(
 		tab === 'limit'
 			? limits.map((l) => ({ name: l.label ?? describeLimit(l.limit), note: l.from, value: l.limit as unknown })).filter((e) => hit(e.name + e.note))
-			: (tab === 'keyword' ? keywords : tab === 'item' ? items : units).filter((e) => hit(e.name)).map((e) => ({ ...e, value: e.name as unknown }))
+			: (tab === 'keyword' ? keywords : tab === 'item' ? items : units).filter((e) => hit(e.name + (e.note ?? ''))).map((e) => ({ ...e, value: e.value ?? (e.name as unknown) }))
 	);
 	// Follow the list being edited: a keyword list shows keywords, a rule list shows rules.
 	$effect(() => {

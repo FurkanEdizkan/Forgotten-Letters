@@ -24,6 +24,10 @@ views {
         effects (stat changes, keywords, no more Experience) the builder applies.
       - After a battle the player records the aftermath; the server rolls Trauma, Promotion and Advancement
         dice, so no roll can be redone, and the Campaign Master approves the report before it changes the roster.
+      - Editions of the rules stand side by side (1.0.2, later ones, house editions): every rules row belongs to one,
+        and a warband is built and checked under its own. A new edition starts as a copy of another; entries are
+        copied between editions singly or together, and warbands move one at a time (after a preview of what changes
+        for them) or all together. The Campaign Master edits one edition at a time.
       - The rules are versioned: each load of the books and each Studio edit that changes them is a version (a
         snapshot of every entry). Each warband records the version it was built under and shows what changed
         since in the rules that touch it, field by field; the builder always checks against the current rules.

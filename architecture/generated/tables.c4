@@ -64,6 +64,9 @@ model {
   }
 
   extend cf.db.t_rules {
+    table_edition = table 'edition' {
+      metadata { generated 'true' }
+    }
     table_rules_unit = table 'rules_unit' {
       metadata { generated 'true' }
     }

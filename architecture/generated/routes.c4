@@ -93,7 +93,7 @@ model {
       }
     }
     route_public_warbands_id = page '/warbands/[id]' {
-      description 'actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, rank, recruit, rulesAck, settings, share, unit, upgrade'
+      description 'actions: aftermath, buy, copyFighter, deleteList, dismiss, duplicate, fireteam, importTc, item, moveEdition, rank, recruit, rulesAck, settings, share, unit, upgrade'
       metadata {
         generated 'true'
         route '/warbands/[id]'
@@ -351,6 +351,14 @@ model {
         generated 'true'
         route '/admin/studio/[id]/export.yaml'
         code ['app/src/routes/admin/studio/[id]/export.yaml/+server.ts']
+      }
+    }
+    route_admin_studio_editions = page '/admin/studio/editions' {
+      description 'actions: copy, create, current, move, remove, status'
+      metadata {
+        generated 'true'
+        route '/admin/studio/editions'
+        code ['app/src/routes/admin/studio/editions/+page.server.ts', 'app/src/routes/admin/studio/editions/+page.svelte']
       }
     }
     route_admin_studio_template_yaml = endpoint '/admin/studio/template.yaml' {
@@ -1302,6 +1310,18 @@ model {
   }
 
   cf.app.web.admin.route_admin_studio_id_export_yaml -[imports]-> cf.app.ui.shared {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_editions -[imports]-> cf.app.server.rules {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_editions -[imports]-> cf.app.server.stores {
+    metadata { generated 'true' }
+  }
+
+  cf.app.web.admin.route_admin_studio_editions -[imports]-> cf.app.ui.engine {
     metadata { generated 'true' }
   }
 

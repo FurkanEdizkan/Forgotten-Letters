@@ -22,7 +22,7 @@ model {
     t_rules = layer 'Rules' {
       description 'Rules imported from the books and the Faction Studio\'s own.'
       metadata {
-        tables ['rules_unit', 'rules_item', 'rules_keyword', 'rules_faction', 'rules_page', 'rules_patron', 'rules_table', 'rules_version', 'custom_faction']
+        tables ['edition', 'rules_unit', 'rules_item', 'rules_keyword', 'rules_faction', 'rules_page', 'rules_patron', 'rules_table', 'rules_version', 'custom_faction']
       }
     }
     t_accounts = layer 'Accounts' {

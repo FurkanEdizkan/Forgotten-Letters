@@ -3,6 +3,15 @@
 A campaign tracker for Trench Crusade's *Carcass Front*, starting over on 2026-10-03. The stack is not chosen yet;
 the project is rebuilt step by step.
 
+## Documents
+
+| File | What it is |
+|---|---|
+| `PRODUCT.md` | Product requirements: users and roles, goals, roadmap, the current step's requirements |
+| `DESIGN.md` | The design system: colour, type, layout, components |
+| `ARCHITECTURE.md` | How it is built and why; the atlas model in `architecture/` is the detailed map |
+| `AGENTS.md` | How AI agents (and people) work on it, step by step |
+
 ## What is kept
 
 | Where | What |

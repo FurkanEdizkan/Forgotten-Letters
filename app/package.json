@@ -1,0 +1,63 @@
+{
+	"name": "app",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "eslint .",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"e2e": "playwright test",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "node scripts/db-migrate.js",
+		"owner-recovery": "node scripts/owner-recovery.js"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.64.1",
+		"@sveltejs/adapter-node": "^6.0.0",
+		"@sveltejs/kit": "^3.1.0",
+		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@testcontainers/postgresql": "^12.2.1",
+		"@types/node": "^24.19.2",
+		"drizzle-kit": "^0.31.11",
+		"eslint": "^10.4.1",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.19.0",
+		"globals": "^17.6.0",
+		"pino-pretty": "^13.2.0",
+		"prettier": "^3.8.3",
+		"prettier-plugin-svelte": "^4.1.0",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.6.0",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.60.1",
+		"vite": "^8.3.5",
+		"vitest": "^5.0.5"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"dependencies": {
+		"@fontsource/eb-garamond": "^5.3.0",
+		"@fontsource/ibm-plex-mono": "^5.3.0",
+		"@fontsource/pirata-one": "^5.3.0",
+		"@fontsource/unifrakturmaguntia": "^5.3.0",
+		"@lucide/svelte": "^1.61.0",
+		"bits-ui": "^2.20.0",
+		"drizzle-orm": "^0.45.4",
+		"pino": "^10.4.0",
+		"postgres": "^3.4.9",
+		"zod": "^4.6.7",
+		"zod-openapi": "^6.0.2"
+	}
+}

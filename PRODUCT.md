@@ -150,7 +150,7 @@ Each step is planned, reviewed on a visual page and documented before it is buil
 | Step | Delivers | Status |
 |---|---|---|
 | 0 | Foundation documents: product, design system, architecture, agents guide | agreed |
-| 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | next |
+| 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | built 2026-10-21 on `feat/accounts`, in review (new decisions: ARCHITECTURE 32–35) |
 | 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, invite players into it | later |
 | 3 | Rules data: load the group's own rule packs (units, kit, keywords, limits) per edition and version; house rule packs | later |
 | 4 | Warbands: build and keep a warband by the rules, experience and injuries | later |

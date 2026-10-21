@@ -1,0 +1,4 @@
+# HTTPS for the https profile: a Let's Encrypt certificate for DOMAIN (or an internal one for a LAN name).
+{$DOMAIN} {
+	reverse_proxy app:3000
+}

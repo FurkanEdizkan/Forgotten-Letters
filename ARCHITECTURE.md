@@ -56,13 +56,13 @@ Versions are the newest stable releases on 2026-10-21. Renovate keeps them curre
 | Area | Choice | Version | Why |
 |---|---|---|---|
 | Runtime | Node.js | 26 (`node:26-slim`) | Newest line, LTS from October 2026. Native fetch, WebStreams, type stripping. |
-| Language | TypeScript, strict | 7.0 (native compiler) | One language for client, server and shared schemas. The Go compiler makes type checks fast. |
+| Language | TypeScript, strict | 6.0 | One language for client, server and shared schemas. TypeScript 7 (the Go compiler) is not supported yet by SvelteKit 3, svelte-check or typescript-eslint; move to it when they do. |
 | Strictness | `noUncheckedIndexedAccess`, `verbatimModuleSyntax` | | Catches crashes on empty lists and missing rule-pack entries. Type-only imports use `import type`. |
 | Package manager | npm, `package-lock.json` committed | 11 | Ships with Node. Renovate understands its lockfile. |
 | Framework | SvelteKit | 3.0 | Pages, form actions, JSON API and SSE in one process. File routes that atlas can read. |
 | UI library | Svelte (runes) | 5.57 | Fine-grained reactivity, small bundles. `$state` classes for the warband builder and map scene. |
 | Build tool | Vite | 8.3 | Used by SvelteKit and Vitest with one config. |
-| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ORIGIN`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). |
+| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ADDRESS_HEADER`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). |
 | UI primitives | Bits UI, wrapped in `src/lib/ui` | 2.19 | Accessible dialogs, menus, comboboxes and focus traps without a visual style to fight. |
 | Styling | Plain CSS, tokens as custom properties, Svelte scoped styles | | One `tokens.css`. Modern CSS (nesting, container queries, `:has`, `color-mix`). |
 | Icons | Own SVG sprite for game marks + `@lucide/svelte` for UI actions | 1.52 | Inline SVG, inherits `currentColor`, tree-shaken per icon. |
@@ -166,8 +166,9 @@ violation is also visible in the diagrams.
 3. **Session.** Read the session cookie, hash it with SHA-256, look up the session, extend its expiry when more than
    a day has passed (sliding 30 days), set `event.locals.user` and `event.locals.session`. A disabled user's session
    is ignored and deleted.
-4. **API guard** (only `/api/v1/**`). Writes must send `Content-Type: application/json` (uploads excepted) and an
-   `Origin` that matches `ORIGIN`. Otherwise 400 or 403.
+4. **Origin and API guard.** Every write's `Origin` must name the host the browser asked for (`Host`), else 403;
+   a form post without `Origin` is refused too. API writes (`/api/v1/**`) must also send `Content-Type:
+   application/json` (uploads excepted), else 400.
 5. **Resolve** the route, with a request deadline (§15).
 6. **Log** one line: method, route id, status, duration in ms, request id, user id.
 7. **Respond** with `X-Request-Id` on every response.
@@ -250,8 +251,8 @@ and, separately, per IP, so one person cannot lock out a whole venue. The same l
 setup. Wrong password and unknown username get the same message. Failures are logged for owners. The limiter has a
 small fixed interface so it could move to Postgres later.
 
-**Cross-site requests.** SvelteKit's `csrf.checkOrigin` blocks foreign form posts with 403. `SameSite=Lax` stops
-the cookie on cross-site writes. The API also requires `application/json` and a matching `Origin` (§6).
+**Cross-site requests.** The hook refuses any write whose `Origin` host differs from `Host` with 403 (decision 32).
+`SameSite=Lax` stops the cookie on cross-site writes. The API also requires `application/json` (§6).
 
 **Roles.** Site roles rank owner (3) > admin (2) > user (1). `can(user, role)` in `src/lib/roles.ts` is the only
 check. Route groups `(owner)`, `(admin)`, `(user)` guard pages in their layout load; form actions and API handlers
@@ -462,7 +463,7 @@ over the canvas with scene-to-screen coordinates, so every action is reachable b
   `/api/v1/openapi.json`, with a Scalar reference page for admins. Generated in CI and checked into the atlas output.
 
 **Every API handler and form action starts with a doc comment.** Atlas reads it into the model; lint fails when
-one is missing or malformed. The lines are: what it does (first line), `Who:`, `In:`, `Out:`, `Errors:`.
+one is missing or malformed (`atlas check --strict` reports it as `undocumented-handler`). The lines are: what it does (first line), `Who:`, `In:`, `Out:`, `Errors:`.
 
 ```ts
 /**
@@ -472,7 +473,15 @@ one is missing or malformed. The lines are: what it does (first line), `Who:`, `
  * Out: 201 { user } and a session cookie.
  * Errors: 400 invalid, 404 not_found unknown invite, 409 conflict used or expired, 429 rate_limited.
  */
-export const POST: RequestHandler = api({ body: acceptInviteSchema }, async ({ body, event }) => { … });
+export const POST = api(
+	async (event, ctx) => {
+		const input = await body(event, newAccountInput);
+		const { session, user } = await invites.accept(event.params.token, input, ctx);
+		setSessionCookie(event, session);
+		return json({ user: toUser(user) }, { status: 201 });
+	},
+	{ auth: false }
+);
 ```
 
 API tests keep the comments honest: each documented status has a test.
@@ -486,7 +495,7 @@ journeys, and an upgrade test.
 |---|---|---|---|
 | Unit | Vitest 5 (project `unit`) | Pure rules: roles, points, limits, schemas, rule-pack parsing | Required for every rule function. |
 | Component | Vitest 5 (project `component`) | `src/lib/ui` wrappers and tricky Svelte components | Where behaviour matters. |
-| Service | Vitest 5 (project `server`) + Testcontainers `postgres:18` | Transactions, constraints, row locks (two people redeeming one invite at once) | One Postgres container per run, migrations applied in global setup; each test runs in a transaction rolled back at the end. |
+| Service | Vitest 5 (project `server`) + Testcontainers `postgres:18` | Transactions, constraints, row locks (two people redeeming one invite at once) | One Postgres container per run (global setup); each test file gets its own fresh database with the migrations applied, and the tables are emptied before every test. Lock and race tests need real commits, so no rollback-per-test. |
 | API | Vitest 5 + real handlers + test database | Status codes, error shape, auth and role checks, response schema | Every endpoint. Atlas lists untested endpoints. |
 | End-to-end | Playwright 1.63 against the production build | First start (setup link), sign-in, invite and join, managing people, building a warband, two viewers on the live map | Chromium on every pull request, Firefox nightly. |
 | Migration | CI script | Apply all migrations to an empty database and to the previous release's fixture dump, then smoke test | Fixtures hold fake data only. |
@@ -536,7 +545,7 @@ server is online. Release notes per version flag long migrations and breaking ch
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ORIGIN` | required (`http://<host-ip>:3000` on a LAN, `https://<DOMAIN>` with the https profile) | Public address; used by the origin checks and the setup link. |
+| `ORIGIN` | required (`http://<host-ip>:3000` on a LAN, `https://<DOMAIN>` with the https profile) | Public address; used in the setup and invite links. |
 | `POSTGRES_PASSWORD` / `POSTGRES_PASSWORD_FILE` | required | Database password, shared by `db` and `app`. |
 | `DOMAIN` | empty | Domain for Caddy (profile `https`). |
 | `LOG_LEVEL` | `info` | pino level. |
@@ -580,7 +589,7 @@ GitHub Actions on every pull request and on `main`. Jobs run in parallel; the wh
 | Job | What it does |
 |---|---|
 | Lint and format | ESLint (with layer rules and doc-comment check) and `prettier --check`. |
-| Type check | `svelte-check` with TypeScript 7. |
+| Type check | `svelte-check` with TypeScript 6. |
 | Unit and service tests | Vitest with Testcontainers Postgres 18; coverage uploaded. |
 | End-to-end | Playwright against the production build and a Postgres service container; traces, screenshots and videos on failure. |
 | Migration check | `drizzle-kit check`, then apply to an empty database and to the previous release's fixture dump. |
@@ -589,7 +598,7 @@ GitHub Actions on every pull request and on `main`. Jobs run in parallel; the wh
 | Dependency audit | `npm audit --omit=dev` at high severity, GitHub dependency review. |
 | Secret and copyright scan | Gitleaks, plus a script that fails if book files, rule packs or other local-only files are added. |
 
-CI notes: cache npm and Playwright browsers; pin third-party Actions by commit SHA; Chromium on pull requests,
+CI notes: cache npm and Playwright browsers; official Actions (`actions/*`, `docker/*`) by major tag, any other third-party Action by commit SHA; Chromium on pull requests,
 Firefox nightly.
 
 **Branch rules.** All jobs are required checks, for maintainers too. Pull request titles must follow Conventional
@@ -641,7 +650,7 @@ compose.dev.yaml           db only, for development
 | 2 | One app, one database; no Redis, load balancer or replicas | Built for single groups self-hosting; simpler to install and run | 2026-10-03 |
 | 3 | Own sessions instead of an auth library | Small, well understood, no dependency to keep up | 2026-10-03 |
 | 4 | Roles owner > admin > user, invites only | Matches how groups run; no email needed | 2026-10-03 |
-| 5 | Newest stable versions (Postgres 18, Node 26, SvelteKit 3, TypeScript 7) | Use current features (`uuidv7()`, fast type checks), long support | 2026-10-03, updated 2026-10-21 |
+| 5 | Newest stable versions (Postgres 18, Node 26, SvelteKit 3, TypeScript 6) | Use current features (`uuidv7()`), long support. A newest major that the rest does not support yet waits (TypeScript 7: SvelteKit 3, svelte-check and typescript-eslint top out at 6) | 2026-10-03, updated 2026-10-21 |
 | 6 | Atlas documents every workflow, endpoint, table, module and live event | The model stays the map for people and agents | 2026-10-03, updated 2026-10-21 |
 | 7 | ~~Single `GET /health`~~ → `GET /health/live` and `GET /health/ready` | Docker restarts on liveness; proxies and smoke tests wait on readiness; 503 during start and shutdown | 2026-10-21 |
 | 8 | ~~First owner from `.env`~~ → one-time setup link in the logs, expires after use or one hour | No password left in a file on disk | 2026-10-21 |
@@ -666,5 +675,11 @@ compose.dev.yaml           db only, for development
 | 27 | Daily in-app backups, 14 days kept, owner download | People actually have backups | 2026-10-21 |
 | 28 | Optional Caddy 2 profile `https` | HTTPS for internet servers; LAN stays plain | 2026-10-21 |
 | 29 | Big decisions also get an ADR in `docs/adr/` | Trade-offs stay readable after the fact | 2026-10-21 |
+| 30 | SvelteKit 3 conventions: `#lib` alias (Node subpath imports, mapped for TypeScript in `tsconfig.json`), config in `vite.config.ts`, hook types from `@sveltejs/kit/hooks` | What SvelteKit 3 ships | 2026-10-21 |
+| 31 | JSON logs in development too (no pino transport) | pino's worker transport does not load under Vite; pipe through `npx pino-pretty` to read | 2026-10-21 |
+| 32 | Own origin check in the hook (`Origin` host = `Host`), Kit's off (`csrf.trustedOrigins: ['*']`); the session cookie's `Secure` and the COOP header follow `X-Forwarded-Proto` (set by Caddy), else plain HTTP | Kit 3's adapter-node takes its origin only at build time and otherwise assumes https, so every form failed on a plain-HTTP LAN install and the cookie was marked Secure. The host rule works for every address a group uses | 2026-10-21 |
+| 33 | `svelte/no-navigation-without-resolve` off | The app is always served at `/` (no base path); `resolve()` adds nothing but route ids on every link | 2026-10-21 |
+| 34 | E2e runs the production build on a throwaway Testcontainers Postgres (`app/e2e/server.js`); each test acts from its own `X-Forwarded-For` address | Never touches development data; per-address rate limits stay per test | 2026-10-21 |
+| 35 | Atlas leaves tests and test helpers out of the import graph (`!` patterns in `atlas.config.json`) | Test-only imports are not architecture | 2026-10-21 |
 
 New decisions are added here with their date; a reversed decision is struck through, not deleted.

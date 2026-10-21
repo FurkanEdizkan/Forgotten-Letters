@@ -1,0 +1,20 @@
+# Development: the database only. Run the app with `npm --prefix app run dev`.
+name: forgotten-letters-dev
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: letters
+      POSTGRES_PASSWORD: letters
+      POSTGRES_DB: letters
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata-dev:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U letters -d letters']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  pgdata-dev:

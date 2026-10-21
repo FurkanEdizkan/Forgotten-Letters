@@ -1,0 +1,132 @@
+/*
+ * Design tokens (DESIGN.md front matter). Components use these, never raw values.
+ * User options are attributes on <html>: data-density, data-contrast, data-blackletter, and the text size via
+ * font-size on :root.
+ */
+:root {
+	color-scheme: dark;
+
+	/* Surfaces */
+	--night: #15130e;
+	--inset: #0e0c09;
+	--panel: #221f19;
+	--panel-raised: #2b2822;
+	--panel-hover: #33302b;
+	--rule: #33302a;
+	--rule-strong: #565249;
+
+	/* Text */
+	--bone: #ece5d3;
+	--bone-dim: #b0a791;
+	--bone-faint: #857b6c;
+
+	/* Accent */
+	--blood: #a3170f;
+	--blood-bright: #d8392e;
+	--blood-pale: #d98c80;
+	--ember: #e0692a;
+
+	/* Status */
+	--ok: #8fb04a;
+	--warn: #e0a23a;
+	--danger: #e0574b;
+
+	/* Campaign resources */
+	--favour: #e0a23a;
+	--relics: #d0473b;
+	--supplies: #8fb04a;
+	--territories: #55aab4;
+
+	/* Keyword kinds */
+	--kind-bonus: #8fb04a;
+	--kind-attack: #6aa2d6;
+	--kind-kit: #b583d4;
+	--kind-harm: #e0574b;
+	--kind-body: #e0a23a;
+	--kind-ground: #55aab4;
+
+	/* Role badges */
+	--role-owner: var(--warn);
+	--role-admin: var(--kind-attack);
+	--role-user: var(--bone-dim);
+
+	/* Typography */
+	--font-display: 'Pirata One', 'UnifrakturMaguntia', serif;
+	--font-heading: 'UnifrakturMaguntia', serif;
+	--font-body: 'EB Garamond', Georgia, serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+	--size-display: clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem);
+	--size-heading: 1.9rem;
+	--size-title: 1rem;
+	--size-body: 1.0625rem; /* 17px */
+	--size-label: 0.85rem;
+	--size-mono: 0.85em;
+	--line-body: 1.55;
+	--track-display: 0.06em;
+	--track-title: 0.06em;
+	--track-label: 0.08em;
+
+	/* Spacing (4 8 12 16 24 32 48 64) */
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 24px;
+	--space-6: 32px;
+	--space-7: 48px;
+	--space-8: 64px;
+	--gutter: clamp(20px, 3vw, 40px);
+	--measure: 70ch;
+	--column: 72rem;
+	--auth-card: 20rem;
+
+	/* Density (comfortable by default) */
+	--row-height: 40px;
+	--pad-y: 12px;
+	--pad-x: 16px;
+	--button-height: 36px;
+
+	/* Shape */
+	--radius: 0px;
+	--radius-disc: 50%;
+	--border-hairline: 1px;
+	--border-opening: 2px;
+	--border-card-top: 3px;
+	--border-chip-edge: 3px;
+	--border-status-edge: 3px;
+	--border-focus: 2px;
+
+	/* Depth */
+	--shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.6);
+	--glow-sign-in: radial-gradient(circle at 50% 50%, rgb(163 23 15 / 0.18), transparent 60%);
+
+	/* Motion */
+	--duration-fast: 150ms;
+	--duration: 200ms;
+	--easing: ease-out;
+	--live-flash: 1.5s;
+	--toast-time: 8s;
+}
+
+:root[data-density='compact'] {
+	--row-height: 32px;
+	--pad-y: 8px;
+	--pad-x: 12px;
+}
+
+:root[data-contrast='high'] {
+	--bone-dim: #ece5d3;
+	--rule: #565249;
+	--rule-strong: #b0a791;
+}
+
+:root[data-blackletter='off'] {
+	--font-heading: 'EB Garamond', Georgia, serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-fast: 0ms;
+		--duration: 0ms;
+	}
+}

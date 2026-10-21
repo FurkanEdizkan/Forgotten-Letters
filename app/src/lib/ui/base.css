@@ -1,0 +1,172 @@
+/* Fonts (bundled, latin only) and base styles. Imported once by the root layout. */
+@import '@fontsource/pirata-one/latin-400.css';
+@import '@fontsource/unifrakturmaguntia/latin-400.css';
+@import '@fontsource/eb-garamond/latin-400.css';
+@import '@fontsource/eb-garamond/latin-400-italic.css';
+@import '@fontsource/eb-garamond/latin-600.css';
+@import '@fontsource/eb-garamond/latin-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--night);
+	color: var(--bone);
+	font-family: var(--font-body);
+	font-size: 100%;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-size: var(--size-body);
+	line-height: var(--line-body);
+	font-variant-numeric: oldstyle-nums;
+	background: var(--night);
+}
+
+h1,
+h2,
+h3 {
+	margin: 0;
+	text-wrap: balance;
+	font-weight: 400;
+}
+
+/* Display: page titles. */
+h1 {
+	font-family: var(--font-display);
+	font-size: var(--size-display);
+	letter-spacing: var(--track-display);
+	text-transform: uppercase;
+	line-height: 1.1;
+}
+
+/* Heading: section heads, like rubrics. */
+h2 {
+	font-family: var(--font-heading);
+	font-size: var(--size-heading);
+	color: var(--blood-bright);
+	line-height: 1.2;
+}
+
+:root[data-blackletter='off'] h2 {
+	font-weight: 700;
+}
+
+/* Title: sub-heads with a blood rule under. */
+h3 {
+	font-family: var(--font-body);
+	font-size: var(--size-title);
+	font-weight: 700;
+	letter-spacing: var(--track-title);
+	text-transform: uppercase;
+	padding-bottom: var(--space-1);
+	border-bottom: var(--border-hairline) solid var(--blood);
+}
+
+p {
+	margin: 0;
+	max-width: var(--measure);
+}
+
+a {
+	color: var(--blood-pale);
+	text-underline-offset: 3px;
+}
+
+a:hover {
+	color: var(--bone);
+}
+
+code,
+.mono {
+	font-family: var(--font-mono);
+	font-size: var(--size-mono);
+}
+
+:focus-visible {
+	outline: var(--border-focus) solid var(--blood-bright);
+	outline-offset: 2px;
+}
+
+::selection {
+	background: var(--blood);
+	color: var(--bone);
+}
+
+.label {
+	font-size: var(--size-label);
+	font-weight: 600;
+	letter-spacing: var(--track-label);
+	text-transform: uppercase;
+	color: var(--bone-dim);
+}
+
+.dim {
+	color: var(--bone-dim);
+}
+
+.data {
+	font-variant-numeric: lining-nums tabular-nums;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* Tables: header on panel-raised over a 2px blood rule, hairline rows, no stripes. */
+table.table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+table.table th {
+	background: var(--panel-raised);
+	border-bottom: var(--border-opening) solid var(--blood);
+	text-align: left;
+	padding: var(--space-2) var(--pad-x);
+	font-size: var(--size-label);
+	font-weight: 600;
+	letter-spacing: var(--track-label);
+	text-transform: uppercase;
+	color: var(--bone-dim);
+	white-space: nowrap;
+}
+
+table.table td {
+	padding: var(--pad-y) var(--pad-x);
+	border-bottom: var(--border-hairline) solid var(--rule);
+	height: var(--row-height);
+	vertical-align: middle;
+}
+
+table.table tbody tr {
+	transition: background-color var(--duration-fast) var(--easing);
+}
+
+table.table tbody tr:hover {
+	background: var(--panel-hover);
+}
+
+table.table .num {
+	white-space: nowrap;
+	text-align: right;
+	font-variant-numeric: lining-nums tabular-nums;
+}
+
+table.table time {
+	white-space: nowrap;
+	font-variant-numeric: lining-nums tabular-nums;
+}

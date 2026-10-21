@@ -71,7 +71,7 @@ model {
         technology 'Svelte 5 · tokens.css · Bits UI'
         description 'The design system in code: tokens, fonts, styled components, the message file.'
         metadata {
-          code ['app/src/lib/ui/**', 'app/src/lib/messages.ts', 'app/src/app.html', 'app/src/app.css', 'app/src/app.d.ts']
+          code ['app/src/lib/ui/**', 'app/src/lib/messages.ts', 'app/src/app.html', 'app/src/app.d.ts']
         }
       }
 
@@ -91,42 +91,42 @@ model {
           #server-only
           description 'Sign in and out, sessions (create, read, slide, end), password changes, the sign-in rate limit.'
           metadata {
-            code ['app/src/lib/server/services/auth{,.spec}.ts', 'app/src/lib/server/services/passwords{,.spec}.ts']
+            code ['app/src/lib/server/services/auth{,.spec,.db.spec}.ts', 'app/src/lib/server/services/passwords{,.spec,.db.spec}.ts']
           }
         }
         setupService = module 'First owner setup' {
           #server-only
           description 'While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.'
           metadata {
-            code 'app/src/lib/server/services/setup{,.spec}.ts'
+            code 'app/src/lib/server/services/setup{,.spec,.db.spec}.ts'
           }
         }
         peopleService = module 'People' {
           #server-only
           description 'Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.'
           metadata {
-            code 'app/src/lib/server/services/people{,.spec}.ts'
+            code 'app/src/lib/server/services/people{,.spec,.db.spec}.ts'
           }
         }
         inviteService = module 'Invites' {
           #server-only
           description 'Create, list, revoke and accept invites; accepting runs once under a row lock.'
           metadata {
-            code 'app/src/lib/server/services/invites{,.spec}.ts'
+            code 'app/src/lib/server/services/invites{,.spec,.db.spec}.ts'
           }
         }
         auditService = module 'Audit log' {
           #server-only
           description 'Records sign-ins, invites, role changes, disables and resets; the owner reads it.'
           metadata {
-            code 'app/src/lib/server/services/audit{,.spec}.ts'
+            code 'app/src/lib/server/services/audit{,.spec,.db.spec}.ts'
           }
         }
         backupService = module 'Backups' {
           #server-only
           description 'pg_dump before migrations and daily (14 days kept); owner download and restore.'
           metadata {
-            code 'app/src/lib/server/services/backups{,.spec}.ts'
+            code 'app/src/lib/server/services/backups{,.spec,.db.spec}.ts'
           }
         }
       }
@@ -145,7 +145,7 @@ model {
         technology 'zod config · postgres.js pool · pino · in-memory limits · jobs · migrations'
         description 'Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.'
         metadata {
-          code ['app/src/lib/server/infra/**', 'app/src/lib/server/errors{,.spec}.ts', 'app/src/lib/server/http/**', 'app/src/lib/server/db/index.ts']
+          code ['app/src/lib/server/infra/**', 'app/src/lib/server/errors{,.spec,.db.spec}.ts', 'app/src/lib/server/http/**', 'app/src/lib/server/db/index.ts', 'app/src/lib/server/jobs.ts', 'app/src/lib/server/testing/**']
         }
       }
 
@@ -153,7 +153,7 @@ model {
         description 'Accounts, sessions, invites, setup tokens and the audit log.'
         metadata {
           tables ['users', 'sessions', 'invites', 'setup_tokens', 'audit_log']
-          code ['app/src/lib/server/db/schema.ts', 'app/drizzle/**', 'app/drizzle.config.ts']
+          code ['app/src/lib/server/db/schema{,.db.spec}.ts', 'app/drizzle/**', 'app/drizzle.config.ts']
         }
       }
     }
@@ -196,9 +196,17 @@ model {
   fl.app.services.inviteService -> fl.app.services.auditService 'records invites'
   fl.app.services.inviteService -> fl.app.services.authService 'signs the new account in'
   fl.app.services.setupService -> fl.app.services.authService 'hashes, signs in'
+  fl.app.services.setupService -> fl.app.services.auditService 'records the first owner'
+  fl.app.services.backupService -> fl.app.services.auditService 'records downloads and restores'
   fl.app.repos -> fl.app.authTables 'SQL'
   fl.app.repos -> fl.app.infra 'pool'
   fl.app.ui -> fl.app.shared 'roles'
+  fl.app.ui -> fl.app.services.auditService 'the Ctx and SessionUser types in app.d.ts'
+  fl.app.infra -> fl.app.authTables 'the pool knows the schema; migrations'
+  fl.app.infra -> fl.app.services.auditService 'the Ctx and SessionUser types for request context'
+  fl.app.infra -> fl.app.shared 'API types for the OpenAPI document'
+  fl.app.infra -> fl.app.repos 'hourly cleanup of sessions, invites and old audit rows'
+  fl.app.infra -> fl.app.services.backupService 'daily backup and pruning job'
   fl.app.authTables -> fl.db 'stored in'
   fl.app.infra -> fl.db 'pool, migrations, dumps'
 }

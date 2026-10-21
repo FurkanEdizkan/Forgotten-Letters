@@ -16,3 +16,7 @@ node_modules/
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Atlas cache (facts, to-do), rebuilt on demand; personal Codex settings
+architecture/.atlas/
+.codex/

@@ -1,0 +1,1481 @@
+{
+ "elements": [
+  {
+   "id": "fl",
+   "kind": "system",
+   "title": "Forgotten Letters",
+   "description": "A self-hosted campaign companion for Trench Crusade, one copy per gaming group.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": null
+  },
+  {
+   "id": "fl.app",
+   "kind": "service",
+   "title": "app",
+   "description": "Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), the first-owner setup link, background jobs.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [
+    "app",
+    "uploads",
+    "backups"
+   ],
+   "generated": false,
+   "parent": "fl"
+  },
+  {
+   "id": "fl.app.web",
+   "kind": "layer",
+   "title": "Web (routes)",
+   "description": "Pages, form actions and API endpoints. They parse input with zod and call one service; no SQL here.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.web.areas",
+   "kind": "page",
+   "title": "Role areas and account",
+   "description": "Each role lands in its own area; a header switcher shows every area the person can use.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/**",
+    "app/src/routes/+layout*",
+    "app/src/routes/+page*",
+    "app/src/routes/+error.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.web"
+  },
+  {
+   "id": "fl.app.web.areas.route_root",
+   "kind": "page",
+   "title": "/",
+   "description": "layout",
+   "tags": [],
+   "code": [
+    "app/src/routes/+error.svelte",
+    "app/src/routes/+layout.svelte",
+    "app/src/routes/+page.server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app",
+   "kind": "page",
+   "title": "/",
+   "description": "layout",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/+layout.server.ts",
+    "app/src/routes/(app)/+layout.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_account",
+   "kind": "page",
+   "title": "/account",
+   "description": "actions: everywhere, name, password\naction:everywhere: Sign out of every other device.\n  Who: any signed-in person.\n  In: nothing.\n  Out: { op: 'everywhere', done: true }.\n  Errors: 401 unauthenticated.\naction:name: Change my display name.\n  Who: any signed-in person.\n  In: form { displayName }.\n  Out: { op: 'name', done: true }.\n  Errors: 400 invalid, 401 unauthenticated.\naction:password: Change my password; my other devices are signed out.\n  Who: any signed-in person.\n  In: form { current, password }.\n  Out: { op: 'password', done: true }.\n  Errors: 400 invalid (wrong current password, too common, unchanged), 401 unauthenticated.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/account/+page.server.ts",
+    "app/src/routes/(app)/account/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_account_password",
+   "kind": "page",
+   "title": "/account/password",
+   "description": "actions: default\naction:default: Replace a temporary password after a reset; required before anything else.\n  Who: a signed-in person whose password was reset.\n  In: form { current (the temporary password), password }.\n  Out: 303 to the person's own area; their other devices are signed out.\n  Errors: 400 invalid (wrong temporary password, too common, unchanged), 401 unauthenticated.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/account/password/+page.server.ts",
+    "app/src/routes/(app)/account/password/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_admin",
+   "kind": "page",
+   "title": "/admin",
+   "description": "actions: create, resend, revoke\naction:create: Create an invite link; Campaign Masters invite users, owners also admins. The link is shown only now.\n  Who: admins and owners.\n  In: form { role: admin | user, note? }.\n  Out: { op: 'create', link }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden role not invitable.\naction:resend: Re-send one of my invites: a fresh link with the same role and note; the old link stops working.\n  Who: admins (their own invites) and owners.\n  In: form { id }.\n  Out: { op: 'resend', id, link }.\n  Errors: 400 invalid, 404 not_found, 409 conflict already used.\naction:revoke: Revoke one of my pending invites; its link stops working.\n  Who: admins (their own invites) and owners.\n  In: form { id }.\n  Out: { op: 'revoke', id }.\n  Errors: 400 invalid, 404 not_found, 409 conflict already used.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/admin/+layout.server.ts",
+    "app/src/routes/(app)/admin/+page.server.ts",
+    "app/src/routes/(app)/admin/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_home",
+   "kind": "page",
+   "title": "/home",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/home/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_owner",
+   "kind": "page",
+   "title": "/owner",
+   "description": "actions: anonymise, disable, enable, reset, role\naction:anonymise: Anonymise a disabled account: its display name becomes \"Former member\".\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'anonymise', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict not disabled or stale version.\naction:disable: Disable an account: it is signed out everywhere and cannot sign in; its history stays.\n  Who: owners (never their own account or the last owner).\n  In: form { id, version }.\n  Out: { op: 'disable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner, self or stale version.\naction:enable: Enable a disabled account again.\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'enable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:reset: Reset a password to a temporary one, shown once, to be changed at the next sign-in.\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'reset', id, done: true, temporary }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:role: Change a person's role; the last owner can never be demoted.\n  Who: owners.\n  In: form { id, version, role }.\n  Out: { op: 'role', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner or stale version.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/+layout.server.ts",
+    "app/src/routes/(app)/owner/+layout.svelte",
+    "app/src/routes/(app)/owner/+page.server.ts",
+    "app/src/routes/(app)/owner/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_owner_audit",
+   "kind": "page",
+   "title": "/owner/audit",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/audit/+page.server.ts",
+    "app/src/routes/(app)/owner/audit/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_owner_backups",
+   "kind": "page",
+   "title": "/owner/backups",
+   "description": "actions: restore\naction:restore: Restore a backup over the current data; a dump of the current state is written first.\n  Who: owners.\n  In: form { name } a backup file name from the list.\n  Out: { op: 'restore', name, safety } the name of the dump written before restoring.\n  Errors: 400 invalid, 403 forbidden, 404 not_found no such backup, 500 internal pg_restore failed.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/backups/+page.server.ts",
+    "app/src/routes/(app)/owner/backups/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_owner_backups_name",
+   "kind": "endpoint",
+   "title": "/owner/backups/[name]",
+   "description": "GET\nGET: Download one backup file (audited).\n  Who: owners.\n  In: path name, a backup file name from the list.\n  Out: 200 the dump as application/octet-stream, as an attachment.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found no such backup.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/backups/[name]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_owner_invites",
+   "kind": "page",
+   "title": "/owner/invites",
+   "description": "actions: create, resend, revoke\naction:create: Create an invite link for an admin or a user; the link is shown only now.\n  Who: owners.\n  In: form { role: admin | user, note? }.\n  Out: { op: 'create', link }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden.\naction:resend: Re-send an invite: a fresh link with the same role and note; the old link stops working.\n  Who: owners (any invite).\n  In: form { id }.\n  Out: { op: 'resend', id, link }.\n  Errors: 400 invalid, 404 not_found, 409 conflict already used.\naction:revoke: Revoke a pending invite; its link stops working.\n  Who: owners (any invite).\n  In: form { id }.\n  Out: { op: 'revoke', id }.\n  Errors: 400 invalid, 404 not_found, 409 conflict already used.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/invites/+page.server.ts",
+    "app/src/routes/(app)/owner/invites/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.publicPages",
+   "kind": "page",
+   "title": "Sign-in, setup and invite pages",
+   "description": "The one sign-in screen for every role, the first-owner setup page, and joining by invite.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/**",
+    "app/src/routes/logout/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.web"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_invite_token",
+   "kind": "page",
+   "title": "/invite/[token]",
+   "description": "actions: default\naction:default: Accept an invite: create the account with the invite's role and sign it in.\n  Who: anyone holding the invite link.\n  In: form { username, displayName, password }.\n  Out: 303 to the new account's area with a browser-session cookie.\n  Errors: 400 invalid (taken username, common password), 404 not_found unknown or withdrawn invite, 409 conflict used or expired.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/invite/[token]/+page.server.ts",
+    "app/src/routes/(public)/invite/[token]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_login",
+   "kind": "page",
+   "title": "/login",
+   "description": "actions: default\naction:default: Sign in with username and password; one form for every role.\n  Who: anyone not signed in.\n  In: form { username, password, remember? }; query ?next= a local path to return to.\n  Out: 303 to `next` or the person's own area, with a session cookie (30 days with remember, else browser session).\n  Errors: 400 invalid, 401 unauthenticated wrong username or password, 429 rate_limited.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/login/+page.server.ts",
+    "app/src/routes/(public)/login/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_setup_token",
+   "kind": "page",
+   "title": "/setup/[token]",
+   "description": "actions: default\naction:default: Create the first owner with the one-time setup link and sign them in.\n  Who: anyone holding the setup link printed in the logs, while no owner exists.\n  In: form { username, displayName, password }.\n  Out: 303 to /owner with a remembered session cookie.\n  Errors: 400 invalid (taken username, common password), 409 conflict link used or expired or an owner exists.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/setup/[token]/+page.server.ts",
+    "app/src/routes/(public)/setup/[token]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_logout",
+   "kind": "page",
+   "title": "/logout",
+   "description": "actions: default · layout\naction:default: Sign out of this device.\n  Who: anyone; a visitor without a session is simply sent to sign in.\n  In: nothing.\n  Out: 303 to /login, the session ended and its cookie cleared.\n  Errors: none.",
+   "tags": [],
+   "code": [
+    "app/src/routes/logout/+page.server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.api",
+   "kind": "endpoint",
+   "title": "JSON API v1",
+   "description": "The same actions as the pages, authenticated by the session cookie; documented by an OpenAPI document.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.web"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_audit",
+   "kind": "endpoint",
+   "title": "/api/v1/audit",
+   "description": "GET\nGET: The audit log, newest first, optionally one action.\n  Who: owners.\n  In: query ?before=<id>&limit=<1..100, default 50>&action=<name>\n  Out: 200 { items: AuditEntry[], next }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/audit/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_auth_login",
+   "kind": "endpoint",
+   "title": "/api/v1/auth/login",
+   "description": "POST\nPOST: Sign in with username and password.\n  Who: anyone.\n  In: { username, password, remember? }\n  Out: 200 { user } and a session cookie.\n  Errors: 400 invalid, 401 unauthenticated wrong username or password, 403 forbidden other site, 429 rate_limited.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/auth/login/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_auth_logout",
+   "kind": "endpoint",
+   "title": "/api/v1/auth/logout",
+   "description": "POST\nPOST: Sign out on this device.\n  Who: any signed-in account.\n  In: nothing.\n  Out: 204 and the session cookie cleared.\n  Errors: 401 unauthenticated, 403 forbidden other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/auth/logout/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_auth_logout_everywhere",
+   "kind": "endpoint",
+   "title": "/api/v1/auth/logout-everywhere",
+   "description": "POST\nPOST: Sign out every other device; this one stays signed in.\n  Who: any signed-in account.\n  In: nothing.\n  Out: 204.\n  Errors: 401 unauthenticated, 403 forbidden other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/auth/logout-everywhere/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_invites",
+   "kind": "endpoint",
+   "title": "/api/v1/invites",
+   "description": "GET POST\nGET: Pending invites.\n  Who: owners (all) and admins (their own).\n  In: nothing.\n  Out: 200 { items: Invite[] }\n  Errors: 401 unauthenticated, 403 forbidden for users.\nPOST: Create an invite link; the link is shown only now.\n  Who: owners (admin or user invites) and admins (user invites).\n  In: { role, note? }\n  Out: 201 { invite, link }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden role not invitable or other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/invites/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_invites_id",
+   "kind": "endpoint",
+   "title": "/api/v1/invites/[id]",
+   "description": "DELETE\nDELETE: Withdraw an invite; its link stops working.\n  Who: owners (any invite) and admins (their own).\n  In: path id.\n  Out: 204.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found, 409 conflict already used.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/invites/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_invites_id_resend",
+   "kind": "endpoint",
+   "title": "/api/v1/invites/[id]/resend",
+   "description": "POST\nPOST: Replace an invite with a fresh link for the same role and note; the old link stops working.\n  Who: owners (any invite) and admins (their own).\n  In: path id.\n  Out: 201 { invite, link }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found, 409 conflict already used.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/invites/[id]/resend/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_invites_token_token",
+   "kind": "endpoint",
+   "title": "/api/v1/invites/token/[token]",
+   "description": "GET\nGET: What an invite link offers: its state, role, note, inviter and expiry.\n  Who: anyone holding the link.\n  In: path token.\n  Out: 200 { state, role, note, inviter, expiresAt }\n  Errors: 400 invalid, 404 not_found unknown link.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/invites/token/[token]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_invites_token_token_accept",
+   "kind": "endpoint",
+   "title": "/api/v1/invites/token/[token]/accept",
+   "description": "POST\nPOST: Accept an invite: create the account and sign it in.\n  Who: anyone holding the invite link.\n  In: path token; { username, displayName, password }\n  Out: 201 { user } and a session cookie.\n  Errors: 400 invalid username taken or weak password, 403 forbidden other site, 404 not_found unknown or withdrawn invite, 409 conflict used or expired.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/invites/token/[token]/accept/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_me",
+   "kind": "endpoint",
+   "title": "/api/v1/me",
+   "description": "GET PATCH\nGET: The signed-in account and the areas it may use.\n  Who: any signed-in account.\n  In: nothing.\n  Out: 200 { user, areas }\n  Errors: 401 unauthenticated.\nPATCH: Change the display name.\n  Who: any signed-in account, for itself.\n  In: { displayName }\n  Out: 200 { user }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/me/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_me_password",
+   "kind": "endpoint",
+   "title": "/api/v1/me/password",
+   "description": "POST\nPOST: Change the password; every other device is signed out.\n  Who: any signed-in account, for itself.\n  In: { current, password }\n  Out: 204.\n  Errors: 400 invalid wrong current, common or unchanged password, 401 unauthenticated, 403 forbidden other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/me/password/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_openapi_json",
+   "kind": "endpoint",
+   "title": "/api/v1/openapi.json",
+   "description": "GET\nGET: The OpenAPI 3.1 document for this API.\n  Who: anyone.\n  In: nothing.\n  Out: 200 the OpenAPI document.\n  Errors: none beyond 500 internal.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/openapi.json/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_users",
+   "kind": "endpoint",
+   "title": "/api/v1/users",
+   "description": "GET\nGET: A page of people, oldest first.\n  Who: owners (everyone) and admins (the people they invited).\n  In: query ?after=<id>&limit=<1..100, default 50>\n  Out: 200 { items: Person[], next }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden for users.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/users/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_users_id",
+   "kind": "endpoint",
+   "title": "/api/v1/users/[id]",
+   "description": "PATCH\nPATCH: Change an account's role and/or disable or enable it.\n  Who: owners.\n  In: path id; { role?, disabled?, version }\n  Out: 200 Person\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version, last owner or own account.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/users/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_users_id_anonymise",
+   "kind": "endpoint",
+   "title": "/api/v1/users/[id]/anonymise",
+   "description": "POST\nPOST: Anonymise a disabled account: its display name becomes \"Former member\".\n  Who: owners.\n  In: path id; { version }\n  Out: 200 Person\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version or not disabled.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/users/[id]/anonymise/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_users_id_reset_password",
+   "kind": "endpoint",
+   "title": "/api/v1/users/[id]/reset-password",
+   "description": "POST\nPOST: Set a temporary password, returned once, and end the account's sessions.\n  Who: owners.\n  In: path id; { version }\n  Out: 200 { person, temporary }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/users/[id]/reset-password/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.health",
+   "kind": "endpoint",
+   "title": "Health",
+   "description": "Liveness for Docker; readiness (database and migrations) for proxies and smoke tests.",
+   "tags": [],
+   "code": [
+    "app/src/routes/health/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.web"
+  },
+  {
+   "id": "fl.app.web.health.route_health_live",
+   "kind": "endpoint",
+   "title": "/health/live",
+   "description": "GET\nGET: Liveness: the process is up and answering. No database call.\n  Who: anyone (Docker's healthcheck).\n  Out: 200 { status: \"ok\" }.",
+   "tags": [],
+   "code": [
+    "app/src/routes/health/live/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.health"
+  },
+  {
+   "id": "fl.app.web.health.route_health_ready",
+   "kind": "endpoint",
+   "title": "/health/ready",
+   "description": "GET\nGET: Readiness: the database answers and every migration is applied.\n  Who: anyone (Caddy, the CI smoke test, people); version details only for a signed-in owner.\n  Out: 200 { status: \"ready\", database: true, migrated: true } or 503 with the same fields.\n  Errors: 503 while starting, after SIGTERM, or when the database is down.",
+   "tags": [],
+   "code": [
+    "app/src/routes/health/ready/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.health"
+  },
+  {
+   "id": "fl.app.authTables",
+   "kind": "layer",
+   "title": "auth schema",
+   "description": "Accounts, sessions, invites, setup tokens and the audit log.",
+   "tags": [],
+   "code": [
+    "app/src/lib/server/db/schema{,.db.spec}.ts",
+    "app/drizzle/**",
+    "app/drizzle.config.ts"
+   ],
+   "tables": [
+    "users",
+    "sessions",
+    "invites",
+    "setup_tokens",
+    "audit_log"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.authTables.table_users",
+   "kind": "table",
+   "title": "users",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.authTables"
+  },
+  {
+   "id": "fl.app.authTables.table_sessions",
+   "kind": "table",
+   "title": "sessions",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.authTables"
+  },
+  {
+   "id": "fl.app.authTables.table_invites",
+   "kind": "table",
+   "title": "invites",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.authTables"
+  },
+  {
+   "id": "fl.app.authTables.table_setup_tokens",
+   "kind": "table",
+   "title": "setup_tokens",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.authTables"
+  },
+  {
+   "id": "fl.app.authTables.table_audit_log",
+   "kind": "table",
+   "title": "audit_log",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.authTables"
+  },
+  {
+   "id": "owner",
+   "kind": "actor",
+   "title": "Owner",
+   "description": "Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": null
+  },
+  {
+   "id": "admin",
+   "kind": "actor",
+   "title": "Admin (Campaign Master)",
+   "description": "Runs campaigns; invites players. Can also play.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": null
+  },
+  {
+   "id": "user",
+   "kind": "actor",
+   "title": "User (player)",
+   "description": "Plays warbands and follows the campaign.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": null
+  },
+  {
+   "id": "visitor",
+   "kind": "actor",
+   "title": "Visitor",
+   "description": "Not signed in: sees the sign-in, setup and invite pages only.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": null
+  },
+  {
+   "id": "fl.db",
+   "kind": "store",
+   "title": "PostgreSQL 18",
+   "description": "All data, on a named volume.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [
+    "db",
+    "pgdata"
+   ],
+   "generated": false,
+   "parent": "fl"
+  },
+  {
+   "id": "fl.caddy",
+   "kind": "service",
+   "title": "Caddy (optional)",
+   "description": "HTTPS certificate for a server deployment; off on a LAN.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [
+    "caddy",
+    "caddy_data",
+    "caddy_config"
+   ],
+   "generated": false,
+   "parent": "fl"
+  },
+  {
+   "id": "fl.app.hooks",
+   "kind": "module",
+   "title": "Request pipeline",
+   "description": "Start-up (migrations, setup link, jobs), then for every request: request id, readiness gate, session, API guard, access log, error mapping.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/hooks.server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.ui",
+   "kind": "module",
+   "title": "Components and look",
+   "description": "The design system in code: tokens, fonts, styled components, the message file.",
+   "tags": [
+    "client"
+   ],
+   "code": [
+    "app/src/lib/ui/**",
+    "app/src/lib/messages.ts",
+    "app/src/app.html",
+    "app/src/app.d.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.shared",
+   "kind": "module",
+   "title": "Shared lib",
+   "description": "Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.",
+   "tags": [
+    "pure"
+   ],
+   "code": [
+    "app/src/lib/roles.ts",
+    "app/src/lib/schemas/**",
+    "app/src/lib/api-types.ts",
+    "app/src/lib/index.ts",
+    "app/src/lib/*.spec.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.services",
+   "kind": "layer",
+   "title": "Services",
+   "description": "Business rules. They validate what they change, run transactions, write the audit log and throw AppError.",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.repos",
+   "kind": "module",
+   "title": "Repos",
+   "description": "The only place with SQL: one module per table group, taking a db or a transaction.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/repos/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.infra",
+   "kind": "module",
+   "title": "Infra",
+   "description": "Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/infra/**",
+    "app/src/lib/server/errors{,.spec,.db.spec}.ts",
+    "app/src/lib/server/http/**",
+    "app/src/lib/server/db/index.ts",
+    "app/src/lib/server/jobs.ts",
+    "app/src/lib/server/testing/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.services.authService",
+   "kind": "module",
+   "title": "Sign-in and sessions",
+   "description": "Sign in and out, sessions (create, read, slide, end), password changes, the sign-in rate limit.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/auth{,.spec,.db.spec}.ts",
+    "app/src/lib/server/services/passwords{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.setupService",
+   "kind": "module",
+   "title": "First owner setup",
+   "description": "While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/setup{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.peopleService",
+   "kind": "module",
+   "title": "People",
+   "description": "Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/people{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.inviteService",
+   "kind": "module",
+   "title": "Invites",
+   "description": "Create, list, revoke and accept invites; accepting runs once under a row lock.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/invites{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.auditService",
+   "kind": "module",
+   "title": "Audit log",
+   "description": "Records sign-ins, invites, role changes, disables and resets; the owner reads it.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/audit{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.backupService",
+   "kind": "module",
+   "title": "Backups",
+   "description": "pg_dump before migrations and daily (14 days kept); owner download and restore.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/backups{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  }
+ ],
+ "dependencies": [
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.shared",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.ui",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.infra",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.authService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.inviteService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.peopleService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.auditService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.backupService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.infra",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.services.inviteService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.shared",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.ui",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.services.authService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
+   "target": "fl.app.services.setupService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.infra",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.auditService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.shared",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.authService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.inviteService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.peopleService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.health",
+   "target": "fl.app.infra",
+   "title": ""
+  },
+  {
+   "source": "owner",
+   "target": "fl.app.web",
+   "title": "manages people, invites, backups"
+  },
+  {
+   "source": "admin",
+   "target": "fl.app.web",
+   "title": "invites players"
+  },
+  {
+   "source": "user",
+   "target": "fl.app.web",
+   "title": "signs in, manages own account"
+  },
+  {
+   "source": "visitor",
+   "target": "fl.app.web.publicPages",
+   "title": "signs in, sets up, joins"
+  },
+  {
+   "source": "fl.caddy",
+   "target": "fl.app",
+   "title": "forwards HTTPS"
+  },
+  {
+   "source": "fl.app.hooks",
+   "target": "fl.app.services",
+   "title": "resolves the session, runs start-up"
+  },
+  {
+   "source": "fl.app.hooks",
+   "target": "fl.app.infra",
+   "title": "request ids, readiness, errors"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.services",
+   "title": "calls"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.shared",
+   "title": "parses input"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.ui",
+   "title": "renders"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.infra",
+   "title": "form and API helpers"
+  },
+  {
+   "source": "fl.app.services",
+   "target": "fl.app.repos",
+   "title": "reads and writes"
+  },
+  {
+   "source": "fl.app.services",
+   "target": "fl.app.infra",
+   "title": "config, logging, transactions"
+  },
+  {
+   "source": "fl.app.services",
+   "target": "fl.app.shared",
+   "title": "roles, schemas"
+  },
+  {
+   "source": "fl.app.services.authService",
+   "target": "fl.app.services.auditService",
+   "title": "records sign-ins"
+  },
+  {
+   "source": "fl.app.services.peopleService",
+   "target": "fl.app.services.auditService",
+   "title": "records changes"
+  },
+  {
+   "source": "fl.app.services.peopleService",
+   "target": "fl.app.services.authService",
+   "title": "ends sessions"
+  },
+  {
+   "source": "fl.app.services.inviteService",
+   "target": "fl.app.services.auditService",
+   "title": "records invites"
+  },
+  {
+   "source": "fl.app.services.inviteService",
+   "target": "fl.app.services.authService",
+   "title": "signs the new account in"
+  },
+  {
+   "source": "fl.app.services.setupService",
+   "target": "fl.app.services.authService",
+   "title": "hashes, signs in"
+  },
+  {
+   "source": "fl.app.services.setupService",
+   "target": "fl.app.services.auditService",
+   "title": "records the first owner"
+  },
+  {
+   "source": "fl.app.services.backupService",
+   "target": "fl.app.services.auditService",
+   "title": "records downloads and restores"
+  },
+  {
+   "source": "fl.app.repos",
+   "target": "fl.app.authTables",
+   "title": "SQL"
+  },
+  {
+   "source": "fl.app.repos",
+   "target": "fl.app.infra",
+   "title": "pool"
+  },
+  {
+   "source": "fl.app.ui",
+   "target": "fl.app.shared",
+   "title": "roles"
+  },
+  {
+   "source": "fl.app.ui",
+   "target": "fl.app.services.auditService",
+   "title": "the Ctx and SessionUser types in app.d.ts"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.authTables",
+   "title": "the pool knows the schema; migrations"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.services.auditService",
+   "title": "the Ctx and SessionUser types for request context"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.shared",
+   "title": "API types for the OpenAPI document"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.repos",
+   "title": "hourly cleanup of sessions, invites and old audit rows"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.services.backupService",
+   "title": "daily backup and pruning job"
+  },
+  {
+   "source": "fl.app.authTables",
+   "target": "fl.db",
+   "title": "stored in"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.db",
+   "title": "pool, migrations, dumps"
+  }
+ ],
+ "views": [
+  {
+   "id": "first_start",
+   "title": "First start: migrations, backup, the first owner",
+   "description": "**A group installs the app and becomes its owner without editing passwords into files.**\n\n**Decisions**\n- Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;\n  the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.\n- While no owner exists, the app logs a one-time setup link (random token, only its hash stored, one hour,\n  single use). Visiting it creates the first owner and signs them in.\n- /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "fl.app.hooks",
+     "to": "fl.app.services.backupService",
+     "label": "dump before migrating"
+    },
+    {
+     "from": "fl.app.hooks",
+     "to": "fl.app.infra",
+     "label": "apply migrations under a lock"
+    },
+    {
+     "from": "fl.app.hooks",
+     "to": "fl.app.services.setupService",
+     "label": "no owner: log a setup link"
+    },
+    {
+     "from": "visitor",
+     "to": "fl.app.web.publicPages",
+     "label": "opens /setup/<token>, chooses username and password"
+    },
+    {
+     "from": "fl.app.web.publicPages",
+     "to": "fl.app.services.setupService",
+     "label": "create the first owner"
+    },
+    {
+     "from": "fl.app.services.setupService",
+     "to": "fl.app.repos",
+     "label": "insert owner, use the token"
+    },
+    {
+     "from": "fl.app.services.setupService",
+     "to": "fl.app.services.authService",
+     "label": "start a session"
+    }
+   ]
+  },
+  {
+   "id": "invite_and_join",
+   "title": "Invite and join",
+   "description": "**Nobody registers alone: an owner or admin sends a link that fixes the role.**\n\n**Decisions**\n- Owners invite admins and users; admins invite users; users cannot invite.\n- An invite is valid for 7 days and works once; only its token hash is stored. The inviter sees pending\n  invites and can revoke or re-send (a new link) them.\n- Accepting creates the account and signs it in, in one transaction with a row lock, so two people accepting\n  the same link at once make exactly one account.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "create an invite (role, note)"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.inviteService",
+     "label": "create"
+    },
+    {
+     "from": "fl.app.services.inviteService",
+     "to": "fl.app.repos",
+     "label": "insert invite"
+    },
+    {
+     "from": "fl.app.services.inviteService",
+     "to": "fl.app.services.auditService",
+     "label": "record invite"
+    },
+    {
+     "from": "visitor",
+     "to": "fl.app.web.publicPages",
+     "label": "opens /invite/<token>, chooses username and password"
+    },
+    {
+     "from": "fl.app.web.publicPages",
+     "to": "fl.app.services.inviteService",
+     "label": "accept"
+    },
+    {
+     "from": "fl.app.services.inviteService",
+     "to": "fl.app.repos",
+     "label": "lock invite, insert user, mark used"
+    },
+    {
+     "from": "fl.app.services.inviteService",
+     "to": "fl.app.services.authService",
+     "label": "start a session"
+    }
+   ]
+  },
+  {
+   "id": "managing_people",
+   "title": "Managing people",
+   "description": "**The owner keeps the group's accounts in order without email.**\n\n**Decisions**\n- Owners see every account; admins see the users they invited.\n- Changing a role or disabling an account never removes the last owner.\n- Disabling ends every session at once; history stays.\n- A password reset sets a readable temporary password that must be changed at the next sign-in.\n- A disabled account can be anonymised: its display name becomes \"Former member\".\n- Every change is written to the audit log in the same transaction.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "change role, disable, reset, anonymise"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.peopleService",
+     "label": "apply"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.repos",
+     "label": "update user (version checked)"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.services.authService",
+     "label": "end sessions"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.services.auditService",
+     "label": "record change"
+    }
+   ]
+  },
+  {
+   "id": "failure_and_recovery",
+   "title": "Failure and recovery",
+   "description": "**A group without an ops person can see what is wrong and get back on its feet.**\n\n**Decisions**\n- A bad .env stops the app at start and names the setting (never its secret value).\n- If the database is down, /health/ready answers 503, pages say so clearly, and the pool reconnects with\n  backoff on its own.\n- Every response carries X-Request-Id; errors use one shape with the request id.\n- The owner downloads a backup or restores one from the owner area; the app warns when served over plain HTTP.\n- A locked-out owner is recovered with a documented docker compose exec command.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "owner",
+     "to": "fl.app.web.health",
+     "label": "checks /health/ready"
+    },
+    {
+     "from": "fl.app.web.health",
+     "to": "fl.app.infra",
+     "label": "ping the database, migrations applied"
+    },
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "download or restore a backup"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.backupService",
+     "label": "dump or restore"
+    },
+    {
+     "from": "fl.app.services.backupService",
+     "to": "fl.app.infra",
+     "label": "pg_dump, pg_restore"
+    }
+   ]
+  },
+  {
+   "id": "sessions",
+   "title": "Sessions and the account page",
+   "description": "**Everyone controls their own sign-in.**\n\n**Decisions**\n- Every request resolves the cookie to a session and user; disabled accounts and expired sessions are\n  rejected. A session in use slides forward about once a day.\n- Everyone can change their display name and password and sign out of every device.\n- An hourly job (one runner at a time, by advisory lock) removes expired sessions, invites and setup tokens,\n  and prunes audit entries older than the retention period (180 days).",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.hooks",
+     "label": "any request with the cookie"
+    },
+    {
+     "from": "fl.app.hooks",
+     "to": "fl.app.services.authService",
+     "label": "resolve session"
+    },
+    {
+     "from": "fl.app.services.authService",
+     "to": "fl.app.repos",
+     "label": "read session, slide expiry"
+    },
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "change password, sign out everywhere"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.authService",
+     "label": "change password, end sessions"
+    }
+   ]
+  },
+  {
+   "id": "sign_in",
+   "title": "Sign-in: one screen for every role",
+   "description": "**Owners, admins and users sign in on the same screen and land in their own area.**\n\n**Decisions**\n- Five tries a minute per username and per address (in memory); then \"Too many tries\".\n- A wrong password and an unknown username get the same message; the hash check runs for unknown names too.\n- The session token is 32 random bytes in an httpOnly, SameSite=Lax cookie (Secure over HTTPS); only its\n  SHA-256 is stored. \"Remember me\": 30 days, extended by use; otherwise a browser session.\n- Owner lands on /owner, Admin on /admin, User on /home; a required password change goes to\n  /account/password first. Every sign-in is written to the audit log.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.publicPages",
+     "label": "username, password, remember me"
+    },
+    {
+     "from": "fl.app.web.publicPages",
+     "to": "fl.app.services.authService",
+     "label": "signIn"
+    },
+    {
+     "from": "fl.app.services.authService",
+     "to": "fl.app.infra",
+     "label": "rate limit"
+    },
+    {
+     "from": "fl.app.services.authService",
+     "to": "fl.app.repos",
+     "label": "find user, create session"
+    },
+    {
+     "from": "fl.app.services.authService",
+     "to": "fl.app.services.auditService",
+     "label": "record sign-in"
+    },
+    {
+     "from": "fl.app.web.publicPages",
+     "to": "user",
+     "label": "cookie, redirect to the role area"
+    }
+   ]
+  },
+  {
+   "id": "index",
+   "title": "Landscape",
+   "description": "Who uses Forgotten Letters, and the containers it runs as.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "app",
+   "title": "Inside the app",
+   "description": "The request pipeline, the routes, the services, the repos and infra, and the auth tables.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "web",
+   "title": "Routes",
+   "description": "Pages and endpoints (open a group for its generated routes), and the services behind them.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "services",
+   "title": "Services",
+   "description": "The business rules and how they depend on each other.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "tables",
+   "title": "auth schema",
+   "description": "The tables of accounts and sign-in.",
+   "dynamic": false,
+   "steps": []
+  }
+ ]
+}

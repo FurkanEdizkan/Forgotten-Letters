@@ -3,7 +3,7 @@
 	"title": "Forgotten Letters architecture",
 	"base": "main",
 	"extract": {
-		"imports": ["app/src/**/*.ts", "app/src/**/*.svelte"],
+		"imports": ["app/src/**/*.ts", "app/src/**/*.svelte", "!app/src/**/*.spec.ts", "!app/src/lib/server/testing/**"],
 		"alias": { "#lib": "app/src/lib" },
 		"sveltekit": "app/src/routes",
 		"drizzle": "app/src/lib/server/db/schema.ts",

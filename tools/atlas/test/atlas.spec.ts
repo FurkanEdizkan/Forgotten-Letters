@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { check } from '../src/check.ts';
 import type { Config } from '../src/config.ts';
-import { extract, routeOf, type Facts } from '../src/extract.ts';
+import { extract, extractModules, routeOf, type Facts } from '../src/extract.ts';
 import { generate } from '../src/generate.ts';
 import { renderMap, shortIds } from '../src/map.ts';
 import { loadModel, ownerOf, type El, type Model } from '../src/model.ts';
@@ -105,6 +105,12 @@ describe('extract', () => {
 		expect(auth.imports).toEqual(['src/lib/server/db.ts']);
 		expect(auth.env).toEqual(['SECRET']);
 		expect(facts.modules.find((m) => m.path === 'src/lib/Widget.svelte')!.imports).toEqual(['src/lib/server/auth.ts']);
+	});
+
+	it('leaves files matched by a !pattern out of the import graph', () => {
+		const paths = extractModules(root, ['src/**/*.ts', '!src/lib/server/**']).map((m) => m.path);
+		expect(paths).not.toContain('src/lib/server/auth.ts');
+		expect(paths.length).toBeGreaterThan(0);
 	});
 
 	it('reads routes: groups drop out, params stay; actions and methods', () => {

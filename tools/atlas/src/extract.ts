@@ -64,8 +64,11 @@ function resolveImport(root: string, from: string, spec: string, alias: Record<s
 	return null;
 }
 
+/** `globs` may hold `!pattern` entries: files they match (tests, test helpers) are left out of the import graph. */
 export function extractModules(root: string, globs: string[], alias: Record<string, string> = {}): Facts['modules'] {
-	const files = [...new Set(globs.flatMap((g) => globSync(g, { cwd: root })))].map((f) => f.split('\\').join('/')).sort();
+	const exclude = globs.filter((g) => g.startsWith('!')).map((g) => g.slice(1));
+	const include = globs.filter((g) => !g.startsWith('!'));
+	const files = [...new Set(include.flatMap((g) => globSync(g, { cwd: root, exclude })))].map((f) => f.split('\\').join('/')).sort();
 	return files.map((path) => {
 		const code = codeOf(path, read(root, path));
 		const specs = ts.preProcessFile(code, true, true).importedFiles.map((f) => f.fileName);

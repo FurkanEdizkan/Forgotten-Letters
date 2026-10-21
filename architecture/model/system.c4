@@ -1,0 +1,204 @@
+// Forgotten Letters: who uses it, the containers it runs as, and the layers inside the app.
+// Layers point one way: web (routes) -> services -> repos -> tables; infra and the shared lib are used by all.
+model {
+  owner = actor 'Owner' {
+    description 'Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.'
+  }
+  admin = actor 'Admin (Campaign Master)' {
+    description 'Runs campaigns; invites players. Can also play.'
+  }
+  user = actor 'User (player)' {
+    description 'Plays warbands and follows the campaign.'
+  }
+  visitor = actor 'Visitor' {
+    description 'Not signed in: sees the sign-in, setup and invite pages only.'
+  }
+
+  fl = system 'Forgotten Letters' {
+    description 'A self-hosted campaign companion for Trench Crusade, one copy per gaming group.'
+
+    app = service 'app' {
+      technology 'Node 26 · SvelteKit 3 (adapter-node)'
+      description 'Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), the first-owner setup link, background jobs.'
+      metadata {
+        services ['app', 'uploads', 'backups']
+      }
+
+      hooks = module 'Request pipeline' {
+        #server-only
+        technology 'hooks.server.ts'
+        description 'Start-up (migrations, setup link, jobs), then for every request: request id, readiness gate, session, API guard, access log, error mapping.'
+        metadata {
+          code 'app/src/hooks.server.ts'
+        }
+      }
+
+      web = layer 'Web (routes)' {
+        description 'Pages, form actions and API endpoints. They parse input with zod and call one service; no SQL here.'
+
+        publicPages = page 'Sign-in, setup and invite pages' {
+          technology '/login · /setup/[token] · /invite/[token] · /logout'
+          description 'The one sign-in screen for every role, the first-owner setup page, and joining by invite.'
+          metadata {
+            code ['app/src/routes/(public)/**', 'app/src/routes/logout/**']
+          }
+        }
+        areas = page 'Role areas and account' {
+          technology '/owner · /admin · /home · /account'
+          description 'Each role lands in its own area; a header switcher shows every area the person can use.'
+          metadata {
+            code ['app/src/routes/(app)/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
+          }
+        }
+        api = endpoint 'JSON API v1' {
+          technology '/api/v1 · openapi.json'
+          description 'The same actions as the pages, authenticated by the session cookie; documented by an OpenAPI document.'
+          metadata {
+            code 'app/src/routes/api/**'
+          }
+        }
+        health = endpoint 'Health' {
+          technology '/health/live · /health/ready'
+          description 'Liveness for Docker; readiness (database and migrations) for proxies and smoke tests.'
+          metadata {
+            code 'app/src/routes/health/**'
+          }
+        }
+      }
+
+      ui = module 'Components and look' {
+        #client
+        technology 'Svelte 5 · tokens.css · Bits UI'
+        description 'The design system in code: tokens, fonts, styled components, the message file.'
+        metadata {
+          code ['app/src/lib/ui/**', 'app/src/lib/messages.ts', 'app/src/app.html', 'app/src/app.css', 'app/src/app.d.ts']
+        }
+      }
+
+      shared = module 'Shared lib' {
+        #pure
+        technology 'roles · zod schemas · API types'
+        description 'Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.'
+        metadata {
+          code ['app/src/lib/roles.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
+        }
+      }
+
+      services = layer 'Services' {
+        description 'Business rules. They validate what they change, run transactions, write the audit log and throw AppError.'
+
+        authService = module 'Sign-in and sessions' {
+          #server-only
+          description 'Sign in and out, sessions (create, read, slide, end), password changes, the sign-in rate limit.'
+          metadata {
+            code ['app/src/lib/server/services/auth{,.spec}.ts', 'app/src/lib/server/services/passwords{,.spec}.ts']
+          }
+        }
+        setupService = module 'First owner setup' {
+          #server-only
+          description 'While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.'
+          metadata {
+            code 'app/src/lib/server/services/setup{,.spec}.ts'
+          }
+        }
+        peopleService = module 'People' {
+          #server-only
+          description 'Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.'
+          metadata {
+            code 'app/src/lib/server/services/people{,.spec}.ts'
+          }
+        }
+        inviteService = module 'Invites' {
+          #server-only
+          description 'Create, list, revoke and accept invites; accepting runs once under a row lock.'
+          metadata {
+            code 'app/src/lib/server/services/invites{,.spec}.ts'
+          }
+        }
+        auditService = module 'Audit log' {
+          #server-only
+          description 'Records sign-ins, invites, role changes, disables and resets; the owner reads it.'
+          metadata {
+            code 'app/src/lib/server/services/audit{,.spec}.ts'
+          }
+        }
+        backupService = module 'Backups' {
+          #server-only
+          description 'pg_dump before migrations and daily (14 days kept); owner download and restore.'
+          metadata {
+            code 'app/src/lib/server/services/backups{,.spec}.ts'
+          }
+        }
+      }
+
+      repos = module 'Repos' {
+        #server-only
+        technology 'Drizzle ORM'
+        description 'The only place with SQL: one module per table group, taking a db or a transaction.'
+        metadata {
+          code 'app/src/lib/server/repos/**'
+        }
+      }
+
+      infra = module 'Infra' {
+        #server-only
+        technology 'zod config · postgres.js pool · pino · in-memory limits · jobs · migrations'
+        description 'Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.'
+        metadata {
+          code ['app/src/lib/server/infra/**', 'app/src/lib/server/errors{,.spec}.ts', 'app/src/lib/server/http/**', 'app/src/lib/server/db/index.ts']
+        }
+      }
+
+      authTables = layer 'auth schema' {
+        description 'Accounts, sessions, invites, setup tokens and the audit log.'
+        metadata {
+          tables ['users', 'sessions', 'invites', 'setup_tokens', 'audit_log']
+          code ['app/src/lib/server/db/schema.ts', 'app/drizzle/**', 'app/drizzle.config.ts']
+        }
+      }
+    }
+
+    db = store 'PostgreSQL 18' {
+      technology 'postgres:18'
+      description 'All data, on a named volume.'
+      metadata {
+        services ['db', 'pgdata']
+      }
+    }
+
+    caddy = service 'Caddy (optional)' {
+      technology 'caddy:2 · compose profile https'
+      description 'HTTPS certificate for a server deployment; off on a LAN.'
+      metadata {
+        services ['caddy', 'caddy_data', 'caddy_config']
+      }
+    }
+  }
+
+  owner -> fl.app.web 'manages people, invites, backups'
+  admin -> fl.app.web 'invites players'
+  user -> fl.app.web 'signs in, manages own account'
+  visitor -> fl.app.web.publicPages 'signs in, sets up, joins'
+  fl.caddy -> fl.app 'forwards HTTPS'
+
+  fl.app.hooks -> fl.app.services 'resolves the session, runs start-up'
+  fl.app.hooks -> fl.app.infra 'request ids, readiness, errors'
+  fl.app.web -> fl.app.services 'calls'
+  fl.app.web -> fl.app.shared 'parses input'
+  fl.app.web -> fl.app.ui 'renders'
+  fl.app.web -> fl.app.infra 'form and API helpers'
+  fl.app.services -> fl.app.repos 'reads and writes'
+  fl.app.services -> fl.app.infra 'config, logging, transactions'
+  fl.app.services -> fl.app.shared 'roles, schemas'
+  fl.app.services.authService -> fl.app.services.auditService 'records sign-ins'
+  fl.app.services.peopleService -> fl.app.services.auditService 'records changes'
+  fl.app.services.peopleService -> fl.app.services.authService 'ends sessions'
+  fl.app.services.inviteService -> fl.app.services.auditService 'records invites'
+  fl.app.services.inviteService -> fl.app.services.authService 'signs the new account in'
+  fl.app.services.setupService -> fl.app.services.authService 'hashes, signs in'
+  fl.app.repos -> fl.app.authTables 'SQL'
+  fl.app.repos -> fl.app.infra 'pool'
+  fl.app.ui -> fl.app.shared 'roles'
+  fl.app.authTables -> fl.db 'stored in'
+  fl.app.infra -> fl.db 'pool, migrations, dumps'
+}

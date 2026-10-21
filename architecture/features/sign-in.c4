@@ -1,0 +1,23 @@
+// Feature: sign-in. Code: routes/(public)/login, services/auth, repos (users, sessions), infra/rate-limit.
+views {
+  dynamic view sign_in {
+    title 'Sign-in: one screen for every role'
+    description '''
+      **Owners, admins and users sign in on the same screen and land in their own area.**
+
+      **Decisions**
+      - Five tries a minute per username and per address (in memory); then "Too many tries".
+      - A wrong password and an unknown username get the same message; the hash check runs for unknown names too.
+      - The session token is 32 random bytes in an httpOnly, SameSite=Lax cookie (Secure over HTTPS); only its
+        SHA-256 is stored. "Remember me": 30 days, extended by use; otherwise a browser session.
+      - Owner lands on /owner, Admin on /admin, User on /home; a required password change goes to
+        /account/password first. Every sign-in is written to the audit log.
+    '''
+    user -> fl.app.web.publicPages 'username, password, remember me'
+    fl.app.web.publicPages -> fl.app.services.authService 'signIn'
+    fl.app.services.authService -> fl.app.infra 'rate limit'
+    fl.app.services.authService -> fl.app.repos 'find user, create session'
+    fl.app.services.authService -> fl.app.services.auditService 'record sign-in'
+    fl.app.web.publicPages -> user 'cookie, redirect to the role area'
+  }
+}

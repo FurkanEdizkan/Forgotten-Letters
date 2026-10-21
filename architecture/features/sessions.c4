@@ -1,0 +1,21 @@
+// Feature: sessions and account. Code: hooks.server.ts, services/auth, routes/(app)/account.
+views {
+  dynamic view sessions {
+    title 'Sessions and the account page'
+    description '''
+      **Everyone controls their own sign-in.**
+
+      **Decisions**
+      - Every request resolves the cookie to a session and user; disabled accounts and expired sessions are
+        rejected. A session in use slides forward about once a day.
+      - Everyone can change their display name and password and sign out of every device.
+      - An hourly job (one runner at a time, by advisory lock) removes expired sessions, invites and setup tokens,
+        and prunes audit entries older than the retention period (180 days).
+    '''
+    user -> fl.app.hooks 'any request with the cookie'
+    fl.app.hooks -> fl.app.services.authService 'resolve session'
+    fl.app.services.authService -> fl.app.repos 'read session, slide expiry'
+    user -> fl.app.web.areas 'change password, sign out everywhere'
+    fl.app.web.areas -> fl.app.services.authService 'change password, end sessions'
+  }
+}

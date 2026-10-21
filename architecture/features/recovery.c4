@@ -1,0 +1,22 @@
+// Feature: failure and recovery. Code: hooks.server.ts, infra (db, config), routes/health, services/backups.
+views {
+  dynamic view failure_and_recovery {
+    title 'Failure and recovery'
+    description '''
+      **A group without an ops person can see what is wrong and get back on its feet.**
+
+      **Decisions**
+      - A bad .env stops the app at start and names the setting (never its secret value).
+      - If the database is down, /health/ready answers 503, pages say so clearly, and the pool reconnects with
+        backoff on its own.
+      - Every response carries X-Request-Id; errors use one shape with the request id.
+      - The owner downloads a backup or restores one from the owner area; the app warns when served over plain HTTP.
+      - A locked-out owner is recovered with a documented docker compose exec command.
+    '''
+    owner -> fl.app.web.health 'checks /health/ready'
+    fl.app.web.health -> fl.app.infra 'ping the database, migrations applied'
+    owner -> fl.app.web.areas 'download or restore a backup'
+    fl.app.web.areas -> fl.app.services.backupService 'dump or restore'
+    fl.app.services.backupService -> fl.app.infra 'pg_dump, pg_restore'
+  }
+}

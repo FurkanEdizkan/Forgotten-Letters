@@ -1,0 +1,22 @@
+// Feature: managing people. Code: routes/(app)/owner, api/v1/users, services/people.
+views {
+  dynamic view managing_people {
+    title 'Managing people'
+    description '''
+      **The owner keeps the group's accounts in order without email.**
+
+      **Decisions**
+      - Owners see every account; admins see the users they invited.
+      - Changing a role or disabling an account never removes the last owner.
+      - Disabling ends every session at once; history stays.
+      - A password reset sets a readable temporary password that must be changed at the next sign-in.
+      - A disabled account can be anonymised: its display name becomes "Former member".
+      - Every change is written to the audit log in the same transaction.
+    '''
+    owner -> fl.app.web.areas 'change role, disable, reset, anonymise'
+    fl.app.web.areas -> fl.app.services.peopleService 'apply'
+    fl.app.services.peopleService -> fl.app.repos 'update user (version checked)'
+    fl.app.services.peopleService -> fl.app.services.authService 'end sessions'
+    fl.app.services.peopleService -> fl.app.services.auditService 'record change'
+  }
+}

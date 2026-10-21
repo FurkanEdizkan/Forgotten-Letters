@@ -1,0 +1,23 @@
+// Feature: first start. Code: hooks.server.ts (init), infra/migrate, services/backups, services/setup.
+views {
+  dynamic view first_start {
+    title 'First start: migrations, backup, the first owner'
+    description '''
+      **A group installs the app and becomes its owner without editing passwords into files.**
+
+      **Decisions**
+      - Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;
+        the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.
+      - While no owner exists, the app logs a one-time setup link (random token, only its hash stored, one hour,
+        single use). Visiting it creates the first owner and signs them in.
+      - /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.
+    '''
+    fl.app.hooks -> fl.app.services.backupService 'dump before migrating'
+    fl.app.hooks -> fl.app.infra 'apply migrations under a lock'
+    fl.app.hooks -> fl.app.services.setupService 'no owner: log a setup link'
+    visitor -> fl.app.web.publicPages 'opens /setup/<token>, chooses username and password'
+    fl.app.web.publicPages -> fl.app.services.setupService 'create the first owner'
+    fl.app.services.setupService -> fl.app.repos 'insert owner, use the token'
+    fl.app.services.setupService -> fl.app.services.authService 'start a session'
+  }
+}

@@ -1,0 +1,35 @@
+// The part views. Each workflow has its own dynamic view in features/.
+views {
+  view index {
+    title 'Landscape'
+    description 'Who uses Forgotten Letters, and the containers it runs as.'
+    include *, fl.*
+  }
+
+  view app of fl.app {
+    title 'Inside the app'
+    description 'The request pipeline, the routes, the services, the repos and infra, and the auth tables.'
+    include fl.app.*, fl.db
+    autoLayout TopBottom
+  }
+
+  view web of fl.app.web {
+    title 'Routes'
+    description 'Pages and endpoints (open a group for its generated routes), and the services behind them.'
+    include fl.app.web.*, fl.app.services, owner, admin, user, visitor
+    autoLayout TopBottom
+  }
+
+  view services of fl.app.services {
+    title 'Services'
+    description 'The business rules and how they depend on each other.'
+    include fl.app.services.*, fl.app.repos, fl.app.infra
+    autoLayout TopBottom
+  }
+
+  view tables of fl.app.authTables {
+    title 'auth schema'
+    description 'The tables of accounts and sign-in.'
+    include *
+  }
+}

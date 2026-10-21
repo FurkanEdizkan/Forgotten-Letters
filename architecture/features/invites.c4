@@ -1,0 +1,24 @@
+// Feature: invite and join. Code: routes (owner, admin areas; /invite/[token]; api/v1/invites), services/invites.
+views {
+  dynamic view invite_and_join {
+    title 'Invite and join'
+    description '''
+      **Nobody registers alone: an owner or admin sends a link that fixes the role.**
+
+      **Decisions**
+      - Owners invite admins and users; admins invite users; users cannot invite.
+      - An invite is valid for 7 days and works once; only its token hash is stored. The inviter sees pending
+        invites and can revoke or re-send (a new link) them.
+      - Accepting creates the account and signs it in, in one transaction with a row lock, so two people accepting
+        the same link at once make exactly one account.
+    '''
+    admin -> fl.app.web.areas 'create an invite (role, note)'
+    fl.app.web.areas -> fl.app.services.inviteService 'create'
+    fl.app.services.inviteService -> fl.app.repos 'insert invite'
+    fl.app.services.inviteService -> fl.app.services.auditService 'record invite'
+    visitor -> fl.app.web.publicPages 'opens /invite/<token>, chooses username and password'
+    fl.app.web.publicPages -> fl.app.services.inviteService 'accept'
+    fl.app.services.inviteService -> fl.app.repos 'lock invite, insert user, mark used'
+    fl.app.services.inviteService -> fl.app.services.authService 'start a session'
+  }
+}

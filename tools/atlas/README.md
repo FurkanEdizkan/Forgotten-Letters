@@ -83,8 +83,37 @@ atlas serve | build   # the LikeC4 site: live, or static (hash routing; opens fr
 | missing code | a `code` pattern that matches nothing | moved, renamed or deleted: fix the pattern |
 | unmodelled import | element A imports from element B, with no relationship between them (or their parents) | add `A -> B 'what for'` |
 | unmodelled table / service | a table in no group, a compose service or volume in no element | list it in `tables` / `services` |
+| undocumented handler | an exported `+server` method or a form action with no doc comment (summary and `Who:` at least) | in the code: add the comment (see below) |
 
 Imports from route files are not reported: `update` writes them as generated relationships.
+
+### Tables in Postgres schemas
+
+Both `pgTable('user', …)` and tables in a schema are read: `const auth = pgSchema('auth')` then
+`auth.table('users', …)` in the same file gives the table `users` (its `schema`, `auth`, is kept in the facts). List
+it in `tables` by the name as written: `tables ['users']`.
+
+### Handler doc comments
+
+The JSDoc block directly above each exported handler in `+server.ts` (`export const GET`, `export async function
+POST`, … any of GET POST PUT PATCH DELETE HEAD OPTIONS) and above each form action key in `+page.server.ts`
+(`export const actions = { name: async (…) => … }`) documents it:
+
+```ts
+/**
+ * One-line summary of what it does.
+ * Who: who may call it.
+ * In: input shape.
+ * Out: output.
+ * Errors: error statuses and codes.
+ */
+export const POST: RequestHandler = async (event) => { … };
+```
+
+Lines without a tag continue the summary or the tag above them. The facts keep it per route as `docs` (keyed `GET`,
+`action:default`, …); the generated page or endpoint element lists each documented handler in its description, and
+MAP.md puts each summary beside its method or action. `check` reports a handler without a summary and a `Who:`
+line.
 
 ### Generated vs curated
 

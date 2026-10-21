@@ -6,11 +6,44 @@ import type { Config } from './config.ts';
 /** What the code says, independent of the model. Every path is relative to the project root, with forward slashes. */
 export interface Facts {
 	modules: { path: string; imports: string[]; env: string[] }[];
-	routes: { route: string; dir: string; files: string[]; methods: string[]; actions: string[] }[];
-	tables: { name: string; file: string }[];
+	/** `docs` holds the doc comment of each handler: keyed by method (`GET`) or form action (`action:default`). */
+	routes: { route: string; dir: string; files: string[]; methods: string[]; actions: string[]; docs: Record<string, Doc> }[];
+	/** `schema` is set for tables declared with `pgSchema('x').table(…)`. */
+	tables: { name: string; file: string; schema?: string }[];
 	services: { name: string; file: string }[];
 	volumes: { name: string; file: string }[];
 }
+
+/** A handler's doc comment: a summary line, then `Who:`, `In:`, `Out:`, `Errors:` lines. */
+export interface Doc {
+	summary: string;
+	who?: string;
+	in?: string;
+	out?: string;
+	errors?: string;
+}
+
+const TAGS: Record<string, keyof Doc> = { who: 'who', in: 'in', out: 'out', errors: 'errors' };
+
+/** The text inside `/** … *\/` as a Doc; untagged lines continue the summary, or the tag before them. */
+export function parseDoc(body: string): Doc {
+	const doc: Doc = { summary: '' };
+	let at: keyof Doc = 'summary';
+	for (const raw of body.split('\n')) {
+		const line = raw.replace(/^\s*\*?\s?/, '').trim();
+		if (!line) continue;
+		const tag = /^(who|in|out|errors):\s*(.*)$/i.exec(line);
+		if (tag) at = TAGS[tag[1].toLowerCase()];
+		const text = tag ? tag[2] : line;
+		doc[at] = doc[at] ? `${doc[at]} ${text}` : text;
+	}
+	return doc;
+}
+
+/** An optional doc comment (group 1) directly above what follows it in a regex; ACTION_DOC ends its own line. */
+const COMMENT = String.raw`\/\*\*((?:(?!\*\/)[\s\S])*)\*\/`;
+const DOC = String.raw`(?:${COMMENT}\s*)?`;
+const ACTION_DOC = String.raw`(?:${COMMENT}[ \t]*\n)?`;
 
 const rel = (root: string, abs: string) => relative(root, abs).split('\\').join('/');
 const read = (root: string, p: string) => readFileSync(join(root, p), 'utf8');
@@ -54,17 +87,26 @@ export function extractRoutes(root: string, routesDir: string): Facts['routes'] 
 		if (files.length) {
 			const methods = new Set<string>();
 			const actions = new Set<string>();
+			const docs: Record<string, Doc> = {};
 			for (const f of files) {
 				const src = read(root, f);
 				if (/\/\+server\.[jt]s$/.test(f))
-					for (const m of src.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g)) methods.add(m[1]);
+					for (const m of src.matchAll(new RegExp(DOC + String.raw`export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b`, 'g'))) {
+						methods.add(m[2]);
+						if (m[1] !== undefined) docs[m[2]] = parseDoc(m[1]);
+					}
 				const at = src.indexOf('export const actions');
 				if (/\/\+page\.server\.[jt]s$/.test(f) && at >= 0) {
-					const block = src.slice(at, src.indexOf('\n};', at) + 1 || undefined);
-					for (const m of block.matchAll(/^\t(\w+)\s*:/gm)) actions.add(m[1]);
+					const end = src.slice(at).search(/\n\}/); // the closing brace in column 0: `};` or `} satisfies Actions;`
+					const block = end >= 0 ? src.slice(at, at + end + 1) : src.slice(at);
+					// The comment sits on its own lines above the tab-indented key: `\t/** … *\/\n\tname: …`.
+					for (const m of block.matchAll(new RegExp(ACTION_DOC + String.raw`^\t(\w+)\s*:`, 'gm'))) {
+						actions.add(m[2]);
+						if (m[1] !== undefined) docs[`action:${m[2]}`] = parseDoc(m[1]);
+					}
 				}
 			}
-			out.push({ route: routeOf(posix.relative(routesDir, dir)), dir, files, methods: [...methods].sort(), actions: [...actions].sort() });
+			out.push({ route: routeOf(posix.relative(routesDir, dir)), dir, files, methods: [...methods].sort(), actions: [...actions].sort(), docs });
 		}
 		for (const e of entries) if (e.isDirectory()) walk(posix.join(dir, e.name));
 	};
@@ -73,7 +115,13 @@ export function extractRoutes(root: string, routesDir: string): Facts['routes'] 
 }
 
 export function extractTables(root: string, file: string): Facts['tables'] {
-	return [...read(root, file).matchAll(/pgTable\(\s*['"]([^'"]+)['"]/g)].map((m) => ({ name: m[1], file }));
+	const src = read(root, file);
+	const tables: Facts['tables'] = [...src.matchAll(/pgTable\(\s*['"]([^'"]+)['"]/g)].map((m) => ({ name: m[1], file }));
+	// `const auth = pgSchema('auth')` then `auth.table('users', …)`
+	for (const [, id, schema] of src.matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*pgSchema\(\s*['"]([^'"]+)['"]/g))
+		for (const m of src.matchAll(new RegExp(String.raw`(?<![\w$.])${id.replace(/\$/g, '\\$')}\.table\(\s*['"]([^'"]+)['"]`, 'g')))
+			tables.push({ name: m[1], file, schema });
+	return tables;
 }
 
 /** Top-level `services:` and `volumes:` keys of a compose file (two-space indented names). */

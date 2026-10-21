@@ -1,10 +1,11 @@
 import { existsSync, globSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Facts } from './extract.ts';
+import { handlers } from './generate.ts';
 import { ownerOf, within, type El, type Model } from './model.ts';
 
 export interface Issue {
-	kind: 'unowned-file' | 'missing-code' | 'unmodelled-import' | 'unmodelled-table' | 'unmodelled-service';
+	kind: 'unowned-file' | 'missing-code' | 'unmodelled-import' | 'unmodelled-table' | 'unmodelled-service' | 'undocumented-handler';
 	message: string;
 	/** What to do about it, in the model. */
 	todo: string;
@@ -59,6 +60,13 @@ export function check(root: string, facts: Facts, model: Model): Issue[] {
 	const named = new Set(curated.flatMap((e) => e.services));
 	for (const s of [...facts.services, ...facts.volumes])
 		if (!named.has(s.name)) issues.push({ kind: 'unmodelled-service', message: `${s.file}: ${s.name} is in no element`, todo: `Name '${s.name}' in an element's \`services\` metadata (or describe it as a new element).` });
+
+	for (const r of facts.routes)
+		for (const h of handlers(r))
+			if (!r.docs?.[h]?.summary || !r.docs[h].who) {
+				const file = r.files.find((f) => (h.startsWith('action:') ? /\/\+page\.server\.[jt]s$/ : /\/\+server\.[jt]s$/).test(f)) ?? r.dir;
+				issues.push({ kind: 'undocumented-handler', message: `${file}: ${h} has no doc comment with a summary and a Who: line`, todo: `Add a \`/** summary, Who:, In:, Out:, Errors: */\` comment above ${h} in \`${file}\`.` });
+			}
 
 	return issues;
 }

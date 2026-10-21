@@ -61,6 +61,14 @@ export function renderMap(model: Model, facts: Facts, modelDir: string): string 
 		const o = ownerOf(m.path, curated);
 		if (o) (ownedFiles.get(o.id) ?? ownedFiles.set(o.id, []).get(o.id)!).push(m.path);
 	}
+	// A route's handlers with their doc summaries: `GET (List items) DELETE · actions: reset (Resets it)`.
+	const routeLine = new Map(
+		facts.routes.map((r) => {
+			const s = (h: string) => (r.docs?.[h]?.summary ? ` (${r.docs[h].summary})` : '');
+			const bits = [r.methods.map((m) => m + s(m)).join(' '), r.actions.length ? `actions: ${r.actions.map((a) => a + s(`action:${a}`)).join(', ')}` : ''];
+			return [r.route, bits.filter(Boolean).join(' · ')];
+		})
+	);
 	const routesUnder = new Map<string, El[]>();
 	for (const e of model.elements) if (e.generated && e.kind !== 'table' && e.parent) (routesUnder.get(e.parent) ?? routesUnder.set(e.parent, []).get(e.parent)!).push(e);
 
@@ -93,7 +101,10 @@ export function renderMap(model: Model, facts: Facts, modelDir: string): string 
 		if (routes?.length) {
 			const list = routes
 				.sort((a, b) => a.title.localeCompare(b.title))
-				.map((r) => `${r.title}${r.description ? ` (${r.description})` : r.kind === 'endpoint' ? ' (endpoint)' : ''}`);
+				.map((r) => {
+					const what = routeLine.get(r.title) || r.description.split('\n')[0];
+					return `${r.title}${what ? ` (${what})` : r.kind === 'endpoint' ? ' (endpoint)' : ''}`;
+				});
 			out.push(`${pad}  routes: ${list.join(' · ')}`);
 		}
 	}

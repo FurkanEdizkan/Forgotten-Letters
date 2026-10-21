@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -6,7 +6,7 @@ import { check } from '../src/check.ts';
 import type { Config } from '../src/config.ts';
 import { extract, routeOf, type Facts } from '../src/extract.ts';
 import { generate } from '../src/generate.ts';
-import { shortIds } from '../src/map.ts';
+import { renderMap, shortIds } from '../src/map.ts';
 import { loadModel, ownerOf, type El, type Model } from '../src/model.ts';
 import { behind, changedFiles } from '../src/status.ts';
 import { execFileSync } from 'node:child_process';
@@ -17,10 +17,33 @@ const files: Record<string, string> = {
 	'src/lib/server/db.ts': `export const db = {};`,
 	'src/lib/server/new-thing.ts': `import { db } from './db';`,
 	'src/lib/Widget.svelte': `<script lang="ts">\n  import { x } from '$lib/server/auth';\n</script>\n<p>{x}</p>`,
-	'src/routes/(app)/login/+page.server.ts': `import { x } from '$lib/server/auth';\nexport const actions = {\n\tsignin: async () => {},\n\treset: async () => {}\n};`,
+	'src/routes/(app)/login/+page.server.ts': `import { x } from '$lib/server/auth';
+export const actions = {
+\t/**
+\t * Signs a member in.
+\t * Who: anyone signed out.
+\t * In: form { email, password }.
+\t * Out: redirect to /.
+\t * Errors: 400 invalid, 429 rate_limited.
+\t */
+\tsignin: async () => {},
+\t/** Sends a reset link. */
+\treset: async () => {}
+} satisfies Actions;
+export const load = () => ({
+\tuser: null
+});`,
 	'src/routes/(app)/login/+page.svelte': `<script>import W from '$lib/Widget.svelte';</script>`,
-	'src/routes/api/items/[id]/+server.ts': `export async function GET() {}\nexport const DELETE = () => {};`,
-	'src/schema.ts': `export const user = pgTable('user', {});\nexport const session = pgTable(\n  'session', {});`,
+	'src/routes/api/items/[id]/+server.ts': `/**
+ * Reads one item, with "quotes" and 'apostrophes'.
+ * Who: a signed-in member.
+ * Out: { item }.
+ */
+export async function GET() {}
+/** Not a doc of DELETE: something sits between. */
+const unrelated = 1;
+export const DELETE = () => {};`,
+	'src/schema.ts': `export const user = pgTable('user', {});\nexport const session = pgTable(\n  'session', {});\nexport const auth = pgSchema('auth');\nexport const users = auth.table('users', {});\nexport const other = notauth.table('nope', {});`,
 	'compose.yaml': `services:\n  app:\n    image: x\n  db:\n    image: postgres\nvolumes:\n  pgdata:\n`,
 	'arch/spec.c4': `specification {\n  element system\n  element module\n  element layer\n  element page\n  element endpoint\n  element table\n  relationship imports\n}`,
 	'arch/model.c4': `model {
@@ -43,7 +66,7 @@ const files: Record<string, string> = {
       metadata { code 'src/lib/server/removed.ts' }
     }
     accounts = layer 'Accounts' {
-      metadata { tables ['user'] }
+      metadata { tables ['user', 'users'] }
     }
   }
   sys.auth -> sys.store 'reads'
@@ -91,8 +114,22 @@ describe('extract', () => {
 		expect(facts.routes.find((r) => r.route === '/api/items/[id]')!.methods).toEqual(['DELETE', 'GET']);
 	});
 
+	it('reads the doc comment directly above each handler and form action', () => {
+		const items = facts.routes.find((r) => r.route === '/api/items/[id]')!;
+		expect(items.docs).toEqual({ GET: { summary: `Reads one item, with "quotes" and 'apostrophes'.`, who: 'a signed-in member.', out: '{ item }.' } });
+		const login = facts.routes.find((r) => r.route === '/login')!;
+		expect(login.docs).toEqual({
+			'action:signin': { summary: 'Signs a member in.', who: 'anyone signed out.', in: 'form { email, password }.', out: 'redirect to /.', errors: '400 invalid, 429 rate_limited.' },
+			'action:reset': { summary: 'Sends a reset link.' }
+		});
+	});
+
 	it('reads tables and compose services and volumes', () => {
-		expect(facts.tables.map((t) => t.name)).toEqual(['user', 'session']);
+		expect(facts.tables).toEqual([
+			{ name: 'user', file: 'src/schema.ts' },
+			{ name: 'session', file: 'src/schema.ts' },
+			{ name: 'users', file: 'src/schema.ts', schema: 'auth' }
+		]);
 		expect(facts.services.map((s) => s.name)).toEqual(['app', 'db']);
 		expect(facts.volumes.map((s) => s.name)).toEqual(['pgdata']);
 	});
@@ -102,7 +139,7 @@ describe('the model', () => {
 	it('loads elements with their code, tables and services', () => {
 		const auth = model.elements.find((e) => e.id === 'sys.auth')!;
 		expect(auth.code).toEqual(['src/lib/server/auth.ts']);
-		expect(model.elements.find((e) => e.id === 'sys.accounts')!.tables).toEqual(['user']);
+		expect(model.elements.find((e) => e.id === 'sys.accounts')!.tables).toEqual(['user', 'users']);
 		expect(model.views.find((v) => v.id === 'signin')!.steps).toEqual([{ from: 'sys.web', to: 'sys.auth', label: 'signs in' }]);
 	});
 
@@ -126,6 +163,10 @@ describe('check', () => {
 		expect(kinds('unmodelled-import')).toEqual(['sys.ui -> sys.auth has no relationship (src/lib/Widget.svelte imports src/lib/server/auth.ts)']);
 		expect(kinds('unmodelled-table')).toEqual(['table session is in no group']);
 		expect(kinds('unmodelled-service')).toEqual(['compose.yaml: pgdata is in no element']);
+		expect(kinds('undocumented-handler')).toEqual([
+			'src/routes/(app)/login/+page.server.ts: action:reset has no doc comment with a summary and a Who: line',
+			'src/routes/api/items/[id]/+server.ts: DELETE has no doc comment with a summary and a Who: line'
+		]);
 	});
 });
 
@@ -134,13 +175,29 @@ describe('generate', () => {
 		const { 'routes.c4': routes, 'tables.c4': tables } = generate(facts, model, 'src/routes');
 		expect(routes).toContain('extend sys.web {');
 		expect(routes).toContain("route_app_login = page '/login'");
-		expect(routes).toContain("description 'actions: reset, signin'");
+		expect(routes).toContain("description 'actions: reset, signin\naction:reset: Sends a reset link.\naction:signin: Signs a member in.\n  Who: anyone signed out.\n  In: form { email, password }.\n  Out: redirect to /.\n  Errors: 400 invalid, 429 rate_limited.'");
 		expect(routes).toContain("route_api_items_id = endpoint '/api/items/[id]'");
 		expect(routes).toContain('sys.web.route_app_login -[imports]-> sys.auth');
 		expect(routes).toContain('sys.web.route_app_login -[imports]-> sys.ui');
 		expect(tables).toContain("extend sys.accounts {\n    table_user = table 'user'");
 		expect(tables).not.toContain('session');
+		expect(tables).toContain("table_users = table 'users'");
 	});
+
+	it('writes LikeC4 that loads, descriptions with quotes intact', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'atlas-gen-'));
+		cpSync(join(root, 'arch'), dir, { recursive: true });
+		for (const [f, text] of Object.entries(generate(facts, model, 'src/routes'))) {
+			mkdirSync(join(dir, 'generated'), { recursive: true });
+			writeFileSync(join(dir, 'generated', f), text);
+		}
+		const loaded = await loadModel(dir);
+		const items = loaded.elements.find((e) => e.title === '/api/items/[id]')!;
+		expect(items.description).toBe(`DELETE GET\nGET: Reads one item, with "quotes" and 'apostrophes'.\n  Who: a signed-in member.\n  Out: { item }.`);
+		const map = renderMap(loaded, facts, 'arch');
+		expect(map).toContain(`/api/items/[id] (DELETE GET (Reads one item, with "quotes" and 'apostrophes'.))`);
+		expect(map).toContain('/login (actions: reset (Sends a reset link.), signin (Signs a member in.))');
+	}, 60_000);
 });
 
 describe('status', () => {

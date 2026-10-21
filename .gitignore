@@ -1,6 +1,7 @@
 # The books and what we read from them are copyrighted: bring your own copy (design specs are tracked)
 /docs/*
 !/docs/superpowers/
+!/docs/adr/
 
 # The campaign map extracted from the book (local only)
 /assets/map/

@@ -15,7 +15,7 @@ export type AccentColours = {
 
 export const ACCENT_COLOURS: Record<Accent, AccentColours> = {
 	blood: { base: '#a3170f', bright: '#d8392e', pale: '#d98c80' },
-	brass: { base: '#8a6a1c', bright: '#d4a537', pale: '#e3c88a' },
+	brass: { base: '#7f621a', bright: '#d4a537', pale: '#e3c88a' },
 	verdigris: { base: '#2f6f62', bright: '#4fb39c', pale: '#9fd3c4' },
 	bruise: { base: '#5b3a7a', bright: '#a57ad1', pale: '#cbb3e6' },
 	ash: { base: '#4d4a44', bright: '#b8b0a0', pale: '#d6cfc0' }

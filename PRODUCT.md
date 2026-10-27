@@ -151,7 +151,7 @@ Each step is planned, reviewed on a visual page and documented before it is buil
 |---|---|---|
 | 0 | Foundation documents: product, design system, architecture, agents guide | agreed |
 | 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | done 2026-10-27 (merged into `main`; decisions ARCHITECTURE 32–35). F4 was replaced by step 1.5's open setup. |
-| 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | built 2026-10-27 on `main` (local, not pushed); the Docker run check is pending; see §10.3. Deviations: the Server step shows only the install that applies (no tabs); the accent check records two known misses (blood-bright on night 4.0:1, bone on brass 4.0:1). |
+| 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | built 2026-10-27 on `main` (local, not pushed); the Docker run check is pending; see §10.3. Deviations: the Server step shows only the install that applies (no tabs); Brass's base darkened to #7f621a so its button labels reach 4.5:1; blood-bright on night stays the known miss (4.0:1, heading-size text only). |
 | 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, invite players into it | later |
 | 3 | Rules data: load the group's own rule packs (units, kit, keywords, limits) per edition and version; house rule packs | later |
 | 4 | Warbands: build and keep a warband by the rules, experience and injuries | later |

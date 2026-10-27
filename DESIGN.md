@@ -179,7 +179,7 @@ the resource's name or mark.
   | Preset | `blood` | `blood-bright` | `blood-pale` |
   |---|---|---|---|
   | Blood (default) | #a3170f | #d8392e | #d98c80 |
-  | Brass | #8a6a1c | #d4a537 | #e3c88a |
+  | Brass | #7f621a | #d4a537 | #e3c88a |
   | Verdigris | #2f6f62 | #4fb39c | #9fd3c4 |
   | Bruise | #5b3a7a | #a57ad1 | #cbb3e6 |
   | Ash | #4d4a44 | #b8b0a0 | #d6cfc0 |

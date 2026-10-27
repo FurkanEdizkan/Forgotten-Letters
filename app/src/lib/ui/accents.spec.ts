@@ -25,8 +25,7 @@ const BONE = root['--bone'];
  * - brass base: a bone label on the brass fill (primary button) is 4.0:1; reported for a decision, not changed.
  */
 const KNOWN_MISSES: Record<string, number> = {
-	'blood bright on night': 4.02,
-	'brass bone on base': 4.02
+	'blood bright on night': 4.02
 };
 
 describe('accent presets', () => {

@@ -1,54 +1,20 @@
-# sv
+# Forgotten Letters app
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+The SvelteKit app. Install and Docker notes are in the repository's `README.md`; how it is built is in
+`ARCHITECTURE.md`, and the commands are listed in `AGENTS.md`.
 
-## Creating a project
+## Running it
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Development:** `docker compose -f ../compose.dev.yaml up -d` (database only), then `npm run dev`. The port is
+  Vite's and cannot be changed from the settings page.
+- **Production build without Docker:** `npm run build`, then `node server` (with `DATABASE_URL` or the
+  `POSTGRES_*` settings). `PORT` (default 3000) is only the first-run port: once setup is done, the app listens on
+  the port saved in settings, and the owner can move it from the settings page. Set `PORT_LOCKED=true` to keep it
+  fixed.
+- **Docker:** the image runs `node server` with `PORT_LOCKED=1`; change the port with `APP_PORT` in `.env`.
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## First run
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@1.1.1 create --template minimal --types ts --add prettier eslint vitest="usages:unit" playwright="demo:no" sveltekit-adapter="adapter:node" --install npm app
-```
-
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
+While no owner exists, setup is open: every page leads to `/welcome`, the API answers 409, and the log says
+"Setup is open at <address>". The setup wizard creates the owner and saves the text size, accent and port in one
+step. Afterwards `/welcome` and `/setup` lead to `/login`.

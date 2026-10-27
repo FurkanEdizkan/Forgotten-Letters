@@ -23,8 +23,10 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ARG APP_VERSION=dev
+# PORT_LOCKED: Compose publishes the port (APP_PORT in .env), so the app shows it but never moves it.
 ENV NODE_ENV=production \
 	PORT=3000 \
+	PORT_LOCKED=1 \
 	APP_VERSION=$APP_VERSION \
 	MIGRATIONS_DIR=/app/drizzle \
 	BACKUP_DIR=/data/backups \
@@ -33,6 +35,7 @@ ENV NODE_ENV=production \
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 COPY --from=build /app/build ./build
+COPY --from=build /app/server ./server
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/scripts ./scripts
 # New named volumes take this ownership on first mount.
@@ -43,4 +46,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
 	CMD ["node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 # -s: still reaps zombies when compose's `init: true` (docker-init) is PID 1.
 ENTRYPOINT ["tini", "-s", "--"]
-CMD ["node", "build"]
+# The custom server (server/index.js) around the built app; see that file for why.
+CMD ["node", "server"]

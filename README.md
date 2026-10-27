@@ -12,8 +12,13 @@ image; it works with no internet connection.
 2. In `.env`, set `POSTGRES_PASSWORD` (for example `openssl rand -base64 24`) and `ORIGIN`, the address people
    type: `http://<this machine's IP>:3000` on a LAN, `https://<DOMAIN>` with HTTPS.
 3. Start it: `docker compose up -d`.
-4. Open the one-time setup link (valid one hour) from the log and create the first owner:
-   `docker compose logs app | grep setup`. Restart the app (`docker compose restart app`) for a new link.
+4. Open the address in a browser. Until an owner exists every page leads to the welcome page: press **Setup** and
+   follow the four steps (owner account, look, server, done). The log also says where: `docker compose logs app |
+   grep "Setup is open"`. Whoever opens a fresh install first becomes its owner, so set it up right away.
+
+**Port.** With Docker the port is `APP_PORT` in `.env` (then `docker compose up -d`); the settings page shows it but
+cannot change it. Run without Docker (`node app/server` after `npm --prefix app run build`), the owner can change
+the port under Owner, Settings: the app opens the new port, sends the browser there and closes the old one.
 
 **HTTPS** (a server on the internet): point your domain's DNS at the server, open ports 80 and 443, set
 `DOMAIN=letters.example.org`, `ORIGIN=https://letters.example.org`, `ADDRESS_HEADER=X-Forwarded-For`,
@@ -35,8 +40,8 @@ docker compose exec app sh -c 'PGPASSWORD=$POSTGRES_PASSWORD pg_restore --clean 
 starts; `/health/ready` answers 200 once it is done.
 
 **Locked out?** `docker compose exec app node scripts/owner-recovery.js <username>` gives that owner a temporary
-password (changed at the next sign-in) and ends their sessions. Without a username it lists the owners, or prints a
-new setup link when there is none.
+password (changed at the next sign-in) and ends their sessions. Without a username it lists the owners, or says
+that setup is open when there is none.
 
 **Development:** `docker compose -f compose.dev.yaml up -d` (database only), then `npm --prefix app run dev`. See
 `AGENTS.md` for the other commands.

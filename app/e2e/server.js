@@ -1,23 +1,20 @@
 /**
- * The app as the e2e tests see it: the production build on its own throwaway PostgreSQL 18 (Testcontainers), never
- * development data. The first-owner setup link the app logs at start is written to `e2e/.state/setup-link` for the
- * tests. The client address comes from X-Forwarded-For (as behind Caddy), so each test can act from its own address
- * and the per-address limits stay per test.
+ * The app as the e2e tests see it: the production build behind the custom server (`node server`, so the port can
+ * move as on a real install outside Docker) on its own throwaway PostgreSQL 18 (Testcontainers), never development
+ * data. Setup is open at start; the tests create the owner. The client address comes from X-Forwarded-For (as behind
+ * Caddy), so each test can act from its own address and the per-address limits stay per test.
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
 const PORT = 4173;
-const state = fileURLToPath(new URL('./.state/', import.meta.url));
-mkdirSync(state, { recursive: true });
 
 const db = await new PostgreSqlContainer('postgres:18').start();
-const app = spawn('node', ['build'], {
-	stdio: ['ignore', 'pipe', 'inherit'],
+const app = spawn('node', ['server'], {
+	stdio: ['ignore', 'inherit', 'inherit'],
 	env: {
 		...process.env,
 		NODE_ENV: 'production',
@@ -29,11 +26,6 @@ const app = spawn('node', ['build'], {
 		ADDRESS_HEADER: 'X-Forwarded-For',
 		XFF_DEPTH: '1'
 	}
-});
-
-app.stdout.on('data', (chunk) => {
-	const link = String(chunk).match(/https?:\/\/\S+\/setup\/[\w-]+/);
-	if (link) writeFileSync(join(state, 'setup-link'), link[0]);
 });
 
 const stop = async () => {

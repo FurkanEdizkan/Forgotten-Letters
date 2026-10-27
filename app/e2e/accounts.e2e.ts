@@ -3,7 +3,6 @@
  * managing people, sessions. The flows build on each other (the owner made in the first one invites the others),
  * so the file runs in order. Each visitor gets its own browser context and client address.
  */
-import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
@@ -48,24 +47,44 @@ async function newInvite(page: Page, role: 'admin' | 'user', note: string) {
 let owner: Page;
 let adminInvite = '';
 
-test('first start: a bad setup link is refused; the logged link makes the owner', async ({
-	browser
-}) => {
+// The setup wizard UI arrives with the welcome page; until then the owner is made through the same service by the
+// API, which is what the wizard's Finish posts.
+test('first start: setup is open until the owner exists, then refused', async ({ browser }) => {
 	const page = await visitor(browser);
-	await page.goto('/setup/not-a-real-token');
-	await expect(page.getByText('This setup link has expired or was used.')).toBeVisible();
+	await page.goto('/login');
+	await expect(page).toHaveURL(/\/welcome$/);
+	const api = page.context().request;
+	expect(await (await api.get('/api/v1/me')).json()).toMatchObject({
+		error: { code: 'conflict', message: 'Setup is not done yet.' }
+	});
 
-	const link = readFileSync(new URL('./.state/setup-link', import.meta.url), 'utf8').trim();
-	await page.goto(link);
-	await fillAccount(page, OWNER.username, 'Brother Anselm', OWNER.password);
-	await page.click('button[type=submit]');
-	await page.waitForURL('/owner');
+	const setup = {
+		username: OWNER.username,
+		displayName: 'Brother Anselm',
+		password: OWNER.password,
+		textScale: 100,
+		accent: 'blood',
+		port: 4173
+	};
+	const weak = await api.post('/api/v1/setup', { data: { ...setup, password: 'short' } });
+	expect(weak.status()).toBe(400);
+	expect((await weak.json()).error.fields.password).toBeTruthy();
+
+	const made = await api.post('/api/v1/setup', { data: setup });
+	expect(made.status()).toBe(201);
+	expect(await made.json()).toMatchObject({ user: { role: 'owner' }, moveTo: null });
+	await page.goto('/owner');
+	await expect(page).toHaveURL(/\/owner$/);
 	owner = page;
 
-	// The link works once.
+	// Setup works once; afterwards the setup pages lead to sign-in.
 	const other = await visitor(browser);
-	await other.goto(link);
-	await expect(other.getByText('This setup link has expired or was used.')).toBeVisible();
+	const again = await other.context().request.post('/api/v1/setup', {
+		data: { ...setup, username: 'second.owner' }
+	});
+	expect(again.status()).toBe(409);
+	await other.goto('/setup');
+	await expect(other).toHaveURL(/\/login$/);
 });
 
 test('sign-in: wrong password and unknown name get the same message; the sixth try is refused', async ({

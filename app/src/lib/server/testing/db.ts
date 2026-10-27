@@ -1,7 +1,7 @@
 /**
  * Service tests on real PostgreSQL. `useTestDatabase()` gives the calling test file its own fresh database in the
  * run's container, points the app at it (`useDatabase`), applies the migrations with `runMigrations()` and empties
- * the auth tables before every test. Helpers make people and request contexts.
+ * the auth tables (and resets the settings row and its caches) before every test. Helpers make people and request contexts.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import postgres from 'postgres';
@@ -13,6 +13,8 @@ import { runMigrations } from '../infra/migrate';
 import * as usersRepo from '../repos/users';
 import type { Ctx, SessionUser } from '../services/audit';
 import { createSession, signInLimiter, toSessionUser } from '../services/auth';
+import { forgetCachedSettings } from '../services/settings';
+import { forgetSetupState } from '../services/setup';
 import { hashPassword, tokenHash } from '../services/passwords';
 
 /** The password every helper-made person has. */
@@ -52,7 +54,11 @@ export function useTestDatabase() {
 		passwordHash ||= await hashPassword(PASSWORD);
 	});
 	beforeEach(async () => {
-		await sqlClient()`truncate auth.audit_log, auth.sessions, auth.invites, auth.setup_tokens, auth.users restart identity cascade`;
+		await sqlClient()`truncate auth.audit_log, auth.sessions, auth.invites, auth.users restart identity cascade`;
+		// The cascade empties app.settings too (updated_by points at auth.users): put back the row the migration made.
+		await sqlClient()`insert into app.settings (id) values (1)`;
+		forgetCachedSettings();
+		forgetSetupState();
 	});
 	afterAll(closeDb);
 }

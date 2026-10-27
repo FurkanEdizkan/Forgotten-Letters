@@ -1,9 +1,10 @@
 /**
  * The request pipeline.
- * - Start-up (once): check settings, wait for the database, back up and migrate, log the first-owner setup link if
- *   no owner exists, start the background jobs.
- * - Every request: request id, readiness gate (503 while starting or shutting down), session, forced password
- *   change, security headers, one access-log line, error mapping.
+ * - Start-up (once): check settings, wait for the database, back up and migrate, log "Setup is open at <address>"
+ *   while no owner exists, listen on the port saved in settings (custom server only), start the background jobs.
+ * - Every request: request id, readiness gate (503 while starting or shutting down), cross-site check, setup guard
+ *   (while no owner exists pages lead to /welcome and the API answers 409; afterwards /welcome and /setup lead to
+ *   /login), session, forced password change, security headers, one access-log line, error mapping.
  */
 import { redirect } from '@sveltejs/kit';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit/hooks';
@@ -15,12 +16,23 @@ import { migrated, runMigrations } from '#lib/server/infra/migrate';
 import { startJobs, stopJobs } from '#lib/server/infra/jobs';
 import { housekeeping } from '#lib/server/jobs';
 import * as backups from '#lib/server/services/backups';
-import { ensureSetupLink } from '#lib/server/services/setup';
+import { isSetupOpen, logSetupOpen } from '#lib/server/services/setup';
+import { listenOnSavedPort } from '#lib/server/services/settings';
 import { resolveSession } from '#lib/server/services/auth';
 import { isCrossSite, isHttps, SESSION_COOKIE, setSessionCookie } from '#lib/server/http';
+import { setupGuard } from '#lib/server/http/setup-guard';
 import { AppError, errorBody } from '#lib/server/errors';
 
 let shuttingDown = false;
+
+/** An AppError as a JSON response in the shared error shape. */
+function errorResponse(e: AppError, requestId: string) {
+	const { status, body } = errorBody(e, requestId);
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { 'content-type': 'application/json' }
+	});
+}
 
 export const init: ServerInit = async () => {
 	const c = config();
@@ -32,7 +44,8 @@ export const init: ServerInit = async () => {
 			.dump('pre-migrate')
 			.catch((e) => logger.error({ err: e }, 'Backup before migrating failed; migrating anyway'))
 	);
-	await ensureSetupLink();
+	await logSetupOpen();
+	await listenOnSavedPort();
 	startJobs(housekeeping());
 	process.once('sveltekit:shutdown', async () => {
 		shuttingDown = true;
@@ -60,6 +73,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = null;
 	const path = event.url.pathname;
 
+	const guard =
+		isReady() && !path.startsWith('/health/')
+			? setupGuard(path, event.request.method, await isSetupOpen())
+			: null;
+	if (guard && 'redirect' in guard) redirect(303, guard.redirect);
+
 	let response: Response;
 	if (!isReady() && !path.startsWith('/health/')) {
 		const { body } = errorBody(null, event.locals.requestId);
@@ -75,14 +94,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 			headers: { 'content-type': 'application/json', 'retry-after': '5' }
 		});
 	} else if (isCrossSite(event.request)) {
-		const { status, body } = errorBody(
+		response = errorResponse(
 			new AppError('forbidden', 'Requests from other sites are not allowed.'),
 			event.locals.requestId
 		);
-		response = new Response(JSON.stringify(body), {
-			status,
-			headers: { 'content-type': 'application/json' }
-		});
+	} else if (guard) {
+		response = errorResponse(
+			new AppError('conflict', 'Setup is not done yet.'),
+			event.locals.requestId
+		);
 	} else {
 		if (!path.startsWith('/health/')) {
 			const found = await resolveSession(event.cookies.get(SESSION_COOKIE)).catch((e) => {

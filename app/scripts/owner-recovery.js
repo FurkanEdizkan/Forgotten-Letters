@@ -3,9 +3,9 @@
 //     gives that owner a temporary password (to change at the next sign-in), ends their sessions, re-enables the
 //     account and writes an audit entry. The temporary password is printed once.
 //   docker compose exec app node scripts/owner-recovery.js
-//     with no owner yet: prints a fresh one-time setup link (valid one hour). Otherwise lists the owners.
-// Keep the hash format in step with src/lib/server/services/passwords.ts and the token rules with setup.ts.
-import { createHash, randomBytes, scrypt } from 'node:crypto';
+//     with no owner yet: says that setup is open in the browser (there is no link to make). Otherwise lists the owners.
+// Keep the hash format in step with src/lib/server/services/passwords.ts.
+import { randomBytes, scrypt } from 'node:crypto';
 import { promisify } from 'node:util';
 import postgres from 'postgres';
 import { databaseUrl } from './db-url.js';
@@ -55,8 +55,6 @@ function temporaryPassword() {
 	return `${pick()}-${pick()}-${pick()}-${1000 + (randomBytes(2).readUInt16BE() % 9000)}`;
 }
 
-const sha256 = (s) => createHash('sha256').update(s).digest('hex');
-
 const sql = postgres(databaseUrl(), { max: 1, onnotice: () => {} });
 const username = process.argv[2]?.trim().toLowerCase();
 let code = 0;
@@ -71,12 +69,8 @@ try {
 				'Reset one with: docker compose exec app node scripts/owner-recovery.js <username>'
 			);
 		} else {
-			const token = randomBytes(32).toString('base64url');
-			await sql`insert into auth.setup_tokens (token_hash, expires_at) values (${sha256(token)}, now() + interval '1 hour')`;
 			const base = (process.env.ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
-			console.log(
-				`No owner yet. Open this link within one hour to create the first owner: ${base}/setup/${token}`
-			);
+			console.log(`No owner yet. Setup is open: open ${base} in a browser to create the owner.`);
 		}
 	} else {
 		const temporary = temporaryPassword();

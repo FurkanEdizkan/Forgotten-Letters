@@ -47,7 +47,8 @@ export function ctxOf(event: RequestEvent): Ctx {
 		actor: event.locals.user,
 		ip,
 		userAgent: event.request.headers.get('user-agent'),
-		requestId: event.locals.requestId
+		requestId: event.locals.requestId,
+		host: event.request.headers.get('host')
 	};
 }
 

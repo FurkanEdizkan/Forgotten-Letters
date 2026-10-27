@@ -1,95 +1,162 @@
-import { describe, expect, it } from 'vitest';
-import { db } from '../db';
-import * as invitesRepo from '../repos/invites';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ctx, person, sql, useTestDatabase } from '../testing/db';
 import { resolveSession } from './auth';
-import { newToken, tokenHash } from './passwords';
-import { checkSetupToken, completeSetup, ensureSetupLink } from './setup';
+import { getSettings } from './settings';
+import { completeSetup, forgetSetupState, isSetupOpen, logSetupOpen } from './setup';
 
 useTestDatabase();
 
-const account = {
+const input = {
 	username: 'first.owner',
 	password: 'a long owner password',
-	displayName: 'First Owner'
+	displayName: 'First Owner',
+	textScale: 110,
+	accent: 'brass' as const,
+	port: 3000
 };
-const tokenOf = (link: string) => link.split('/setup/')[1]!;
 
-describe('ensureSetupLink', () => {
-	it('makes a one-hour setup link while there is no owner', async () => {
-		const link = await ensureSetupLink();
-		expect(link).toMatch(/^http:\/\/localhost:3000\/setup\/[\w-]{43}$/);
-		const row = await invitesRepo.findSetupToken(db(), tokenHash(tokenOf(link!)));
-		expect(row!.expiresAt.getTime() - Date.now()).toBeGreaterThan(59 * 60 * 1000);
-		expect(row!.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(60 * 60 * 1000);
-		expect(await checkSetupToken(tokenOf(link!))).toBe(true);
-	});
-	it('makes nothing once an owner exists', async () => {
+afterEach(() => {
+	globalThis.__forgottenLettersListener = undefined;
+	vi.restoreAllMocks();
+});
+
+describe('isSetupOpen', () => {
+	it('is open with no owner and closed once one exists', async () => {
+		expect(await isSetupOpen()).toBe(true);
 		await person('owner');
-		expect(await ensureSetupLink()).toBeNull();
-		expect((await sql()`select count(*)::int as n from auth.setup_tokens`)[0]!.n).toBe(0);
+		forgetSetupState();
+		expect(await isSetupOpen()).toBe(false);
+	});
+	it('asks the database at most every two seconds while open', async () => {
+		const now = Date.now();
+		const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+		expect(await isSetupOpen()).toBe(true);
+		await person('owner');
+		expect(await isSetupOpen()).toBe(true); // still the cached answer
+		clock.mockReturnValue(now + 2500);
+		expect(await isSetupOpen()).toBe(false);
+	});
+	it('stays closed for the process once it has seen an owner', async () => {
+		await person('owner');
+		expect(await isSetupOpen()).toBe(false);
+		await sql()`truncate auth.users cascade`;
+		expect(await isSetupOpen()).toBe(false);
+	});
+	it('closes right after the wizard finishes', async () => {
+		expect(await isSetupOpen()).toBe(true);
+		await completeSetup(input, ctx());
+		expect(await isSetupOpen()).toBe(false);
+	});
+});
+
+describe('logSetupOpen', () => {
+	it('gives the address while setup is open, nothing after', async () => {
+		expect(await logSetupOpen()).toBe('http://localhost:3000');
+		await person('owner');
+		forgetSetupState();
+		expect(await logSetupOpen()).toBeNull();
 	});
 });
 
 describe('completeSetup', () => {
-	it('creates the owner, signs them in for 30 days and audits it', async () => {
-		const token = tokenOf((await ensureSetupLink())!);
+	it('creates the owner, saves the look, marks setup done, signs in for 30 days and audits it', async () => {
 		const c = ctx();
-		const { session, user } = await completeSetup(token, account, c);
+		const { session, user, moveTo } = await completeSetup(input, c);
 		expect(user).toMatchObject({
 			username: 'first.owner',
 			displayName: 'First Owner',
 			role: 'owner'
 		});
+		expect(moveTo).toBeNull();
 		expect(session.maxAge).toBe(30 * 24 * 60 * 60);
 		expect((await resolveSession(session.token))!.user.id).toBe(user.id);
+		expect(await getSettings()).toMatchObject({ textScale: 110, accent: 'brass', port: 3000 });
+		const [row] = await sql()`select setup_completed_at, updated_by from app.settings`;
+		expect(row!.setup_completed_at).not.toBeNull();
+		expect(row!.updated_by).toBe(user.id);
 		const [audit] =
 			await sql()`select action, actor_id, request_id from auth.audit_log where action = 'setup.owner_created'`;
 		expect(audit).toMatchObject({ actor_id: user.id, request_id: c.requestId });
-		expect(await checkSetupToken(token)).toBe(false);
 	});
-	it('works only once: the same token again is a conflict', async () => {
-		const token = tokenOf((await ensureSetupLink())!);
-		await completeSetup(token, account, ctx());
+	it('works only once', async () => {
+		await completeSetup(input, ctx());
 		await expect(
-			completeSetup(token, { ...account, username: 'second.owner' }, ctx())
-		).rejects.toMatchObject({ code: 'conflict' });
+			completeSetup({ ...input, username: 'second.owner' }, ctx())
+		).rejects.toMatchObject({
+			code: 'conflict',
+			message: 'Setup is already done. Sign in instead.'
+		});
 		expect((await sql()`select count(*)::int as n from auth.users`)[0]!.n).toBe(1);
 	});
-	it('refuses an expired token', async () => {
-		const token = newToken();
-		await invitesRepo.insertSetupToken(db(), tokenHash(token), new Date(Date.now() - 1000));
-		expect(await checkSetupToken(token)).toBe(false);
-		await expect(completeSetup(token, account, ctx())).rejects.toMatchObject({ code: 'conflict' });
+	it('two submits at the same moment make exactly one owner', async () => {
+		const results = await Promise.allSettled([
+			completeSetup({ ...input, username: 'racer.one' }, ctx()),
+			completeSetup({ ...input, username: 'racer.two' }, ctx())
+		]);
+		expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+		const failed = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+		expect(failed.reason).toMatchObject({ code: 'conflict' });
+		expect((await sql()`select count(*)::int as n from auth.users`)[0]!.n).toBe(1);
 	});
-	it('refuses an unknown token', async () => {
-		await expect(completeSetup(newToken(), account, ctx())).rejects.toMatchObject({
-			code: 'conflict'
-		});
-	});
-	it('refuses a second owner even with a fresh, unused token', async () => {
-		const token = tokenOf((await ensureSetupLink())!);
+	it('refuses when an owner already exists', async () => {
 		await person('owner');
-		expect(await checkSetupToken(token)).toBe(false);
-		await expect(completeSetup(token, account, ctx())).rejects.toMatchObject({
-			code: 'conflict',
-			message: 'An owner already exists. Sign in instead.'
+		await expect(completeSetup(input, ctx())).rejects.toMatchObject({ code: 'conflict' });
+		const [row] = await sql()`select setup_completed_at, text_scale from app.settings`;
+		expect(row).toEqual({ setup_completed_at: null, text_scale: 100 });
+	});
+	it('refuses a taken username with a field message', async () => {
+		await person('admin', { username: 'first.owner' });
+		await expect(completeSetup(input, ctx())).rejects.toMatchObject({
+			code: 'invalid',
+			fields: { username: 'That username is taken.' }
 		});
 	});
 	it('refuses a common password', async () => {
-		const token = tokenOf((await ensureSetupLink())!);
-		await expect(
-			completeSetup(token, { ...account, password: 'password123' }, ctx())
-		).rejects.toMatchObject({ code: 'invalid', fields: { password: expect.any(String) } });
+		await expect(completeSetup({ ...input, password: 'password123' }, ctx())).rejects.toMatchObject(
+			{ code: 'invalid', fields: { password: expect.any(String) } }
+		);
 	});
 	it('allows 5 tries a minute per address, then asks to wait', async () => {
 		const c = ctx();
 		for (let i = 0; i < 5; i++)
-			await expect(
-				completeSetup('guess', { ...account, password: 'password123' }, c)
-			).rejects.toMatchObject({ code: 'invalid' });
-		const sixth = await completeSetup('guess', account, c).catch((e) => e);
+			await expect(completeSetup({ ...input, password: 'password123' }, c)).rejects.toMatchObject({
+				code: 'invalid'
+			});
+		const sixth = await completeSetup(input, c).catch((e) => e);
 		expect(sixth).toMatchObject({ code: 'rate_limited' });
 		expect(sixth.retryAfter).toBeGreaterThan(0);
+	});
+	it('with a locked port, ignores the chosen port', async () => {
+		const { moveTo } = await completeSetup({ ...input, port: 4400 }, ctx());
+		expect(moveTo).toBeNull();
+		expect((await getSettings()).port).toBe(3000);
+	});
+	it('with the custom server, moves to the chosen port and answers with the new address', async () => {
+		const server = {
+			port: 3000,
+			async move(to: number) {
+				server.port = to;
+			}
+		};
+		globalThis.__forgottenLettersListener = server;
+		const { moveTo } = await completeSetup(
+			{ ...input, port: 4500 },
+			{ ...ctx(), host: '10.1.2.3:3000' }
+		);
+		expect(server.port).toBe(4500);
+		expect(moveTo).toBe('http://10.1.2.3:4500');
+		expect((await getSettings()).port).toBe(4500);
+	});
+	it('a taken port rolls the whole setup back, with the reason on the port field', async () => {
+		globalThis.__forgottenLettersListener = {
+			port: 3000,
+			move: () => Promise.reject(Object.assign(new Error('taken'), { code: 'EADDRINUSE' }))
+		};
+		await expect(completeSetup({ ...input, port: 4600 }, ctx())).rejects.toMatchObject({
+			code: 'conflict',
+			fields: { port: 'Port 4600 is in use by another program.' }
+		});
+		expect((await sql()`select count(*)::int as n from auth.users`)[0]!.n).toBe(0);
+		expect(await isSetupOpen()).toBe(true);
 	});
 });

@@ -17,6 +17,7 @@ import {
 	pageQuery,
 	signInInput
 } from '#lib/schemas/auth';
+import { settingsPatch, setupInput } from '#lib/schemas/settings';
 import * as t from '#lib/api-types';
 import { ERROR_STATUS, type ErrorCode } from '../errors';
 import { SESSION_COOKIE } from './index';
@@ -35,6 +36,8 @@ export interface Endpoint {
 	body?: z.ZodType;
 	/** Success status and its body schema (none for 204). */
 	ok: { status: 200 | 201 | 204; schema?: z.ZodType; cookie?: boolean };
+	/** Another success answer, for example 202 when a port change moves the app. */
+	alsoOk?: { status: 202; schema: z.ZodType; description: string };
 	errors: ErrorCode[];
 }
 
@@ -187,6 +190,45 @@ export const ENDPOINTS: Endpoint[] = [
 	},
 	{
 		method: 'get',
+		path: '/setup',
+		summary: 'Whether first-run setup is open (no owner yet).',
+		auth: false,
+		ok: { status: 200, schema: t.setupState },
+		errors: []
+	},
+	{
+		method: 'post',
+		path: '/setup',
+		summary: 'Finish first-run setup: create the owner, save the look and port, sign in.',
+		auth: false,
+		body: setupInput,
+		ok: { status: 201, schema: t.setupDone, cookie: true },
+		errors: [...WRITE, 'conflict', 'rate_limited']
+	},
+	{
+		method: 'get',
+		path: '/settings',
+		summary: 'The copy-wide settings: text size, accent, port and address.',
+		auth: true,
+		ok: { status: 200, schema: t.settingsOut },
+		errors: ['unauthenticated']
+	},
+	{
+		method: 'patch',
+		path: '/settings',
+		summary: 'Change text size, accent or port (owners).',
+		auth: true,
+		body: settingsPatch,
+		ok: { status: 200, schema: t.settingsOut },
+		alsoOk: {
+			status: 202,
+			schema: t.moveOut,
+			description: 'The port changed: open `moveTo`; the old port closes shortly.'
+		},
+		errors: [...WRITE, 'unauthenticated', 'conflict']
+	},
+	{
+		method: 'get',
 		path: '/audit',
 		summary: 'The audit log, newest first.',
 		auth: true,
@@ -209,7 +251,8 @@ const MESSAGES: Record<ErrorCode, string> = {
 	unauthenticated: 'Not signed in, or the session expired.',
 	forbidden: 'Signed in but not allowed, or a cross-site request.',
 	not_found: 'No such resource.',
-	conflict: 'Stale version, a used or expired invite, or the last owner.',
+	conflict:
+		'Stale version, a used or expired invite, the last owner, setup not done or already done, or a port that is locked or in use.',
 	rate_limited: 'Too many tries; see Retry-After.',
 	internal: 'Unexpected error; quote the request id.',
 	unavailable: 'Starting or shutting down; see Retry-After.'
@@ -227,6 +270,11 @@ function operation(e: Endpoint): ZodOpenApiOperationObject {
 			...(e.ok.schema ? { content: { 'application/json': { schema: e.ok.schema } } } : {})
 		}
 	};
+	if (e.alsoOk)
+		responses[e.alsoOk.status] = {
+			description: e.alsoOk.description,
+			content: { 'application/json': { schema: e.alsoOk.schema } }
+		};
 	// Every endpoint can also answer internal (500) and unavailable (503).
 	const byStatus = new Map<number, ErrorCode[]>();
 	for (const c of [...e.errors, 'internal', 'unavailable'] as ErrorCode[])

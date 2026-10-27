@@ -1,6 +1,6 @@
 /**
- * The housekeeping jobs: hourly cleanup of expired sessions, invites and setup tokens and of audit entries past the
- * retention period; a daily backup with pruning of old dumps.
+ * The housekeeping jobs: hourly cleanup of expired sessions and invites and of audit entries past the retention
+ * period; a daily backup with pruning of old dumps.
  */
 import { db } from './db';
 import { config } from './infra/config';
@@ -23,7 +23,6 @@ export function housekeeping(): Job[] {
 				const cutoff = new Date(Date.now() - config().RETENTION_DAYS * DAY);
 				await sessionsRepo.removeExpired(db());
 				await invitesRepo.removeStale(db(), new Date(Date.now() - 30 * DAY));
-				await invitesRepo.removeExpiredSetupTokens(db());
 				await auditRepo.removeOlderThan(db(), cutoff);
 			}
 		},

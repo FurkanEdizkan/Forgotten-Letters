@@ -1,7 +1,7 @@
-/** Invites and first-owner setup tokens. The only SQL for auth.invites and auth.setup_tokens. */
+/** Invites. The only SQL for auth.invites. */
 import { and, desc, eq, gt, isNull, lt } from 'drizzle-orm';
 import type { Tx } from '../db';
-import { invites, setupTokens } from '../db/schema';
+import { invites } from '../db/schema';
 
 export async function insert(tx: Tx, row: typeof invites.$inferInsert) {
 	const [i] = await tx.insert(invites).values(row).returning();
@@ -48,27 +48,3 @@ export function pending(tx: Tx, createdBy?: string) {
 /** Invites that expired unused before this date (used ones stay: they show who invited whom). */
 export const removeStale = (tx: Tx, before: Date) =>
 	tx.delete(invites).where(and(lt(invites.expiresAt, before), isNull(invites.usedAt)));
-
-// ---- first-owner setup tokens
-
-export async function insertSetupToken(tx: Tx, tokenHash: string, expiresAt: Date) {
-	await tx.insert(setupTokens).values({ tokenHash, expiresAt });
-}
-
-export async function lockSetupToken(tx: Tx, tokenHash: string) {
-	const [t] = await tx
-		.select()
-		.from(setupTokens)
-		.where(eq(setupTokens.tokenHash, tokenHash))
-		.for('update');
-	return t ?? null;
-}
-
-export const findSetupToken = async (tx: Tx, tokenHash: string) =>
-	(await tx.select().from(setupTokens).where(eq(setupTokens.tokenHash, tokenHash)))[0] ?? null;
-
-export const useSetupToken = (tx: Tx, id: string) =>
-	tx.update(setupTokens).set({ usedAt: new Date() }).where(eq(setupTokens.id, id));
-
-export const removeExpiredSetupTokens = (tx: Tx) =>
-	tx.delete(setupTokens).where(lt(setupTokens.expiresAt, new Date()));

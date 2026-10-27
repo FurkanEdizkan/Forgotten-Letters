@@ -1,6 +1,6 @@
 /**
- * The database schema. Each area of the app has its own Postgres schema; step 1 adds `auth`: accounts, sessions,
- * invites, first-owner setup tokens and the audit log. Ids come from Postgres 18's uuidv7() (time-ordered);
+ * The database schema. Each area of the app has its own Postgres schema: `auth` holds accounts, sessions, invites
+ * and the audit log; `app` holds the copy-wide settings. Ids come from Postgres 18's uuidv7() (time-ordered);
  * append-only logs use bigint identity. Names are snake_case in SQL and camelCase in TypeScript.
  */
 import { sql } from 'drizzle-orm';
@@ -13,11 +13,13 @@ import {
 	integer,
 	jsonb,
 	pgSchema,
+	smallint,
 	text,
 	timestamp,
 	uniqueIndex,
 	uuid
 } from 'drizzle-orm/pg-core';
+import { ACCENTS, PORT, TEXT_SCALE } from '../../schemas/settings';
 
 export const auth = pgSchema('auth');
 
@@ -102,18 +104,6 @@ export const invites = auth.table(
 	]
 );
 
-export const setupTokens = auth.table(
-	'setup_tokens',
-	{
-		id: id(),
-		tokenHash: text().notNull(),
-		expiresAt: timestamp({ withTimezone: true }).notNull(),
-		usedAt: timestamp({ withTimezone: true }),
-		createdAt: createdAt()
-	},
-	(t) => [uniqueIndex('setup_tokens_token_key').on(t.tokenHash)]
-);
-
 export const auditLog = auth.table(
 	'audit_log',
 	{
@@ -130,8 +120,43 @@ export const auditLog = auth.table(
 	(t) => [index('audit_log_at_idx').on(t.at), index('audit_log_actor_at_idx').on(t.actorId, t.at)]
 );
 
+export const appSchema = pgSchema('app');
+
+const accentList = sql.raw(ACCENTS.map((a) => `'${a}'`).join(', '));
+
+/**
+ * The copy-wide settings: exactly one row (id 1), made by the migration. The checks repeat the zod rules in
+ * `schemas/settings.ts`, so a bad value cannot be stored even by hand. `setup_completed_at` is null until the first
+ * owner finishes the setup wizard.
+ */
+export const settings = appSchema.table(
+	'settings',
+	{
+		id: smallint().primaryKey().default(1),
+		textScale: smallint().notNull().default(TEXT_SCALE.default),
+		accent: text().notNull().default('blood'),
+		port: integer().notNull().default(PORT.default),
+		setupCompletedAt: timestamp({ withTimezone: true }),
+		updatedAt: updatedAt(),
+		updatedBy: uuid().references(() => users.id, { onDelete: 'set null' })
+	},
+	(t) => [
+		check('settings_single_row', sql`${t.id} = 1`),
+		check(
+			'settings_text_scale_range',
+			sql`${t.textScale} between ${sql.raw(String(TEXT_SCALE.min))} and ${sql.raw(String(TEXT_SCALE.max))} and ${t.textScale} % ${sql.raw(String(TEXT_SCALE.step))} = 0`
+		),
+		check('settings_accent_preset', sql`${t.accent} in (${accentList})`),
+		check(
+			'settings_port_range',
+			sql`${t.port} between ${sql.raw(String(PORT.min))} and ${sql.raw(String(PORT.max))}`
+		)
+	]
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type Role = (typeof role.enumValues)[number];
+export type SettingsRow = typeof settings.$inferSelect;

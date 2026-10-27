@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import { ROLES } from './roles';
+import { ACCENTS } from './schemas/settings';
 
 /** The fixed error codes (mirrors ERROR_STATUS in server/errors.ts; this file must stay free of server code). */
 export const ERROR_CODES = [
@@ -123,6 +124,21 @@ export const auditPage = z.object({
 	items: z.array(auditEntryOut),
 	next: z.number().int().nullable()
 });
+
+export const settingsOut = z
+	.object({
+		textScale: z.number().int(),
+		accent: z.enum(ACCENTS),
+		port: z.number().int(),
+		portLocked: z.boolean(),
+		address: z.string()
+	})
+	.meta({ id: 'Settings' });
+
+/** After a port change: the address to open; the old port closes a little later. */
+export const moveOut = z.object({ moveTo: z.string() });
+export const setupState = z.object({ open: z.boolean() });
+export const setupDone = z.object({ user: userOut, moveTo: z.string().nullable() });
 
 export const errorOut = z
 	.object({

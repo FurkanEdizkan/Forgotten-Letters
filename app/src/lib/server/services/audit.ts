@@ -11,6 +11,8 @@ export interface Ctx {
 	ip: string | null;
 	userAgent: string | null;
 	requestId: string;
+	/** The Host the browser asked for (with its port), to build addresses such as the new one after a port move. */
+	host?: string | null;
 }
 
 export interface SessionUser {
@@ -25,6 +27,7 @@ export interface SessionUser {
 
 export type AuditAction =
 	| 'setup.owner_created'
+	| 'settings.changed'
 	| 'sign_in'
 	| 'sign_in.failed'
 	| 'sign_out'

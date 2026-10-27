@@ -6,7 +6,6 @@
  */
 import { AppError } from '../errors';
 import { db, type Tx } from '../db';
-import type { SettingsRow } from '../db/schema';
 import { config } from '../infra/config';
 import {
 	currentPort,
@@ -16,6 +15,7 @@ import {
 	portLocked
 } from '../infra/listener';
 import * as settingsRepo from '../repos/settings';
+import type { SettingsRow } from '../repos/settings';
 import { record, type Ctx } from './audit';
 import { requireUser } from './auth';
 import type { Accent, Settings, SettingsPatch } from '#lib/schemas/settings';

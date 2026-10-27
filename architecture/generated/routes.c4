@@ -6,7 +6,7 @@ model {
       metadata {
         generated 'true'
         route '/'
-        code ['app/src/routes/+error.svelte', 'app/src/routes/+layout.svelte', 'app/src/routes/+page.server.ts']
+        code ['app/src/routes/+error.svelte', 'app/src/routes/+layout.server.ts', 'app/src/routes/+layout.svelte', 'app/src/routes/+page.server.ts']
       }
     }
     route_app = page '/' {
@@ -172,9 +172,37 @@ action:revoke: Revoke a pending invite; its link stops working.
         code ['app/src/routes/(app)/owner/invites/+page.server.ts', 'app/src/routes/(app)/owner/invites/+page.svelte']
       }
     }
+    route_app_owner_settings = page '/owner/settings' {
+      description 'actions: save
+action:save: Change the copy-wide text size, accent and port.
+  Who: owner only.
+  In: form settingsPatch { textScale?, accent?, port? } (at least one; the port is left out while it is locked).
+  Out: { op: \'save\', done: true, moveTo } — moveTo is the new address after a port change, else null.
+  Errors: 400 invalid (field messages), 401 unauthenticated, 403 forbidden, 409 conflict (port locked or in use, with a message on the port field).'
+      metadata {
+        generated 'true'
+        route '/owner/settings'
+        code ['app/src/routes/(app)/owner/settings/+page.server.ts', 'app/src/routes/(app)/owner/settings/+page.svelte']
+      }
+    }
   }
 
   extend fl.app.web.publicPages {
+    route_public_help = page '/help' {
+      description 'layout'
+      metadata {
+        generated 'true'
+        route '/help'
+        code ['app/src/routes/(public)/help/+layout.server.ts', 'app/src/routes/(public)/help/+layout.svelte']
+      }
+    }
+    route_public_help_page = page '/help/[page]' {
+      metadata {
+        generated 'true'
+        route '/help/[page]'
+        code ['app/src/routes/(public)/help/[page]/+page.svelte', 'app/src/routes/(public)/help/[page]/+page.ts']
+      }
+    }
     route_public_invite_token = page '/invite/[token]' {
       description 'actions: default
 action:default: Accept an invite: create the account with the invite\'s role and sign it in.
@@ -201,17 +229,24 @@ action:default: Sign in with username and password; one form for every role.
         code ['app/src/routes/(public)/login/+page.server.ts', 'app/src/routes/(public)/login/+page.svelte']
       }
     }
-    route_public_setup_token = page '/setup/[token]' {
-      description 'actions: default
-action:default: Create the first owner with the one-time setup link and sign them in.
-  Who: anyone holding the setup link printed in the logs, while no owner exists.
-  In: form { username, displayName, password }.
-  Out: 303 to /owner with a remembered session cookie.
-  Errors: 400 invalid (taken username, common password), 409 conflict link used or expired or an owner exists.'
+    route_public_setup = page '/setup' {
+      description 'actions: finish
+action:finish: Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.
+  Who: anyone, while no Owner exists (open setup, Jellyfin style).
+  In: form setupInput { username, displayName, password, textScale, accent, port } (the wizard\'s four steps).
+  Out: 303 to the new address when the port moves, else to /owner, with a remembered session cookie.
+  Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 conflict when an Owner already exists or the port cannot be opened (reason on the port field), 429 rate_limited.'
       metadata {
         generated 'true'
-        route '/setup/[token]'
-        code ['app/src/routes/(public)/setup/[token]/+page.server.ts', 'app/src/routes/(public)/setup/[token]/+page.svelte']
+        route '/setup'
+        code ['app/src/routes/(public)/setup/+page.server.ts', 'app/src/routes/(public)/setup/+page.svelte']
+      }
+    }
+    route_public_welcome = page '/welcome' {
+      metadata {
+        generated 'true'
+        route '/welcome'
+        code ['app/src/routes/(public)/welcome/+page.svelte']
       }
     }
     route_logout = page '/logout' {
@@ -396,6 +431,42 @@ GET: The OpenAPI 3.1 document for this API.
         code ['app/src/routes/api/v1/openapi.json/+server.ts']
       }
     }
+    route_api_v1_settings = endpoint '/api/v1/settings' {
+      description 'GET PATCH
+GET: The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.
+  Who: any signed-in account.
+  In: nothing.
+  Out: 200 { textScale, accent, port, portLocked, address }
+  Errors: 401 unauthenticated.
+PATCH: Change text size, accent or port.
+  Who: owners.
+  In: { textScale?, accent?, port? } with at least one field.
+  Out: 200 { textScale, accent, port, portLocked, address }, or 202 { moveTo } when the port moved (the old port closes shortly).
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 409 conflict port locked (Docker: APP_PORT in .env) or in use.'
+      metadata {
+        generated 'true'
+        route '/api/v1/settings'
+        code ['app/src/routes/api/v1/settings/+server.ts']
+      }
+    }
+    route_api_v1_setup = endpoint '/api/v1/setup' {
+      description 'GET POST
+GET: Whether first-run setup is open, that is, no owner exists yet.
+  Who: anyone.
+  In: nothing.
+  Out: 200 { open }
+  Errors: none.
+POST: Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.
+  Who: anyone, while no owner exists.
+  In: { username, displayName, password, textScale, accent, port }
+  Out: 201 { user, moveTo } and a session cookie; moveTo is the new address when the port moved, else null.
+  Errors: 400 invalid (field reasons: taken username, weak password, out-of-range look or port), 403 forbidden other site, 409 conflict setup already done or the port is in use, 429 rate_limited.'
+      metadata {
+        generated 'true'
+        route '/api/v1/setup'
+        code ['app/src/routes/api/v1/setup/+server.ts']
+      }
+    }
     route_api_v1_users = endpoint '/api/v1/users' {
       description 'GET
 GET: A page of people, oldest first.
@@ -476,15 +547,19 @@ GET: Readiness: the database answers and every migration is applied.
     }
   }
 
+  fl.app.web.areas.route_root -[imports]-> fl.app.services.settingsService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_root -[imports]-> fl.app.services.setupService {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_root -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 
   fl.app.web.areas.route_root -[imports]-> fl.app.ui {
-    metadata { generated 'true' }
-  }
-
-  fl.app.web.areas.route_app -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 
@@ -624,6 +699,30 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.services.settingsService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_help -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_help_page -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.publicPages.route_public_invite_token -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -656,19 +755,27 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
-  fl.app.web.publicPages.route_public_setup_token -[imports]-> fl.app.infra {
+  fl.app.web.publicPages.route_public_setup -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
 
-  fl.app.web.publicPages.route_public_setup_token -[imports]-> fl.app.services.setupService {
+  fl.app.web.publicPages.route_public_setup -[imports]-> fl.app.services.settingsService {
     metadata { generated 'true' }
   }
 
-  fl.app.web.publicPages.route_public_setup_token -[imports]-> fl.app.shared {
+  fl.app.web.publicPages.route_public_setup -[imports]-> fl.app.services.setupService {
     metadata { generated 'true' }
   }
 
-  fl.app.web.publicPages.route_public_setup_token -[imports]-> fl.app.ui {
+  fl.app.web.publicPages.route_public_setup -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_setup -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_welcome -[imports]-> fl.app.ui {
     metadata { generated 'true' }
   }
 
@@ -797,6 +904,30 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_openapi_json -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_settings -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_settings -[imports]-> fl.app.services.settingsService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_settings -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_setup -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_setup -[imports]-> fl.app.services.setupService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_setup -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 

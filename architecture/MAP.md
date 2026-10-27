@@ -13,69 +13,82 @@ shortest unique end of their id.
     - `fl.app.web` Web (routes) — Pages, form actions and API endpoints.
       uses: services shared ui infra
       used by: owner admin user
-      - `fl.app.web.areas` Role areas and account — Each role lands in its own area; a header switcher shows every area the person can use.
+      - `fl.app.web.areas` App shell, role areas and account — The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the…
         files: app/src/routes/(app)/ guard.ts
-        uses: shared ui infra authService inviteService peopleService auditService backupService
-        routes: / (layout) · / (layout) · /account (actions: everywhere (Sign out of every other device.), name (Change my display name.), password (Change my password; my other devices are signed out.)) · /account/password (actions: default (Replace a temporary password after a reset; required before anything else.)) · /admin (actions: create (Create an invite link; Campaign Masters invite users, owners also admins. The link is shown only now.), resend (Re-send one of my invites: a fresh link with the same role and note; the old link stops working.), revoke (Revoke one of my pending invites; its link stops working.)) · /home · /owner (actions: anonymise (Anonymise a disabled account: its display name becomes "Former member".), disable (Disable an account: it is signed out everywhere and cannot sign in; its history stays.), enable (Enable a disabled account again.), reset (Reset a password to a temporary one, shown once, to be changed at the next sign-in.), role (Change a person's role; the last owner can never be demoted.)) · /owner/audit · /owner/backups (actions: restore (Restore a backup over the current data; a dump of the current state is written first.)) · /owner/backups/[name] (GET (Download one backup file (audited).)) · /owner/invites (actions: create (Create an invite link for an admin or a user; the link is shown only now.), resend (Re-send an invite: a fresh link with the same role and note; the old link stops working.), revoke (Revoke a pending invite; its link stops working.))
-      - `fl.app.web.publicPages` Sign-in, setup and invite pages — The one sign-in screen for every role, the first-owner setup page, and joining by invite.
-        code: app/src/routes/(public)/** app/src/routes/logout/**
-        uses: infra inviteService shared ui authService setupService
+        uses: settingsService setupService shared ui infra authService inviteService peopleService auditService backupService
+        routes: / (layout) · / (layout) · /account (actions: everywhere (Sign out of every other device.), name (Change my display name.), password (Change my password; my other devices are signed out.)) · /account/password (actions: default (Replace a temporary password after a reset; required before anything else.)) · /admin (actions: create (Create an invite link; Campaign Masters invite users, owners also admins. The link is shown only now.), resend (Re-send one of my invites: a fresh link with the same role and note; the old link stops working.), revoke (Revoke one of my pending invites; its link stops working.)) · /home · /owner (actions: anonymise (Anonymise a disabled account: its display name becomes "Former member".), disable (Disable an account: it is signed out everywhere and cannot sign in; its history stays.), enable (Enable a disabled account again.), reset (Reset a password to a temporary one, shown once, to be changed at the next sign-in.), role (Change a person's role; the last owner can never be demoted.)) · /owner/audit · /owner/backups (actions: restore (Restore a backup over the current data; a dump of the current state is written first.)) · /owner/backups/[name] (GET (Download one backup file (audited).)) · /owner/invites (actions: create (Create an invite link for an admin or a user; the link is shown only now.), resend (Re-send an invite: a fresh link with the same role and note; the old link stops working.), revoke (Revoke a pending invite; its link stops working.)) · /owner/settings (actions: save (Change the copy-wide text size, accent and port.))
+      - `fl.app.web.publicPages` Welcome, setup, sign-in, invite and help pages — The welcome page and four-step setup wizard on a fresh install (Owner, Look, Server, Done); the one sign-in screen for every role, in the…
+        files: app/src/routes/(public)/setup/ ServerStep.svelte wizard.ts
+        uses: ui infra inviteService shared authService settingsService setupService
         used by: visitor
-        routes: /invite/[token] (actions: default (Accept an invite: create the account with the invite's role and sign it in.)) · /login (actions: default (Sign in with username and password; one form for every role.)) · /logout (actions: default (Sign out of this device.)) · /setup/[token] (actions: default (Create the first owner with the one-time setup link and sign them in.))
+        routes: /help (layout) · /help/[page] · /invite/[token] (actions: default (Accept an invite: create the account with the invite's role and sign it in.)) · /login (actions: default (Sign in with username and password; one form for every role.)) · /logout (actions: default (Sign out of this device.)) · /setup (actions: finish (Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.)) · /welcome
       - `fl.app.web.api` JSON API v1 — The same actions as the pages, authenticated by the session cookie; documented by an OpenAPI document.
         code: app/src/routes/api/**
-        uses: infra auditService shared authService inviteService peopleService
-        routes: /api/v1/audit (GET (The audit log, newest first, optionally one action.)) · /api/v1/auth/login (POST (Sign in with username and password.)) · /api/v1/auth/logout (POST (Sign out on this device.)) · /api/v1/auth/logout-everywhere (POST (Sign out every other device; this one stays signed in.)) · /api/v1/invites (GET (Pending invites.) POST (Create an invite link; the link is shown only now.)) · /api/v1/invites/[id] (DELETE (Withdraw an invite; its link stops working.)) · /api/v1/invites/[id]/resend (POST (Replace an invite with a fresh link for the same role and note; the old link stops working.)) · /api/v1/invites/token/[token] (GET (What an invite link offers: its state, role, note, inviter and expiry.)) · /api/v1/invites/token/[token]/accept (POST (Accept an invite: create the account and sign it in.)) · /api/v1/me (GET (The signed-in account and the areas it may use.) PATCH (Change the display name.)) · /api/v1/me/password (POST (Change the password; every other device is signed out.)) · /api/v1/openapi.json (GET (The OpenAPI 3.1 document for this API.)) · /api/v1/users (GET (A page of people, oldest first.)) · /api/v1/users/[id] (PATCH (Change an account's role and/or disable or enable it.)) · /api/v1/users/[id]/anonymise (POST (Anonymise a disabled account: its display name becomes "Former member".)) · /api/v1/users/[id]/reset-password (POST (Set a temporary password, returned once, and end the account's sessions.))
+        uses: infra auditService shared authService inviteService settingsService setupService peopleService
+        routes: /api/v1/audit (GET (The audit log, newest first, optionally one action.)) · /api/v1/auth/login (POST (Sign in with username and password.)) · /api/v1/auth/logout (POST (Sign out on this device.)) · /api/v1/auth/logout-everywhere (POST (Sign out every other device; this one stays signed in.)) · /api/v1/invites (GET (Pending invites.) POST (Create an invite link; the link is shown only now.)) · /api/v1/invites/[id] (DELETE (Withdraw an invite; its link stops working.)) · /api/v1/invites/[id]/resend (POST (Replace an invite with a fresh link for the same role and note; the old link stops working.)) · /api/v1/invites/token/[token] (GET (What an invite link offers: its state, role, note, inviter and expiry.)) · /api/v1/invites/token/[token]/accept (POST (Accept an invite: create the account and sign it in.)) · /api/v1/me (GET (The signed-in account and the areas it may use.) PATCH (Change the display name.)) · /api/v1/me/password (POST (Change the password; every other device is signed out.)) · /api/v1/openapi.json (GET (The OpenAPI 3.1 document for this API.)) · /api/v1/settings (GET (The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.) PATCH (Change text size, accent or port.)) · /api/v1/setup (GET (Whether first-run setup is open, that is, no owner exists yet.) POST (Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.)) · /api/v1/users (GET (A page of people, oldest first.)) · /api/v1/users/[id] (PATCH (Change an account's role and/or disable or enable it.)) · /api/v1/users/[id]/anonymise (POST (Anonymise a disabled account: its display name becomes "Former member".)) · /api/v1/users/[id]/reset-password (POST (Set a temporary password, returned once, and end the account's sessions.))
       - `fl.app.web.health` Health — Liveness for Docker; readiness (database and migrations) for proxies and smoke tests.
         code: app/src/routes/health/**
         uses: infra
         routes: /health/live (GET (Liveness: the process is up and answering. No database call.)) · /health/ready (GET (Readiness: the database answers and every migration is applied.))
-    - `fl.app.authTables` auth schema — Accounts, sessions, invites, setup tokens and the audit log.
+    - `fl.app.authTables` auth schema — Accounts, sessions, invites and the audit log.
       files: app/src/lib/server/db/ schema.ts
-      tables: users sessions invites setup_tokens audit_log
-      uses: db
+      tables: users sessions invites audit_log
+      uses: shared db
       used by: repos infra
+    - `fl.app.appTables` app schema — Copy-wide settings: one row with text size, accent, port and when setup was completed.
+      tables: settings
+      uses: db
+      used by: repos
 - `owner` Owner — Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.
   uses: web
 - `admin` Admin (Campaign Master) — Runs campaigns; invites players.
   uses: web
 - `user` User (player) — Plays warbands and follows the campaign.
   uses: web
-- `visitor` Visitor — Not signed in: sees the sign-in, setup and invite pages only.
+- `visitor` Visitor — Not signed in: sees the welcome and setup pages on a fresh install, then the sign-in, invite and help pages.
   uses: publicPages
   - `fl.db` PostgreSQL 18 — All data, on a named volume.
-    used by: authTables infra
+    used by: authTables appTables infra
   - `fl.caddy` Caddy (optional) — HTTPS certificate for a server deployment; off on a LAN.
     uses: app
-    - `fl.app.hooks` Request pipeline #server-only — Start-up (migrations, setup link, jobs), then for every request: request id, readiness gate, session, API guard, access log, error mapping.
+    - `fl.app.server` Custom server #server-only — Starts the built app and owns its listeners, so the port stored in settings can change while running: open the new port, then close the old…
+      code: app/server/**
+      uses: hooks
+      used by: infra
+    - `fl.app.hooks` Request pipeline #server-only — Start-up (migrations, setup notice, listen on the stored port, jobs), then for every request: request id, readiness gate, setup guard (to…
       files: app/src/ hooks.server.ts
-      uses: services infra
-    - `fl.app.ui` Components and look #client — The design system in code: tokens, fonts, styled components, the message file.
-      files: app/src/ app.d.ts; app/src/lib/ messages.ts; app/src/lib/ui/ AuthCard.svelte BandHeader.svelte Button.svelte Card.svelte Checkbox.svelte ConfirmButton.svelte EmptyState.svelte Field.svelte Invites.svelte Message.svelte RoleBadge.svelte SecretBox.svelte Time.svelte
+      uses: services infra shared
+      used by: server
+    - `fl.app.ui` Components and look #client — The design system in code: tokens and accent presets, fonts, glass buttons and form controls, the emblem, skeletons, the anime.js motion…
+      files: app/src/ app.d.ts; app/src/lib/ messages.ts; app/src/lib/ui/ AuthCard.svelte BandHeader.svelte Button.svelte Callout.svelte Card.svelte Checkbox.svelte ConfirmButton.svelte EmptyState.svelte Field.svelte GlassButton.svelte Invites.svelte Message.svelte RoleBadge.svelte SecretBox.svelte Segmented.svelte Skeleton.svelte Slider.svelte SplitStage.svelte Stepper.svelte SwatchGroup.svelte TextPreview.svelte Time.svelte WizardField.svelte accents.ts motion.ts; app/src/lib/ui/emblem/ Emblem.svelte glyphs.ts; app/src/lib/ui/shell/ PageSkeleton.svelte Shell.svelte SidePanel.svelte TopBar.svelte UserMenu.svelte glow.ts nav.ts
       uses: shared auditService
       used by: areas publicPages web
     - `fl.app.shared` Shared lib #pure — Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.
-      files: app/src/lib/ api-types.ts index.ts roles.ts; app/src/lib/schemas/ auth.ts
-      used by: areas publicPages api web services ui infra
+      files: app/src/lib/ api-types.ts index.ts roles.ts; app/src/lib/schemas/ auth.ts settings.ts
+      used by: areas publicPages api web services hooks authTables ui infra
     - `fl.app.services` Services — Business rules.
       uses: repos infra shared
       used by: hooks web
     - `fl.app.repos` Repos #server-only — The only place with SQL: one module per table group, taking a db or a transaction.
-      files: app/src/lib/server/repos/ audit.ts invites.ts sessions.ts users.ts
-      uses: authTables infra
+      files: app/src/lib/server/repos/ audit.ts invites.ts sessions.ts settings.ts users.ts
+      uses: authTables appTables infra
       used by: services infra
-    - `fl.app.infra` Infra #server-only — Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.
-      files: app/src/lib/server/db/ index.ts; app/src/lib/server/ errors.ts jobs.ts; app/src/lib/server/http/ index.ts openapi.ts; app/src/lib/server/infra/ config.ts jobs.ts logger.ts migrate.ts rate-limit.ts
-      uses: authTables auditService shared repos backupService db
+    - `fl.app.infra` Infra #server-only — Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations, and the bridge to the custom…
+      files: app/src/lib/server/db/ index.ts; app/src/lib/server/ errors.ts jobs.ts; app/src/lib/server/http/ index.ts openapi.ts setup-guard.ts; app/src/lib/server/infra/ config.ts jobs.ts listener.ts logger.ts migrate.ts rate-limit.ts
+      uses: authTables auditService shared repos backupService server db
       used by: areas publicPages api health hooks web services repos
       - `fl.app.services.authService` Sign-in and sessions #server-only — Sign in and out, sessions (create, read, slide, end), password changes, the sign-in rate limit.
         files: app/src/lib/server/services/ auth.ts passwords.ts
         uses: auditService
-        used by: areas publicPages api peopleService inviteService setupService
-      - `fl.app.services.setupService` First owner setup #server-only — While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.
+        used by: areas publicPages api peopleService inviteService setupService settingsService
+      - `fl.app.services.setupService` First-run setup #server-only — Setup is open while no owner exists (Jellyfin style).
         files: app/src/lib/server/services/ setup.ts
-        uses: authService auditService
-        used by: publicPages
+        uses: authService auditService settingsService
+        used by: areas publicPages api
+      - `fl.app.services.settingsService` Instance settings #server-only — Reads and changes the copy-wide settings (text size, accent, port).
+        files: app/src/lib/server/services/ settings.ts
+        uses: auditService authService
+        used by: areas publicPages api setupService
       - `fl.app.services.peopleService` People #server-only — Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.
         files: app/src/lib/server/services/ people.ts
         uses: auditService authService
@@ -86,7 +99,7 @@ shortest unique end of their id.
         used by: areas publicPages api
       - `fl.app.services.auditService` Audit log #server-only — Records sign-ins, invites, role changes, disables and resets; the owner reads it.
         files: app/src/lib/server/services/ audit.ts
-        used by: areas api authService peopleService inviteService setupService backupService ui infra
+        used by: areas api authService peopleService inviteService setupService settingsService backupService ui infra
       - `fl.app.services.backupService` Backups #server-only — pgdump before migrations and daily (14 days kept); owner download and restore.
         files: app/src/lib/server/services/ backups.ts
         uses: auditService
@@ -94,17 +107,20 @@ shortest unique end of their id.
 
 ## Features
 
-### First start: migrations, backup, the first owner (`first_start`)
+### First start: migrations, backup, the setup wizard (`first_start`)
 
-**A group installs the app and becomes its owner without editing passwords into files.**
+**A group installs the app and sets it up in the browser, Jellyfin style, without editing files.**
 
-1. hooks → backupService: dump before migrating
-2. hooks → infra: apply migrations under a lock
-3. hooks → setupService: no owner: log a setup link
-4. visitor → publicPages: opens /setup/<token>, chooses username and password
-5. publicPages → setupService: create the first owner
-6. setupService → repos: insert owner, use the token
-7. setupService → authService: start a session
+1. server → hooks: load the built app
+2. hooks → backupService: dump before migrating
+3. hooks → infra: apply migrations under a lock
+4. hooks → setupService: no owner: log that setup is open
+5. hooks → settingsService: listen on the stored port
+6. visitor → publicPages: opens any page, lands on /welcome, presses Setup, fills the four steps
+7. publicPages → setupService: finish: owner, look, port
+8. setupService → repos: lock settings, insert owner, save settings
+9. setupService → authService: start a session
+10. setupService → auditService: record the first owner
 
 ### Invite and join (`invite_and_join`)
 
@@ -148,6 +164,17 @@ shortest unique end of their id.
 3. authService → repos: read session, slide expiry
 4. user → areas: change password, sign out everywhere
 5. areas → authService: change password, end sessions
+
+### Instance settings: text size, accent and port (`instance_settings`)
+
+**The Owner changes how the copy looks and where it listens, from the browser.**
+
+1. owner → areas: opens /owner/settings, changes text size, accent or port
+2. areas → settingsService: save
+3. settingsService → repos: update the settings row
+4. settingsService → infra: port changed: move the listener
+5. infra → server: open the new port, close the old one
+6. settingsService → auditService: record the change
 
 ### Sign-in: one screen for every role (`sign_in`)
 

@@ -10,10 +10,13 @@ model {
     table_invites = table 'invites' {
       metadata { generated 'true' }
     }
-    table_setup_tokens = table 'setup_tokens' {
+    table_audit_log = table 'audit_log' {
       metadata { generated 'true' }
     }
-    table_audit_log = table 'audit_log' {
+  }
+
+  extend fl.app.appTables {
+    table_settings = table 'settings' {
       metadata { generated 'true' }
     }
   }

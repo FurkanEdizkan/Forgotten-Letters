@@ -16,7 +16,7 @@
    "id": "fl.app",
    "kind": "service",
    "title": "app",
-   "description": "Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), the first-owner setup link, background jobs.",
+   "description": "Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), \"setup is open\" in the log while there is no owner, listening on the stored port, background jobs.",
    "tags": [],
    "code": [],
    "tables": [],
@@ -43,8 +43,8 @@
   {
    "id": "fl.app.web.areas",
    "kind": "page",
-   "title": "Role areas and account",
-   "description": "Each role lands in its own area; a header switcher shows every area the person can use.",
+   "title": "App shell, role areas and account",
+   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/**",
@@ -65,6 +65,7 @@
    "tags": [],
    "code": [
     "app/src/routes/+error.svelte",
+    "app/src/routes/+layout.server.ts",
     "app/src/routes/+layout.svelte",
     "app/src/routes/+page.server.ts"
    ],
@@ -225,10 +226,25 @@
    "parent": "fl.app.web.areas"
   },
   {
+   "id": "fl.app.web.areas.route_app_owner_settings",
+   "kind": "page",
+   "title": "/owner/settings",
+   "description": "actions: save\naction:save: Change the copy-wide text size, accent and port.\n  Who: owner only.\n  In: form settingsPatch { textScale?, accent?, port? } (at least one; the port is left out while it is locked).\n  Out: { op: 'save', done: true, moveTo } — moveTo is the new address after a port change, else null.\n  Errors: 400 invalid (field messages), 401 unauthenticated, 403 forbidden, 409 conflict (port locked or in use, with a message on the port field).",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/settings/+page.server.ts",
+    "app/src/routes/(app)/owner/settings/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
    "id": "fl.app.web.publicPages",
    "kind": "page",
-   "title": "Sign-in, setup and invite pages",
-   "description": "The one sign-in screen for every role, the first-owner setup page, and joining by invite.",
+   "title": "Welcome, setup, sign-in, invite and help pages",
+   "description": "The welcome page and four-step setup wizard on a fresh install (Owner, Look, Server, Done); the one sign-in screen for every role, in the same split as the welcome page; joining by invite; help and legal placeholder pages.",
    "tags": [],
    "code": [
     "app/src/routes/(public)/**",
@@ -238,6 +254,36 @@
    "services": [],
    "generated": false,
    "parent": "fl.app.web"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_help",
+   "kind": "page",
+   "title": "/help",
+   "description": "layout",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/help/+layout.server.ts",
+    "app/src/routes/(public)/help/+layout.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_help_page",
+   "kind": "page",
+   "title": "/help/[page]",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/help/[page]/+page.svelte",
+    "app/src/routes/(public)/help/[page]/+page.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
   },
   {
    "id": "fl.app.web.publicPages.route_public_invite_token",
@@ -270,14 +316,28 @@
    "parent": "fl.app.web.publicPages"
   },
   {
-   "id": "fl.app.web.publicPages.route_public_setup_token",
+   "id": "fl.app.web.publicPages.route_public_setup",
    "kind": "page",
-   "title": "/setup/[token]",
-   "description": "actions: default\naction:default: Create the first owner with the one-time setup link and sign them in.\n  Who: anyone holding the setup link printed in the logs, while no owner exists.\n  In: form { username, displayName, password }.\n  Out: 303 to /owner with a remembered session cookie.\n  Errors: 400 invalid (taken username, common password), 409 conflict link used or expired or an owner exists.",
+   "title": "/setup",
+   "description": "actions: finish\naction:finish: Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.\n  Who: anyone, while no Owner exists (open setup, Jellyfin style).\n  In: form setupInput { username, displayName, password, textScale, accent, port } (the wizard's four steps).\n  Out: 303 to the new address when the port moves, else to /owner, with a remembered session cookie.\n  Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 conflict when an Owner already exists or the port cannot be opened (reason on the port field), 429 rate_limited.",
    "tags": [],
    "code": [
-    "app/src/routes/(public)/setup/[token]/+page.server.ts",
-    "app/src/routes/(public)/setup/[token]/+page.svelte"
+    "app/src/routes/(public)/setup/+page.server.ts",
+    "app/src/routes/(public)/setup/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
+   "id": "fl.app.web.publicPages.route_public_welcome",
+   "kind": "page",
+   "title": "/welcome",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/welcome/+page.svelte"
    ],
    "tables": [],
    "services": [],
@@ -481,6 +541,34 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_settings",
+   "kind": "endpoint",
+   "title": "/api/v1/settings",
+   "description": "GET PATCH\nGET: The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.\n  Who: any signed-in account.\n  In: nothing.\n  Out: 200 { textScale, accent, port, portLocked, address }\n  Errors: 401 unauthenticated.\nPATCH: Change text size, accent or port.\n  Who: owners.\n  In: { textScale?, accent?, port? } with at least one field.\n  Out: 200 { textScale, accent, port, portLocked, address }, or 202 { moveTo } when the port moved (the old port closes shortly).\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 409 conflict port locked (Docker: APP_PORT in .env) or in use.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/settings/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_setup",
+   "kind": "endpoint",
+   "title": "/api/v1/setup",
+   "description": "GET POST\nGET: Whether first-run setup is open, that is, no owner exists yet.\n  Who: anyone.\n  In: nothing.\n  Out: 200 { open }\n  Errors: none.\nPOST: Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.\n  Who: anyone, while no owner exists.\n  In: { username, displayName, password, textScale, accent, port }\n  Out: 201 { user, moveTo } and a session cookie; moveTo is the new address when the port moved, else null.\n  Errors: 400 invalid (field reasons: taken username, weak password, out-of-range look or port), 403 forbidden other site, 409 conflict setup already done or the port is in use, 429 rate_limited.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/setup/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_users",
    "kind": "endpoint",
    "title": "/api/v1/users",
@@ -582,7 +670,7 @@
    "id": "fl.app.authTables",
    "kind": "layer",
    "title": "auth schema",
-   "description": "Accounts, sessions, invites, setup tokens and the audit log.",
+   "description": "Accounts, sessions, invites and the audit log.",
    "tags": [],
    "code": [
     "app/src/lib/server/db/schema{,.db.spec}.ts",
@@ -593,7 +681,6 @@
     "users",
     "sessions",
     "invites",
-    "setup_tokens",
     "audit_log"
    ],
    "services": [],
@@ -637,18 +724,6 @@
    "parent": "fl.app.authTables"
   },
   {
-   "id": "fl.app.authTables.table_setup_tokens",
-   "kind": "table",
-   "title": "setup_tokens",
-   "description": "",
-   "tags": [],
-   "code": [],
-   "tables": [],
-   "services": [],
-   "generated": true,
-   "parent": "fl.app.authTables"
-  },
-  {
    "id": "fl.app.authTables.table_audit_log",
    "kind": "table",
    "title": "audit_log",
@@ -659,6 +734,32 @@
    "services": [],
    "generated": true,
    "parent": "fl.app.authTables"
+  },
+  {
+   "id": "fl.app.appTables",
+   "kind": "layer",
+   "title": "app schema",
+   "description": "Copy-wide settings: one row with text size, accent, port and when setup was completed.",
+   "tags": [],
+   "code": [],
+   "tables": [
+    "settings"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.appTables.table_settings",
+   "kind": "table",
+   "title": "settings",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.appTables"
   },
   {
    "id": "owner",
@@ -700,7 +801,7 @@
    "id": "visitor",
    "kind": "actor",
    "title": "Visitor",
-   "description": "Not signed in: sees the sign-in, setup and invite pages only.",
+   "description": "Not signed in: sees the welcome and setup pages on a fresh install, then the sign-in, invite and help pages.",
    "tags": [],
    "code": [],
    "tables": [],
@@ -740,10 +841,26 @@
    "parent": "fl"
   },
   {
+   "id": "fl.app.server",
+   "kind": "module",
+   "title": "Custom server",
+   "description": "Starts the built app and owns its listeners, so the port stored in settings can change while running: open the new port, then close the old one. Docker runs it with PORT_LOCKED=1.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/server/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
    "id": "fl.app.hooks",
    "kind": "module",
    "title": "Request pipeline",
-   "description": "Start-up (migrations, setup link, jobs), then for every request: request id, readiness gate, session, API guard, access log, error mapping.",
+   "description": "Start-up (migrations, setup notice, listen on the stored port, jobs), then for every request: request id, readiness gate, setup guard (to /welcome while there is no owner), session, access log, error mapping.",
    "tags": [
     "server-only"
    ],
@@ -759,7 +876,7 @@
    "id": "fl.app.ui",
    "kind": "module",
    "title": "Components and look",
-   "description": "The design system in code: tokens, fonts, styled components, the message file.",
+   "description": "The design system in code: tokens and accent presets, fonts, glass buttons and form controls, the emblem, skeletons, the anime.js motion helpers, the message file.",
    "tags": [
     "client"
    ],
@@ -826,7 +943,7 @@
    "id": "fl.app.infra",
    "kind": "module",
    "title": "Infra",
-   "description": "Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.",
+   "description": "Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations, and the bridge to the custom server that moves the port.",
    "tags": [
     "server-only"
    ],
@@ -863,13 +980,29 @@
   {
    "id": "fl.app.services.setupService",
    "kind": "module",
-   "title": "First owner setup",
-   "description": "While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.",
+   "title": "First-run setup",
+   "description": "Setup is open while no owner exists (Jellyfin style). One transaction creates the first owner, saves the chosen text size, accent and port, marks setup done and signs the owner in; a second attempt is refused.",
    "tags": [
     "server-only"
    ],
    "code": [
     "app/src/lib/server/services/setup{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.settingsService",
+   "kind": "module",
+   "title": "Instance settings",
+   "description": "Reads and changes the copy-wide settings (text size, accent, port). A port change asks the custom server to move and answers with the new address; refused when the port is locked (Docker, dev).",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/settings{,.spec,.db.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -944,6 +1077,16 @@
  "dependencies": [
   {
    "source": "fl.app.web.areas",
+   "target": "fl.app.services.settingsService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.setupService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
    "target": "fl.app.shared",
    "title": ""
   },
@@ -984,6 +1127,11 @@
   },
   {
    "source": "fl.app.web.publicPages",
+   "target": "fl.app.ui",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
    "target": "fl.app.infra",
    "title": ""
   },
@@ -999,12 +1147,12 @@
   },
   {
    "source": "fl.app.web.publicPages",
-   "target": "fl.app.ui",
+   "target": "fl.app.services.authService",
    "title": ""
   },
   {
    "source": "fl.app.web.publicPages",
-   "target": "fl.app.services.authService",
+   "target": "fl.app.services.settingsService",
    "title": ""
   },
   {
@@ -1039,6 +1187,16 @@
   },
   {
    "source": "fl.app.web.api",
+   "target": "fl.app.services.settingsService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.setupService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
    "target": "fl.app.services.peopleService",
    "title": ""
   },
@@ -1065,12 +1223,17 @@
   {
    "source": "visitor",
    "target": "fl.app.web.publicPages",
-   "title": "signs in, sets up, joins"
+   "title": "sets up a fresh copy, signs in, joins, reads help"
   },
   {
    "source": "fl.caddy",
    "target": "fl.app",
    "title": "forwards HTTPS"
+  },
+  {
+   "source": "fl.app.server",
+   "target": "fl.app.hooks",
+   "title": "loads the built app, which reports the stored port"
   },
   {
    "source": "fl.app.hooks",
@@ -1153,6 +1316,31 @@
    "title": "records the first owner"
   },
   {
+   "source": "fl.app.services.setupService",
+   "target": "fl.app.services.settingsService",
+   "title": "saves the chosen look and port"
+  },
+  {
+   "source": "fl.app.services.settingsService",
+   "target": "fl.app.services.auditService",
+   "title": "records settings changes"
+  },
+  {
+   "source": "fl.app.services.settingsService",
+   "target": "fl.app.services.authService",
+   "title": "only the owner may change settings"
+  },
+  {
+   "source": "fl.app.hooks",
+   "target": "fl.app.shared",
+   "title": "text-size bounds for the first paint"
+  },
+  {
+   "source": "fl.app.authTables",
+   "target": "fl.app.shared",
+   "title": "the accent presets and bounds behind the check constraints"
+  },
+  {
    "source": "fl.app.services.backupService",
    "target": "fl.app.services.auditService",
    "title": "records downloads and restores"
@@ -1160,6 +1348,11 @@
   {
    "source": "fl.app.repos",
    "target": "fl.app.authTables",
+   "title": "SQL"
+  },
+  {
+   "source": "fl.app.repos",
+   "target": "fl.app.appTables",
    "title": "SQL"
   },
   {
@@ -1208,6 +1401,16 @@
    "title": "stored in"
   },
   {
+   "source": "fl.app.appTables",
+   "target": "fl.db",
+   "title": "stored in"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.server",
+   "title": "asks it to listen on a new port"
+  },
+  {
    "source": "fl.app.infra",
    "target": "fl.db",
    "title": "pool, migrations, dumps"
@@ -1216,10 +1419,15 @@
  "views": [
   {
    "id": "first_start",
-   "title": "First start: migrations, backup, the first owner",
-   "description": "**A group installs the app and becomes its owner without editing passwords into files.**\n\n**Decisions**\n- Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;\n  the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.\n- While no owner exists, the app logs a one-time setup link (random token, only its hash stored, one hour,\n  single use). Visiting it creates the first owner and signs them in.\n- /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.",
+   "title": "First start: migrations, backup, the setup wizard",
+   "description": "**A group installs the app and sets it up in the browser, Jellyfin style, without editing files.**\n\n**Decisions**\n- Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;\n  the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.\n- Setup is open while no owner exists: every page goes to /welcome and the log says \"Setup is open at\n  <address>\". There is no token. On a shared network the first visitor becomes the owner (accepted risk).\n- The wizard (Owner, Look, Server, Done) checks each step in the browser and posts once. One transaction\n  locks the settings row, re-checks that no owner exists, creates the owner, saves text size, accent and port,\n  marks setup done and signs the owner in. A second submit is refused.\n- After setup, /welcome and /setup send people to /login; setup never shows again unless the copy is\n  reinstalled.\n- /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.",
    "dynamic": true,
    "steps": [
+    {
+     "from": "fl.app.server",
+     "to": "fl.app.hooks",
+     "label": "load the built app"
+    },
     {
      "from": "fl.app.hooks",
      "to": "fl.app.services.backupService",
@@ -1233,27 +1441,37 @@
     {
      "from": "fl.app.hooks",
      "to": "fl.app.services.setupService",
-     "label": "no owner: log a setup link"
+     "label": "no owner: log that setup is open"
+    },
+    {
+     "from": "fl.app.hooks",
+     "to": "fl.app.services.settingsService",
+     "label": "listen on the stored port"
     },
     {
      "from": "visitor",
      "to": "fl.app.web.publicPages",
-     "label": "opens /setup/<token>, chooses username and password"
+     "label": "opens any page, lands on /welcome, presses Setup, fills the four steps"
     },
     {
      "from": "fl.app.web.publicPages",
      "to": "fl.app.services.setupService",
-     "label": "create the first owner"
+     "label": "finish: owner, look, port"
     },
     {
      "from": "fl.app.services.setupService",
      "to": "fl.app.repos",
-     "label": "insert owner, use the token"
+     "label": "lock settings, insert owner, save settings"
     },
     {
      "from": "fl.app.services.setupService",
      "to": "fl.app.services.authService",
      "label": "start a session"
+    },
+    {
+     "from": "fl.app.services.setupService",
+     "to": "fl.app.services.auditService",
+     "label": "record the first owner"
     }
    ]
   },
@@ -1405,6 +1623,44 @@
    ]
   },
   {
+   "id": "instance_settings",
+   "title": "Instance settings: text size, accent and port",
+   "description": "**The Owner changes how the copy looks and where it listens, from the browser.**\n\n**Decisions**\n- One row in app.settings holds text size (90 to 130 percent), accent (five contrast-tested presets) and port.\n  Every page reads them through the root layout: data-accent on <html>, font-size on :root.\n- A port change outside Docker: the custom server opens the new port first, the browser is sent to the new\n  address, and the old port closes once the browser arrives or after a short wait. If the new port is taken,\n  nothing changes and the Owner sees why.\n- In Docker (PORT_LOCKED=1) and in development the port is read-only: Compose owns the published port, so the\n  page shows the .env line to change instead.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "opens /owner/settings, changes text size, accent or port"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.settingsService",
+     "label": "save"
+    },
+    {
+     "from": "fl.app.services.settingsService",
+     "to": "fl.app.repos",
+     "label": "update the settings row"
+    },
+    {
+     "from": "fl.app.services.settingsService",
+     "to": "fl.app.infra",
+     "label": "port changed: move the listener"
+    },
+    {
+     "from": "fl.app.infra",
+     "to": "fl.app.server",
+     "label": "open the new port, close the old one"
+    },
+    {
+     "from": "fl.app.services.settingsService",
+     "to": "fl.app.services.auditService",
+     "label": "record the change"
+    }
+   ]
+  },
+  {
    "id": "sign_in",
    "title": "Sign-in: one screen for every role",
    "description": "**Owners, admins and users sign in on the same screen and land in their own area.**\n\n**Decisions**\n- Five tries a minute per username and per address (in memory); then \"Too many tries\".\n- A wrong password and an unknown username get the same message; the hash check runs for unknown names too.\n- The session token is 32 random bytes in an httpOnly, SameSite=Lax cookie (Secure over HTTPS); only its\n  SHA-256 is stored. \"Remember me\": 30 days, extended by use; otherwise a browser session.\n- Owner lands on /owner, Admin on /admin, User on /home; a required password change goes to\n  /account/password first. Every sign-in is written to the audit log.",
@@ -1452,7 +1708,7 @@
   {
    "id": "app",
    "title": "Inside the app",
-   "description": "The request pipeline, the routes, the services, the repos and infra, and the auth tables.",
+   "description": "The custom server, the request pipeline, the routes, the services, the repos and infra, and the auth and app tables.",
    "dynamic": false,
    "steps": []
   },
@@ -1474,6 +1730,13 @@
    "id": "tables",
    "title": "auth schema",
    "description": "The tables of accounts and sign-in.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "appTablesView",
+   "title": "app schema",
+   "description": "Copy-wide settings.",
    "dynamic": false,
    "steps": []
   }

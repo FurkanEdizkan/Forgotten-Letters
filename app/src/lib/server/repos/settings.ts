@@ -3,6 +3,8 @@ import { eq } from 'drizzle-orm';
 import type { Tx } from '../db';
 import { settings, type SettingsRow } from '../db/schema';
 
+export type { SettingsRow };
+
 const ONE = eq(settings.id, 1);
 
 /** The settings row. The migration creates it, so it is always there. */

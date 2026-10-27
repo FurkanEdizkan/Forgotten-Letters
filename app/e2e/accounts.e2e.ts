@@ -1,5 +1,5 @@
 /**
- * Step 1 flows end to end, each with its happy path and main error path: first start, sign-in, invite and join,
+ * Step 1 and 1.5 flows end to end, each with its happy path and main error path: first start (the setup wizard), sign-in, invite and join,
  * managing people, sessions. The flows build on each other (the owner made in the first one invites the others),
  * so the file runs in order. Each visitor gets its own browser context and client address.
  */
@@ -47,9 +47,11 @@ async function newInvite(page: Page, role: 'admin' | 'user', note: string) {
 let owner: Page;
 let adminInvite = '';
 
-// The setup wizard UI arrives with the welcome page; until then the owner is made through the same service by the
-// API, which is what the wizard's Finish posts.
-test('first start: setup is open until the owner exists, then refused', async ({ browser }) => {
+// First start runs through the real wizard: welcome, Setup, the four steps, Finish. The API's own error paths are
+// checked beside it, since the wizard posts to the same service.
+test('first start: welcome and the setup wizard make the owner, then setup is refused', async ({
+	browser
+}) => {
 	const page = await visitor(browser);
 	await page.goto('/login');
 	await expect(page).toHaveURL(/\/welcome$/);
@@ -57,33 +59,61 @@ test('first start: setup is open until the owner exists, then refused', async ({
 	expect(await (await api.get('/api/v1/me')).json()).toMatchObject({
 		error: { code: 'conflict', message: 'Setup is not done yet.' }
 	});
-
-	const setup = {
-		username: OWNER.username,
-		displayName: 'Brother Anselm',
-		password: OWNER.password,
-		textScale: 100,
-		accent: 'blood',
-		port: 4173
-	};
-	const weak = await api.post('/api/v1/setup', { data: { ...setup, password: 'short' } });
+	const weak = await api.post('/api/v1/setup', {
+		data: {
+			username: 'x.user',
+			displayName: 'X',
+			password: 'short',
+			textScale: 100,
+			accent: 'blood',
+			port: 4173
+		}
+	});
 	expect(weak.status()).toBe(400);
 	expect((await weak.json()).error.fields.password).toBeTruthy();
 
-	const made = await api.post('/api/v1/setup', { data: setup });
-	expect(made.status()).toBe(201);
-	expect(await made.json()).toMatchObject({ user: { role: 'owner' }, moveTo: null });
-	await page.goto('/owner');
+	await page.getByRole('link', { name: /Setup/ }).click();
+	await expect(page).toHaveURL(/\/setup$/);
+
+	// Step 1, error path first: a short password stays on the step with the reason under the field.
+	await fillAccount(page, OWNER.username, 'Brother Anselm', 'short');
+	await page.getByLabel('Repeat password').fill('short');
+	await page.getByRole('button', { name: 'Next' }).click();
+	await expect(page.getByText(/at least 10 characters/i)).toBeVisible();
+	await page.fill('input[name=password]', OWNER.password);
+	await page.getByLabel('Repeat password').fill(OWNER.password);
+	await page.getByRole('button', { name: 'Next' }).click();
+
+	// Step 2: the slider resizes the preview; pick an accent.
+	const slider = page.locator('input[name=textScale]');
+	await expect(slider).toBeVisible();
+	await slider.fill('110');
+	await page.getByRole('radio', { name: 'Verdigris' }).click();
+	await page.getByRole('button', { name: 'Next' }).click();
+
+	// Step 3: the e2e server runs `node server`, so the port is editable; keep the one the tests use.
+	await expect(page.locator('input[name=port]')).toHaveValue('4173');
+	await page.getByRole('button', { name: 'Next' }).click();
+	await page.getByRole('button', { name: 'Finish' }).click();
 	await expect(page).toHaveURL(/\/owner$/);
 	owner = page;
 
 	// Setup works once; afterwards the setup pages lead to sign-in.
 	const other = await visitor(browser);
 	const again = await other.context().request.post('/api/v1/setup', {
-		data: { ...setup, username: 'second.owner' }
+		data: {
+			username: 'second.owner',
+			displayName: 'Second',
+			password: OWNER.password,
+			textScale: 100,
+			accent: 'blood',
+			port: 4173
+		}
 	});
 	expect(again.status()).toBe(409);
 	await other.goto('/setup');
+	await expect(other).toHaveURL(/\/login$/);
+	await other.goto('/welcome');
 	await expect(other).toHaveURL(/\/login$/);
 });
 

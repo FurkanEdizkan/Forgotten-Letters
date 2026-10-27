@@ -1,0 +1,81 @@
+/*
+ * Glass controls of the shell's top bar (DESIGN.md §6, first-run exceptions): a translucent body with a 14 px
+ * backdrop blur, a light top edge, a dark bottom edge, a soft highlight that follows the pointer (glow.ts) and
+ * 0.6 em corners. Solid when blur is unsupported or the viewer asks for reduced transparency.
+ * Only the top bar uses these; flat buttons (Button.svelte) stay everywhere else.
+ */
+.fl-glass {
+	position: relative;
+	isolation: isolate;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--button-height);
+	padding: 0 var(--space-3);
+	border-radius: 0.6em;
+	border: var(--border-hairline) solid color-mix(in srgb, var(--bone) 10%, transparent);
+	border-top-color: color-mix(in srgb, var(--bone) 24%, transparent);
+	border-bottom-color: color-mix(in srgb, var(--inset) 90%, transparent);
+	background: color-mix(in srgb, var(--bone) 5%, transparent);
+	backdrop-filter: blur(14px) saturate(1.2);
+	color: var(--bone);
+	font-family: var(--font-body);
+	font-size: var(--size-label);
+	font-weight: 600;
+	letter-spacing: var(--track-label);
+	text-transform: uppercase;
+	text-decoration: none;
+	cursor: pointer;
+	overflow: hidden;
+	transition:
+		background-color var(--duration-fast) var(--easing),
+		border-color var(--duration-fast) var(--easing);
+}
+
+/* The highlight under the pointer; it fades in on hover only. */
+.fl-glass::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	background: radial-gradient(
+		6rem circle at var(--glow-x, 50%) var(--glow-y, 50%),
+		color-mix(in srgb, var(--bone) 14%, transparent),
+		transparent 70%
+	);
+	opacity: 0;
+	transition: opacity var(--duration) var(--easing);
+}
+
+.fl-glass:hover {
+	color: var(--bone);
+	background-color: color-mix(in srgb, var(--bone) 8%, transparent);
+}
+
+.fl-glass:hover::before {
+	opacity: 1;
+}
+
+.fl-glass[aria-expanded='true'],
+.fl-glass[aria-current='page'] {
+	background-color: color-mix(in srgb, var(--bone) 11%, transparent);
+	border-bottom-color: var(--blood-bright);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+	.fl-glass {
+		background: var(--panel-raised);
+		border-color: var(--rule-strong);
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.fl-glass {
+		background: var(--panel-raised);
+		backdrop-filter: none;
+		border-color: var(--rule-strong);
+	}
+	.fl-glass::before {
+		display: none;
+	}
+}

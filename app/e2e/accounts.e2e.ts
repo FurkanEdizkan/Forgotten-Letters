@@ -252,7 +252,9 @@ test('sessions: sign out other devices ends them; sign out ends this one', async
 	await laptop.goto('/owner');
 	await expect(laptop).toHaveURL(/\/login/);
 
-	await owner.getByRole('button', { name: 'Sign out', exact: true }).click();
+	// Sign out lives in the user menu of the app shell.
+	await owner.getByRole('button', { name: /^Account menu for/ }).click();
+	await owner.getByRole('menuitem', { name: 'Log out' }).click();
 	await owner.waitForURL('/login');
 	await owner.goto('/owner');
 	await expect(owner).toHaveURL(/\/login/);

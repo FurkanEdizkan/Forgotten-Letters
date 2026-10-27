@@ -2,15 +2,12 @@
 	import { page } from '$app/state';
 	import { m } from '#lib/messages';
 	import Message from '#lib/ui/Message.svelte';
+	import { OWNER_SECTIONS } from '#lib/ui/shell/nav';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
-	const tabs = [
-		{ path: '/owner', label: m.owner.tabs.people },
-		{ path: '/owner/invites', label: m.owner.tabs.invites },
-		{ path: '/owner/audit', label: m.owner.tabs.audit },
-		{ path: '/owner/backups', label: m.owner.tabs.backups }
-	];
+	// The same sections, in the same order, as the shell's panel.
+	const tabs = OWNER_SECTIONS;
 </script>
 
 <div class="head">

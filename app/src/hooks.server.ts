@@ -17,7 +17,8 @@ import { startJobs, stopJobs } from '#lib/server/infra/jobs';
 import { housekeeping } from '#lib/server/jobs';
 import * as backups from '#lib/server/services/backups';
 import { isSetupOpen, logSetupOpen } from '#lib/server/services/setup';
-import { listenOnSavedPort } from '#lib/server/services/settings';
+import { getAppearance, listenOnSavedPort } from '#lib/server/services/settings';
+import { TEXT_SCALE } from '#lib/schemas/settings';
 import { resolveSession } from '#lib/server/services/auth';
 import { isCrossSite, isHttps, SESSION_COOKIE, setSessionCookie } from '#lib/server/http';
 import { setupGuard } from '#lib/server/http/setup-guard';
@@ -59,6 +60,24 @@ export const init: ServerInit = async () => {
 const requestIdOf = (h: string | null) => (h && /^[\w.-]{1,64}$/.test(h) ? h : randomUUID());
 
 const isReady = () => !shuttingDown && (migrated() || !config().RUN_STARTUP);
+
+/**
+ * Write the copy-wide look into <html> (the %fl.accent% and %fl.scale% placeholders in app.html), so the first
+ * paint already has the right accent and text size: no flash, and no inline script for the CSP to allow. Only the
+ * chunk holding <html> is touched, once; the look comes from the settings cache, the defaults if it cannot load.
+ */
+function withAppearance() {
+	let done = false;
+	return async ({ html }: { html: string }) => {
+		if (done || !html.includes('%fl.accent%')) return html;
+		done = true;
+		const look = await getAppearance().catch(() => ({
+			accent: 'blood',
+			textScale: TEXT_SCALE.default
+		}));
+		return html.replace('%fl.accent%', look.accent).replace('%fl.scale%', String(look.textScale));
+	};
+}
 
 const SECURITY_HEADERS: Record<string, string> = {
 	'x-content-type-options': 'nosniff',
@@ -124,7 +143,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			path !== '/logout'
 		)
 			redirect(303, '/account/password');
-		response = await resolve(event);
+		response = await resolve(event, { transformPageChunk: withAppearance() });
 	}
 
 	response.headers.set('x-request-id', event.locals.requestId);

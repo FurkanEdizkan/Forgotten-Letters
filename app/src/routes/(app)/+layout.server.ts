@@ -1,18 +1,6 @@
-import { areasFor } from '#lib/roles';
+import { shellData } from '#lib/ui/shell/nav';
 import { requireSignedIn } from './guard';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = (event) => {
-	const u = requireSignedIn(event);
-	// Only what the header needs; never the session hash.
-	return {
-		me: {
-			id: u.id,
-			username: u.username,
-			displayName: u.displayName,
-			role: u.role,
-			mustChangePassword: u.mustChangePassword
-		},
-		areas: areasFor(u.role)
-	};
-};
+// Only what the shell needs (shellData picks the fields); never the session hash.
+export const load: LayoutServerLoad = (event) => shellData(requireSignedIn(event));

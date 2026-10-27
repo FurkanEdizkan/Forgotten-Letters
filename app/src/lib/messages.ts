@@ -30,11 +30,35 @@ export const m = {
 		user: 'Player'
 	} satisfies Record<Role, string>,
 
-	header: {
+	shell: {
+		skip: 'Skip to the page',
+		menu: 'Menu',
+		docs: 'Docs',
 		areas: 'Areas',
-		account: 'Account',
-		signOut: 'Sign out',
-		signedInAs: 'Signed in as'
+		helpLinks: 'Help and legal',
+		userMenu: (name: string) => `Account menu for ${name}`,
+		signedInAs: (username: string, role: string) => `Signed in as ${username} · ${role}`,
+		userSettings: 'User settings',
+		logOut: 'Log out',
+		signIn: 'Sign in',
+		loading: 'Loading the page…'
+	},
+
+	help: {
+		titles: {
+			docs: 'Docs',
+			faq: 'FAQ',
+			licence: 'Licence',
+			contact: 'Contact',
+			support: 'Support us',
+			privacy: 'Privacy',
+			terms: 'Terms',
+			unofficial: 'Unofficial notice'
+		},
+		coming: 'This page is coming in a later step.',
+		licence: 'Forgotten Letters is free software under the AGPL-3.0.',
+		unofficial:
+			'Forgotten Letters is an unofficial fan project, not affiliated with Factory Fortress Inc.'
 	},
 
 	login: {
@@ -208,9 +232,41 @@ export const m = {
 
 	owner: {
 		title: 'Owner',
-		tabs: { people: 'People', invites: 'Invites', audit: 'Audit log', backups: 'Backups' },
+		tabs: {
+			people: 'People',
+			invites: 'Invites',
+			settings: 'Settings',
+			audit: 'Audit log',
+			backups: 'Backups'
+		},
 		httpWarning:
 			'This copy is served over plain HTTP. Passwords and sessions cross the network unencrypted. Use the https profile on an internet server.'
+	},
+
+	settings: {
+		heading: 'Settings',
+		intro:
+			'The look and the address of this copy. The text size and accent apply to every page, for everyone.',
+		lookHeading: 'Look',
+		textScale: 'Text size',
+		textScaleHint: 'Scales all text and spacing, from 90 to 130 %.',
+		accent: 'Accent',
+		accentHint: 'The colour of buttons, headings and the focus ring.',
+		accents: {
+			blood: 'Blood',
+			brass: 'Brass',
+			verdigris: 'Verdigris',
+			bruise: 'Bruise',
+			ash: 'Ash'
+		},
+		addressHeading: 'Address',
+		address: 'People open this copy at',
+		port: 'Port',
+		portHint: '1024 to 65535. The app moves to the new port right away.',
+		portLocked: 'The port is set outside the app. To change it, edit this line in .env:',
+		portLockedThen: 'Then restart the app:',
+		saved: 'Settings saved.',
+		moving: (to: string) => `The app now listens at ${to}. Taking you there…`
 	},
 
 	people: {

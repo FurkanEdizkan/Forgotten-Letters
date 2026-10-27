@@ -1,15 +1,19 @@
 <!--
-  The Owner's copy-wide settings: text size, accent and port. Plain native controls for now; the setup wizard's
-  slider, swatches and field (task T3) replace them once both are merged.
+  The Owner's copy-wide settings: text size, accent and port, with the same slider, swatches, preview and field as
+  the setup wizard.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { m } from '#lib/messages';
-	import { ACCENTS, TEXT_SCALE } from '#lib/schemas/settings';
+	import { ACCENTS, TEXT_SCALE, type Accent } from '#lib/schemas/settings';
+	import { ACCENT_COLOURS } from '#lib/ui/accents';
 	import Button from '#lib/ui/Button.svelte';
 	import Card from '#lib/ui/Card.svelte';
-	import Field from '#lib/ui/Field.svelte';
 	import Message from '#lib/ui/Message.svelte';
+	import Slider from '#lib/ui/Slider.svelte';
+	import SwatchGroup from '#lib/ui/SwatchGroup.svelte';
+	import TextPreview from '#lib/ui/TextPreview.svelte';
+	import WizardField from '#lib/ui/WizardField.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -17,6 +21,13 @@
 	// The controls start from the saved values and follow them after each save.
 	let textScale = $derived(data.settings.textScale);
 	let accent = $derived(data.settings.accent);
+
+	const accentOptions = ACCENTS.map((a) => ({
+		value: a,
+		label: m.accents[a],
+		colour: ACCENT_COLOURS[a].base
+	}));
+	const look = m.wizard.look;
 
 	const failed = $derived(form && !('done' in form) ? form : null);
 	const fields = $derived((failed?.fields ?? {}) as Record<string, string | undefined>);
@@ -54,38 +65,36 @@
 
 		<div class="grid">
 			<Card title={m.settings.lookHeading}>
-				<div class="control">
-					<label class="label" for="textScale">{m.settings.textScale}</label>
-					<div class="range">
-						<input
-							id="textScale"
-							name="textScale"
-							type="range"
-							min={TEXT_SCALE.min}
-							max={TEXT_SCALE.max}
-							step={TEXT_SCALE.step}
-							bind:value={textScale}
-							aria-describedby="textScale-hint"
-						/>
-						<output for="textScale" class="data">{textScale} %</output>
-					</div>
-					<p class="hint" id="textScale-hint">{m.settings.textScaleHint}</p>
-					{#if fields.textScale}<p class="error">{fields.textScale}</p>{/if}
-				</div>
-
-				<fieldset class="control" aria-describedby="accent-hint">
-					<legend class="label">{m.settings.accent}</legend>
-					<div class="accents">
-						{#each ACCENTS as a (a)}
-							<label class="accent">
-								<input type="radio" name="accent" value={a} bind:group={accent} />
-								{m.settings.accents[a]}
-							</label>
-						{/each}
-					</div>
-					<p class="hint" id="accent-hint">{m.settings.accentHint}</p>
-					{#if fields.accent}<p class="error">{fields.accent}</p>{/if}
-				</fieldset>
+				<Slider
+					label={m.settings.textScale}
+					name="textScale"
+					min={TEXT_SCALE.min}
+					max={TEXT_SCALE.max}
+					step={TEXT_SCALE.step}
+					ticks={[90, 100, 110, 120, 130]}
+					format={(v) => `${v} %`}
+					hint={m.settings.textScaleHint}
+					bind:value={textScale}
+					error={fields.textScale}
+				/>
+				<SwatchGroup
+					label={m.settings.accent}
+					name="accent"
+					options={accentOptions}
+					bind:value={() => accent, (v) => (accent = v as Accent)}
+					error={fields.accent}
+				/>
+				<p class="hint">{m.settings.accentHint}</p>
+				<!-- The preview follows the slider; the accent shows on the whole page once saved. -->
+				<TextPreview
+					scale={textScale}
+					label={look.preview}
+					title={look.sampleTitle}
+					meta={look.sampleMeta}
+					body={look.sampleBody}
+					chip={look.sampleChip}
+					button={look.sampleButton}
+				/>
 			</Card>
 
 			<Card title={m.settings.addressHeading}>
@@ -104,12 +113,13 @@
 					</div>
 				{:else}
 					<!-- No min/max: the server's message says why a port is refused; the browser's would not. -->
-					<Field
+					<WizardField
 						label={m.settings.port}
 						name="port"
 						type="number"
 						inputmode="numeric"
 						required
+						mono
 						value={String(data.settings.port)}
 						hint={m.settings.portHint}
 						error={fields.port}
@@ -141,38 +151,6 @@
 		padding: 0;
 		border: 0;
 		min-width: 0;
-	}
-	legend {
-		padding: 0;
-		margin-bottom: var(--space-2);
-	}
-	.range {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-	}
-	.range input {
-		flex: 1;
-		accent-color: var(--blood-bright);
-	}
-	output {
-		min-width: 4.5ch;
-		text-align: right;
-	}
-	.accents {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-2) var(--space-4);
-	}
-	.accent {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
-		min-height: var(--button-height);
-		cursor: pointer;
-	}
-	.accent input {
-		accent-color: var(--blood-bright);
 	}
 	.hint {
 		color: var(--bone-faint);

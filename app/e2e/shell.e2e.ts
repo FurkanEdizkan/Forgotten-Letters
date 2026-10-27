@@ -126,15 +126,17 @@ test('owner settings: a new accent applies to every page; a low port is refused 
 	await signIn(page);
 	await page.goto('/owner/settings');
 	const html = page.locator('html');
-	await expect(html).toHaveAttribute('data-accent', 'blood');
+	// The accent chosen in the setup wizard (or the default when this file runs alone), restored at the end.
+	const before = (await html.getAttribute('data-accent')) ?? 'blood';
+	const beforeLabel = before[0]!.toUpperCase() + before.slice(1);
 
-	await page.getByLabel('Verdigris').check();
+	await page.getByRole('radio', { name: 'Brass' }).click();
 	await page.getByRole('button', { name: 'Save' }).click();
 	await expect(page.getByText('Settings saved.')).toBeVisible();
-	await expect(html).toHaveAttribute('data-accent', 'verdigris');
+	await expect(html).toHaveAttribute('data-accent', 'brass');
 	// Rendered on the server too: a fresh load of another page starts with it.
 	await page.goto('/home');
-	await expect(html).toHaveAttribute('data-accent', 'verdigris');
+	await expect(html).toHaveAttribute('data-accent', 'brass');
 
 	await page.goto('/owner/settings');
 	await page.fill('input[name=port]', '80');
@@ -144,8 +146,8 @@ test('owner settings: a new accent applies to every page; a low port is refused 
 
 	// Put the look back for later runs on the same database.
 	await page.fill('input[name=port]', '4173');
-	await page.getByLabel('Blood').check();
+	await page.getByRole('radio', { name: beforeLabel }).click();
 	await page.getByRole('button', { name: 'Save' }).click();
-	await expect(html).toHaveAttribute('data-accent', 'blood');
+	await expect(html).toHaveAttribute('data-accent', before);
 	await page.context().close();
 });

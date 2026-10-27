@@ -96,6 +96,7 @@ test('first start: welcome and the setup wizard make the owner, then setup is re
 	await page.getByRole('button', { name: 'Next' }).click();
 	await page.getByRole('button', { name: 'Finish' }).click();
 	await expect(page).toHaveURL(/\/owner$/);
+	await expect(page.locator('html')).toHaveAttribute('data-accent', 'verdigris');
 	owner = page;
 
 	// Setup works once; afterwards the setup pages lead to sign-in.

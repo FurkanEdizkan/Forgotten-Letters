@@ -48,23 +48,6 @@ export const m = {
 		noAccount: 'Setup is done. Ask the Owner for an invite link.'
 	},
 
-	setup: {
-		title: 'Create the first owner',
-		intro:
-			'This account runs the copy: people, invites and backups. You can add more owners later.',
-		username: 'Username',
-		usernameHint:
-			'3 to 32 characters: letters, digits, dot, dash, underscore. Used only to sign in.',
-		displayName: 'Display name',
-		displayNameHint: 'Shown wherever you appear. You can change it later.',
-		password: 'Password',
-		passwordHint: '10 to 128 characters.',
-		submit: 'Create owner',
-		invalid: 'This setup link has expired or was used.',
-		invalidHelp: 'Restart the app to print a new link in its logs, or sign in if an owner exists.',
-		toLogin: 'Go to sign in'
-	},
-
 	welcome: {
 		title: 'Welcome',
 		setup: 'Setup',

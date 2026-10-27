@@ -6,8 +6,8 @@ import { setupInput } from '#lib/schemas/settings';
 import type { Actions, PageServerLoad } from './$types';
 
 // The hook sends this page to /login once an Owner exists, so load only needs the settings the wizard starts from.
-export const load: PageServerLoad = async () => {
-	const s = await getSettings();
+export const load: PageServerLoad = async ({ url }) => {
+	const s = await getSettings(url.host);
 	return {
 		textScale: s.textScale,
 		accent: s.accent,
@@ -23,8 +23,8 @@ export const actions = {
 	 * Who: anyone, while no Owner exists (open setup, Jellyfin style).
 	 * In: form setupInput { username, displayName, password, textScale, accent, port } (the wizard's four steps).
 	 * Out: 303 to the new address when the port moves, else to /owner, with a remembered session cookie.
-	 * Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 setup_closed
-	 * when an Owner already exists, 409 port_in_use, 429 rate_limited.
+	 * Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 conflict when an
+	 * Owner already exists or the port cannot be opened (reason on the port field), 429 rate_limited.
 	 */
 	finish: (event) =>
 		formAction(event, setupInput, async (input, ctx) => {

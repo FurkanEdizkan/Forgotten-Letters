@@ -11,7 +11,7 @@ model {
     description 'Plays warbands and follows the campaign.'
   }
   visitor = actor 'Visitor' {
-    description 'Not signed in: sees the sign-in, setup and invite pages only.'
+    description 'Not signed in: sees the welcome and setup pages on a fresh install, then the sign-in, invite and help pages.'
   }
 
   fl = system 'Forgotten Letters' {
@@ -19,15 +19,24 @@ model {
 
     app = service 'app' {
       technology 'Node 26 · SvelteKit 3 (adapter-node)'
-      description 'Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), the first-owner setup link, background jobs.'
+      description 'Serves pages, form actions, the JSON API and health checks. On start: migrations (after a dump), "setup is open" in the log while there is no owner, listening on the stored port, background jobs.'
       metadata {
         services ['app', 'uploads', 'backups']
+      }
+
+      server = module 'Custom server' {
+        #server-only
+        technology 'node server · node:http around build/handler.js'
+        description 'Starts the built app and owns its listeners, so the port stored in settings can change while running: open the new port, then close the old one. Docker runs it with PORT_LOCKED=1.'
+        metadata {
+          code 'app/server/**'
+        }
       }
 
       hooks = module 'Request pipeline' {
         #server-only
         technology 'hooks.server.ts'
-        description 'Start-up (migrations, setup link, jobs), then for every request: request id, readiness gate, session, API guard, access log, error mapping.'
+        description 'Start-up (migrations, setup notice, listen on the stored port, jobs), then for every request: request id, readiness gate, setup guard (to /welcome while there is no owner), session, access log, error mapping.'
         metadata {
           code 'app/src/hooks.server.ts'
         }
@@ -36,16 +45,16 @@ model {
       web = layer 'Web (routes)' {
         description 'Pages, form actions and API endpoints. They parse input with zod and call one service; no SQL here.'
 
-        publicPages = page 'Sign-in, setup and invite pages' {
-          technology '/login · /setup/[token] · /invite/[token] · /logout'
-          description 'The one sign-in screen for every role, the first-owner setup page, and joining by invite.'
+        publicPages = page 'Welcome, setup, sign-in, invite and help pages' {
+          technology '/welcome · /setup · /login · /invite/[token] · /help/[page] · /logout'
+          description 'The welcome page and four-step setup wizard on a fresh install (Owner, Look, Server, Done); the one sign-in screen for every role, in the same split as the welcome page; joining by invite; help and legal placeholder pages.'
           metadata {
             code ['app/src/routes/(public)/**', 'app/src/routes/logout/**']
           }
         }
-        areas = page 'Role areas and account' {
-          technology '/owner · /admin · /home · /account'
-          description 'Each role lands in its own area; a header switcher shows every area the person can use.'
+        areas = page 'App shell, role areas and account' {
+          technology '/owner · /owner/settings · /admin · /home · /account'
+          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings.'
           metadata {
             code ['app/src/routes/(app)/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
           }
@@ -68,8 +77,8 @@ model {
 
       ui = module 'Components and look' {
         #client
-        technology 'Svelte 5 · tokens.css · Bits UI'
-        description 'The design system in code: tokens, fonts, styled components, the message file.'
+        technology 'Svelte 5 · tokens.css · Bits UI · anime.js'
+        description 'The design system in code: tokens and accent presets, fonts, glass buttons and form controls, the emblem, skeletons, the anime.js motion helpers, the message file.'
         metadata {
           code ['app/src/lib/ui/**', 'app/src/lib/messages.ts', 'app/src/app.html', 'app/src/app.d.ts']
         }
@@ -94,11 +103,18 @@ model {
             code ['app/src/lib/server/services/auth{,.spec,.db.spec}.ts', 'app/src/lib/server/services/passwords{,.spec,.db.spec}.ts']
           }
         }
-        setupService = module 'First owner setup' {
+        setupService = module 'First-run setup' {
           #server-only
-          description 'While no owner exists: a one-time setup link (logged at start, one hour) that creates the first owner.'
+          description 'Setup is open while no owner exists (Jellyfin style). One transaction creates the first owner, saves the chosen text size, accent and port, marks setup done and signs the owner in; a second attempt is refused.'
           metadata {
             code 'app/src/lib/server/services/setup{,.spec,.db.spec}.ts'
+          }
+        }
+        settingsService = module 'Instance settings' {
+          #server-only
+          description 'Reads and changes the copy-wide settings (text size, accent, port). A port change asks the custom server to move and answers with the new address; refused when the port is locked (Docker, dev).'
+          metadata {
+            code 'app/src/lib/server/services/settings{,.spec,.db.spec}.ts'
           }
         }
         peopleService = module 'People' {
@@ -142,18 +158,25 @@ model {
 
       infra = module 'Infra' {
         #server-only
-        technology 'zod config · postgres.js pool · pino · in-memory limits · jobs · migrations'
-        description 'Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations.'
+        technology 'zod config · postgres.js pool · pino · in-memory limits · jobs · migrations · listener control'
+        description 'Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations, and the bridge to the custom server that moves the port.'
         metadata {
           code ['app/src/lib/server/infra/**', 'app/src/lib/server/errors{,.spec,.db.spec}.ts', 'app/src/lib/server/http/**', 'app/src/lib/server/db/index.ts', 'app/src/lib/server/jobs.ts', 'app/src/lib/server/testing/**']
         }
       }
 
       authTables = layer 'auth schema' {
-        description 'Accounts, sessions, invites, setup tokens and the audit log.'
+        description 'Accounts, sessions, invites and the audit log.'
         metadata {
-          tables ['users', 'sessions', 'invites', 'setup_tokens', 'audit_log']
+          tables ['users', 'sessions', 'invites', 'audit_log']
           code ['app/src/lib/server/db/schema{,.db.spec}.ts', 'app/drizzle/**', 'app/drizzle.config.ts']
+        }
+      }
+
+      appTables = layer 'app schema' {
+        description 'Copy-wide settings: one row with text size, accent, port and when setup was completed.'
+        metadata {
+          tables ['settings']
         }
       }
     }
@@ -178,8 +201,9 @@ model {
   owner -> fl.app.web 'manages people, invites, backups'
   admin -> fl.app.web 'invites players'
   user -> fl.app.web 'signs in, manages own account'
-  visitor -> fl.app.web.publicPages 'signs in, sets up, joins'
+  visitor -> fl.app.web.publicPages 'sets up a fresh copy, signs in, joins, reads help'
   fl.caddy -> fl.app 'forwards HTTPS'
+  fl.app.server -> fl.app.hooks 'loads the built app, which reports the stored port'
 
   fl.app.hooks -> fl.app.services 'resolves the session, runs start-up'
   fl.app.hooks -> fl.app.infra 'request ids, readiness, errors'
@@ -197,8 +221,11 @@ model {
   fl.app.services.inviteService -> fl.app.services.authService 'signs the new account in'
   fl.app.services.setupService -> fl.app.services.authService 'hashes, signs in'
   fl.app.services.setupService -> fl.app.services.auditService 'records the first owner'
+  fl.app.services.setupService -> fl.app.services.settingsService 'saves the chosen look and port'
+  fl.app.services.settingsService -> fl.app.services.auditService 'records settings changes'
   fl.app.services.backupService -> fl.app.services.auditService 'records downloads and restores'
   fl.app.repos -> fl.app.authTables 'SQL'
+  fl.app.repos -> fl.app.appTables 'SQL'
   fl.app.repos -> fl.app.infra 'pool'
   fl.app.ui -> fl.app.shared 'roles'
   fl.app.ui -> fl.app.services.auditService 'the Ctx and SessionUser types in app.d.ts'
@@ -208,5 +235,7 @@ model {
   fl.app.infra -> fl.app.repos 'hourly cleanup of sessions, invites and old audit rows'
   fl.app.infra -> fl.app.services.backupService 'daily backup and pruning job'
   fl.app.authTables -> fl.db 'stored in'
+  fl.app.appTables -> fl.db 'stored in'
+  fl.app.infra -> fl.app.server 'asks it to listen on a new port'
   fl.app.infra -> fl.db 'pool, migrations, dumps'
 }

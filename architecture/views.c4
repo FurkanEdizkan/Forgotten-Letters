@@ -8,7 +8,7 @@ views {
 
   view app of fl.app {
     title 'Inside the app'
-    description 'The request pipeline, the routes, the services, the repos and infra, and the auth tables.'
+    description 'The custom server, the request pipeline, the routes, the services, the repos and infra, and the auth and app tables.'
     include fl.app.*, fl.db
     autoLayout TopBottom
   }
@@ -30,6 +30,12 @@ views {
   view tables of fl.app.authTables {
     title 'auth schema'
     description 'The tables of accounts and sign-in.'
+    include *
+  }
+
+  view appTablesView of fl.app.appTables {
+    title 'app schema'
+    description 'Copy-wide settings.'
     include *
   }
 }

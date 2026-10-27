@@ -1,0 +1,25 @@
+// Feature: instance settings. Code: services/settings, repos/settings, infra/listener, app/server,
+// routes (app)/owner/settings and /api/v1/settings.
+views {
+  dynamic view instance_settings {
+    title 'Instance settings: text size, accent and port'
+    description '''
+      **The Owner changes how the copy looks and where it listens, from the browser.**
+
+      **Decisions**
+      - One row in app.settings holds text size (90 to 130 percent), accent (five contrast-tested presets) and port.
+        Every page reads them through the root layout: data-accent on <html>, font-size on :root.
+      - A port change outside Docker: the custom server opens the new port first, the browser is sent to the new
+        address, and the old port closes once the browser arrives or after a short wait. If the new port is taken,
+        nothing changes and the Owner sees why.
+      - In Docker (PORT_LOCKED=1) and in development the port is read-only: Compose owns the published port, so the
+        page shows the .env line to change instead.
+    '''
+    owner -> fl.app.web.areas 'opens /owner/settings, changes text size, accent or port'
+    fl.app.web.areas -> fl.app.services.settingsService 'save'
+    fl.app.services.settingsService -> fl.app.repos 'update the settings row'
+    fl.app.services.settingsService -> fl.app.infra 'port changed: move the listener'
+    fl.app.infra -> fl.app.server 'open the new port, close the old one'
+    fl.app.services.settingsService -> fl.app.services.auditService 'record the change'
+  }
+}

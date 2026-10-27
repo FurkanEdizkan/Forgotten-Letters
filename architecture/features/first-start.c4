@@ -1,23 +1,32 @@
-// Feature: first start. Code: hooks.server.ts (init), infra/migrate, services/backups, services/setup.
+// Feature: first start and the setup wizard. Code: hooks.server.ts (init, setup guard), infra/migrate,
+// infra/listener, services/backups, services/setup, services/settings, routes (public)/welcome and (public)/setup.
 views {
   dynamic view first_start {
-    title 'First start: migrations, backup, the first owner'
+    title 'First start: migrations, backup, the setup wizard'
     description '''
-      **A group installs the app and becomes its owner without editing passwords into files.**
+      **A group installs the app and sets it up in the browser, Jellyfin style, without editing files.**
 
       **Decisions**
       - Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;
         the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.
-      - While no owner exists, the app logs a one-time setup link (random token, only its hash stored, one hour,
-        single use). Visiting it creates the first owner and signs them in.
+      - Setup is open while no owner exists: every page goes to /welcome and the log says "Setup is open at
+        <address>". There is no token. On a shared network the first visitor becomes the owner (accepted risk).
+      - The wizard (Owner, Look, Server, Done) checks each step in the browser and posts once. One transaction
+        locks the settings row, re-checks that no owner exists, creates the owner, saves text size, accent and port,
+        marks setup done and signs the owner in. A second submit is refused.
+      - After setup, /welcome and /setup send people to /login; setup never shows again unless the copy is
+        reinstalled.
       - /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.
     '''
+    fl.app.server -> fl.app.hooks 'load the built app'
     fl.app.hooks -> fl.app.services.backupService 'dump before migrating'
     fl.app.hooks -> fl.app.infra 'apply migrations under a lock'
-    fl.app.hooks -> fl.app.services.setupService 'no owner: log a setup link'
-    visitor -> fl.app.web.publicPages 'opens /setup/<token>, chooses username and password'
-    fl.app.web.publicPages -> fl.app.services.setupService 'create the first owner'
-    fl.app.services.setupService -> fl.app.repos 'insert owner, use the token'
+    fl.app.hooks -> fl.app.services.setupService 'no owner: log that setup is open'
+    fl.app.hooks -> fl.app.services.settingsService 'listen on the stored port'
+    visitor -> fl.app.web.publicPages 'opens any page, lands on /welcome, presses Setup, fills the four steps'
+    fl.app.web.publicPages -> fl.app.services.setupService 'finish: owner, look, port'
+    fl.app.services.setupService -> fl.app.repos 'lock settings, insert owner, save settings'
     fl.app.services.setupService -> fl.app.services.authService 'start a session'
+    fl.app.services.setupService -> fl.app.services.auditService 'record the first owner'
   }
 }

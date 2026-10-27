@@ -128,7 +128,9 @@
 		isolation: isolate;
 		display: grid;
 		min-width: 0;
-		overflow: hidden;
+		/* clip, not hidden: the embers overhang this box, and a hidden box can still be scrolled when a control inside
+		   gets focus mid-transition, which dragged the step out of view. */
+		overflow: clip;
 		/* Fades from a faint lift at the seam into the near-black of the left, so neither half reads as a flat slab. */
 		background:
 			radial-gradient(ellipse 70% 90% at 0% 50%, rgb(236 229 211 / 0.055), transparent 70%),

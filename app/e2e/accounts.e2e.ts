@@ -84,11 +84,17 @@ test('first start: welcome and the setup wizard make the owner, then setup is re
 	await page.getByLabel('Repeat password').fill(OWNER.password);
 	await page.getByRole('button', { name: 'Next' }).click();
 
-	// Step 2: the slider resizes the preview; pick an accent.
+	// Step 2: pick an accent straight away, while the step is still sliding in; the right half must not scroll
+	// (a focused control inside a clipped container once dragged the whole step out of view). Then the slider.
+	await page.getByRole('radio', { name: 'Verdigris' }).click();
+	await page.waitForTimeout(500);
+	const offset = await page.evaluate(() =>
+		[...document.querySelectorAll('*')].reduce((n, el) => n + el.scrollLeft + el.scrollTop, 0)
+	);
+	expect(offset).toBe(0);
 	const slider = page.locator('input[name=textScale]');
 	await expect(slider).toBeVisible();
 	await slider.fill('110');
-	await page.getByRole('radio', { name: 'Verdigris' }).click();
 	await page.getByRole('button', { name: 'Next' }).click();
 
 	// Step 3: the e2e server runs `node server`, so the port is editable; keep the one the tests use.

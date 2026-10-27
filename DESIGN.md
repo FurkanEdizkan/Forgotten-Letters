@@ -171,8 +171,20 @@ the resource's name or mark.
 
 ### Rules
 
-- **The One Red Rule.** Blood red is the only accent for structure and action. Emphasis is red, bold or
-  blackletter; it never gets a new colour.
+- **The One Accent Rule.** One accent carries structure and action. Emphasis is the accent, bold or blackletter;
+  it never gets a second colour. The Owner picks the accent at setup from five presets, each a full set of
+  `blood` / `blood-bright` / `blood-pale` values tested for contrast (`app/src/lib/ui/accents.spec.ts`). Blood is
+  the default, and the rest of this file says "blood" for whichever accent is active.
+
+  | Preset | `blood` | `blood-bright` | `blood-pale` |
+  |---|---|---|---|
+  | Blood (default) | #a3170f | #d8392e | #d98c80 |
+  | Brass | #8a6a1c | #d4a537 | #e3c88a |
+  | Verdigris | #2f6f62 | #4fb39c | #9fd3c4 |
+  | Bruise | #5b3a7a | #a57ad1 | #cbb3e6 |
+  | Ash | #4d4a44 | #b8b0a0 | #d6cfc0 |
+
+  Applied as `data-accent` on `<html>`. Status colours, resources, keyword kinds and `ember` never change with it.
 - **Red text by size.** `blood` never carries text. `blood-bright` only at heading size (24 px, or 19 px bold, and
   up). `blood-pale` for red text at any smaller size.
 - **Colour is never the only signal.** Status, resources, roles and keyword kinds always come with a word, a mark
@@ -242,7 +254,8 @@ into the app, so the app works offline on a LAN. No font is loaded from a CDN or
 
 - **Density:** comfortable by default (rows about 40 px, 12–16 px padding). Each user can switch to compact (rows
   32 px, 8–12 px padding) in their settings; the choice is stored per user.
-- **Base text:** 17 px body.
+- **Base text:** 17 px body. The Owner sets a copy-wide text size from 90 to 130 % in steps of 5 (setup wizard and
+  `/owner/settings`); it scales the root font size, so every rem-based size follows.
 - **Spacing scale:** 4, 8, 12, 16, 24, 32, 48, 64 px. Use only these. Siblings use `gap`, not margins.
 - **Reading width:** prose at most 70 characters (`max-width: 70ch`). Reading pages sit in a column up to 72 rem.
   Work surfaces (warband boards, the CM console, the map) use the full width.
@@ -252,8 +265,18 @@ into the app, so the app works offline on a LAN. No font is loaded from a CDN or
 - **Grids** are intrinsic (`repeat(auto-fill, minmax(…))`).
 - The Campaign Master's main views (whole warbands, the turn log, map controls) must fit without scrolling at
   1366 × 768 in compact density.
+- **First-run split** (welcome, setup and sign-in): two halves divided by a lit seam (a 1 px `blood-bright` line
+  that fades at both ends, with a small diamond at its centre). The left half is a dark well around the emblem; the
+  right half fades from a faint lift at the seam into near-black at the far edge. Welcome is 1.15fr / 1fr; setup is
+  0.8fr / 1.2fr. The welcome page holds the title and Setup, a docs icon at the top right, a "Support us" header
+  with round icon links near the bottom, and the legal links under it.
+- **App shell:** a top bar (menu toggle, Docs, the app name, the user menu on the right) over a left panel with the
+  areas the person can use and, at its foot, the help and legal links. The panel pushes the page; it starts open at
+  1920 px and closed at 1366 px.
 
 ## 6. Shape and depth
+
+The rules below hold everywhere except the **first-run exceptions** at the end of this section.
 
 - **Square corners** (0 px) on every button, field, card, chip, badge, panel and dialog. Circles only for portraits,
   status dots and resource discs.
@@ -265,6 +288,17 @@ into the app, so the app works offline on a LAN. No font is loaded from a CDN or
   `0 20px 60px rgba(0, 0, 0, 0.6)`.
 - **Accent glow:** only behind the sign-in card: a radial `blood` glow at 18%. Nowhere else.
 - **Texture:** none. Surfaces are flat colour. Texture belongs to the live map.
+
+**First-run exceptions** (welcome, setup, sign-in, the shell's top bar and user menu only):
+
+- **Glass buttons.** A translucent body with a 14 px backdrop blur, a light top edge, a dark bottom edge, a soft
+  highlight that follows the pointer and 0.6 em corners. The primary button is accent-tinted glass. Labels keep
+  4.5:1 over the darkest and lightest backdrop they sit on. Solid buttons replace glass when blur is unsupported or
+  the viewer asks for reduced transparency. Glass never sits over the live map, tables or dense text.
+- **Wizard controls.** Fields, swatches and tabs have 0.45 em corners and a soft accent focus ring (3 px at 28%);
+  errors add a `danger` border plus the reason under the field. A four-part progress stepper heads the wizard.
+  Callouts have a full 1 px `rule` border and a faint tint, never a coloured side stripe.
+- **Glow:** the radial accent glow sits behind the emblem as well as the sign-in.
 
 ## 7. Components
 
@@ -312,7 +346,21 @@ button per area.
   checkbox, the primary button "Sign in".
 - Errors appear as one inline message at the top of the card (see Messages). Wrong password and unknown username
   give the same sentence.
-- The same card frames the setup page (first owner) and the invite page.
+- The same card frames the invite page. Sign-in itself now sits on the right half of the first-run split, with the
+  emblem on the left (see §5); setup is the four-step wizard on the same split.
+
+### Skeletons
+
+- While a page's data loads, blocks in `panel-raised` stand where the content will be, in its real sizes (title
+  bar, cards, lines), with a slow 1.6 s shimmer. They are replaced in place; nothing jumps.
+- Reduced motion: no shimmer.
+
+### The emblem
+
+- Our own design, never the Trench Crusade cross or any official art: four spear-tipped arms around an empty centre
+  held by a halo, inside a ring of generated, meaningless glyphs.
+- Drawn in the active accent. The ring turns counter-clockwise once every 80 s; the cross never moves.
+- Used on the first-run split only.
 
 ### Cards and panels
 
@@ -409,12 +457,20 @@ Two sets, one stroke weight (1.5 px), drawn in `currentColor`.
 
 ## 8. Motion
 
-- **Interface:** subtle. 150–200 ms ease-out fades and colour changes for hover and state changes. Nothing moves
-  position, bounces or slides in the interface.
+- **Interface:** subtle. 150–200 ms ease-out fades and colour changes for hover and state changes. Nothing bounces.
+  Only these may move:
+  - the emblem's ring (it turns; the cross stays still);
+  - the first-run entrance (the emblem fades up, the seam draws from its centre, the welcome items rise in turn) and
+    the hand-off from welcome to setup (the seam glides left in 400 ms or less, the emblem shrinks);
+  - wizard steps (cross-fade with a short slide);
+  - the shell's left panel (slides in 220 ms).
+
+  All use ease-out curves (anime.js 4), and content is visible without them: an animation only adds to a page that
+  already shows everything.
 - **Live event highlight:** the changed row or card glows `ember` for 1.5 s, then returns.
 - **The live map** may animate (see §12).
 - **Reduced motion:** when `prefers-reduced-motion: reduce` is set, all animation is off, the map's weather, fire and
-  movement included. State changes still show, as instant colour changes.
+  movement included, and the emblem's ring stands still. State changes still show, as instant colour changes.
 
 ## 9. Accessibility
 

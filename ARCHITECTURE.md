@@ -62,7 +62,8 @@ Versions are the newest stable releases on 2026-10-21. Renovate keeps them curre
 | Framework | SvelteKit | 3.0 | Pages, form actions, JSON API and SSE in one process. File routes that atlas can read. |
 | UI library | Svelte (runes) | 5.57 | Fine-grained reactivity, small bundles. `$state` classes for the warband builder and map scene. |
 | Build tool | Vite | 8.3 | Used by SvelteKit and Vitest with one config. |
-| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ADDRESS_HEADER`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). |
+| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ADDRESS_HEADER`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). Started by our small custom server (`app/server/index.js`) around `build/handler.js`, which owns the listeners so the port can move (decision 38). |
+| Motion | anime.js | 4.5.0 | Timelines for the first-run entrance, the welcome-to-setup hand-off, wizard steps and the shell panel. About 10 KB; skipped under reduced motion (decision 41). |
 | UI primitives | Bits UI, wrapped in `src/lib/ui` | 2.19 | Accessible dialogs, menus, comboboxes and focus traps without a visual style to fight. |
 | Styling | Plain CSS, tokens as custom properties, Svelte scoped styles | | One `tokens.css`. Modern CSS (nesting, container queries, `:has`, `color-mix`). |
 | Icons | Own SVG sprite for game marks + `@lucide/svelte` for UI actions | 1.52 | Inline SVG, inherits `currentColor`, tree-shaken per icon. |
@@ -230,10 +231,13 @@ is written in the migration file header. Release notes flag migrations that take
 **Accounts.** Username and password. New accounts only through invite links (7 days, single use). No email, no
 OAuth. Users cannot invite.
 
-**First owner.** On start, if no owner exists, the app creates a one-time setup token and prints the setup URL
-(`<ORIGIN>/setup/<token>`) in the logs (`docker compose logs app`). Visiting it lets the person choose a username and
-password and become the owner. The token is stored hashed and expires after use or after one hour; a restart
-prints a fresh link while there is still no owner.
+**First owner (setup).** Jellyfin style (decision 36). While no owner exists, setup is open: every page redirects
+to `/welcome`, the API answers 409 except `/api/v1/setup`, and the log says "Setup is open at <address>". The
+wizard posts once to `/setup ?/finish` (or `POST /api/v1/setup`). One transaction locks the `app.settings` row,
+re-checks that no owner exists, creates the owner, saves text size, accent and port, sets `setup_completed_at` and
+starts a session, so two people pressing Finish at once get one owner and one refusal. Once an owner exists the
+guard is off for the life of the process and `/welcome` and `/setup` send people to `/login`. There is no token:
+on a shared network the first visitor to a fresh copy becomes its owner, an accepted risk shown on the review page.
 
 **Passwords.** scrypt from `node:crypto`: N=2^17, r=8, p=1, random 16-byte salt, `timingSafeEqual` compare. Stored
 as a versioned string (`scrypt$v1$...`) so parameters can be raised later and the hash upgraded on the next sign-in.
@@ -505,9 +509,16 @@ endpoint has an API test. Tests never use book content.
 
 ## 17. Packaging, deploy, updates and backups
 
-**Install.** Download `compose.yaml` and `.env.example`, copy it to `.env`, set `ORIGIN` and the database password,
-run `docker compose up -d`, open the setup link from `docker compose logs app`. Works on Docker Desktop and plain
-Docker Engine.
+**Install.** Download `compose.yaml` and `.env.example`, copy it to `.env`, set the database password (and
+`ORIGIN` if the copy is reached through a name), run `docker compose up -d`, open the app's address and follow the
+setup wizard. Works on Docker Desktop and plain Docker Engine.
+
+**Port.** Stored in `app.settings.port`. The custom server (`node server`) puts a small control on `globalThis`;
+`infra/listener.ts` is the only code that touches it. At start the app asks it to listen on the stored port; a
+change from `/owner/settings` opens the new port first, sends the browser there, and closes the old port about
+10 s later. In the Docker image `PORT_LOCKED=1` is set and the app always listens on 3000 inside the container:
+Compose owns the published port (`APP_PORT` in `.env`), so the UI shows it read-only with the line to change. In
+`vite dev` there is no control and the port is locked too.
 
 **HTTPS.** `docker compose --profile https up -d` with `DOMAIN` set. Caddy gets a Let's Encrypt certificate, or uses
 internal certificates for LAN names.
@@ -653,7 +664,7 @@ compose.dev.yaml           db only, for development
 | 5 | Newest stable versions (Postgres 18, Node 26, SvelteKit 3, TypeScript 6) | Use current features (`uuidv7()`), long support. A newest major that the rest does not support yet waits (TypeScript 7: SvelteKit 3, svelte-check and typescript-eslint top out at 6) | 2026-10-03, updated 2026-10-21 |
 | 6 | Atlas documents every workflow, endpoint, table, module and live event | The model stays the map for people and agents | 2026-10-03, updated 2026-10-21 |
 | 7 | ~~Single `GET /health`~~ → `GET /health/live` and `GET /health/ready` | Docker restarts on liveness; proxies and smoke tests wait on readiness; 503 during start and shutdown | 2026-10-21 |
-| 8 | ~~First owner from `.env`~~ → one-time setup link in the logs, expires after use or one hour | No password left in a file on disk | 2026-10-21 |
+| 8 | ~~First owner from `.env`~~ → ~~one-time setup link in the logs, expires after use or one hour~~ (superseded by 36) | No password left in a file on disk | 2026-10-21 |
 | 9 | Drizzle ORM + drizzle-kit, postgres.js driver | Schema in TypeScript, readable generated SQL, atlas reads it | 2026-10-21 |
 | 10 | Migrations applied at start under an advisory lock, forward-only, `pg_dump` first | Upgrades run unattended; the dump is the undo | 2026-10-21 |
 | 11 | One Postgres schema per area, `uuidv7()` ids, `version` for optimistic locking, key paging | Consistent tables, stable pages, no silent overwrites | 2026-10-21 |
@@ -681,5 +692,11 @@ compose.dev.yaml           db only, for development
 | 33 | `svelte/no-navigation-without-resolve` off | The app is always served at `/` (no base path); `resolve()` adds nothing but route ids on every link | 2026-10-21 |
 | 34 | E2e runs the production build on a throwaway Testcontainers Postgres (`app/e2e/server.js`); each test acts from its own `X-Forwarded-For` address | Never touches development data; per-address rate limits stay per test | 2026-10-21 |
 | 35 | Atlas leaves tests and test helpers out of the import graph (`!` patterns in `atlas.config.json`) | Test-only imports are not architecture | 2026-10-21 |
+| 36 | Setup is open in the browser while no owner exists (Jellyfin style); no token. Options weighed: the log link (decision 8), a code printed in the log and typed into the wizard, open setup. | Non-technical groups and future installer and desktop installs cannot be asked to read server logs. Risk: on a shared network the first visitor owns a fresh copy; the setup transaction still makes exactly one owner | 2026-10-27 |
+| 37 | Copy-wide settings in one row of `app.settings` (text size 90–130 % in steps of 5, accent, port, `setup_completed_at`), checked by database constraints; `auth.setup_tokens` dropped (irreversible, held only short-lived tokens) | One place every page reads; constraints keep bad values out whatever writes them | 2026-10-27 |
+| 38 | A small custom server around adapter-node's `build/handler.js` owns the listeners, so the port can change from the UI; locked (`PORT_LOCKED=1`) in Docker. Options weighed: env only, restart on change, host networking in Docker. | Groups without Docker (installer, direct app) still need to change the port without a terminal. In Docker, Compose sets the published port, so the UI shows the `.env` change instead | 2026-10-27 |
+| 39 | Accent presets (blood, brass, verdigris, bruise, ash) replace the One Red Rule with "one accent, chosen at setup"; each preset is contrast-tested in a unit test | The group chooses its look without breaking contrast; status and resource colours stay fixed | 2026-10-27 |
+| 40 | Glass buttons and rounded wizard controls on the first-run pages, the top bar and the user menu only (DESIGN §6 exceptions) | The pages people see first get the polish; work surfaces keep flat square controls that read well over tables and the map and cost no blur | 2026-10-27 |
+| 41 | anime.js 4.5.0 for the first-run motion and the shell panel; content visible without it; off under reduced motion. The emblem is a flat SVG (its ring turns with CSS); three.js and 3D were tried on the review page and dropped | A small timeline tool for a few sequenced moves; SVG is light on weak laptops | 2026-10-27 |
 
 New decisions are added here with their date; a reversed decision is struck through, not deleted.

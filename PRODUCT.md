@@ -150,7 +150,8 @@ Each step is planned, reviewed on a visual page and documented before it is buil
 | Step | Delivers | Status |
 |---|---|---|
 | 0 | Foundation documents: product, design system, architecture, agents guide | agreed |
-| 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | built 2026-10-21 on `feat/accounts`, in review (new decisions: ARCHITECTURE 32–35) |
+| 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | done 2026-10-27 (merged into `main`; decisions ARCHITECTURE 32–35). F4 was replaced by step 1.5's open setup. |
+| 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | in build (review page approved 2026-10-27; see §10.3) |
 | 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, invite players into it | later |
 | 3 | Rules data: load the group's own rule packs (units, kit, keywords, limits) per edition and version; house rule packs | later |
 | 4 | Warbands: build and keep a warband by the rules, experience and injuries | later |
@@ -177,7 +178,7 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | F1 | One sign-in screen for all roles: username, password and "Remember me". |
 | F2 | After sign-in each role lands in its own area: Owner `/owner`, Admin `/admin`, User `/home`. A header switcher shows every area the person can use, since Owners and Admins also play. |
 | F3 | Sign-in is limited to 5 tries a minute per username and per IP address, then a short wait. The limit is kept in memory. A wrong password and an unknown username get the same message ("Wrong username or password"). |
-| F4 | On first start, while no Owner exists, the app prints a one-time setup link in its logs. The link creates the first Owner and expires after use or after one hour. |
+| F4 | ~~On first start, while no Owner exists, the app prints a one-time setup link in its logs.~~ Replaced in step 1.5 by S1: setup is open in the browser while no Owner exists. |
 | F5 | Owners invite admins and users; admins invite users; users cannot invite. An invite is a link that fixes the role, is valid for 7 days and works once. |
 | F6 | The inviter sees their pending invites and can revoke or re-send them. |
 | F7 | Owners see every account. Admins see the users they invited. |
@@ -194,6 +195,19 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | F18 | The Owner can anonymise a disabled account. Its display name becomes "Former member". |
 | F19 | The Owner area offers backup download and restore, and warns when the copy is served over plain HTTP. |
 | F20 | A JSON API under `/api/v1/` offers the same actions as the pages, authenticated by the session cookie. Pages and the API call the same services. The API is described by an OpenAPI document at `/api/v1/openapi.json`. |
+
+### 10.3 Step 1.5: first run and the app shell
+
+| Id | Requirement |
+|---|---|
+| S1 | While no Owner exists, every page opens the welcome page, and the server log says "Setup is open at <address>". There is no token: on a shared network, whoever opens a fresh copy first becomes its Owner (accepted, as in Jellyfin). Once an Owner exists, setup never shows again unless the copy is reinstalled. |
+| S2 | The welcome page shows the emblem on the left; on the right the app name and Setup, a docs icon, a "Support us" header with Patreon, tip and Bitcoin links, and the legal links. |
+| S3 | The setup wizard has four steps: Owner (username, display name, password), Look (text size 90 to 130 % with a live preview, one of five accents), Server (the port), Done. Each step checks its fields before moving on; Finish creates the Owner, saves the settings and signs the Owner in, all at once. |
+| S4 | The Owner can change text size, accent and port later under `/owner/settings`. The text size and accent apply to every page for everyone. |
+| S5 | Outside Docker, a port change moves the app to the new port and takes the browser there; the old port closes once the browser has arrived. In Docker the port is read-only and the page shows the `.env` line to change, because Compose sets the published port. |
+| S6 | After setup, the sign-in page uses the same split as the welcome page. |
+| S7 | Signed in, every page has a top bar (menu toggle, Docs, the user menu with User settings and Log out) and a left panel with the person's areas and, at its foot, FAQ, Licence, Contact, Support us, Privacy, Terms and the unofficial notice. Each help and legal link opens a placeholder page until its text is written. |
+| S8 | Pages show skeleton blocks while they load. Motion follows DESIGN.md §8 and is off with reduced motion. |
 
 ### 10.2 Non-functional (all steps)
 

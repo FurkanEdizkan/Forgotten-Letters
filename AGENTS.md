@@ -172,6 +172,9 @@ The review page is a claude.ai Artifact. It is the contract for the step: what i
 - Format: `type/short-subject`, lowercase, hyphenated. Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 - Examples: `feat/campaign-roster`, `fix/invite-expiry`, `docs/foundation`.
 - One branch per roadmap step. Branch from the current base, usually `main`. Never commit on `main`.
+- A big step may be split into task branches (for example `docs/…`, `feat/…-settings`, `feat/…-shell`) so agents
+  can work in parallel. The plan names each branch, its owner and the merge order; each reaches `main` by rebase
+  and fast-forward in that order.
 - Deleted after merge (by the user, or by an agent with a named go-ahead).
 
 ### Commits

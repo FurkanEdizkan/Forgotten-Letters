@@ -1,0 +1,224 @@
+/*
+ * Liquid-glass buttons (DESIGN.md §6, decision d6: welcome, setup, sign-in, the top bar and the user menu only).
+ * A translucent body that blurs what is behind it, a light top edge, a dark bottom edge and a soft highlight that
+ * follows the pointer (--mx / --my, set by GlassButton). The primary button is tinted with the accent. Solid
+ * fallbacks when blur is unsupported or the viewer asks for less transparency.
+ *
+ * Global on purpose: the shell (top bar, user menu) reuses the same classes. Import this file where it is used.
+ */
+.glass {
+	position: relative;
+	isolation: isolate;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	min-height: 2.6em;
+	padding: 0.6em 1.3em;
+	border-radius: 0.6em;
+	border: var(--border-hairline) solid rgb(255 255 255 / 0.16);
+	background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.025));
+	-webkit-backdrop-filter: blur(14px) saturate(115%);
+	backdrop-filter: blur(14px) saturate(115%);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.22),
+		inset 0 -1px 0 rgb(0 0 0 / 0.4),
+		0 0.5em 1.4em -0.4em rgb(0 0 0 / 0.6);
+	color: var(--bone);
+	font-family: var(--font-body);
+	font-size: var(--size-body);
+	font-weight: 600;
+	letter-spacing: var(--track-label);
+	text-transform: uppercase;
+	line-height: 1.1;
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		translate 180ms var(--easing),
+		scale 120ms var(--easing),
+		border-color 180ms var(--easing),
+		box-shadow 180ms var(--easing),
+		color 180ms var(--easing),
+		background-color 180ms var(--easing);
+}
+
+/* The highlight: a radial sheen under the label, brighter on hover, centred where the pointer is. */
+.glass::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: inherit;
+	pointer-events: none;
+	opacity: 0.6;
+	background: radial-gradient(
+		140% 90% at var(--mx, 25%) var(--my, 0%),
+		rgb(255 255 255 / 0.2),
+		transparent 55%
+	);
+	transition: opacity 180ms var(--easing);
+}
+
+.glass:hover {
+	color: var(--bone);
+	translate: 0 -1px;
+	border-color: rgb(255 255 255 / 0.28);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.3),
+		inset 0 -1px 0 rgb(0 0 0 / 0.4),
+		0 0.8em 1.8em -0.4em rgb(0 0 0 / 0.7);
+}
+
+.glass:hover::before {
+	opacity: 1;
+}
+
+.glass:active {
+	translate: 0 0;
+	scale: 0.985;
+}
+
+.glass:focus-visible {
+	outline: var(--border-focus) solid var(--blood-bright);
+	outline-offset: 2px;
+}
+
+/* Primary: tinted with the accent (bright at the top, the base fill at the bottom). */
+.glass.primary {
+	border-color: color-mix(in srgb, var(--blood-bright) 60%, white 10%);
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--blood-bright) 70%, transparent),
+		color-mix(in srgb, var(--blood) 78%, transparent)
+	);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.28),
+		inset 0 -1px 0 rgb(0 0 0 / 0.45),
+		0 0.6em 1.6em -0.5em color-mix(in srgb, var(--blood) 80%, transparent);
+}
+
+.glass.primary:hover {
+	border-color: color-mix(in srgb, var(--blood-bright) 75%, white 20%);
+}
+
+/* Ghost: no glass, a quiet outline for Back and other second actions. */
+.glass.ghost {
+	background: transparent;
+	border-color: var(--rule-strong);
+	box-shadow: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	color: var(--bone-dim);
+}
+
+.glass.ghost::before {
+	display: none;
+}
+
+.glass.ghost:hover {
+	color: var(--bone);
+	background: rgb(236 229 211 / 0.05);
+	box-shadow: none;
+}
+
+/* Icon-only: a square, and a round one for small link rows. */
+.glass.icon,
+.glass.round-icon {
+	width: 2.6em;
+	height: 2.6em;
+	min-height: 0;
+	padding: 0;
+	color: var(--bone-dim);
+}
+
+.glass.round-icon {
+	border-radius: var(--radius-disc);
+}
+
+.glass.icon:hover,
+.glass.round-icon:hover {
+	color: var(--bone);
+}
+
+.glass.icon :where(svg),
+.glass.round-icon :where(svg) {
+	width: 1.25em;
+	height: 1.25em;
+}
+
+/* A small second line inside a wide button, for example "Create the Owner, about 2 min". */
+.glass :where(small) {
+	font-size: 0.82em;
+	font-weight: 400;
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--bone-dim);
+}
+
+.glass.primary :where(small) {
+	color: var(--bone);
+}
+
+/* Disabled and busy: flat, no lift, no highlight. */
+.glass:disabled,
+.glass[aria-disabled='true'] {
+	background: var(--panel-raised);
+	border-color: var(--panel-raised);
+	box-shadow: none;
+	color: var(--bone-faint);
+	cursor: not-allowed;
+	translate: none;
+	scale: none;
+}
+
+.glass:disabled::before,
+.glass[aria-disabled='true']::before {
+	display: none;
+}
+
+/* An error on the control it belongs to (rare: a button whose action failed). */
+.glass.invalid {
+	border-color: var(--danger);
+}
+
+/* Solid fallbacks: where blur is unsupported, or the viewer asks for less transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.glass {
+		background: var(--panel-raised);
+	}
+	.glass.primary {
+		background: var(--blood);
+	}
+	.glass.ghost {
+		background: transparent;
+	}
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	.glass {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		background: var(--panel-raised);
+	}
+	.glass.primary {
+		background: var(--blood);
+	}
+	.glass.ghost {
+		background: transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.glass,
+	.glass:hover,
+	.glass:active {
+		translate: none;
+		scale: none;
+	}
+}
+
+/* High contrast keeps a bone outline on every glass control. */
+:root[data-contrast='high'] .glass {
+	border-color: var(--bone-dim);
+}

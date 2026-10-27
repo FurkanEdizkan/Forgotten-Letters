@@ -120,6 +120,41 @@
 	--rule-strong: #b0a791;
 }
 
+/*
+ * Accent presets (data-accent on <html>, set by the root layout from the copy-wide settings). Each preset swaps the
+ * three accent tokens only; everything else keeps its role. Mirrored in accents.ts for the wizard's live preview,
+ * and accents.spec.ts checks both match and the contrast of each preset.
+ */
+:root[data-accent='blood'] {
+	--blood: #a3170f;
+	--blood-bright: #d8392e;
+	--blood-pale: #d98c80;
+}
+
+:root[data-accent='brass'] {
+	--blood: #8a6a1c;
+	--blood-bright: #d4a537;
+	--blood-pale: #e3c88a;
+}
+
+:root[data-accent='verdigris'] {
+	--blood: #2f6f62;
+	--blood-bright: #4fb39c;
+	--blood-pale: #9fd3c4;
+}
+
+:root[data-accent='bruise'] {
+	--blood: #5b3a7a;
+	--blood-bright: #a57ad1;
+	--blood-pale: #cbb3e6;
+}
+
+:root[data-accent='ash'] {
+	--blood: #4d4a44;
+	--blood-bright: #b8b0a0;
+	--blood-pale: #d6cfc0;
+}
+
 :root[data-blackletter='off'] {
 	--font-heading: 'EB Garamond', Georgia, serif;
 }

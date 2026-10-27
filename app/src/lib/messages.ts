@@ -43,7 +43,9 @@ export const m = {
 		password: 'Password',
 		remember: 'Remember me',
 		rememberHint: 'Stay signed in on this device for 30 days.',
-		submit: 'Sign in'
+		submit: 'Sign in',
+		signingIn: 'Signing in…',
+		noAccount: 'Setup is done. Ask the Owner for an invite link.'
 	},
 
 	setup: {
@@ -61,6 +63,97 @@ export const m = {
 		invalid: 'This setup link has expired or was used.',
 		invalidHelp: 'Restart the app to print a new link in its logs, or sign in if an owner exists.',
 		toLogin: 'Go to sign in'
+	},
+
+	welcome: {
+		title: 'Welcome',
+		setup: 'Setup',
+		setupHint: 'Create the Owner, about 2 min',
+		docs: 'User docs',
+		support: 'Support us',
+		patreon: 'Support us on Patreon',
+		coffee: 'Buy us a coffee',
+		bitcoin: 'Donate in Bitcoin',
+		legal: 'Legal and help',
+		terms: 'Terms of service',
+		privacy: 'Privacy',
+		licence: 'Licence (AGPL-3.0)',
+		contact: 'Contact',
+		faq: 'FAQ',
+		unofficial: 'Unofficial fan project · not affiliated with Factory Fortress'
+	},
+
+	wizard: {
+		title: 'Setup',
+		progress: 'Setup progress',
+		stepDone: 'done',
+		steps: ['Owner', 'Look', 'Server', 'Done'],
+		back: 'Back',
+		next: 'Next',
+		finish: 'Finish',
+		finishing: 'Finishing…',
+		fixFields: 'Check the highlighted fields.',
+		needsScript: 'Setup needs JavaScript. Turn it on for this page, then reload.',
+		owner: {
+			title: 'The Owner account',
+			description: 'The first account. It runs this copy of Forgotten Letters.',
+			username: 'Username',
+			usernameHint: '3 to 32 characters: letters, digits, dot, dash, underscore. Used to sign in.',
+			displayName: 'Display name',
+			displayNameHint: 'What others see. You can change it later.',
+			password: 'Password',
+			passwordHint: '10 to 128 characters.',
+			passwordCount: (n: number) => `This one has ${n}.`,
+			repeat: 'Repeat password',
+			repeatPlaceholder: 'Type it again',
+			repeatMismatch: 'The two passwords differ. Type the same one twice.',
+			note: "The Owner can do everything, including resetting other people's passwords. Keep this password safe."
+		},
+		look: {
+			title: 'How it looks',
+			description: 'For everyone in this group. The Owner can change it later.',
+			textSize: 'Text size',
+			accent: 'Accent',
+			preview: 'Preview',
+			// Invented example data for the preview card; never book text.
+			sampleTitle: 'The Siege of Hollow Ridge',
+			sampleMeta: 'Turn 4 · Carcass Front · 6 warbands',
+			sampleBody:
+				'The Iron Choir held the ridge through the night. At dawn the Campaign Master records the result, and each warband sees its new standing on the map.',
+			sampleChip: 'Victory',
+			sampleButton: 'Record result'
+		},
+		server: {
+			title: 'Where it listens',
+			description: 'The port is the number at the end of the address people open.',
+			direct: 'Runs directly',
+			docker: 'Runs in Docker',
+			port: 'Port',
+			portHint: '1024 to 65535.',
+			address: 'Address after Finish',
+			addressHint: 'Share this with your players.',
+			moveNote:
+				'When you press Finish the app opens the new port, takes you there, then closes the old one.',
+			lockedTag: 'Set by Docker',
+			lockedHow: 'To change it, edit .env and restart',
+			lockedNote: 'This copy runs in Docker or in development, so the port is set outside the app.'
+		},
+		done: {
+			title: 'Ready',
+			description: 'Check the choices, then press Finish to create the Owner and sign in.',
+			account: 'Owner',
+			look: 'Look',
+			address: 'Address',
+			textSize: (v: number) => `Text ${v} %`
+		}
+	},
+
+	accents: {
+		blood: 'Blood',
+		brass: 'Brass',
+		verdigris: 'Verdigris',
+		bruise: 'Bruise',
+		ash: 'Ash'
 	},
 
 	invite: {

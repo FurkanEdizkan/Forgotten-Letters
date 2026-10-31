@@ -96,6 +96,17 @@ describe('list and get', () => {
 		await expect(get(user.ctx(), priv.id)).rejects.toMatchObject({ code: 'not_found' });
 		await expect(get(user.ctx(), pub.id)).resolves.toMatchObject({ myRole: null, mySeat: false });
 	});
+	it('an Owner reads any campaign, private ones included, without rights in it', async () => {
+		const cm = await person('admin');
+		const owner = await person('owner');
+		const priv = (await newCampaign(cm, { visibility: 'private' })).campaign;
+		await expect(get(owner.ctx(), priv.id)).resolves.toMatchObject({ myRole: null, mySeat: false });
+		// Seeing is not acting: settings stay with the CM and co-CMs.
+		const c = await get(owner.ctx(), priv.id);
+		await expect(
+			update(owner.ctx(), priv.id, patch(c, { name: 'Taken over' }))
+		).rejects.toMatchObject({ code: 'forbidden' });
+	});
 	it('CM and Owners read a deleted campaign; others do not', async () => {
 		const cm = await person('admin');
 		const owner = await person('owner');
@@ -273,5 +284,28 @@ describe('co-CMs and transfer', () => {
 		expect(back.members[0]).toMatchObject({ userId: cm.row.id, role: 'cm' });
 		await removeCoCm(cm.ctx(), campaign.id, co.row.id);
 		expect((await get(cm.ctx(), campaign.id)).members).toHaveLength(1);
+	});
+	it('an Owner takes the CM role of a private campaign without being a co-CM; others may not', async () => {
+		const cm = await person('admin');
+		const owner = await person('owner');
+		const admin = await person('admin');
+		const { campaign } = await newCampaign(cm, { visibility: 'private' });
+		await expect(transfer(cm.ctx(), campaign.id, admin.row.id)).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		await expect(transfer(owner.ctx(), campaign.id, cm.row.id)).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		const c = await transfer(owner.ctx(), campaign.id, owner.row.id);
+		expect(c.members).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ userId: owner.row.id, role: 'cm' }),
+				expect.objectContaining({ userId: cm.row.id, role: 'co_cm' })
+			])
+		);
+		expect(c.myRole).toBe('cm');
+		const [entry] = await sql()`select detail from auth.audit_log
+			where action = 'campaign.cm_transferred' order by id desc limit 1`;
+		expect(entry?.detail).toMatchObject({ from: cm.row.id, to: owner.row.id });
 	});
 });

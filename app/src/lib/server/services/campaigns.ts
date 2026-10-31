@@ -102,8 +102,9 @@ export interface Access {
 
 /**
  * Load a campaign for the caller (locked with `lock`, for changes). Someone with no rights, no seat and no way to see
- * it gets `not_found`, so private campaigns do not leak; deleted ones are visible only with `deleted` to their CM
- * and to Owners, within the restore window.
+ * it gets `not_found`, so private campaigns do not leak; Owners see every campaign, so they can hand over the CM
+ * role of any of them (decision 7). Deleted ones are visible only with `deleted` to their CM and to Owners, within
+ * the restore window. Seeing is not acting: rights are still checked with `need`.
  */
 export async function access(
 	tx: Tx,
@@ -123,7 +124,7 @@ export async function access(
 			!canInCampaign(role, me.role, 'see_deleted')
 		)
 			throw notFound();
-	} else if (!role && !seated && c.visibility !== 'listed') throw notFound();
+	} else if (!role && !seated && c.visibility !== 'listed' && me.role !== 'owner') throw notFound();
 	return { c, role, seated, me };
 }
 
@@ -310,18 +311,25 @@ export async function removeCoCm(ctx: Ctx, id: string, userId: string): Promise<
 	});
 }
 
-/** Hand the CM role to a co-CM; the old CM stays on as a co-CM. The CM, or an Owner for a CM who is gone. */
+/**
+ * Hand the CM role to a co-CM; the old CM stays on as a co-CM. The CM, or an Owner for a CM who is gone; an Owner
+ * may also take the role themselves without being a co-CM first.
+ */
 export async function transfer(ctx: Ctx, id: string, userId: string): Promise<ApiCampaign> {
 	return db().transaction(async (tx) => {
 		const a = await access(tx, ctx, id, { lock: true });
 		need(a, 'transfer');
-		if ((await campaignsRepo.roleOf(tx, id, userId)) !== 'co_cm')
+		const target = await campaignsRepo.roleOf(tx, id, userId);
+		if (target === 'cm') throw new AppError('conflict', 'They are the CM already.');
+		const ownerTakes = a.me.role === 'owner' && userId === a.me.id;
+		if (target !== 'co_cm' && !ownerTakes)
 			throw new AppError('conflict', 'Hand the CM role to a co-CM. Add them as a co-CM first.');
 		await rightsHolder(tx, userId);
 		const old = (await campaignsRepo.listMembers(tx, id)).find((m) => m.role === 'cm');
 		// The old CM steps down first: the partial unique index allows only one CM at any moment.
 		if (old) await campaignsRepo.setMemberRole(tx, id, old.userId, 'co_cm');
-		await campaignsRepo.setMemberRole(tx, id, userId, 'cm');
+		if (target) await campaignsRepo.setMemberRole(tx, id, userId, 'cm');
+		else await campaignsRepo.insertMember(tx, { campaignId: id, userId, role: 'cm' });
 		await record(
 			tx,
 			ctx,

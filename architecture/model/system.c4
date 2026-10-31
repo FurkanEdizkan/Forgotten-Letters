@@ -140,7 +140,7 @@ model {
         }
         campaignService = module 'Campaigns' {
           #server-only
-          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner).'
+          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.'
           metadata {
             code 'app/src/lib/server/services/campaigns{,.spec,.db.spec}.ts'
           }

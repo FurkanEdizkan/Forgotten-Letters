@@ -43,7 +43,28 @@ export type AuditAction =
 	| 'account.enabled'
 	| 'account.anonymised'
 	| 'backup.downloaded'
-	| 'backup.restored';
+	| 'backup.restored'
+	| 'campaign.created'
+	| 'campaign.updated'
+	| 'campaign.deleted'
+	| 'campaign.restored'
+	| 'campaign.stage_changed'
+	| 'campaign.co_cm_added'
+	| 'campaign.co_cm_removed'
+	| 'campaign.cm_transferred'
+	| 'seat.added'
+	| 'seat.renamed'
+	| 'seat.freed'
+	| 'seat.removed'
+	| 'seat.link_made'
+	| 'seat.link_revoked'
+	| 'seat.assigned'
+	| 'seat.joined'
+	| 'seat.left'
+	| 'request.made'
+	| 'request.approved'
+	| 'request.declined'
+	| 'request.withdrawn';
 
 export function record(
 	tx: Tx,

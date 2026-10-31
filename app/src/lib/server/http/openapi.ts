@@ -17,6 +17,18 @@ import {
 	pageQuery,
 	signInInput
 } from '#lib/schemas/auth';
+import {
+	approveInput,
+	campaignCreate,
+	campaignPatch,
+	campaignScopeQuery,
+	personInput,
+	requestInput,
+	seatAcceptInput,
+	seatCount,
+	seatPatch,
+	stageMove
+} from '#lib/schemas/campaigns';
 import { settingsPatch, setupInput } from '#lib/schemas/settings';
 import * as t from '#lib/api-types';
 import { ERROR_STATUS, type ErrorCode } from '../errors';
@@ -238,6 +250,260 @@ export const ENDPOINTS: Endpoint[] = [
 	},
 	{
 		method: 'get',
+		path: '/campaigns',
+		summary: 'A page of campaign cards: mine, listed or deleted.',
+		auth: true,
+		query: campaignScopeQuery,
+		ok: { status: 200, schema: t.campaignPage },
+		errors: ['invalid', 'unauthenticated']
+	},
+	{
+		method: 'post',
+		path: '/campaigns',
+		summary: 'Create a campaign with its seats (Owners and Admins).',
+		auth: true,
+		body: campaignCreate,
+		ok: { status: 201, schema: t.campaignCreated },
+		errors: [...WRITE, 'unauthenticated', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/campaigns/{id}',
+		summary: 'One campaign (ETag: its version).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 200, schema: t.campaignBody },
+		errors: ['invalid', 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'patch',
+		path: '/campaigns/{id}',
+		summary: 'Change settings and house rules (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		body: campaignPatch,
+		ok: { status: 200, schema: t.campaignOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}',
+		summary: 'Delete a campaign; restorable for 30 days (CM).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/restore',
+		summary: 'Restore a deleted campaign (CM, Owners).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 200, schema: t.campaignOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/stage',
+		summary: 'Move to another stage (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		body: stageMove,
+		ok: { status: 200, schema: t.campaignOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/campaigns/{id}/seats',
+		summary: 'The seats; outsiders see no players.',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 200, schema: t.seatList },
+		errors: ['invalid', 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/seats',
+		summary: 'Add seats, 30 at most (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		body: seatCount,
+		ok: { status: 201, schema: t.seatList },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'patch',
+		path: '/campaigns/{id}/seats/{seatId}',
+		summary: 'Rename or free a seat (CM, co-CMs).',
+		auth: true,
+		params: t.campaignSeatParam,
+		body: seatPatch,
+		ok: { status: 200, schema: t.seatOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/seats/{seatId}',
+		summary: 'Remove an empty seat (CM, co-CMs).',
+		auth: true,
+		params: t.campaignSeatParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/seats/{seatId}/invite',
+		summary: 'Make a one-time seat link, shown once (CM, co-CMs).',
+		auth: true,
+		params: t.campaignSeatParam,
+		ok: { status: 201, schema: t.seatLinkOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/seats/{seatId}/invite',
+		summary: "Withdraw the seat's open link (CM, co-CMs).",
+		auth: true,
+		params: t.campaignSeatParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/seats/{seatId}/assign',
+		summary: 'Add a person by name to an empty seat (CM, co-CMs).',
+		auth: true,
+		params: t.campaignSeatParam,
+		body: personInput,
+		ok: { status: 200, schema: t.seatOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/seats/mine',
+		summary: "Leave one's own seat (mustering only).",
+		auth: true,
+		params: t.idParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/seat-links',
+		summary: 'A fresh link for every empty seat, shown once (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 201, schema: t.seatLinks },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/campaigns/{id}/candidates',
+		summary: 'People to add to a seat or make co-CM, up to 10.',
+		auth: true,
+		params: t.idParam,
+		query: t.candidatesFor,
+		ok: { status: 200, schema: t.candidateList },
+		errors: ['invalid', 'unauthenticated', 'forbidden', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/co-cms',
+		summary: 'Give an Admin or Owner co-CM rights (CM).',
+		auth: true,
+		params: t.idParam,
+		body: personInput,
+		ok: { status: 200, schema: t.memberList },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/co-cms/{userId}',
+		summary: 'Take co-CM rights away (CM).',
+		auth: true,
+		params: t.campaignUserParam,
+		ok: { status: 200, schema: t.memberList },
+		errors: [...WRITE, 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/transfer',
+		summary: 'Hand the CM role to a co-CM (CM, Owners).',
+		auth: true,
+		params: t.idParam,
+		body: personInput,
+		ok: { status: 200, schema: t.memberList },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/campaigns/{id}/requests',
+		summary: 'Open requests to join (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 200, schema: t.requestList },
+		errors: ['invalid', 'unauthenticated', 'forbidden', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/requests',
+		summary: 'Ask to join a listed campaign while it musters.',
+		auth: true,
+		params: t.idParam,
+		body: requestInput,
+		ok: { status: 201, schema: t.requestOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/requests/mine',
+		summary: "Withdraw one's own open request.",
+		auth: true,
+		params: t.idParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/requests/{rid}/approve',
+		summary: 'Approve a request into an empty seat (CM, co-CMs).',
+		auth: true,
+		params: t.campaignRequestParam,
+		body: approveInput,
+		ok: { status: 200, schema: t.seatOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'post',
+		path: '/campaigns/{id}/requests/{rid}/decline',
+		summary: 'Decline a request (CM, co-CMs).',
+		auth: true,
+		params: t.campaignRequestParam,
+		ok: { status: 204 },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/seat-invites/{token}',
+		summary: 'What a seat link offers.',
+		auth: false,
+		params: t.tokenParam,
+		ok: { status: 200, schema: t.seatInvitePreview },
+		errors: ['invalid', 'not_found']
+	},
+	{
+		method: 'post',
+		path: '/seat-invites/{token}/accept',
+		summary: 'Take the seat: signed in, or with a new account (signed in).',
+		auth: false,
+		params: t.tokenParam,
+		body: seatAcceptInput,
+		ok: { status: 201, schema: t.seatTaken, cookie: true },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict', 'rate_limited']
+	},
+	{
+		method: 'get',
 		path: '/openapi.json',
 		summary: 'This OpenAPI document.',
 		auth: false,
@@ -252,7 +518,7 @@ const MESSAGES: Record<ErrorCode, string> = {
 	forbidden: 'Signed in but not allowed, or a cross-site request.',
 	not_found: 'No such resource.',
 	conflict:
-		'Stale version, a used or expired invite, the last owner, setup not done or already done, or a port that is locked or in use.',
+		'Stale version, a used or expired invite, the last owner, setup not done or already done, a port that is locked or in use, a taken name or seat, a stage move not allowed, or joining closed.',
 	rate_limited: 'Too many tries; see Retry-After.',
 	internal: 'Unexpected error; quote the request id.',
 	unavailable: 'Starting or shutting down; see Retry-After.'

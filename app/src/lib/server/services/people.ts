@@ -9,6 +9,7 @@ import { db } from '../db';
 import * as usersRepo from '../repos/users';
 import { record, type Ctx } from './audit';
 import { endSessions, requireUser } from './auth';
+import { dropCoCmRights, rolesOf } from './campaigns';
 import { hashPassword, temporaryPassword } from './passwords';
 
 /** What the people list shows (never the password hash). */
@@ -63,6 +64,21 @@ async function load(tx: Parameters<typeof usersRepo.findById>[0], id: string) {
 	return u;
 }
 
+/**
+ * A Campaign Master stays answerable for their campaign (decision 2): someone who is CM of a campaign not ended
+ * cannot lose the right to run campaigns until they hand the CM role on.
+ */
+async function refuseWhileCm(tx: Parameters<typeof rolesOf>[0], id: string, doing: string) {
+	const names = (await rolesOf(tx, id))
+		.filter((r) => r.role === 'cm' && r.stage !== 'ended')
+		.map((r) => (r.deletedAt ? `${r.name} (deleted)` : r.name));
+	if (names.length)
+		throw new AppError(
+			'conflict',
+			`They are the Campaign Master of ${names.join(', ')}. Hand the CM role to someone else before you ${doing}.`
+		);
+}
+
 const stale = () =>
 	new AppError('conflict', 'Someone changed this account meanwhile. Reload and try again.');
 
@@ -73,6 +89,11 @@ export async function changeRole(ctx: Ctx, id: string, role: Role, version: numb
 		if (u.role === role) return toPerson(u);
 		if (u.role === 'owner' && !u.disabledAt && (await usersRepo.activeOwnerCount(tx)) <= 1)
 			throw new AppError('conflict', 'This is the last owner. Make someone else an owner first.');
+		// Users only play: becoming one drops co-CM rights, and is refused while CM of a campaign not ended.
+		if (role === 'user') {
+			await refuseWhileCm(tx, id, 'make them a User');
+			await dropCoCmRights(tx, id);
+		}
 		const next = await usersRepo.update(tx, id, { role }, version);
 		if (!next) throw stale();
 		await record(tx, ctx, 'role.changed', { type: 'user', id }, { from: u.role, to: role });
@@ -93,6 +114,7 @@ export async function setDisabled(ctx: Ctx, id: string, disabled: boolean, versi
 			(await usersRepo.activeOwnerCount(tx)) <= 1
 		)
 			throw new AppError('conflict', 'This is the last owner. Make someone else an owner first.');
+		if (disabled && !u.disabledAt) await refuseWhileCm(tx, id, 'disable the account');
 		const next = await usersRepo.update(
 			tx,
 			id,

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../db';
 import * as usersRepo from '../repos/users';
-import { ctx, person, sql, useTestDatabase } from '../testing/db';
+import { ctx, newCampaign, person, sql, useTestDatabase } from '../testing/db';
 import { resolveSession, signIn } from './auth';
+import { addCoCm, moveStage, remove } from './campaigns';
 import { anonymise, changeRole, list, resetPassword, setDisabled } from './people';
 
 useTestDatabase();
@@ -190,6 +191,72 @@ describe('setDisabled (F9)', () => {
 			() => setDisabled(b.ctx(), a.row.id, true, a.row.version)
 		);
 		expect(await usersRepo.activeOwnerCount(db())).toBe(1);
+	});
+});
+
+describe('campaign rights and site roles (decision 2)', () => {
+	it('making an Admin a User drops their co-CM rows', async () => {
+		const owner = await person('owner');
+		const cm = await person('admin');
+		const co = await person('admin');
+		const { campaign } = await newCampaign(cm);
+		await addCoCm(cm.ctx(), campaign.id, co.row.id);
+		await changeRole(owner.ctx(), co.row.id, 'user', co.row.version);
+		expect(await sql()`select 1 from campaign.members where user_id = ${co.row.id}`).toHaveLength(
+			0
+		);
+	});
+	it('refuses to make a CM of a campaign not ended a User, naming the campaign', async () => {
+		const owner = await person('owner');
+		const cm = await person('admin');
+		const { campaign } = await newCampaign(cm, { name: 'Mire of Saints' });
+		await expect(changeRole(owner.ctx(), cm.row.id, 'user', cm.row.version)).rejects.toMatchObject({
+			code: 'conflict',
+			message: expect.stringContaining('Mire of Saints')
+		});
+		// Owner -> Admin keeps the right to run campaigns, so it is allowed.
+		const ownerCm = await person('owner');
+		await newCampaign(ownerCm);
+		await expect(
+			changeRole(owner.ctx(), ownerCm.row.id, 'admin', ownerCm.row.version)
+		).resolves.toMatchObject({ role: 'admin' });
+		await moveStage(cm.ctx(), campaign.id, 'active');
+		await moveStage(cm.ctx(), campaign.id, 'ended');
+		await expect(changeRole(owner.ctx(), cm.row.id, 'user', cm.row.version)).resolves.toMatchObject(
+			{ role: 'user' }
+		);
+	});
+	it('a deleted campaign still restorable counts; one past the window does not', async () => {
+		const owner = await person('owner');
+		const cm = await person('admin');
+		const { campaign } = await newCampaign(cm, { name: 'Bone Fields' });
+		await remove(cm.ctx(), campaign.id);
+		await expect(changeRole(owner.ctx(), cm.row.id, 'user', cm.row.version)).rejects.toMatchObject({
+			code: 'conflict',
+			message: expect.stringContaining('Bone Fields (deleted)')
+		});
+		await expect(setDisabled(owner.ctx(), cm.row.id, true, cm.row.version)).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		await sql()`update campaign.campaigns set deleted_at = now() - interval '31 days'`;
+		await expect(changeRole(owner.ctx(), cm.row.id, 'user', cm.row.version)).resolves.toMatchObject(
+			{ role: 'user' }
+		);
+	});
+	it('refuses to disable a CM of a campaign not ended, and drops nothing', async () => {
+		const owner = await person('owner');
+		const cm = await person('admin');
+		const co = await person('admin');
+		const { campaign } = await newCampaign(cm, { name: 'Ash Road' });
+		await addCoCm(cm.ctx(), campaign.id, co.row.id);
+		await expect(setDisabled(owner.ctx(), cm.row.id, true, cm.row.version)).rejects.toMatchObject({
+			code: 'conflict',
+			message: expect.stringContaining('Ash Road')
+		});
+		await setDisabled(owner.ctx(), co.row.id, true, co.row.version);
+		expect(await sql()`select 1 from campaign.members where user_id = ${co.row.id}`).toHaveLength(
+			1
+		);
 	});
 });
 

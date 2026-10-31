@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 3, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 4, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 3, applied: 3 });
+		expect(await migrationState()).toEqual({ total: 4, applied: 4 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 3, applied: 3 });
+		expect(await migrationState()).toEqual({ total: 4, applied: 4 });
 		expect(backups).toBe(0);
 
 		const tables =

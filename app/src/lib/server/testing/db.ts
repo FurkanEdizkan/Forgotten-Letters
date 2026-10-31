@@ -1,18 +1,20 @@
 /**
  * Service tests on real PostgreSQL. `useTestDatabase()` gives the calling test file its own fresh database in the
  * run's container, points the app at it (`useDatabase`), applies the migrations with `runMigrations()` and empties
- * the auth tables (and resets the settings row and its caches) before every test. Helpers make people and request contexts.
+ * the auth and campaign tables (and resets the settings row and its caches) before every test. Helpers make people and request contexts.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, inject } from 'vitest';
 import type { Role } from '#lib/roles';
+import { campaignCreate } from '#lib/schemas/campaigns';
 import { closeDb, db, sqlClient, useDatabase } from '../db';
 import { logger } from '../infra/logger';
 import { runMigrations } from '../infra/migrate';
 import * as usersRepo from '../repos/users';
 import type { Ctx, SessionUser } from '../services/audit';
 import { createSession, signInLimiter, toSessionUser } from '../services/auth';
+import { create as createCampaign } from '../services/campaigns';
 import { forgetCachedSettings } from '../services/settings';
 import { forgetSetupState } from '../services/setup';
 import { hashPassword, tokenHash } from '../services/passwords';
@@ -54,7 +56,7 @@ export function useTestDatabase() {
 		passwordHash ||= await hashPassword(PASSWORD);
 	});
 	beforeEach(async () => {
-		await sqlClient()`truncate auth.audit_log, auth.sessions, auth.invites, auth.users restart identity cascade`;
+		await sqlClient()`truncate campaign.join_requests, campaign.seat_invites, campaign.seats, campaign.members, campaign.campaigns, auth.audit_log, auth.sessions, auth.invites, auth.users restart identity cascade`;
 		// The cascade empties app.settings too (updated_by points at auth.users): put back the row the migration made.
 		await sqlClient()`insert into app.settings (id) values (1)`;
 		forgetCachedSettings();
@@ -102,6 +104,19 @@ export async function person(
 		ctx: () => ctx(toSessionUser(fresh, tokenHash(session.token)))
 	};
 }
+
+/** A campaign made by `p` (an Owner or Admin): listed, mustering, 3 seats unless `over` says otherwise. */
+export const newCampaign = (p: { ctx: () => Ctx }, over: Record<string, unknown> = {}) =>
+	createCampaign(
+		p.ctx(),
+		campaignCreate.parse({
+			name: `Front ${uniqueName('c')}`,
+			kind: 'carcass_front',
+			visibility: 'listed',
+			seats: 3,
+			...over
+		})
+	);
 
 /** Run a raw query against the test database. */
 export const sql = () => sqlClient();

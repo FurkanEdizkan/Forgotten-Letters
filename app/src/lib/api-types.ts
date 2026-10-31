@@ -7,7 +7,7 @@ import { ROLES } from './roles';
 import { ACCENTS } from './schemas/settings';
 import { CAMPAIGN_ROLES } from './campaign-rights';
 import { STAGES } from './campaign-stage';
-import { houseRule, KINDS, VISIBILITIES } from './schemas/campaigns';
+import { candidatesQuery, houseRule, KINDS, VISIBILITIES } from './schemas/campaigns';
 
 /** The fixed error codes (mirrors ERROR_STATUS in server/errors.ts; this file must stay free of server code). */
 export const ERROR_CODES = [
@@ -244,6 +244,24 @@ export const seatInvitePreview = z
 	.meta({ id: 'SeatInvitePreview' });
 
 export const seatTaken = z.object({ campaignId: z.string().uuid() });
+
+export const campaignCreated = z.object({ campaign: campaignOut, seats: z.array(seatOut) });
+/** GET /campaigns/:id: the campaign, with the caller's rights and the seats taken repeated at the top. */
+export const campaignBody = z.object({
+	campaign: campaignOut,
+	myRole: campaignRole.nullable(),
+	seatsTaken: z.number().int()
+});
+export const memberList = z.object({ members: z.array(memberOut) });
+export const candidateList = z.object({ items: z.array(candidateOut) });
+
+export const campaignSeatParam = z.object({ id: z.string().uuid(), seatId: z.string().uuid() });
+export const campaignUserParam = z.object({ id: z.string().uuid(), userId: z.string().uuid() });
+export const campaignRequestParam = z.object({ id: z.string().uuid(), rid: z.string().uuid() });
+/** Who to look for: someone for a seat (add by name) or an Admin or Owner to make co-CM. */
+export const candidatesFor = candidatesQuery.extend({
+	for: z.enum(['seat', 'co_cm']).default('seat')
+});
 
 export type ApiCampaignCard = z.output<typeof campaignCard>;
 export type ApiCampaign = z.output<typeof campaignOut>;

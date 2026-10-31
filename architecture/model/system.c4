@@ -262,6 +262,8 @@ model {
   fl.app.services.seatService -> fl.app.services.campaignService 'campaign rights and stage'
   fl.app.services.joinRequestService -> fl.app.services.auditService 'records requests'
   fl.app.services.joinRequestService -> fl.app.services.campaignService 'campaign rights and stage'
+  fl.app.services.joinRequestService -> fl.app.services.seatService 'fills the chosen seat on approval'
+  fl.app.services.joinRequestService -> fl.app.services.authService 'who is asking'
   fl.app.services.peopleService -> fl.app.services.campaignService 'demoting an Admin: drop co-CM roles, refuse while CM'
   fl.app.repos -> fl.app.authTables 'SQL'
   fl.app.repos -> fl.app.appTables 'SQL'

@@ -71,8 +71,25 @@ export function savePanelChoice(store: () => Store | undefined, open: boolean) {
 /** Is `path` this link's page or a page under it? */
 export const isUnder = (path: string, link: string) => path === link || path.startsWith(link + '/');
 
-/** Welcome, setup and sign-in are full-height split pages: no shell, no footer. */
-export const isFullHeightPage = (path: string) => /^\/(welcome|setup|login)(\/|$)/.test(path);
+/** Welcome, setup, sign-in and the visitor link pages are full-height split pages: no shell, no footer. */
+export const isFullHeightPage = (path: string) =>
+	/^\/(welcome|setup|login|join|invite)(\/|$)/.test(path);
+
+/** How many of your campaigns the side panel lists before "All campaigns…". */
+export const PANEL_CAMPAIGNS = 8;
+
+/**
+ * The side panel's Campaigns group: your first campaigns by name, then "All campaigns…" to the full list. The
+ * layout loads one more than it shows, so `more` is known without a count query.
+ */
+export function campaignLinks(cards: { id: string; name: string }[]) {
+	return {
+		links: cards
+			.slice(0, PANEL_CAMPAIGNS)
+			.map((c) => ({ path: `/campaigns/${c.id}`, label: c.name })),
+		all: { path: '/campaigns', label: m.campaigns.allCampaigns }
+	};
+}
 
 /** The person as the shell sees them: never the session hash. */
 export type ShellUser = {

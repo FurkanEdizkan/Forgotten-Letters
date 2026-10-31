@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	campaignLinks,
 	HELP_LINKS,
 	initialOf,
 	isFullHeightPage,
@@ -99,10 +100,10 @@ describe('paths', () => {
 		expect(isUnder('/owner/invites', '/owner')).toBe(true);
 		expect(isUnder('/ownerish', '/owner')).toBe(false);
 	});
-	it('keeps welcome, setup and sign-in outside the shell', () => {
-		for (const p of ['/welcome', '/setup', '/login', '/login/x'])
+	it('keeps welcome, setup, sign-in and the visitor link pages outside the shell', () => {
+		for (const p of ['/welcome', '/setup', '/login', '/login/x', '/join/abc', '/invite/abc'])
 			expect(isFullHeightPage(p)).toBe(true);
-		for (const p of ['/', '/owner', '/help/faq', '/loginx', '/home'])
+		for (const p of ['/', '/owner', '/help/faq', '/loginx', '/home', '/joiner', '/campaigns'])
 			expect(isFullHeightPage(p)).toBe(false);
 	});
 });
@@ -131,5 +132,24 @@ describe('shell data', () => {
 		expect(initialOf('mira')).toBe('M');
 		expect(initialOf('  élise')).toBe('É');
 		expect(initialOf('')).toBe('?');
+	});
+});
+
+describe('campaigns in the panel', () => {
+	const cards = Array.from({ length: 9 }, (_, i) => ({
+		id: `c${i + 1}`,
+		name: `Campaign ${i + 1}`
+	}));
+	it('lists up to eight campaigns, then always the full list', () => {
+		const { links, all } = campaignLinks(cards);
+		expect(links).toHaveLength(8);
+		expect(links[0]).toEqual({ path: '/campaigns/c1', label: 'Campaign 1' });
+		expect(links.at(-1)!.label).toBe('Campaign 8');
+		expect(all).toEqual({ path: '/campaigns', label: 'All campaigns…' });
+	});
+	it('keeps the full list link when there are none', () => {
+		const { links, all } = campaignLinks([]);
+		expect(links).toEqual([]);
+		expect(all.path).toBe('/campaigns');
 	});
 });

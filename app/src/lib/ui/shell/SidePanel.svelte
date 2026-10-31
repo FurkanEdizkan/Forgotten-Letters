@@ -1,6 +1,7 @@
 <!--
   The shell's left panel (DESIGN.md §5): the areas the person can use, the current one marked, the owner area as a
-  group of its sections, and the help and legal links at its foot. It pushes the page instead of covering it and slides
+  group of its sections, your campaigns (up to 8, then "All campaigns…", from the (app) layout's data), and the help
+  and legal links at its foot. It pushes the page instead of covering it and slides
   in 220 ms (off under reduced motion). `state` is 'auto' until the browser has run: then CSS opens it on a
   full-HD window, so the first paint already matches the width.
   Closed, it is `visibility: hidden`, which also takes its links out of the tab order.
@@ -8,7 +9,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { m } from '#lib/messages';
-	import { HELP_LINKS, isUnder, OWNER_SECTIONS } from './nav';
+	import { campaignLinks, HELP_LINKS, isUnder, OWNER_SECTIONS } from './nav';
 
 	type Props = {
 		id: string;
@@ -20,6 +21,10 @@
 	let { id, state, animate, areas }: Props = $props();
 
 	const path = $derived(page.url.pathname);
+	// The (app) layout loads them; pages outside it (help) have none, and the group still leads to the list.
+	const camps = $derived(
+		campaignLinks((page.data.campaigns as { id: string; name: string }[] | undefined) ?? [])
+	);
 	const current = (link: string) => (isUnder(path, link) ? 'page' : undefined);
 	// Inside the owner area, People is "/owner" itself, so it is current only on that exact page.
 	const currentSection = (link: string) =>
@@ -41,6 +46,17 @@
 				<a class="area" href={area.path} aria-current={current(area.path)}>{area.label}</a>
 			{/if}
 		{/each}
+		<span class="area group" id="{id}-campaigns">{m.campaigns.sidePanel}</span>
+		<ul aria-labelledby="{id}-campaigns">
+			{#each camps.links as c (c.path)}
+				<li><a href={c.path} aria-current={current(c.path)}>{c.label}</a></li>
+			{/each}
+			<li>
+				<a href={camps.all.path} aria-current={path === camps.all.path ? 'page' : undefined}
+					>{camps.all.label}</a
+				>
+			</li>
+		</ul>
 	</nav>
 	<nav class="legal" aria-label={m.shell.helpLinks}>
 		{#each HELP_LINKS as l (l.path)}
@@ -130,6 +146,12 @@
 		padding: 0 0 0 var(--space-3);
 		display: grid;
 		gap: 2px;
+	}
+	/* Long campaign names stay on one line; the full name is on its page. */
+	ul a {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.group {
 		display: block;

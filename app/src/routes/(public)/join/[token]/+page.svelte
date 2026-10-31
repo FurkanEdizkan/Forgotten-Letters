@@ -133,11 +133,14 @@
 					? j.expiredTitle
 					: pv.state === 'unknown'
 						? j.unknownTitle
-						: j.usedTitle}
+						: pv.state === 'revoked'
+							? j.revokedTitle
+							: j.usedTitle}
 			</h1>
 			<p class="lead">
 				{#if pv.state === 'expired'}{j.expired(dayYear(pv.expiresAt))}
 				{:else if pv.state === 'unknown'}{j.unknown}
+				{:else if pv.state === 'revoked'}{j.revoked(pv.campaign.name)}
 				{:else}{j.used(pv.campaign.name)}{/if}
 			</p>
 		</header>

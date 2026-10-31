@@ -470,6 +470,9 @@ export const m = {
 		usedTitle: 'Link already used',
 		used: (campaign: string) =>
 			`This seat in ${campaign} is taken. If it is yours, sign in to see the campaign.`,
+		revokedTitle: 'Link withdrawn',
+		revoked: (campaign: string) =>
+			`The Campaign Master replaced or withdrew this link to a seat in ${campaign}.`,
 		expiredTitle: 'Link expired',
 		expired: (d: string) => `Seat links last 7 days. This one ended on ${d}.`,
 		unknownTitle: 'This link does not work',

@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import { z } from 'zod';
-import { ctxOf, formAction } from '#lib/server/http';
+import { ctxOf, formAction, orPageError } from '#lib/server/http';
 import * as campaigns from '#lib/server/services/campaigns';
 import * as seats from '#lib/server/services/seats';
 import * as joinRequests from '#lib/server/services/join-requests';
@@ -32,7 +32,7 @@ export const load: PageServerLoad = async (event) => {
 	const me = requireSignedIn(event);
 	const ctx = ctxOf(event);
 	const id = event.params.id;
-	const campaign: ApiCampaign = await campaigns.get(ctx, id);
+	const campaign: ApiCampaign = await orPageError(event, campaigns.get(ctx, id));
 	if (!canInCampaign(campaign.myRole, me.role, 'manage'))
 		error(403, m.errors.forbidden, { requestId: event.locals.requestId });
 	const can = (a: Parameters<typeof canInCampaign>[2]) =>

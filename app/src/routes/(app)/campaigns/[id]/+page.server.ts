@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ctxOf, formAction } from '#lib/server/http';
+import { ctxOf, formAction, orPageError } from '#lib/server/http';
 import * as campaigns from '#lib/server/services/campaigns';
 import * as seats from '#lib/server/services/seats';
 import * as joinRequests from '#lib/server/services/join-requests';
@@ -10,7 +10,7 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	const ctx = ctxOf(event);
 	// The campaign first: a campaign you may not see answers 404 before anything else is asked.
-	const campaign: ApiCampaign = await campaigns.get(ctx, event.params.id);
+	const campaign: ApiCampaign = await orPageError(event, campaigns.get(ctx, event.params.id));
 	const member = !!campaign.myRole || campaign.mySeat;
 	const seatList: ApiSeat[] = member ? await seats.list(ctx, event.params.id) : [];
 	return { campaign, seats: seatList };

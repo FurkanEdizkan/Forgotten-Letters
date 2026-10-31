@@ -2,9 +2,9 @@
  * HTTP helpers shared by pages and the API, so every route does the same three things: build the context, parse
  * input with a zod schema, and turn an AppError into the one error shape (API) or a form failure (pages).
  */
-import { fail, json, type RequestEvent } from '@sveltejs/kit';
+import { error, fail, json, type RequestEvent } from '@sveltejs/kit';
 import type { z } from 'zod';
-import { AppError, errorBody, fieldsOf } from '../errors';
+import { AppError, ERROR_STATUS, errorBody, fieldsOf } from '../errors';
 import type { Ctx, SessionUser } from '../services/audit';
 import { logger } from '../infra/logger';
 
@@ -34,6 +34,20 @@ export function isCrossSite(request: Request) {
 /** Whether the browser is on HTTPS: Caddy says so in X-Forwarded-Proto; a direct connection is plain HTTP. */
 export const isHttps = (event: RequestEvent) =>
 	event.request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'https';
+
+/**
+ * A page load's service call: an AppError becomes the matching error page (404, 403, …) instead of an unknown error,
+ * which SvelteKit would answer with 500.
+ */
+export async function orPageError<T>(event: RequestEvent, call: Promise<T>): Promise<T> {
+	try {
+		return await call;
+	} catch (e) {
+		if (e instanceof AppError)
+			error(ERROR_STATUS[e.code], { message: e.message, requestId: event.locals.requestId });
+		throw e;
+	}
+}
 
 /** Who is acting, from where, for which request. */
 export function ctxOf(event: RequestEvent): Ctx {

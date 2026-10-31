@@ -54,7 +54,7 @@
 				>
 					{#snippet actions()}
 						{#if canInCampaign(card.myRole, role, 'restore')}
-							<form method="POST" action="?/restore" use:enhance>
+							<form method="POST" action="?view=deleted&/restore" use:enhance>
 								<input type="hidden" name="op" value="restore" />
 								<input type="hidden" name="id" value={card.id} />
 								<Button type="submit">{c.restore}</Button>

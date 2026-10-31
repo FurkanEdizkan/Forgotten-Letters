@@ -89,7 +89,7 @@ model {
         technology 'roles · zod schemas · API types'
         description 'Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.'
         metadata {
-          code ['app/src/lib/roles.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
+          code ['app/src/lib/roles.ts', 'app/src/lib/campaign-stage.ts', 'app/src/lib/campaign-rights.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
         }
       }
 
@@ -138,6 +138,27 @@ model {
             code 'app/src/lib/server/services/audit{,.spec,.db.spec}.ts'
           }
         }
+        campaignService = module 'Campaigns' {
+          #server-only
+          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner).'
+          metadata {
+            code 'app/src/lib/server/services/campaigns{,.spec,.db.spec}.ts'
+          }
+        }
+        seatService = module 'Seats and seat links' {
+          #server-only
+          description 'Seats (add, rename, free, remove when empty), one-time seat links (one per seat or all empty seats at once, shown once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.'
+          metadata {
+            code 'app/src/lib/server/services/seats{,.spec,.db.spec}.ts'
+          }
+        }
+        joinRequestService = module 'Join requests' {
+          #server-only
+          description 'Ask to join a listed campaign while it is mustering (one open request per person); the CM or a co-CM approves into an empty seat under a lock, or declines.'
+          metadata {
+            code 'app/src/lib/server/services/join-requests{,.spec,.db.spec}.ts'
+          }
+        }
         backupService = module 'Backups' {
           #server-only
           description 'pg_dump before migrations and daily (14 days kept); owner download and restore.'
@@ -173,6 +194,13 @@ model {
         }
       }
 
+      campaignTables = layer 'campaign schema' {
+        description 'Campaigns, who runs them (members: CM and co-CMs), their seats, one-time seat links and join requests. Everything cascades from the campaign, so the 30-day purge removes it all.'
+        metadata {
+          tables ['campaigns', 'members', 'seats', 'seat_invites', 'join_requests']
+        }
+      }
+
       appTables = layer 'app schema' {
         description 'Copy-wide settings: one row with text size, accent, port and when setup was completed.'
         metadata {
@@ -199,7 +227,7 @@ model {
   }
 
   owner -> fl.app.web 'manages people, invites, backups'
-  admin -> fl.app.web 'invites players'
+  admin -> fl.app.web 'runs campaigns, invites players'
   user -> fl.app.web 'signs in, manages own account'
   visitor -> fl.app.web.publicPages 'sets up a fresh copy, signs in, joins, reads help'
   fl.caddy -> fl.app 'forwards HTTPS'
@@ -227,8 +255,17 @@ model {
   fl.app.hooks -> fl.app.shared 'text-size bounds for the first paint'
   fl.app.authTables -> fl.app.shared 'the accent presets and bounds behind the check constraints'
   fl.app.services.backupService -> fl.app.services.auditService 'records downloads and restores'
+  fl.app.services.campaignService -> fl.app.services.auditService 'records campaign changes'
+  fl.app.services.campaignService -> fl.app.services.authService 'who is acting'
+  fl.app.services.seatService -> fl.app.services.auditService 'records seats, links and joins'
+  fl.app.services.seatService -> fl.app.services.authService 'creates the account and signs it in, join rate limit'
+  fl.app.services.seatService -> fl.app.services.campaignService 'campaign rights and stage'
+  fl.app.services.joinRequestService -> fl.app.services.auditService 'records requests'
+  fl.app.services.joinRequestService -> fl.app.services.campaignService 'campaign rights and stage'
+  fl.app.services.peopleService -> fl.app.services.campaignService 'demoting an Admin: drop co-CM roles, refuse while CM'
   fl.app.repos -> fl.app.authTables 'SQL'
   fl.app.repos -> fl.app.appTables 'SQL'
+  fl.app.repos -> fl.app.campaignTables 'SQL'
   fl.app.repos -> fl.app.infra 'pool'
   fl.app.ui -> fl.app.shared 'roles'
   fl.app.ui -> fl.app.services.auditService 'the Ctx and SessionUser types in app.d.ts'
@@ -239,6 +276,8 @@ model {
   fl.app.infra -> fl.app.services.backupService 'daily backup and pruning job'
   fl.app.authTables -> fl.db 'stored in'
   fl.app.appTables -> fl.db 'stored in'
+  fl.app.campaignTables -> fl.db 'stored in'
+  fl.app.infra -> fl.app.services.campaignService 'daily purge of deleted campaigns and expired seat links'
   fl.app.infra -> fl.app.server 'asks it to listen on a new port'
   fl.app.infra -> fl.db 'pool, migrations, dumps'
 }

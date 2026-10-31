@@ -1,0 +1,21 @@
+// Feature: ask to join, then approve. Code: routes ((app)/campaigns; (app)/campaigns/[id]/manage; api/v1/campaigns/[id]/requests), services/join-requests.
+views {
+  dynamic view join_request {
+    title 'Ask to join, then approve'
+    description '''
+      **Anyone signed in can ask to join a listed campaign while it is mustering; the CM or a co-CM places them.**
+
+      **Decisions**
+      - Only listed campaigns, only while mustering; one open request per person and campaign.
+      - Approving needs an empty seat (preselected to the lowest); the seat is locked so two approvals cannot fill it twice.
+      - Declined and withdrawn requests stay as history; the person may ask again.
+    '''
+    user -> fl.app.web.areas 'ask to join (optional note)'
+    fl.app.web.areas -> fl.app.services.joinRequestService 'request'
+    fl.app.services.joinRequestService -> fl.app.repos 'insert open request'
+    admin -> fl.app.web.areas 'approve into a seat'
+    fl.app.web.areas -> fl.app.services.joinRequestService 'approve'
+    fl.app.services.joinRequestService -> fl.app.repos 'lock seat, fill it, mark approved'
+    fl.app.services.joinRequestService -> fl.app.services.auditService 'record request.approved'
+  }
+}

@@ -33,6 +33,12 @@ views {
     include *
   }
 
+  view campaignTablesView of fl.app.campaignTables {
+    title 'campaign schema'
+    description 'Campaigns, their CM and co-CMs, seats, seat links and join requests.'
+    include *
+  }
+
   view appTablesView of fl.app.appTables {
     title 'app schema'
     description 'Copy-wide settings.'

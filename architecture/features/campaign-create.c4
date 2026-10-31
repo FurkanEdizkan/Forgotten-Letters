@@ -1,0 +1,22 @@
+// Feature: create a campaign. Code: routes ((app)/campaigns/new; api/v1/campaigns), services/campaigns.
+views {
+  dynamic view campaign_create {
+    title 'Create a campaign'
+    description '''
+      **An Owner or Admin creates a campaign in a six-step wizard and becomes its Campaign Master.**
+
+      **Decisions**
+      - Two types, Carcass Front and generic; the type is fixed after creation.
+      - Seats are made at creation (2 to 30) as "Seat 1" … "Seat N"; more can be added later.
+      - Campaign, CM row and seats are made in one transaction; a name taken by a campaign that is not deleted
+        (ignoring case) is a conflict and the wizard returns to Basics.
+      - House rules are the CM's own words, stored as typed JSON switches; no book text ships with the app.
+      - The wizard's Map step is a placeholder until step 2.5.
+    '''
+    admin -> fl.app.web.areas 'wizard: basics, schedule, seats, house rules, review'
+    fl.app.web.areas -> fl.app.services.campaignService 'create'
+    fl.app.services.campaignService -> fl.app.repos 'insert campaign, CM member, seats'
+    fl.app.repos -> fl.app.campaignTables 'one transaction'
+    fl.app.services.campaignService -> fl.app.services.auditService 'record campaign.created'
+  }
+}

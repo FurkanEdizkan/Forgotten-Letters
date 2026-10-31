@@ -1,0 +1,25 @@
+// Feature: join a campaign by seat link. Code: routes ((app)/campaigns/[id]/manage; (public)/join/[token]; api/v1/seat-invites), services/seats.
+views {
+  dynamic view seat_join {
+    title 'Join by seat link'
+    description '''
+      **The CM makes a one-time link for a seat; the person who opens it takes that seat, with a new account if needed.**
+
+      **Decisions**
+      - One link per seat, single use, 7 days; only its token hash is stored, so a link is shown once. Making a new
+        link revokes the seat's open one; "Make links for all empty seats" lists every link once.
+      - Links work only while the campaign is mustering. While active, the CM adds people by name only.
+      - Joining runs in one transaction with the link row locked: two people with the same link cannot both get the
+        seat. A seat still on its default name takes the player's display name.
+      - A person holds at most one seat per campaign. Sign-up on the join page is rate limited.
+    '''
+    admin -> fl.app.web.areas 'make link (one seat or all empty seats)'
+    fl.app.web.areas -> fl.app.services.seatService 'makeLink'
+    fl.app.services.seatService -> fl.app.repos 'revoke open link, insert link hash'
+    visitor -> fl.app.web.publicPages 'opens /join/<token>, signs in or creates an account'
+    fl.app.web.publicPages -> fl.app.services.seatService 'accept'
+    fl.app.services.seatService -> fl.app.services.authService 'rate limit, new account, session'
+    fl.app.services.seatService -> fl.app.repos 'lock link, fill seat, mark used'
+    fl.app.services.seatService -> fl.app.services.auditService 'record seat.joined'
+  }
+}

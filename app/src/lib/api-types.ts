@@ -5,6 +5,9 @@
 import { z } from 'zod';
 import { ROLES } from './roles';
 import { ACCENTS } from './schemas/settings';
+import { CAMPAIGN_ROLES } from './campaign-rights';
+import { STAGES } from './campaign-stage';
+import { houseRule, KINDS, VISIBILITIES } from './schemas/campaigns';
 
 /** The fixed error codes (mirrors ERROR_STATUS in server/errors.ts; this file must stay free of server code). */
 export const ERROR_CODES = [
@@ -139,6 +142,115 @@ export const settingsOut = z
 export const moveOut = z.object({ moveTo: z.string() });
 export const setupState = z.object({ open: z.boolean() });
 export const setupDone = z.object({ user: userOut, moveTo: z.string().nullable() });
+
+// ---------------------------------------------------------------- campaigns (step 2)
+
+const campaignRole = z.enum(CAMPAIGN_ROLES);
+
+/** One card on the campaigns page; `myRole` is the caller's rights, `mySeat` whether they hold a seat. */
+export const campaignCard = z
+	.object({
+		id: z.string().uuid(),
+		name: z.string(),
+		kind: z.enum(KINDS),
+		stage: z.enum(STAGES),
+		visibility: z.enum(VISIBILITIES),
+		seatsTaken: z.number().int(),
+		seatsTotal: z.number().int(),
+		startsOn: z.iso.date().nullable(),
+		endsOn: z.iso.date().nullable(),
+		gamesPerPlayer: z.number().int().nullable(),
+		cmName: z.string(),
+		myRole: campaignRole.nullable(),
+		mySeat: z.boolean(),
+		myOpenRequest: z.boolean(),
+		deletedAt: time.nullable()
+	})
+	.meta({ id: 'CampaignCard' });
+
+export const campaignPage = z.object({
+	items: z.array(campaignCard),
+	next: z.string().uuid().nullable()
+});
+
+export const memberOut = z
+	.object({
+		userId: z.string().uuid(),
+		displayName: z.string(),
+		siteRole: z.enum(ROLES),
+		role: campaignRole
+	})
+	.meta({ id: 'CampaignMember' });
+
+export const campaignOut = z
+	.object({
+		...campaignCard.shape,
+		description: z.string(),
+		houseRules: z.array(houseRule),
+		members: z.array(memberOut),
+		version: z.number().int()
+	})
+	.meta({ id: 'Campaign' });
+
+export const seatOut = z
+	.object({
+		id: z.string().uuid(),
+		number: z.number().int(),
+		name: z.string(),
+		player: z.object({ id: z.string().uuid(), displayName: z.string() }).nullable(),
+		joinedAt: time.nullable(),
+		hasOpenLink: z.boolean(),
+		version: z.number().int()
+	})
+	.meta({ id: 'Seat' });
+
+export const seatList = z.object({ items: z.array(seatOut) });
+
+/** A seat link: the raw link exists only in this response. */
+export const seatLinkOut = z
+	.object({ seatId: z.string().uuid(), seatName: z.string(), url: z.string(), expiresAt: time })
+	.meta({ id: 'SeatLink' });
+
+export const seatLinks = z.object({ links: z.array(seatLinkOut) });
+
+export const requestOut = z
+	.object({
+		id: z.string().uuid(),
+		person: z.object({ id: z.string().uuid(), displayName: z.string(), username: z.string() }),
+		note: z.string(),
+		createdAt: time
+	})
+	.meta({ id: 'JoinRequest' });
+
+export const requestList = z.object({ items: z.array(requestOut) });
+
+export const candidateOut = z
+	.object({ id: z.string().uuid(), displayName: z.string(), username: z.string() })
+	.meta({ id: 'Candidate' });
+
+export const seatInvitePreview = z
+	.object({
+		state: z.enum(['open', 'used', 'revoked', 'expired']),
+		campaign: z.object({
+			id: z.string().uuid(),
+			name: z.string(),
+			kind: z.enum(KINDS),
+			stage: z.enum(STAGES),
+			cmName: z.string()
+		}),
+		seatName: z.string(),
+		expiresAt: time
+	})
+	.meta({ id: 'SeatInvitePreview' });
+
+export const seatTaken = z.object({ campaignId: z.string().uuid() });
+
+export type ApiCampaignCard = z.output<typeof campaignCard>;
+export type ApiCampaign = z.output<typeof campaignOut>;
+export type ApiSeat = z.output<typeof seatOut>;
+export type ApiSeatLink = z.output<typeof seatLinkOut>;
+export type ApiJoinRequest = z.output<typeof requestOut>;
+export type ApiSeatInvitePreview = z.output<typeof seatInvitePreview>;
 
 export const errorOut = z
 	.object({

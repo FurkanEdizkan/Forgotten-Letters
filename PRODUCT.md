@@ -68,9 +68,14 @@ Membership is per campaign and separate from the site role.
 
 | Campaign role | Who | Notes |
 |---|---|---|
-| **Campaign Master (CM)** | The Admin who created the campaign. | Runs the campaign: seats, results, overrides, house rules. |
-| **Co-CM** | Another Admin added by the CM. | Same rights as the CM in that campaign. |
+| **Campaign Master (CM)** | The Owner or Admin who created the campaign, or the co-CM it was handed to. | Runs the campaign: seats, links, requests, stage, settings, house rules. Only the CM deletes or restores it, adds or removes co-CMs and hands the CM role to a co-CM. |
+| **Co-CM** | An Admin or Owner the CM adds. | Everything the CM does except delete, restore, managing co-CMs and handing over the CM role. |
 | **Player** | Any signed-in person with a seat. | Admins and Owners can hold seats too, including in a campaign they run. |
+
+Rights and places are kept apart: the CM and co-CMs are campaign members; a player is whoever holds a seat. An Owner
+may also restore a deleted campaign, see deleted campaigns and hand the CM role of any campaign to one of its co-CMs
+(or take it), so a campaign whose CM has left is never stuck. Demoting an Admin to User drops their co-CM roles and
+is refused while they are still CM of a campaign that has not ended.
 
 When a CM edits their own warband, the app records it as a CM action, so it is clear the CM changed their own
 data.
@@ -152,7 +157,8 @@ Each step is planned, reviewed on a visual page and documented before it is buil
 | 0 | Foundation documents: product, design system, architecture, agents guide | agreed |
 | 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | done 2026-10-27 (merged into `main`; decisions ARCHITECTURE 32–35). F4 was replaced by step 1.5's open setup. |
 | 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | done 2026-10-27 (all checks, e2e and a Docker run on a fresh volume passed; see §10.3). Deviations: the Server step shows only the install that applies (no tabs); Brass's base darkened to #7f621a so its button labels reach 4.5:1; blood-bright on night stays the known miss (4.0:1, heading-size text only). |
-| 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, invite players into it | later |
+| 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, seat links, requests to join, stages (see §10.4) | in progress (approved 2026-10-31) |
+| 2.5 | Maps and templates: upload the group's map, draw locations, campaign templates, the versioned campaign dataset format (the group's own data, never in the repo) | later |
 | 3 | Rules data: load the group's own rule packs (units, kit, keywords, limits) per edition and version; house rule packs | later |
 | 4 | Warbands: build and keep a warband by the rules, experience and injuries | later |
 | 5 | Live map: zones over the group's map, battles, weather and effects, live for every viewer; shared-screen display mode | later |
@@ -209,6 +215,27 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | S7 | Signed in, every page has a top bar (menu toggle, Docs, the user menu with User settings and Log out) and a left panel with the person's areas and, at its foot, FAQ, Licence, Contact, Support us, Privacy, Terms and the unofficial notice. Each help and legal link opens a placeholder page until its text is written. |
 | S8 | Pages show skeleton blocks while they load. Motion follows DESIGN.md §8 and is off with reduced motion. |
 
+### 10.4 Step 2: campaigns, seats and joining
+
+Review page: https://claude.ai/artifact/T5uVRgUbKHhQFRGrMetUVi (approved 2026-10-31).
+
+| Id | Requirement |
+|---|---|
+| C1 | `/campaigns` lists your campaigns (as CM, co-CM or player) and the listed ones you are not in, as cards with type, stage, seats taken and your role. Owners and Admins see "New campaign"; the CM and Owners see "Deleted". |
+| C2 | Owners and Admins create a campaign in a wizard: Basics (name, type, description), Schedule (games per player, start and end, listed or private), Seats (2 to 30), House rules, Map (placeholder until step 2.5), Review. The creator becomes its CM. Names are unique among campaigns that are not deleted, ignoring case. |
+| C3 | Two types, Carcass Front and generic; the type is fixed after creation. |
+| C4 | Seats are "Seat 1" … "Seat N"; a seat still on its default name takes the player's display name. Seats can be added (up to 30), renamed, freed and, when empty, removed. A person holds at most one seat per campaign. |
+| C5 | Each seat has its own one-time link, valid for 7 days. It is shown once; making a new one revokes the old. "Make links for all empty seats" lists every link once. Opening a link shows the campaign and seat; the visitor signs in or creates an account and takes the seat. Two people with one link cannot both get the seat. |
+| C6 | The CM adds an existing account to an empty seat by name (display name and username only are shown). |
+| C7 | Anyone signed in can ask to join a listed campaign while it is mustering, with an optional note; one open request per person. The CM or a co-CM approves it into an empty seat or declines it. |
+| C8 | Stages: mustering → active → ended; active can go back to mustering; ended is read-only. Links, requests and leaving work only while mustering; adding by name works until the campaign ends. Every move is audited. |
+| C9 | The CM adds co-CMs (Admins or Owners), removes them and hands the CM role to a co-CM; an Owner may hand over the CM role of any campaign. |
+| C10 | House rules are the CM's own words: up to 30 rules, each a name, an explanation and an on/off switch. No book text ships with the app. |
+| C11 | The CM deletes a campaign; the CM or an Owner restores it within 30 days, after which a daily job removes it for good. Expired seat links are cleaned up daily. |
+| C12 | Settings are saved with a version check; someone saving over a newer change gets a message to reload. |
+| C13 | Members see the campaign page (rules, seats, who runs it); players may leave their seat while mustering. Your campaigns appear in the side panel (up to 8, then "All campaigns") and on `/home`. |
+| C14 | The seat link page and the invite page use the first-run split with glass buttons; the creation wizard inside the app uses flat, square controls. |
+
 ### 10.2 Non-functional (all steps)
 
 | Id | Area | Requirement |
@@ -249,6 +276,9 @@ These decisions shape steps 3 to 6. They are listed here so every step builds to
 Use the book's words in the interface and the code: Campaign Master (CM), warband, Aggressor and defender,
 Entry Zone, Special Zone, Outpost, supply, Exploration, Glory, Ducats, Campaign Victory Points (CVP), Hell on
 Earth, Visions, Omens.
+
+A **seat** is one player's place in a campaign; a campaign has 2 to 30. A campaign is **mustering** while players
+join, **active** while games run and **ended** when it is over.
 
 Owner, Admin and User are the app's site roles. In the interface an Admin is called a Campaign Master where that
 reads better.
@@ -304,7 +334,7 @@ of it.
 |---|---|---|
 | Q1 | Should a visitor or a display link show the live map and standings without signing in (a per-campaign switch)? | Step 5 |
 | Q2 | What exactly is hidden from other players on the map and in the standings? | Step 5 |
-| Q3 | Does version 1 support campaign types beyond the Carcass Front? | Step 2 |
+| Q3 | ~~Does version 1 support campaign types beyond the Carcass Front?~~ Answered 2026-10-31: two types, Carcass Front and generic. | Step 2 |
 | Q4 | Who writes the first rule pack, and is its schema reviewed with a second group? | Step 3 |
 | Q5 | When do phone layouts move from deferred to planned? | Review before step 6 |
 

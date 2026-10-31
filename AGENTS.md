@@ -288,9 +288,9 @@ lib (shared, pure): roles, zod schemas in src/lib/schemas, API types
 | Functions, variables | camelCase | `createInvite` |
 | Types | PascalCase | `CampaignMember` |
 | Tables, columns | snake_case, plural table names | `campaign.members`, `created_at` |
-| Services | `<element>.service.ts` | `auth.service.ts` |
-| Repos | `<element>.repo.ts` | `auth.repo.ts` |
-| Schemas | `<element>.schema.ts` | `auth.schema.ts` |
+| Services | `services/<element>.ts` | `services/campaigns.ts` |
+| Repos | `repos/<element>.ts` | `repos/campaigns.ts` |
+| Schemas | `schemas/<element>.ts` | `schemas/campaigns.ts` |
 
 Use the game terms from `PRODUCT.md` (warband, campaign, game master, campaign master) consistently. Never
 synonyms.

@@ -289,14 +289,17 @@ The rules below hold everywhere except the **first-run exceptions** at the end o
 - **Accent glow:** only behind the sign-in card: a radial `blood` glow at 18%. Nowhere else.
 - **Texture:** none. Surfaces are flat colour. Texture belongs to the live map.
 
-**First-run exceptions** (welcome, setup, sign-in, the shell's top bar and user menu only):
+**First-run exceptions** (welcome, setup, sign-in, the visitor link pages `/join` and `/invite`, the shell's top bar
+and user menu only):
 
 - **Glass buttons.** A translucent body with a 14 px backdrop blur, a light top edge, a dark bottom edge, a soft
   highlight that follows the pointer and 0.6 em corners. The primary button is accent-tinted glass. Labels keep
   4.5:1 over the darkest and lightest backdrop they sit on. Solid buttons replace glass when blur is unsupported or
   the viewer asks for reduced transparency. Glass never sits over the live map, tables or dense text.
 - **Wizard controls.** Fields, swatches and tabs have 0.45 em corners and a soft accent focus ring (3 px at 28%);
-  errors add a `danger` border plus the reason under the field. A four-part progress stepper heads the wizard.
+  errors add a `danger` border plus the reason under the field. A progress stepper (up to six parts) heads the wizard.
+  Wizards inside the app shell (the campaign creation wizard) use the flat, square fields and buttons of §7; only
+  the stepper is shared, as a named exception.
   Callouts have a full 1 px `rule` border and a faint tint, never a coloured side stripe.
 - **Glow:** the radial accent glow sits behind the emblem as well as the sign-in.
 
@@ -371,6 +374,9 @@ button per area.
 - Stat boxes inside a card use `panel-raised` with lining tabular figures.
 - **Clickable card:** hover `panel-hover`.
 - **Selected card:** a 2 px `blood-bright` ring (outline) around it.
+- **Campaign card:** the name in the title style with your campaign role badge beside it, then the type chip and the
+  stage badge, then one line of facts (seats taken, start or end). Listed campaigns you are not in end with "Ask to
+  join", which becomes a disabled "Request sent".
 
 ### Band headers
 
@@ -392,6 +398,9 @@ button per area.
 - **Filter box:** a field above the table, "Filter rows", that narrows rows as you type. Shows "No rows match" when
   empty.
 - **Totals row:** a footer row with sums, title style, over a 2 px `rule-strong` rule, figures in `bone`.
+- **Seat table:** Seat, Player, Joined, Actions. A filled seat offers "Free seat" (confirm in place); an open seat
+  offers "Make link" and Remove. A new link shows once in the secret box in its row. Adding a person by name is one
+  control above the table, not a menu in each row.
 
 ### Keyword chips
 
@@ -411,6 +420,11 @@ button per area.
 | Admin | #6aa2d6 (the `kind-attack` value) |
 | User | `bone-dim` |
 | Campaign Master | `blood-bright`. At label size this misses 4.5:1, so the word is set at 19 px bold or the badge uses `blood-pale` text with a `blood-bright` border. |
+| Co-CM | `blood-pale` text with a `rule-strong` border |
+| Player | `bone-dim` |
+
+- **Stage badges:** Mustering (`warn`), Active (`ok`), Ended (`bone-dim`), each a small dot plus the word, outlined
+  like the role badges.
 
 - Badges sit next to names in member lists, invites and the turn log. The word is always shown.
 

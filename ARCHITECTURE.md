@@ -699,4 +699,12 @@ compose.dev.yaml           db only, for development
 | 40 | Glass buttons and rounded wizard controls on the first-run pages, the top bar and the user menu only (DESIGN §6 exceptions) | The pages people see first get the polish; work surfaces keep flat square controls that read well over tables and the map and cost no blur | 2026-10-27 |
 | 41 | anime.js 4.5.0 for the first-run motion and the shell panel; content visible without it; off under reduced motion. The emblem is a flat SVG (its ring turns with CSS); three.js and 3D were tried on the review page and dropped | A small timeline tool for a few sequenced moves; SVG is light on weak laptops | 2026-10-27 |
 
+| 42 | Campaign rights and places in separate tables: `campaign.members` (CM, co-CM; exactly one CM per campaign by a partial unique index) and `campaign.seats` (one seat per person per campaign) | A CM can also play; services check rights and seats separately | 2026-10-31 |
+| 43 | One-time seat links per seat (7 days, token hash only, a new link revokes the old) plus "make links for all empty seats", shown once | A leaked link fills one seat at most; the CM decides who sits where; one list for the group chat | 2026-10-31 |
+| 44 | House rules as typed JSONB on the campaign (`{ name, text, on }`, up to 30, checked by zod) | The CM's own words, edited as a whole; no table until rules data (step 3) needs one | 2026-10-31 |
+| 45 | Campaign stages as a pure state machine (`lib/campaign-stage.ts`): mustering ↔ active → ended; joining rules per stage; a refused move is 409 | One place for the rules, used by services and pages alike | 2026-10-31 |
+| 46 | Campaigns are soft-deleted; the CM or an Owner restores within 30 days; a daily job (`campaign-purge`, lock 7314103) removes them and expired seat links; everything cascades from the campaign | Undo for mistakes without keeping data forever | 2026-10-31 |
+| 47 | Maps, locations, templates and the campaign dataset format move to step 2.5; the wizard keeps a placeholder Map step | Step 2 stays shippable; the wizard's shape does not change later | 2026-10-31 |
+| 48 | Amends 40: the visitor link pages (`/join/[token]`, `/invite/[token]`) join the glass list on the first-run split; the in-app creation wizard uses flat, square controls, with the stepper (up to six parts) as a named exception | Entry moments get the polish; work surfaces inside the shell keep one button language (design review 2026-10-31) | 2026-10-31 |
+
 New decisions are added here with their date; a reversed decision is struck through, not deleted.

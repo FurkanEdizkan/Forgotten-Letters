@@ -76,6 +76,158 @@ action:revoke: Revoke one of my pending invites; its link stops working.
         code ['app/src/routes/(app)/admin/+layout.server.ts', 'app/src/routes/(app)/admin/+page.server.ts', 'app/src/routes/(app)/admin/+page.svelte']
       }
     }
+    route_app_campaigns = page '/campaigns' {
+      description 'actions: ask, restore, withdraw
+action:ask: Ask to join a listed campaign, with an optional note for the CM.
+  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.
+  In: form { id, note? }.
+  Out: { op: \'ask\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.
+action:restore: Restore a deleted campaign within 30 days of its deletion.
+  Who: its CM, or an Owner.
+  In: form { id }.
+  Out: { op: \'restore\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found purged, 409 conflict name taken.
+action:withdraw: Withdraw my open request to join a campaign.
+  Who: the person who asked.
+  In: form { id }.
+  Out: { op: \'withdraw\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found no open request.'
+      metadata {
+        generated 'true'
+        route '/campaigns'
+        code ['app/src/routes/(app)/campaigns/+page.server.ts', 'app/src/routes/(app)/campaigns/+page.svelte']
+      }
+    }
+    route_app_campaigns_id = page '/campaigns/[id]' {
+      description 'actions: ask, leave, transfer, withdraw
+action:ask: Ask to join this listed campaign, with an optional note for the CM.
+  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.
+  In: form { note? }.
+  Out: { op: \'ask\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.
+action:leave: Leave my seat in this campaign; the seat stays, empty.
+  Who: the seat holder, while the campaign is mustering.
+  In: form { } (the campaign from the path).
+  Out: { op: \'leave\', done: true }.
+  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.
+action:transfer: Hand this campaign\'s CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.
+  Who: Owners, member or not (decision 7).
+  In: form { userId } (a co-CM, or the Owner\'s own id).
+  Out: { op: \'transfer\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.
+action:withdraw: Withdraw my open request to join this campaign.
+  Who: the person who asked.
+  In: form { }.
+  Out: { op: \'withdraw\', done: true }.
+  Errors: 401 unauthenticated, 404 not_found no open request.'
+      metadata {
+        generated 'true'
+        route '/campaigns/[id]'
+        code ['app/src/routes/(app)/campaigns/[id]/+page.server.ts', 'app/src/routes/(app)/campaigns/[id]/+page.svelte']
+      }
+    }
+    route_app_campaigns_id_manage = page '/campaigns/[id]/manage' {
+      description 'actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, settings, stage, transfer
+action:addCoCm: Add a co-CM: an active Admin or Owner.
+  Who: the CM.
+  In: form { userId }.
+  Out: { op: \'addCoCm\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.
+action:addSeats: Add empty seats, named on after the last one.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form seatCount { count }.
+  Out: { op: \'addSeats\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.
+action:approve: Approve a request to join into an empty seat.
+  Who: the CM and co-CMs.
+  In: form { id (the request), seatId }.
+  Out: { op: \'approve\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.
+action:assign: Fill an empty seat with an existing account, picked by name.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form { userId, seatId }.
+  Out: { op: \'assign\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.
+action:decline: Decline a request to join.
+  Who: the CM and co-CMs.
+  In: form { id (the request) }.
+  Out: { op: \'decline\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.
+action:free: Free a seat: its player leaves the campaign; the seat stays, empty.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form { id, version }.
+  Out: { op: \'free\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.
+action:link: Make a one-time link for an empty seat, shown only now; it revokes the seat\'s open link.
+  Who: the CM and co-CMs, while the campaign is mustering.
+  In: form { id }.
+  Out: { op: \'link\', id, link: { seatId, seatName, url, expiresAt } }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.
+action:links: Make links for every empty seat at once, each shown only now; their old links are revoked.
+  Who: the CM and co-CMs, while the campaign is mustering.
+  In: form { }.
+  Out: { op: \'links\', links: { seatId, seatName, url, expiresAt }[] }.
+  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.
+action:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.
+  Who: the CM.
+  In: form { }.
+  Out: 303 to /campaigns?view=deleted.
+  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
+action:removeCoCm: Remove a co-CM; they keep their seat if they hold one.
+  Who: the CM.
+  In: form { id (the co-CM\'s user id) }.
+  Out: { op: \'removeCoCm\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:removeSeat: Remove an empty seat.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form { id }.
+  Out: { op: \'removeSeat\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.
+action:rename: Rename a seat.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form { id, version, name }.
+  Out: { op: \'rename\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.
+action:revoke: Revoke a seat\'s open link; it stops working.
+  Who: the CM and co-CMs.
+  In: form { id }.
+  Out: { op: \'revoke\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:settings: Save the campaign\'s settings and house rules, with a version check.
+  Who: the CM and co-CMs, until the campaign ends.
+  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.
+  Out: { op: \'settings\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.
+action:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.
+  Who: the CM and co-CMs.
+  In: form stageMove { to }.
+  Out: { op: \'stage\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.
+action:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.
+  Who: the CM, or an Owner.
+  In: form { id (the co-CM\'s user id) }.
+  Out: { op: \'transfer\', id, done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.'
+      metadata {
+        generated 'true'
+        route '/campaigns/[id]/manage'
+        code ['app/src/routes/(app)/campaigns/[id]/manage/+page.server.ts', 'app/src/routes/(app)/campaigns/[id]/manage/+page.svelte']
+      }
+    }
+    route_app_campaigns_new = page '/campaigns/new' {
+      description 'actions: create
+action:create: Create a campaign from the wizard: the campaign, its CM (the creator) and its seats, in one transaction.
+  Who: Owners and Admins.
+  In: form campaignCreate { name, kind, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, seats, houseRules (JSON) } (the wizard\'s six steps).
+  Out: 303 to the new campaign\'s manage page (?created=1, which shows the "Campaign created" message).
+  Errors: 400 invalid with field reasons (the wizard returns to that step), 401 unauthenticated, 403 forbidden, 409 conflict name taken (on the name field).'
+      metadata {
+        generated 'true'
+        route '/campaigns/new'
+        code ['app/src/routes/(app)/campaigns/new/+page.server.ts', 'app/src/routes/(app)/campaigns/new/+page.svelte']
+      }
+    }
     route_app_home = page '/home' {
       metadata {
         generated 'true'
@@ -216,6 +368,29 @@ action:default: Accept an invite: create the account with the invite\'s role and
         code ['app/src/routes/(public)/invite/[token]/+page.server.ts', 'app/src/routes/(public)/invite/[token]/+page.svelte']
       }
     }
+    route_public_join_token = page '/join/[token]' {
+      description 'actions: signin, signup, take
+action:signin: Sign in, then take the seat with that account.
+  Who: anyone holding the seat link with an account here.
+  In: form { username, password }.
+  Out: 303 to the campaign\'s page, with a browser-session cookie.
+  Errors: 400 invalid, 401 unauthenticated wrong username or password, 404 not_found unknown or expired link, 409 conflict link used or revoked, already holds a seat, 429 rate_limited.
+action:signup: Create an account and take the seat with it, in one step.
+  Who: anyone holding the seat link, signed out.
+  In: form { username, displayName, password }.
+  Out: 303 to the campaign\'s page, with a browser-session cookie for the new account.
+  Errors: 400 invalid (taken username, common password), 404 not_found unknown or expired link, 409 conflict link used or revoked, 429 rate_limited.
+action:take: Take the seat with the account already signed in.
+  Who: anyone signed in who holds the seat link.
+  In: form { } (the token from the path).
+  Out: 303 to the campaign\'s page.
+  Errors: 401 unauthenticated, 404 not_found unknown or expired link, 409 conflict link used or revoked, already holds a seat.'
+      metadata {
+        generated 'true'
+        route '/join/[token]'
+        code ['app/src/routes/(public)/join/[token]/+page.server.ts', 'app/src/routes/(public)/join/[token]/+page.svelte']
+      }
+    }
     route_public_login = page '/login' {
       description 'actions: default
 action:default: Sign in with username and password; one form for every role.
@@ -315,6 +490,275 @@ POST: Sign out every other device; this one stays signed in.
         generated 'true'
         route '/api/v1/auth/logout-everywhere'
         code ['app/src/routes/api/v1/auth/logout-everywhere/+server.ts']
+      }
+    }
+    route_api_v1_campaigns = endpoint '/api/v1/campaigns' {
+      description 'GET POST
+GET: A page of campaign cards, newest first.
+  Who: anyone signed in (mine = rights or a seat; listed = listed ones the caller is not in; deleted = the last 30 days, own as CM, all for Owners).
+  In: query ?scope=mine|listed|deleted&after=<id>&limit=<1..100, default 50>
+  Out: 200 { items: CampaignCard[], next }
+  Errors: 400 invalid, 401 unauthenticated.
+POST: Create a campaign with its seats; the caller becomes its CM.
+  Who: Owners and Admins.
+  In: { name, kind, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, seats: 2..30, houseRules? }
+  Out: 201 { campaign, seats }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden for Users or other site, 409 conflict name taken.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns'
+        code ['app/src/routes/api/v1/campaigns/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id = endpoint '/api/v1/campaigns/[id]' {
+      description 'DELETE GET PATCH
+DELETE: Delete a campaign (soft): hidden at once, restorable for 30 days.
+  Who: the CM.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found.
+GET: One campaign, with an ETag of its version.
+  Who: its CM, co-CMs and players; anyone signed in if it is listed; while deleted, its CM and Owners.
+  In: path id.
+  Out: 200 { campaign, myRole, seatsTaken }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found unknown or not visible.
+PATCH: Change the settings and house rules; the type cannot change.
+  Who: the CM and co-CMs.
+  In: path id; { name, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules?, version }
+  Out: 200 Campaign
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM or other site, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]'
+        code ['app/src/routes/api/v1/campaigns/[id]/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_candidates = endpoint '/api/v1/campaigns/[id]/candidates' {
+      description 'GET
+GET: People to pick from, up to 10 matching q: for=seat (default) active accounts without a seat here; for=co_cm active Admins and Owners without rights here.
+  Who: the CM and co-CMs (for=seat); the CM (for=co_cm).
+  In: path id; query ?q=<1..32>&for=seat|co_cm
+  Out: 200 { items: Candidate[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/candidates'
+        code ['app/src/routes/api/v1/campaigns/[id]/candidates/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_co_cms = endpoint '/api/v1/campaigns/[id]/co-cms' {
+      description 'POST
+POST: Give an active Admin or Owner co-CM rights.
+  Who: the CM.
+  In: path id; { userId }
+  Out: 200 { members: CampaignMember[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found, 409 conflict not an active Admin or Owner, or already has rights.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/co-cms'
+        code ['app/src/routes/api/v1/campaigns/[id]/co-cms/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_co_cms_userId = endpoint '/api/v1/campaigns/[id]/co-cms/[userId]' {
+      description 'DELETE
+DELETE: Take co-CM rights away.
+  Who: the CM.
+  In: path id, userId.
+  Out: 200 { members: CampaignMember[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found not a co-CM.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/co-cms/[userId]'
+        code ['app/src/routes/api/v1/campaigns/[id]/co-cms/[userId]/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_requests = endpoint '/api/v1/campaigns/[id]/requests' {
+      description 'GET POST
+GET: The open requests to join, oldest first.
+  Who: the CM and co-CMs.
+  In: path id.
+  Out: 200 { items: JoinRequest[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+POST: Ask to join: one open request at a time.
+  Who: anyone signed in without a seat; listed campaigns while mustering only.
+  In: path id; { note? }
+  Out: 201 JoinRequest
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed or other site, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/requests'
+        code ['app/src/routes/api/v1/campaigns/[id]/requests/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_requests_rid_approve = endpoint '/api/v1/campaigns/[id]/requests/[rid]/approve' {
+      description 'POST
+POST: Approve a request into an empty seat.
+  Who: the CM and co-CMs; mustering only.
+  In: path id, rid; { seatId }
+  Out: 200 Seat
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, request already decided or not mustering.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/requests/[rid]/approve'
+        code ['app/src/routes/api/v1/campaigns/[id]/requests/[rid]/approve/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_requests_rid_decline = endpoint '/api/v1/campaigns/[id]/requests/[rid]/decline' {
+      description 'POST
+POST: Decline a request.
+  Who: the CM and co-CMs.
+  In: path id, rid.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict request already decided.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/requests/[rid]/decline'
+        code ['app/src/routes/api/v1/campaigns/[id]/requests/[rid]/decline/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_requests_mine = endpoint '/api/v1/campaigns/[id]/requests/mine' {
+      description 'DELETE
+DELETE: Withdraw one\'s own open request to join.
+  Who: the person who asked.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no open request.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/requests/mine'
+        code ['app/src/routes/api/v1/campaigns/[id]/requests/mine/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_restore = endpoint '/api/v1/campaigns/[id]/restore' {
+      description 'POST
+POST: Restore a deleted campaign within 30 days.
+  Who: its CM and Owners.
+  In: path id.
+  Out: 200 Campaign
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found unknown or purged, 409 conflict name taken or not deleted.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/restore'
+        code ['app/src/routes/api/v1/campaigns/[id]/restore/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seat_links = endpoint '/api/v1/campaigns/[id]/seat-links' {
+      description 'POST
+POST: Make a fresh one-time link for every empty seat, shown only now; their old links stop working.
+  Who: the CM and co-CMs.
+  In: path id.
+  Out: 201 { links: SeatLink[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict joining closed.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seat-links'
+        code ['app/src/routes/api/v1/campaigns/[id]/seat-links/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seats = endpoint '/api/v1/campaigns/[id]/seats' {
+      description 'GET POST
+GET: The seats in number order; people outside the campaign see no players.
+  Who: anyone who may see the campaign.
+  In: path id.
+  Out: 200 { items: Seat[] }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.
+POST: Add seats; a campaign has 30 at most.
+  Who: the CM and co-CMs.
+  In: path id; { count }
+  Out: 201 { items: Seat[] } (the new seats)
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict 30 seats at most or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seats_seatId = endpoint '/api/v1/campaigns/[id]/seats/[seatId]' {
+      description 'DELETE PATCH
+DELETE: Remove an empty seat; a campaign keeps at least 2.
+  Who: the CM and co-CMs.
+  In: path id, seatId.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, too few seats or campaign ended.
+PATCH: Rename a seat and/or free it (the player leaves the seat).
+  Who: the CM and co-CMs.
+  In: path id, seatId; { version, name?, free? }
+  Out: 200 Seat
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict changed meanwhile or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats/[seatId]'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seats_seatId_assign = endpoint '/api/v1/campaigns/[id]/seats/[seatId]/assign' {
+      description 'POST
+POST: Add a person by name to an empty seat; until the campaign ends.
+  Who: the CM and co-CMs.
+  In: path id, seatId; { userId }
+  Out: 200 Seat
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, already holds a seat or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats/[seatId]/assign'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/assign/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seats_seatId_invite = endpoint '/api/v1/campaigns/[id]/seats/[seatId]/invite' {
+      description 'DELETE POST
+DELETE: Withdraw the seat\'s open link.
+  Who: the CM and co-CMs.
+  In: path id, seatId.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found.
+POST: Make a one-time link for an empty seat (7 days), shown only now; the seat\'s open link stops working.
+  Who: the CM and co-CMs.
+  In: path id, seatId.
+  Out: 201 SeatLink
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken or joining closed.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats/[seatId]/invite'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/invite/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_seats_mine = endpoint '/api/v1/campaigns/[id]/seats/mine' {
+      description 'DELETE
+DELETE: Leave one\'s own seat.
+  Who: a player in the campaign; mustering only.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no seat, 409 conflict not mustering.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats/mine'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/mine/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_stage = endpoint '/api/v1/campaigns/[id]/stage' {
+      description 'POST
+POST: Move the campaign to another stage (mustering and active both ways, active to ended).
+  Who: the CM and co-CMs.
+  In: path id; { to }
+  Out: 200 Campaign
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict stage move not allowed.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/stage'
+        code ['app/src/routes/api/v1/campaigns/[id]/stage/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_transfer = endpoint '/api/v1/campaigns/[id]/transfer' {
+      description 'POST
+POST: Hand the CM role to a co-CM; the old CM becomes a co-CM.
+  Who: the CM, and Owners.
+  In: path id; { userId }
+  Out: 200 { members: CampaignMember[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict not a co-CM.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/transfer'
+        code ['app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts']
       }
     }
     route_api_v1_invites = endpoint '/api/v1/invites' {
@@ -429,6 +873,32 @@ GET: The OpenAPI 3.1 document for this API.
         generated 'true'
         route '/api/v1/openapi.json'
         code ['app/src/routes/api/v1/openapi.json/+server.ts']
+      }
+    }
+    route_api_v1_seat_invites_token = endpoint '/api/v1/seat-invites/[token]' {
+      description 'GET
+GET: What a seat link offers: its state, the campaign, the seat and the expiry.
+  Who: anyone holding the link.
+  In: path token.
+  Out: 200 SeatInvitePreview
+  Errors: 400 invalid, 404 not_found unknown link.'
+      metadata {
+        generated 'true'
+        route '/api/v1/seat-invites/[token]'
+        code ['app/src/routes/api/v1/seat-invites/[token]/+server.ts']
+      }
+    }
+    route_api_v1_seat_invites_token_accept = endpoint '/api/v1/seat-invites/[token]/accept' {
+      description 'POST
+POST: Take the seat a link offers: signed in with {}, or as a visitor with a new account (created and signed in).
+  Who: anyone holding the link.
+  In: path token; {} | { username, displayName, password }
+  Out: 201 { campaignId }, and a session cookie for a new account.
+  Errors: 400 invalid username taken or weak password, 401 unauthenticated no account sent, 403 forbidden other site, 404 not_found unknown, withdrawn or expired link, 409 conflict link used, seat taken, already holds a seat or joining closed, 429 rate_limited.'
+      metadata {
+        generated 'true'
+        route '/api/v1/seat-invites/[token]/accept'
+        code ['app/src/routes/api/v1/seat-invites/[token]/accept/+server.ts']
       }
     }
     route_api_v1_settings = endpoint '/api/v1/settings' {
@@ -563,6 +1033,18 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_app -[imports]-> fl.app.ui {
     metadata { generated 'true' }
   }
@@ -616,6 +1098,94 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.areas.route_app_admin -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_new -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_new -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_new -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_new -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_home -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 
@@ -739,6 +1309,26 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.publicPages.route_public_join_token -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_join_token -[imports]-> fl.app.services.authService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_join_token -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_join_token -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.publicPages.route_public_join_token -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.publicPages.route_public_login -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -816,6 +1406,226 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_auth_logout_everywhere -[imports]-> fl.app.services.authService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_candidates -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_candidates -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_candidates -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_candidates -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms_userId -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms_userId -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_co_cms_userId -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_approve -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_approve -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_approve -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_decline -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_decline -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_rid_decline -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_mine -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_mine -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_requests_mine -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_restore -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_restore -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_restore -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seat_links -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seat_links -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seat_links -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_assign -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_assign -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_assign -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_invite -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_invite -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_invite -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_stage -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_stage -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_stage -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_transfer -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_transfer -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_transfer -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 
@@ -904,6 +1714,30 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_openapi_json -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token_accept -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token_accept -[imports]-> fl.app.services.seatService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_seat_invites_token_accept -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 

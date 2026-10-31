@@ -136,6 +136,66 @@
    "parent": "fl.app.web.areas"
   },
   {
+   "id": "fl.app.web.areas.route_app_campaigns",
+   "kind": "page",
+   "title": "/campaigns",
+   "description": "actions: ask, restore, withdraw\naction:ask: Ask to join a listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { id, note? }.\n  Out: { op: 'ask', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:restore: Restore a deleted campaign within 30 days of its deletion.\n  Who: its CM, or an Owner.\n  In: form { id }.\n  Out: { op: 'restore', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found purged, 409 conflict name taken.\naction:withdraw: Withdraw my open request to join a campaign.\n  Who: the person who asked.\n  In: form { id }.\n  Out: { op: 'withdraw', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found no open request.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/campaigns/+page.server.ts",
+    "app/src/routes/(app)/campaigns/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_campaigns_id",
+   "kind": "page",
+   "title": "/campaigns/[id]",
+   "description": "actions: ask, leave, transfer, withdraw\naction:ask: Ask to join this listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { note? }.\n  Out: { op: 'ask', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:leave: Leave my seat in this campaign; the seat stays, empty.\n  Who: the seat holder, while the campaign is mustering.\n  In: form { } (the campaign from the path).\n  Out: { op: 'leave', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.\naction:transfer: Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.\n  Who: Owners, member or not (decision 7).\n  In: form { userId } (a co-CM, or the Owner's own id).\n  Out: { op: 'transfer', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.\naction:withdraw: Withdraw my open request to join this campaign.\n  Who: the person who asked.\n  In: form { }.\n  Out: { op: 'withdraw', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no open request.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/campaigns/[id]/+page.server.ts",
+    "app/src/routes/(app)/campaigns/[id]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_campaigns_id_manage",
+   "kind": "page",
+   "title": "/campaigns/[id]/manage",
+   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a one-time link for an empty seat, shown only now; it revokes the seat's open link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once, each shown only now; their old links are revoked.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/campaigns/[id]/manage/+page.server.ts",
+    "app/src/routes/(app)/campaigns/[id]/manage/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_campaigns_new",
+   "kind": "page",
+   "title": "/campaigns/new",
+   "description": "actions: create\naction:create: Create a campaign from the wizard: the campaign, its CM (the creator) and its seats, in one transaction.\n  Who: Owners and Admins.\n  In: form campaignCreate { name, kind, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, seats, houseRules (JSON) } (the wizard's six steps).\n  Out: 303 to the new campaign's manage page (?created=1, which shows the \"Campaign created\" message).\n  Errors: 400 invalid with field reasons (the wizard returns to that step), 401 unauthenticated, 403 forbidden, 409 conflict name taken (on the name field).",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/campaigns/new/+page.server.ts",
+    "app/src/routes/(app)/campaigns/new/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
    "id": "fl.app.web.areas.route_app_home",
    "kind": "page",
    "title": "/home",
@@ -301,6 +361,21 @@
    "parent": "fl.app.web.publicPages"
   },
   {
+   "id": "fl.app.web.publicPages.route_public_join_token",
+   "kind": "page",
+   "title": "/join/[token]",
+   "description": "actions: signin, signup, take\naction:signin: Sign in, then take the seat with that account.\n  Who: anyone holding the seat link with an account here.\n  In: form { username, password }.\n  Out: 303 to the campaign's page, with a browser-session cookie.\n  Errors: 400 invalid, 401 unauthenticated wrong username or password, 404 not_found unknown or expired link, 409 conflict link used or revoked, already holds a seat, 429 rate_limited.\naction:signup: Create an account and take the seat with it, in one step.\n  Who: anyone holding the seat link, signed out.\n  In: form { username, displayName, password }.\n  Out: 303 to the campaign's page, with a browser-session cookie for the new account.\n  Errors: 400 invalid (taken username, common password), 404 not_found unknown or expired link, 409 conflict link used or revoked, 429 rate_limited.\naction:take: Take the seat with the account already signed in.\n  Who: anyone signed in who holds the seat link.\n  In: form { } (the token from the path).\n  Out: 303 to the campaign's page.\n  Errors: 401 unauthenticated, 404 not_found unknown or expired link, 409 conflict link used or revoked, already holds a seat.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(public)/join/[token]/+page.server.ts",
+    "app/src/routes/(public)/join/[token]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.publicPages"
+  },
+  {
    "id": "fl.app.web.publicPages.route_public_login",
    "kind": "page",
    "title": "/login",
@@ -429,6 +504,258 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_campaigns",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns",
+   "description": "GET POST\nGET: A page of campaign cards, newest first.\n  Who: anyone signed in (mine = rights or a seat; listed = listed ones the caller is not in; deleted = the last 30 days, own as CM, all for Owners).\n  In: query ?scope=mine|listed|deleted&after=<id>&limit=<1..100, default 50>\n  Out: 200 { items: CampaignCard[], next }\n  Errors: 400 invalid, 401 unauthenticated.\nPOST: Create a campaign with its seats; the caller becomes its CM.\n  Who: Owners and Admins.\n  In: { name, kind, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, seats: 2..30, houseRules? }\n  Out: 201 { campaign, seats }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden for Users or other site, 409 conflict name taken.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]",
+   "description": "DELETE GET PATCH\nDELETE: Delete a campaign (soft): hidden at once, restorable for 30 days.\n  Who: the CM.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found.\nGET: One campaign, with an ETag of its version.\n  Who: its CM, co-CMs and players; anyone signed in if it is listed; while deleted, its CM and Owners.\n  In: path id.\n  Out: 200 { campaign, myRole, seatsTaken }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found unknown or not visible.\nPATCH: Change the settings and house rules; the type cannot change.\n  Who: the CM and co-CMs.\n  In: path id; { name, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules?, version }\n  Out: 200 Campaign\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM or other site, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_candidates",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/candidates",
+   "description": "GET\nGET: People to pick from, up to 10 matching q: for=seat (default) active accounts without a seat here; for=co_cm active Admins and Owners without rights here.\n  Who: the CM and co-CMs (for=seat); the CM (for=co_cm).\n  In: path id; query ?q=<1..32>&for=seat|co_cm\n  Out: 200 { items: Candidate[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/candidates/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_co_cms",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/co-cms",
+   "description": "POST\nPOST: Give an active Admin or Owner co-CM rights.\n  Who: the CM.\n  In: path id; { userId }\n  Out: 200 { members: CampaignMember[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found, 409 conflict not an active Admin or Owner, or already has rights.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/co-cms/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_co_cms_userId",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/co-cms/[userId]",
+   "description": "DELETE\nDELETE: Take co-CM rights away.\n  Who: the CM.\n  In: path id, userId.\n  Out: 200 { members: CampaignMember[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found not a co-CM.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/co-cms/[userId]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_requests",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/requests",
+   "description": "GET POST\nGET: The open requests to join, oldest first.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 200 { items: JoinRequest[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\nPOST: Ask to join: one open request at a time.\n  Who: anyone signed in without a seat; listed campaigns while mustering only.\n  In: path id; { note? }\n  Out: 201 JoinRequest\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed or other site, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/requests/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_requests_rid_approve",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/requests/[rid]/approve",
+   "description": "POST\nPOST: Approve a request into an empty seat.\n  Who: the CM and co-CMs; mustering only.\n  In: path id, rid; { seatId }\n  Out: 200 Seat\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, request already decided or not mustering.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/requests/[rid]/approve/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_requests_rid_decline",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/requests/[rid]/decline",
+   "description": "POST\nPOST: Decline a request.\n  Who: the CM and co-CMs.\n  In: path id, rid.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict request already decided.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/requests/[rid]/decline/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_requests_mine",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/requests/mine",
+   "description": "DELETE\nDELETE: Withdraw one's own open request to join.\n  Who: the person who asked.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no open request.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/requests/mine/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_restore",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/restore",
+   "description": "POST\nPOST: Restore a deleted campaign within 30 days.\n  Who: its CM and Owners.\n  In: path id.\n  Out: 200 Campaign\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found unknown or purged, 409 conflict name taken or not deleted.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/restore/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seat_links",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seat-links",
+   "description": "POST\nPOST: Make a fresh one-time link for every empty seat, shown only now; their old links stop working.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 201 { links: SeatLink[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict joining closed.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seat-links/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats",
+   "description": "GET POST\nGET: The seats in number order; people outside the campaign see no players.\n  Who: anyone who may see the campaign.\n  In: path id.\n  Out: 200 { items: Seat[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Add seats; a campaign has 30 at most.\n  Who: the CM and co-CMs.\n  In: path id; { count }\n  Out: 201 { items: Seat[] } (the new seats)\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict 30 seats at most or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_seatId",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats/[seatId]",
+   "description": "DELETE PATCH\nDELETE: Remove an empty seat; a campaign keeps at least 2.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, too few seats or campaign ended.\nPATCH: Rename a seat and/or free it (the player leaves the seat).\n  Who: the CM and co-CMs.\n  In: path id, seatId; { version, name?, free? }\n  Out: 200 Seat\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict changed meanwhile or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_assign",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats/[seatId]/assign",
+   "description": "POST\nPOST: Add a person by name to an empty seat; until the campaign ends.\n  Who: the CM and co-CMs.\n  In: path id, seatId; { userId }\n  Out: 200 Seat\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken, already holds a seat or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/assign/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_invite",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats/[seatId]/invite",
+   "description": "DELETE POST\nDELETE: Withdraw the seat's open link.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found.\nPOST: Make a one-time link for an empty seat (7 days), shown only now; the seat's open link stops working.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 201 SeatLink\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken or joining closed.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/invite/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_mine",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats/mine",
+   "description": "DELETE\nDELETE: Leave one's own seat.\n  Who: a player in the campaign; mustering only.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no seat, 409 conflict not mustering.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/mine/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_stage",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/stage",
+   "description": "POST\nPOST: Move the campaign to another stage (mustering and active both ways, active to ended).\n  Who: the CM and co-CMs.\n  In: path id; { to }\n  Out: 200 Campaign\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict stage move not allowed.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/stage/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_transfer",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/transfer",
+   "description": "POST\nPOST: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, and Owners.\n  In: path id; { userId }\n  Out: 200 { members: CampaignMember[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict not a co-CM.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_invites",
    "kind": "endpoint",
    "title": "/api/v1/invites",
@@ -534,6 +861,34 @@
    "tags": [],
    "code": [
     "app/src/routes/api/v1/openapi.json/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_seat_invites_token",
+   "kind": "endpoint",
+   "title": "/api/v1/seat-invites/[token]",
+   "description": "GET\nGET: What a seat link offers: its state, the campaign, the seat and the expiry.\n  Who: anyone holding the link.\n  In: path token.\n  Out: 200 SeatInvitePreview\n  Errors: 400 invalid, 404 not_found unknown link.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/seat-invites/[token]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_seat_invites_token_accept",
+   "kind": "endpoint",
+   "title": "/api/v1/seat-invites/[token]/accept",
+   "description": "POST\nPOST: Take the seat a link offers: signed in with {}, or as a visitor with a new account (created and signed in).\n  Who: anyone holding the link.\n  In: path token; {} | { username, displayName, password }\n  Out: 201 { campaignId }, and a session cookie for a new account.\n  Errors: 400 invalid username taken or weak password, 401 unauthenticated no account sent, 403 forbidden other site, 404 not_found unknown, withdrawn or expired link, 409 conflict link used, seat taken, already holds a seat or joining closed, 429 rate_limited.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/seat-invites/[token]/accept/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -762,6 +1117,84 @@
    "parent": "fl.app.appTables"
   },
   {
+   "id": "fl.app.campaignTables",
+   "kind": "layer",
+   "title": "campaign schema",
+   "description": "Campaigns, who runs them (members: CM and co-CMs), their seats, one-time seat links and join requests. Everything cascades from the campaign, so the 30-day purge removes it all.",
+   "tags": [],
+   "code": [],
+   "tables": [
+    "campaigns",
+    "members",
+    "seats",
+    "seat_invites",
+    "join_requests"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.campaignTables.table_campaigns",
+   "kind": "table",
+   "title": "campaigns",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.campaignTables"
+  },
+  {
+   "id": "fl.app.campaignTables.table_members",
+   "kind": "table",
+   "title": "members",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.campaignTables"
+  },
+  {
+   "id": "fl.app.campaignTables.table_seats",
+   "kind": "table",
+   "title": "seats",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.campaignTables"
+  },
+  {
+   "id": "fl.app.campaignTables.table_seat_invites",
+   "kind": "table",
+   "title": "seat_invites",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.campaignTables"
+  },
+  {
+   "id": "fl.app.campaignTables.table_join_requests",
+   "kind": "table",
+   "title": "join_requests",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.campaignTables"
+  },
+  {
    "id": "owner",
    "kind": "actor",
    "title": "Owner",
@@ -901,6 +1334,8 @@
    ],
    "code": [
     "app/src/lib/roles.ts",
+    "app/src/lib/campaign-stage.ts",
+    "app/src/lib/campaign-rights.ts",
     "app/src/lib/schemas/**",
     "app/src/lib/api-types.ts",
     "app/src/lib/index.ts",
@@ -1058,6 +1493,54 @@
    "parent": "fl.app.services"
   },
   {
+   "id": "fl.app.services.campaignService",
+   "kind": "module",
+   "title": "Campaigns",
+   "description": "Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/campaigns{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.seatService",
+   "kind": "module",
+   "title": "Seats and seat links",
+   "description": "Seats (add, rename, free, remove when empty), one-time seat links (one per seat or all empty seats at once, shown once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/seats{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.joinRequestService",
+   "kind": "module",
+   "title": "Join requests",
+   "description": "Ask to join a listed campaign while it is mustering (one open request per person); the CM or a co-CM approves into an empty seat under a lock, or declines.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/join-requests{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
    "id": "fl.app.services.backupService",
    "kind": "module",
    "title": "Backups",
@@ -1102,6 +1585,11 @@
   },
   {
    "source": "fl.app.web.areas",
+   "target": "fl.app.services.campaignService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
    "target": "fl.app.services.authService",
    "title": ""
   },
@@ -1113,6 +1601,16 @@
   {
    "source": "fl.app.web.areas",
    "target": "fl.app.services.peopleService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.joinRequestService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.seatService",
    "title": ""
   },
   {
@@ -1152,6 +1650,11 @@
   },
   {
    "source": "fl.app.web.publicPages",
+   "target": "fl.app.services.seatService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.publicPages",
    "target": "fl.app.services.settingsService",
    "title": ""
   },
@@ -1178,6 +1681,21 @@
   {
    "source": "fl.app.web.api",
    "target": "fl.app.services.authService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.campaignService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.seatService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.joinRequestService",
    "title": ""
   },
   {
@@ -1213,7 +1731,7 @@
   {
    "source": "admin",
    "target": "fl.app.web",
-   "title": "invites players"
+   "title": "runs campaigns, invites players"
   },
   {
    "source": "user",
@@ -1346,6 +1864,56 @@
    "title": "records downloads and restores"
   },
   {
+   "source": "fl.app.services.campaignService",
+   "target": "fl.app.services.auditService",
+   "title": "records campaign changes"
+  },
+  {
+   "source": "fl.app.services.campaignService",
+   "target": "fl.app.services.authService",
+   "title": "who is acting"
+  },
+  {
+   "source": "fl.app.services.seatService",
+   "target": "fl.app.services.auditService",
+   "title": "records seats, links and joins"
+  },
+  {
+   "source": "fl.app.services.seatService",
+   "target": "fl.app.services.authService",
+   "title": "creates the account and signs it in, join rate limit"
+  },
+  {
+   "source": "fl.app.services.seatService",
+   "target": "fl.app.services.campaignService",
+   "title": "campaign rights and stage"
+  },
+  {
+   "source": "fl.app.services.joinRequestService",
+   "target": "fl.app.services.auditService",
+   "title": "records requests"
+  },
+  {
+   "source": "fl.app.services.joinRequestService",
+   "target": "fl.app.services.campaignService",
+   "title": "campaign rights and stage"
+  },
+  {
+   "source": "fl.app.services.joinRequestService",
+   "target": "fl.app.services.seatService",
+   "title": "fills the chosen seat on approval"
+  },
+  {
+   "source": "fl.app.services.joinRequestService",
+   "target": "fl.app.services.authService",
+   "title": "who is asking"
+  },
+  {
+   "source": "fl.app.services.peopleService",
+   "target": "fl.app.services.campaignService",
+   "title": "demoting an Admin: drop co-CM roles, refuse while CM"
+  },
+  {
    "source": "fl.app.repos",
    "target": "fl.app.authTables",
    "title": "SQL"
@@ -1353,6 +1921,11 @@
   {
    "source": "fl.app.repos",
    "target": "fl.app.appTables",
+   "title": "SQL"
+  },
+  {
+   "source": "fl.app.repos",
+   "target": "fl.app.campaignTables",
    "title": "SQL"
   },
   {
@@ -1406,6 +1979,16 @@
    "title": "stored in"
   },
   {
+   "source": "fl.app.campaignTables",
+   "target": "fl.db",
+   "title": "stored in"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.services.campaignService",
+   "title": "daily purge of deleted campaigns and expired seat links"
+  },
+  {
    "source": "fl.app.infra",
    "target": "fl.app.server",
    "title": "asks it to listen on a new port"
@@ -1417,6 +2000,39 @@
   }
  ],
  "views": [
+  {
+   "id": "campaign_create",
+   "title": "Create a campaign",
+   "description": "**An Owner or Admin creates a campaign in a six-step wizard and becomes its Campaign Master.**\n\n**Decisions**\n- Two types, Carcass Front and generic; the type is fixed after creation.\n- Seats are made at creation (2 to 30) as \"Seat 1\" … \"Seat N\"; more can be added later.\n- Campaign, CM row and seats are made in one transaction; a name taken by a campaign that is not deleted\n  (ignoring case) is a conflict and the wizard returns to Basics.\n- House rules are the CM's own words, stored as typed JSON switches; no book text ships with the app.\n- The wizard's Map step is a placeholder until step 2.5.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "wizard: basics, schedule, seats, house rules, review"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.campaignService",
+     "label": "create"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.repos",
+     "label": "insert campaign, CM member, seats"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.campaignTables",
+     "label": "one transaction"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.services.auditService",
+     "label": "record campaign.created"
+    }
+   ]
+  },
   {
    "id": "first_start",
    "title": "First start: migrations, backup, the setup wizard",
@@ -1524,6 +2140,49 @@
    ]
   },
   {
+   "id": "join_request",
+   "title": "Ask to join, then approve",
+   "description": "**Anyone signed in can ask to join a listed campaign while it is mustering; the CM or a co-CM places them.**\n\n**Decisions**\n- Only listed campaigns, only while mustering; one open request per person and campaign.\n- Approving needs an empty seat (preselected to the lowest); the seat is locked so two approvals cannot fill it twice.\n- Declined and withdrawn requests stay as history; the person may ask again.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "ask to join (optional note)"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.joinRequestService",
+     "label": "request"
+    },
+    {
+     "from": "fl.app.services.joinRequestService",
+     "to": "fl.app.repos",
+     "label": "insert open request"
+    },
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "approve into a seat"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.joinRequestService",
+     "label": "approve"
+    },
+    {
+     "from": "fl.app.services.joinRequestService",
+     "to": "fl.app.repos",
+     "label": "lock seat, fill it, mark approved"
+    },
+    {
+     "from": "fl.app.services.joinRequestService",
+     "to": "fl.app.services.auditService",
+     "label": "record request.approved"
+    }
+   ]
+  },
+  {
    "id": "managing_people",
    "title": "Managing people",
    "description": "**The owner keeps the group's accounts in order without email.**\n\n**Decisions**\n- Owners see every account; admins see the users they invited.\n- Changing a role or disabling an account never removes the last owner.\n- Disabling ends every session at once; history stays.\n- A password reset sets a readable temporary password that must be changed at the next sign-in.\n- A disabled account can be anonymised: its display name becomes \"Former member\".\n- Every change is written to the audit log in the same transaction.",
@@ -1586,6 +2245,54 @@
      "from": "fl.app.services.backupService",
      "to": "fl.app.infra",
      "label": "pg_dump, pg_restore"
+    }
+   ]
+  },
+  {
+   "id": "seat_join",
+   "title": "Join by seat link",
+   "description": "**The CM makes a one-time link for a seat; the person who opens it takes that seat, with a new account if needed.**\n\n**Decisions**\n- One link per seat, single use, 7 days; only its token hash is stored, so a link is shown once. Making a new\n  link revokes the seat's open one; \"Make links for all empty seats\" lists every link once.\n- Links work only while the campaign is mustering. While active, the CM adds people by name only.\n- Joining runs in one transaction with the link row locked: two people with the same link cannot both get the\n  seat. A seat still on its default name takes the player's display name.\n- A person holds at most one seat per campaign. Sign-up on the join page is rate limited.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "make link (one seat or all empty seats)"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.seatService",
+     "label": "makeLink"
+    },
+    {
+     "from": "fl.app.services.seatService",
+     "to": "fl.app.repos",
+     "label": "revoke open link, insert link hash"
+    },
+    {
+     "from": "visitor",
+     "to": "fl.app.web.publicPages",
+     "label": "opens /join/<token>, signs in or creates an account"
+    },
+    {
+     "from": "fl.app.web.publicPages",
+     "to": "fl.app.services.seatService",
+     "label": "accept"
+    },
+    {
+     "from": "fl.app.services.seatService",
+     "to": "fl.app.services.authService",
+     "label": "rate limit, new account, session"
+    },
+    {
+     "from": "fl.app.services.seatService",
+     "to": "fl.app.repos",
+     "label": "lock link, fill seat, mark used"
+    },
+    {
+     "from": "fl.app.services.seatService",
+     "to": "fl.app.services.auditService",
+     "label": "record seat.joined"
     }
    ]
   },
@@ -1730,6 +2437,13 @@
    "id": "tables",
    "title": "auth schema",
    "description": "The tables of accounts and sign-in.",
+   "dynamic": false,
+   "steps": []
+  },
+  {
+   "id": "campaignTablesView",
+   "title": "campaign schema",
+   "description": "Campaigns, their CM and co-CMs, seats, seat links and join requests.",
    "dynamic": false,
    "steps": []
   },

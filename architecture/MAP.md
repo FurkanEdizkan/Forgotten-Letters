@@ -14,18 +14,18 @@ shortest unique end of their id.
       uses: services shared ui infra
       used by: owner admin user
       - `fl.app.web.areas` App shell, role areas and account — The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the…
-        files: app/src/routes/(app)/ guard.ts
-        uses: settingsService setupService shared ui infra authService inviteService peopleService auditService backupService
-        routes: / (layout) · / (layout) · /account (actions: everywhere (Sign out of every other device.), name (Change my display name.), password (Change my password; my other devices are signed out.)) · /account/password (actions: default (Replace a temporary password after a reset; required before anything else.)) · /admin (actions: create (Create an invite link; Campaign Masters invite users, owners also admins. The link is shown only now.), resend (Re-send one of my invites: a fresh link with the same role and note; the old link stops working.), revoke (Revoke one of my pending invites; its link stops working.)) · /home · /owner (actions: anonymise (Anonymise a disabled account: its display name becomes "Former member".), disable (Disable an account: it is signed out everywhere and cannot sign in; its history stays.), enable (Enable a disabled account again.), reset (Reset a password to a temporary one, shown once, to be changed at the next sign-in.), role (Change a person's role; the last owner can never be demoted.)) · /owner/audit · /owner/backups (actions: restore (Restore a backup over the current data; a dump of the current state is written first.)) · /owner/backups/[name] (GET (Download one backup file (audited).)) · /owner/invites (actions: create (Create an invite link for an admin or a user; the link is shown only now.), resend (Re-send an invite: a fresh link with the same role and note; the old link stops working.), revoke (Revoke a pending invite; its link stops working.)) · /owner/settings (actions: save (Change the copy-wide text size, accent and port.))
+        files: app/src/routes/(app)/campaigns/[id]/manage/ CoCmsTab.svelte RequestsTab.svelte SeatsTab.svelte SettingsTab.svelte; app/src/routes/(app)/campaigns/ form.ts; app/src/routes/(app)/campaigns/new/ ReviewStep.svelte wizard.ts; app/src/routes/(app)/ guard.ts
+        uses: settingsService setupService shared ui infra campaignService authService inviteService peopleService joinRequestService seatService auditService backupService
+        routes: / (layout) · / (layout) · /account (actions: everywhere (Sign out of every other device.), name (Change my display name.), password (Change my password; my other devices are signed out.)) · /account/password (actions: default (Replace a temporary password after a reset; required before anything else.)) · /admin (actions: create (Create an invite link; Campaign Masters invite users, owners also admins. The link is shown only now.), resend (Re-send one of my invites: a fresh link with the same role and note; the old link stops working.), revoke (Revoke one of my pending invites; its link stops working.)) · /campaigns (actions: ask (Ask to join a listed campaign, with an optional note for the CM.), restore (Restore a deleted campaign within 30 days of its deletion.), withdraw (Withdraw my open request to join a campaign.)) · /campaigns/[id] (actions: ask (Ask to join this listed campaign, with an optional note for the CM.), leave (Leave my seat in this campaign; the seat stays, empty.), transfer (Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.), withdraw (Withdraw my open request to join this campaign.)) · /campaigns/[id]/manage (actions: addCoCm (Add a co-CM: an active Admin or Owner.), addSeats (Add empty seats, named on after the last one.), approve (Approve a request to join into an empty seat.), assign (Fill an empty seat with an existing account, picked by name.), decline (Decline a request to join.), free (Free a seat: its player leaves the campaign; the seat stays, empty.), link (Make a one-time link for an empty seat, shown only now; it revokes the seat's open link.), links (Make links for every empty seat at once, each shown only now; their old links are revoked.), remove (Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.), removeCoCm (Remove a co-CM; they keep their seat if they hold one.), removeSeat (Remove an empty seat.), rename (Rename a seat.), revoke (Revoke a seat's open link; it stops working.), settings (Save the campaign's settings and house rules, with a version check.), stage (Move the campaign to another stage: start it, end it, or take it back to mustering.), transfer (Hand the CM role to a co-CM; the old CM becomes a co-CM.)) · /campaigns/new (actions: create (Create a campaign from the wizard: the campaign, its CM (the creator) and its seats, in one transaction.)) · /home · /owner (actions: anonymise (Anonymise a disabled account: its display name becomes "Former member".), disable (Disable an account: it is signed out everywhere and cannot sign in; its history stays.), enable (Enable a disabled account again.), reset (Reset a password to a temporary one, shown once, to be changed at the next sign-in.), role (Change a person's role; the last owner can never be demoted.)) · /owner/audit · /owner/backups (actions: restore (Restore a backup over the current data; a dump of the current state is written first.)) · /owner/backups/[name] (GET (Download one backup file (audited).)) · /owner/invites (actions: create (Create an invite link for an admin or a user; the link is shown only now.), resend (Re-send an invite: a fresh link with the same role and note; the old link stops working.), revoke (Revoke a pending invite; its link stops working.)) · /owner/settings (actions: save (Change the copy-wide text size, accent and port.))
       - `fl.app.web.publicPages` Welcome, setup, sign-in, invite and help pages — The welcome page and four-step setup wizard on a fresh install (Owner, Look, Server, Done); the one sign-in screen for every role, in the…
         files: app/src/routes/(public)/setup/ ServerStep.svelte wizard.ts
-        uses: ui infra inviteService shared authService settingsService setupService
+        uses: ui infra inviteService shared authService seatService settingsService setupService
         used by: visitor
-        routes: /help (layout) · /help/[page] · /invite/[token] (actions: default (Accept an invite: create the account with the invite's role and sign it in.)) · /login (actions: default (Sign in with username and password; one form for every role.)) · /logout (actions: default (Sign out of this device.)) · /setup (actions: finish (Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.)) · /welcome
+        routes: /help (layout) · /help/[page] · /invite/[token] (actions: default (Accept an invite: create the account with the invite's role and sign it in.)) · /join/[token] (actions: signin (Sign in, then take the seat with that account.), signup (Create an account and take the seat with it, in one step.), take (Take the seat with the account already signed in.)) · /login (actions: default (Sign in with username and password; one form for every role.)) · /logout (actions: default (Sign out of this device.)) · /setup (actions: finish (Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.)) · /welcome
       - `fl.app.web.api` JSON API v1 — The same actions as the pages, authenticated by the session cookie; documented by an OpenAPI document.
         code: app/src/routes/api/**
-        uses: infra auditService shared authService inviteService settingsService setupService peopleService
-        routes: /api/v1/audit (GET (The audit log, newest first, optionally one action.)) · /api/v1/auth/login (POST (Sign in with username and password.)) · /api/v1/auth/logout (POST (Sign out on this device.)) · /api/v1/auth/logout-everywhere (POST (Sign out every other device; this one stays signed in.)) · /api/v1/invites (GET (Pending invites.) POST (Create an invite link; the link is shown only now.)) · /api/v1/invites/[id] (DELETE (Withdraw an invite; its link stops working.)) · /api/v1/invites/[id]/resend (POST (Replace an invite with a fresh link for the same role and note; the old link stops working.)) · /api/v1/invites/token/[token] (GET (What an invite link offers: its state, role, note, inviter and expiry.)) · /api/v1/invites/token/[token]/accept (POST (Accept an invite: create the account and sign it in.)) · /api/v1/me (GET (The signed-in account and the areas it may use.) PATCH (Change the display name.)) · /api/v1/me/password (POST (Change the password; every other device is signed out.)) · /api/v1/openapi.json (GET (The OpenAPI 3.1 document for this API.)) · /api/v1/settings (GET (The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.) PATCH (Change text size, accent or port.)) · /api/v1/setup (GET (Whether first-run setup is open, that is, no owner exists yet.) POST (Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.)) · /api/v1/users (GET (A page of people, oldest first.)) · /api/v1/users/[id] (PATCH (Change an account's role and/or disable or enable it.)) · /api/v1/users/[id]/anonymise (POST (Anonymise a disabled account: its display name becomes "Former member".)) · /api/v1/users/[id]/reset-password (POST (Set a temporary password, returned once, and end the account's sessions.))
+        uses: infra auditService shared authService campaignService seatService joinRequestService inviteService settingsService setupService peopleService
+        routes: /api/v1/audit (GET (The audit log, newest first, optionally one action.)) · /api/v1/auth/login (POST (Sign in with username and password.)) · /api/v1/auth/logout (POST (Sign out on this device.)) · /api/v1/auth/logout-everywhere (POST (Sign out every other device; this one stays signed in.)) · /api/v1/campaigns (GET (A page of campaign cards, newest first.) POST (Create a campaign with its seats; the caller becomes its CM.)) · /api/v1/campaigns/[id] (DELETE (Delete a campaign (soft): hidden at once, restorable for 30 days.) GET (One campaign, with an ETag of its version.) PATCH (Change the settings and house rules; the type cannot change.)) · /api/v1/campaigns/[id]/candidates (GET (People to pick from, up to 10 matching q: for=seat (default) active accounts without a seat here; for=co_cm active Admins and Owners without rights here.)) · /api/v1/campaigns/[id]/co-cms (POST (Give an active Admin or Owner co-CM rights.)) · /api/v1/campaigns/[id]/co-cms/[userId] (DELETE (Take co-CM rights away.)) · /api/v1/campaigns/[id]/requests (GET (The open requests to join, oldest first.) POST (Ask to join: one open request at a time.)) · /api/v1/campaigns/[id]/requests/[rid]/approve (POST (Approve a request into an empty seat.)) · /api/v1/campaigns/[id]/requests/[rid]/decline (POST (Decline a request.)) · /api/v1/campaigns/[id]/requests/mine (DELETE (Withdraw one's own open request to join.)) · /api/v1/campaigns/[id]/restore (POST (Restore a deleted campaign within 30 days.)) · /api/v1/campaigns/[id]/seat-links (POST (Make a fresh one-time link for every empty seat, shown only now; their old links stop working.)) · /api/v1/campaigns/[id]/seats (GET (The seats in number order; people outside the campaign see no players.) POST (Add seats; a campaign has 30 at most.)) · /api/v1/campaigns/[id]/seats/[seatId] (DELETE (Remove an empty seat; a campaign keeps at least 2.) PATCH (Rename a seat and/or free it (the player leaves the seat).)) · /api/v1/campaigns/[id]/seats/[seatId]/assign (POST (Add a person by name to an empty seat; until the campaign ends.)) · /api/v1/campaigns/[id]/seats/[seatId]/invite (DELETE (Withdraw the seat's open link.) POST (Make a one-time link for an empty seat (7 days), shown only now; the seat's open link stops working.)) · /api/v1/campaigns/[id]/seats/mine (DELETE (Leave one's own seat.)) · /api/v1/campaigns/[id]/stage (POST (Move the campaign to another stage (mustering and active both ways, active to ended).)) · /api/v1/campaigns/[id]/transfer (POST (Hand the CM role to a co-CM; the old CM becomes a co-CM.)) · /api/v1/invites (GET (Pending invites.) POST (Create an invite link; the link is shown only now.)) · /api/v1/invites/[id] (DELETE (Withdraw an invite; its link stops working.)) · /api/v1/invites/[id]/resend (POST (Replace an invite with a fresh link for the same role and note; the old link stops working.)) · /api/v1/invites/token/[token] (GET (What an invite link offers: its state, role, note, inviter and expiry.)) · /api/v1/invites/token/[token]/accept (POST (Accept an invite: create the account and sign it in.)) · /api/v1/me (GET (The signed-in account and the areas it may use.) PATCH (Change the display name.)) · /api/v1/me/password (POST (Change the password; every other device is signed out.)) · /api/v1/openapi.json (GET (The OpenAPI 3.1 document for this API.)) · /api/v1/seat-invites/[token] (GET (What a seat link offers: its state, the campaign, the seat and the expiry.)) · /api/v1/seat-invites/[token]/accept (POST (Take the seat a link offers: signed in with {}, or as a visitor with a new account (created and signed in).)) · /api/v1/settings (GET (The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.) PATCH (Change text size, accent or port.)) · /api/v1/setup (GET (Whether first-run setup is open, that is, no owner exists yet.) POST (Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.)) · /api/v1/users (GET (A page of people, oldest first.)) · /api/v1/users/[id] (PATCH (Change an account's role and/or disable or enable it.)) · /api/v1/users/[id]/anonymise (POST (Anonymise a disabled account: its display name becomes "Former member".)) · /api/v1/users/[id]/reset-password (POST (Set a temporary password, returned once, and end the account's sessions.))
       - `fl.app.web.health` Health — Liveness for Docker; readiness (database and migrations) for proxies and smoke tests.
         code: app/src/routes/health/**
         uses: infra
@@ -39,6 +39,10 @@ shortest unique end of their id.
       tables: settings
       uses: db
       used by: repos
+    - `fl.app.campaignTables` campaign schema — Campaigns, who runs them (members: CM and co-CMs), their seats, one-time seat links and join requests.
+      tables: campaigns members seats seat_invites join_requests
+      uses: db
+      used by: repos
 - `owner` Owner — Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.
   uses: web
 - `admin` Admin (Campaign Master) — Runs campaigns; invites players.
@@ -48,7 +52,7 @@ shortest unique end of their id.
 - `visitor` Visitor — Not signed in: sees the welcome and setup pages on a fresh install, then the sign-in, invite and help pages.
   uses: publicPages
   - `fl.db` PostgreSQL 18 — All data, on a named volume.
-    used by: authTables appTables infra
+    used by: authTables appTables campaignTables infra
   - `fl.caddy` Caddy (optional) — HTTPS certificate for a server deployment; off on a LAN.
     uses: app
     - `fl.app.server` Custom server #server-only — Starts the built app and owns its listeners, so the port stored in settings can change while running: open the new port, then close the old…
@@ -60,27 +64,27 @@ shortest unique end of their id.
       uses: services infra shared
       used by: server
     - `fl.app.ui` Components and look #client — The design system in code: tokens and accent presets, fonts, glass buttons and form controls, the emblem, skeletons, the anime.js motion…
-      files: app/src/ app.d.ts; app/src/lib/ messages.ts; app/src/lib/ui/ AuthCard.svelte BandHeader.svelte Button.svelte Callout.svelte Card.svelte Checkbox.svelte ConfirmButton.svelte EmptyState.svelte Field.svelte GlassButton.svelte Invites.svelte Message.svelte RoleBadge.svelte SecretBox.svelte Segmented.svelte Skeleton.svelte Slider.svelte SplitStage.svelte Stepper.svelte SwatchGroup.svelte TextPreview.svelte Time.svelte WizardField.svelte accents.ts motion.ts; app/src/lib/ui/emblem/ Emblem.svelte glyphs.ts; app/src/lib/ui/shell/ PageSkeleton.svelte Shell.svelte SidePanel.svelte TopBar.svelte UserMenu.svelte glow.ts nav.ts
+      files: app/src/ app.d.ts; app/src/lib/ messages.ts; app/src/lib/ui/ AuthCard.svelte BandHeader.svelte Button.svelte Callout.svelte CampaignCard.svelte CampaignRoleBadge.svelte Card.svelte Checkbox.svelte ConfirmButton.svelte EmptyState.svelte Field.svelte GlassButton.svelte HouseRules.svelte HouseRulesEditor.svelte Invites.svelte Message.svelte PersonPicker.svelte RadioCards.svelte RoleBadge.svelte SeatTable.svelte SecretBox.svelte Segmented.svelte Select.svelte Skeleton.svelte Slider.svelte SplitStage.svelte StageBadge.svelte Stepper.svelte SwatchGroup.svelte Tabs.svelte TextArea.svelte TextPreview.svelte Time.svelte VisitorStage.svelte WizardField.svelte accents.ts campaign-facts.ts form-result.ts links.ts motion.ts; app/src/lib/ui/emblem/ Emblem.svelte glyphs.ts; app/src/lib/ui/shell/ PageSkeleton.svelte Shell.svelte SidePanel.svelte TopBar.svelte UserMenu.svelte glow.ts nav.ts
       uses: shared auditService
       used by: areas publicPages web
     - `fl.app.shared` Shared lib #pure — Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.
-      files: app/src/lib/ api-types.ts index.ts roles.ts; app/src/lib/schemas/ auth.ts settings.ts
+      files: app/src/lib/ api-types.ts campaign-rights.ts campaign-stage.ts index.ts roles.ts; app/src/lib/schemas/ auth.ts campaigns.ts settings.ts
       used by: areas publicPages api web services hooks authTables ui infra
     - `fl.app.services` Services — Business rules.
       uses: repos infra shared
       used by: hooks web
     - `fl.app.repos` Repos #server-only — The only place with SQL: one module per table group, taking a db or a transaction.
-      files: app/src/lib/server/repos/ audit.ts invites.ts sessions.ts settings.ts users.ts
-      uses: authTables appTables infra
+      files: app/src/lib/server/repos/ audit.ts campaigns.ts invites.ts join-requests.ts seats.ts sessions.ts settings.ts users.ts
+      uses: authTables appTables campaignTables infra
       used by: services infra
     - `fl.app.infra` Infra #server-only — Settings, the database pool, logging, errors and the HTTP helpers, rate limits, background jobs, migrations, and the bridge to the custom…
       files: app/src/lib/server/db/ index.ts; app/src/lib/server/ errors.ts jobs.ts; app/src/lib/server/http/ index.ts openapi.ts setup-guard.ts; app/src/lib/server/infra/ config.ts jobs.ts listener.ts logger.ts migrate.ts rate-limit.ts
-      uses: authTables auditService shared repos backupService server db
+      uses: authTables auditService shared repos backupService campaignService server db
       used by: areas publicPages api health hooks web services repos
       - `fl.app.services.authService` Sign-in and sessions #server-only — Sign in and out, sessions (create, read, slide, end), password changes, the sign-in rate limit.
         files: app/src/lib/server/services/ auth.ts passwords.ts
         uses: auditService
-        used by: areas publicPages api peopleService inviteService setupService settingsService
+        used by: areas publicPages api peopleService inviteService setupService settingsService campaignService seatService joinRequestService
       - `fl.app.services.setupService` First-run setup #server-only — Setup is open while no owner exists (Jellyfin style).
         files: app/src/lib/server/services/ setup.ts
         uses: authService auditService settingsService
@@ -91,7 +95,7 @@ shortest unique end of their id.
         used by: areas publicPages api setupService
       - `fl.app.services.peopleService` People #server-only — Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.
         files: app/src/lib/server/services/ people.ts
-        uses: auditService authService
+        uses: auditService authService campaignService
         used by: areas api
       - `fl.app.services.inviteService` Invites #server-only — Create, list, revoke and accept invites; accepting runs once under a row lock.
         files: app/src/lib/server/services/ invites.ts
@@ -99,13 +103,35 @@ shortest unique end of their id.
         used by: areas publicPages api
       - `fl.app.services.auditService` Audit log #server-only — Records sign-ins, invites, role changes, disables and resets; the owner reads it.
         files: app/src/lib/server/services/ audit.ts
-        used by: areas api authService peopleService inviteService setupService settingsService backupService ui infra
+        used by: areas api authService peopleService inviteService setupService settingsService backupService campaignService seatService joinRequestService ui infra
+      - `fl.app.services.campaignService` Campaigns #server-only — Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft…
+        files: app/src/lib/server/services/ campaigns.ts
+        uses: auditService authService
+        used by: areas api seatService joinRequestService peopleService infra
+      - `fl.app.services.seatService` Seats and seat links #server-only — Seats (add, rename, free, remove when empty), one-time seat links (one per seat or all empty seats at once, shown once), adding a person by…
+        files: app/src/lib/server/services/ seats.ts
+        uses: auditService authService campaignService
+        used by: areas publicPages api joinRequestService
+      - `fl.app.services.joinRequestService` Join requests #server-only — Ask to join a listed campaign while it is mustering (one open request per person); the CM or a co-CM approves into an empty seat under a…
+        files: app/src/lib/server/services/ join-requests.ts
+        uses: auditService campaignService seatService authService
+        used by: areas api
       - `fl.app.services.backupService` Backups #server-only — pgdump before migrations and daily (14 days kept); owner download and restore.
         files: app/src/lib/server/services/ backups.ts
         uses: auditService
         used by: areas infra
 
 ## Features
+
+### Create a campaign (`campaign_create`)
+
+**An Owner or Admin creates a campaign in a six-step wizard and becomes its Campaign Master.**
+
+1. admin → areas: wizard: basics, schedule, seats, house rules, review
+2. areas → campaignService: create
+3. campaignService → repos: insert campaign, CM member, seats
+4. repos → campaignTables: one transaction
+5. campaignService → auditService: record campaign.created
 
 ### First start: migrations, backup, the setup wizard (`first_start`)
 
@@ -135,6 +161,18 @@ shortest unique end of their id.
 7. inviteService → repos: lock invite, insert user, mark used
 8. inviteService → authService: start a session
 
+### Ask to join, then approve (`join_request`)
+
+**Anyone signed in can ask to join a listed campaign while it is mustering; the CM or a co-CM places them.**
+
+1. user → areas: ask to join (optional note)
+2. areas → joinRequestService: request
+3. joinRequestService → repos: insert open request
+4. admin → areas: approve into a seat
+5. areas → joinRequestService: approve
+6. joinRequestService → repos: lock seat, fill it, mark approved
+7. joinRequestService → auditService: record request.approved
+
 ### Managing people (`managing_people`)
 
 **The owner keeps the group's accounts in order without email.**
@@ -154,6 +192,19 @@ shortest unique end of their id.
 3. owner → areas: download or restore a backup
 4. areas → backupService: dump or restore
 5. backupService → infra: pg_dump, pg_restore
+
+### Join by seat link (`seat_join`)
+
+**The CM makes a one-time link for a seat; the person who opens it takes that seat, with a new account if needed.**
+
+1. admin → areas: make link (one seat or all empty seats)
+2. areas → seatService: makeLink
+3. seatService → repos: revoke open link, insert link hash
+4. visitor → publicPages: opens /join/<token>, signs in or creates an account
+5. publicPages → seatService: accept
+6. seatService → authService: rate limit, new account, session
+7. seatService → repos: lock link, fill seat, mark used
+8. seatService → auditService: record seat.joined
 
 ### Sessions and the account page (`sessions`)
 

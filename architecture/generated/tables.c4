@@ -20,4 +20,22 @@ model {
       metadata { generated 'true' }
     }
   }
+
+  extend fl.app.campaignTables {
+    table_campaigns = table 'campaigns' {
+      metadata { generated 'true' }
+    }
+    table_members = table 'members' {
+      metadata { generated 'true' }
+    }
+    table_seats = table 'seats' {
+      metadata { generated 'true' }
+    }
+    table_seat_invites = table 'seat_invites' {
+      metadata { generated 'true' }
+    }
+    table_join_requests = table 'join_requests' {
+      metadata { generated 'true' }
+    }
+  }
 }

@@ -357,6 +357,24 @@ GET: Download one backup file (audited).
         code ['app/src/routes/(app)/owner/backups/[name]/+server.ts']
       }
     }
+    route_app_owner_frames = page '/owner/frames' {
+      description 'actions: remove, upload
+action:remove: Remove a frame: the cards use the faction\'s frame, or the built-in one.
+  Who: owners.
+  In: form { target }.
+  Out: { op: \'remove\', id } the target.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner, 404 not_found it has no frame.
+action:upload: Give a faction, variant or Sin its card frame, replacing any.
+  Who: owners.
+  In: form { target, image } a PNG of exactly 800×1000, 2 MB at most.
+  Out: { op: \'upload\', id } the target.
+  Errors: 400 invalid not a PNG, wrong size or too large, 401 unauthenticated, 403 forbidden not an owner, 404 not_found no such faction or variant loaded.'
+      metadata {
+        generated 'true'
+        route '/owner/frames'
+        code ['app/src/routes/(app)/owner/frames/+page.server.ts', 'app/src/routes/(app)/owner/frames/+page.svelte']
+      }
+    }
     route_app_owner_invites = page '/owner/invites' {
       description 'actions: create, resend, revoke
 action:create: Create an invite link for an admin or a user; the link is shown only now.
@@ -620,6 +638,19 @@ GET: A fighter\'s image, with its stored content type. The address carries the f
         generated 'true'
         route '/uploads/fighters/[id]'
         code ['app/src/routes/uploads/fighters/[id]/+server.ts']
+      }
+    }
+    route_uploads_frames_id = endpoint '/uploads/frames/[id]' {
+      description 'GET
+GET: A fighter-card frame (PNG). The address carries the frame\'s version (?v=), so a browser may keep it; it is private, never shared caches.
+  Who: anyone signed in.
+  In: path id (the frame).
+  Out: 200 image/png.
+  Errors: 401 unauthenticated, 404 not_found no such frame.'
+      metadata {
+        generated 'true'
+        route '/uploads/frames/[id]'
+        code ['app/src/routes/uploads/frames/[id]/+server.ts']
       }
     }
   }
@@ -1085,6 +1116,37 @@ GET: Every seat\'s warband in the campaign: name, faction, rating, problems.
         generated 'true'
         route '/api/v1/campaigns/[id]/warbands'
         code ['app/src/routes/api/v1/campaigns/[id]/warbands/+server.ts']
+      }
+    }
+    route_api_v1_card_frames = endpoint '/api/v1/card-frames' {
+      description 'GET
+GET: Every uploaded fighter-card frame, by faction, variant or Sin id.
+  Who: anyone signed in.
+  In: nothing.
+  Out: 200 CardFrames
+  Errors: 401 unauthenticated.'
+      metadata {
+        generated 'true'
+        route '/api/v1/card-frames'
+        code ['app/src/routes/api/v1/card-frames/+server.ts']
+      }
+    }
+    route_api_v1_card_frames_target = endpoint '/api/v1/card-frames/[...target]' {
+      description 'DELETE PUT
+DELETE: Remove the frame of a faction, variant or Sin: its cards use the faction\'s frame, or the built-in one.
+  Who: owners.
+  In: path target.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner, 404 not_found it has no frame.
+PUT: Upload the frame of a faction, variant or Sin as the raw body, or as the field `image` of a multipart form; replaces any frame it has.
+  Who: owners.
+  In: path target (a faction or variant id); body: a PNG of exactly 800×1000, 2 MB at most.
+  Out: 200 CardFrame
+  Errors: 400 invalid not a PNG, wrong size or too large, 401 unauthenticated, 403 forbidden not an owner, 404 not_found no such faction or variant loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/card-frames/[...target]'
+        code ['app/src/routes/api/v1/card-frames/[...target]/+server.ts']
       }
     }
     route_api_v1_homebrew = endpoint '/api/v1/homebrew' {
@@ -2083,6 +2145,22 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app_owner_frames -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_frames -[imports]-> fl.app.services.cardFrameService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_frames -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_frames -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_app_owner_invites -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -2723,6 +2801,26 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.api.route_api_v1_card_frames -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_card_frames -[imports]-> fl.app.services.cardFrameService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_card_frames_target -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_card_frames_target -[imports]-> fl.app.services.cardFrameService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_card_frames_target -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.api.route_api_v1_homebrew -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -3264,6 +3362,14 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.areas.route_uploads_fighters_id -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_uploads_frames_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_uploads_frames_id -[imports]-> fl.app.services.cardFrameService {
     metadata { generated 'true' }
   }
 }

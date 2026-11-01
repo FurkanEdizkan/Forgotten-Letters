@@ -58,6 +58,9 @@ model {
     table_fighters = table 'fighters' {
       metadata { generated 'true' }
     }
+    table_card_frames = table 'card_frames' {
+      metadata { generated 'true' }
+    }
   }
 
   extend fl.app.homebrewTables {

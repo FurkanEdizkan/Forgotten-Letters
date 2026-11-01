@@ -44,7 +44,7 @@
    "id": "fl.app.web.areas",
    "kind": "page",
    "title": "App shell, role areas and account",
-   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.",
+   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband. A fighter's card is drawn on a canvas in the browser from its photo, data and faction frame and saved as a PNG; the Owner uploads frames under /owner/frames, served from /uploads/frames/[id] to anyone signed in.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/**",
@@ -302,6 +302,21 @@
    "parent": "fl.app.web.areas"
   },
   {
+   "id": "fl.app.web.areas.route_app_owner_frames",
+   "kind": "page",
+   "title": "/owner/frames",
+   "description": "actions: remove, upload\naction:remove: Remove a frame: the cards use the faction's frame, or the built-in one.\n  Who: owners.\n  In: form { target }.\n  Out: { op: 'remove', id } the target.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner, 404 not_found it has no frame.\naction:upload: Give a faction, variant or Sin its card frame, replacing any.\n  Who: owners.\n  In: form { target, image } a PNG of exactly 800×1000, 2 MB at most.\n  Out: { op: 'upload', id } the target.\n  Errors: 400 invalid not a PNG, wrong size or too large, 401 unauthenticated, 403 forbidden not an owner, 404 not_found no such faction or variant loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/frames/+page.server.ts",
+    "app/src/routes/(app)/owner/frames/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
    "id": "fl.app.web.areas.route_app_owner_invites",
    "kind": "page",
    "title": "/owner/invites",
@@ -535,6 +550,20 @@
    "tags": [],
    "code": [
     "app/src/routes/uploads/fighters/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_uploads_frames_id",
+   "kind": "endpoint",
+   "title": "/uploads/frames/[id]",
+   "description": "GET\nGET: A fighter-card frame (PNG). The address carries the frame's version (?v=), so a browser may keep it; it is private, never shared caches.\n  Who: anyone signed in.\n  In: path id (the frame).\n  Out: 200 image/png.\n  Errors: 401 unauthenticated, 404 not_found no such frame.",
+   "tags": [],
+   "code": [
+    "app/src/routes/uploads/frames/[id]/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1018,6 +1047,34 @@
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/warbands/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_card_frames",
+   "kind": "endpoint",
+   "title": "/api/v1/card-frames",
+   "description": "GET\nGET: Every uploaded fighter-card frame, by faction, variant or Sin id.\n  Who: anyone signed in.\n  In: nothing.\n  Out: 200 CardFrames\n  Errors: 401 unauthenticated.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/card-frames/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_card_frames_target",
+   "kind": "endpoint",
+   "title": "/api/v1/card-frames/[...target]",
+   "description": "DELETE PUT\nDELETE: Remove the frame of a faction, variant or Sin: its cards use the faction's frame, or the built-in one.\n  Who: owners.\n  In: path target.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner, 404 not_found it has no frame.\nPUT: Upload the frame of a faction, variant or Sin as the raw body, or as the field `image` of a multipart form; replaces any frame it has.\n  Who: owners.\n  In: path target (a faction or variant id); body: a PNG of exactly 800×1000, 2 MB at most.\n  Out: 200 CardFrame\n  Errors: 400 invalid not a PNG, wrong size or too large, 401 unauthenticated, 403 forbidden not an owner, 404 not_found no such faction or variant loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/card-frames/[...target]/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1930,7 +1987,8 @@
    "code": [],
    "tables": [
     "warbands",
-    "fighters"
+    "fighters",
+    "card_frames"
    ],
    "services": [],
    "generated": false,
@@ -1952,6 +2010,18 @@
    "id": "fl.app.warbandTables.table_fighters",
    "kind": "table",
    "title": "fighters",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.warbandTables"
+  },
+  {
+   "id": "fl.app.warbandTables.table_card_frames",
+   "kind": "table",
+   "title": "card_frames",
    "description": "",
    "tags": [],
    "code": [],
@@ -2399,6 +2469,22 @@
    "parent": "fl.app.services"
   },
   {
+   "id": "fl.app.services.cardFrameService",
+   "kind": "module",
+   "title": "Card frames",
+   "description": "The Owner's fighter-card frames: one PNG per faction, variant or Sin (800×1000, checked by file signature and size, in the uploads volume), replaced or removed from Owner → Card frames; looked up by the warband's resolved variant, then its faction, else the built-in frame. Holds the image file helpers fighter images share.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/{card-frames,image-files}{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
    "id": "fl.app.services.homebrewService",
    "kind": "module",
    "title": "Homebrew",
@@ -2432,6 +2518,11 @@
   }
  ],
  "dependencies": [
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.warbandEngine",
+   "title": ""
+  },
   {
    "source": "fl.app.web.areas",
    "target": "fl.app.services.settingsService",
@@ -2519,7 +2610,7 @@
   },
   {
    "source": "fl.app.web.areas",
-   "target": "fl.app.warbandEngine",
+   "target": "fl.app.services.cardFrameService",
    "title": ""
   },
   {
@@ -2600,6 +2691,11 @@
   {
    "source": "fl.app.web.api",
    "target": "fl.app.services.warbandService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.cardFrameService",
    "title": ""
   },
   {
@@ -2806,6 +2902,36 @@
    "source": "fl.app.services.warbandService",
    "target": "fl.app.rulesLib",
    "title": "homebrew set ids in a warband's rules"
+  },
+  {
+   "source": "fl.app.services.cardFrameService",
+   "target": "fl.app.services.rulesService",
+   "title": "is the target a loaded faction, variant or Sin"
+  },
+  {
+   "source": "fl.app.services.cardFrameService",
+   "target": "fl.app.services.auditService",
+   "title": "records frame set and removed"
+  },
+  {
+   "source": "fl.app.services.cardFrameService",
+   "target": "fl.app.repos",
+   "title": "card_frames rows"
+  },
+  {
+   "source": "fl.app.services.cardFrameService",
+   "target": "fl.app.services.authService",
+   "title": "who is acting; Owner only"
+  },
+  {
+   "source": "fl.app.services.cardFrameService",
+   "target": "fl.app.rulesLib",
+   "title": "leaves homebrew set ids out of the frame targets"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.services.cardFrameService",
+   "title": "the warband's frame; fighter image files"
   },
   {
    "source": "fl.app.warbandEngine",
@@ -3127,6 +3253,64 @@
      "from": "fl.app.web.areas",
      "to": "fl.app.rulesLib",
      "label": "render text links, lay out the graph"
+    }
+   ]
+  },
+  {
+   "id": "fighter_card",
+   "title": "Fighter card",
+   "description": "**The Owner uploads a frame per faction; a player opens a fighter's card, drawn in the browser from the fighter's\nphoto, its data and its faction's frame, and saves it as a PNG.**\n\n**Decisions** (review page \"Revision 3\", approved 2 Nov 2026)\n- The card is 4:5, 800×1000, drawn on a canvas; the same canvas is shown and saved (D1, D2). No server rendering.\n- Frames are uploaded in the app by the Owner only (D3, D4): a PNG of exactly 800×1000, at most 2 MB, checked by\n  its file signature; one per faction, optionally one per variant or Sin (D5). Homebrew uses the built-in frame (D6).\n- Lookup: the warband's resolved variant (a Court Sin dedication sets it) → its faction → the built-in brass frame.\n- The fighter output carries its stats; armour includes bought armour and shields, on the card and in play mode (D7).\n- The photo fills its window, aligned to the upper third (D8). No print sheet (D9).\n- Frames are the group's own art, kept in the uploads volume and backups, never in the repository.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "Owner: upload or remove a frame"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.cardFrameService",
+     "label": "setFrame / clearFrame"
+    },
+    {
+     "from": "fl.app.services.cardFrameService",
+     "to": "fl.app.services.rulesService",
+     "label": "is the target a loaded faction, variant or Sin"
+    },
+    {
+     "from": "fl.app.services.cardFrameService",
+     "to": "fl.app.repos",
+     "label": "upsert card_frames"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.warbandTables",
+     "label": "card_frames"
+    },
+    {
+     "from": "fl.app.services.cardFrameService",
+     "to": "fl.app.services.auditService",
+     "label": "record card_frame.set / removed"
+    },
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "player: fighter → Card"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.warbandService",
+     "label": "the warband view: stats, frame URL, seat"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.services.cardFrameService",
+     "label": "frame for the resolved faction"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.cardFrameService",
+     "label": "GET /uploads/frames/[id]"
     }
    ]
   },

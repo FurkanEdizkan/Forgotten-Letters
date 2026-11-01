@@ -3,7 +3,7 @@
   note, and Approve into an empty seat (the lowest one picked) or Decline.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import type { ApiJoinRequest, ApiSeat } from '#lib/api-types';
 	import { day } from '#lib/ui/campaign-facts';

@@ -354,11 +354,40 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'post',
 		path: '/campaigns/{id}/seats/{seatId}/invite',
-		summary: 'Make a one-time seat link, shown once (CM, co-CMs).',
+		summary:
+			'Make a lasting seat link: valid until the seat is taken or the link withdrawn (CM, co-CMs).',
 		auth: true,
 		params: t.campaignSeatParam,
 		ok: { status: 201, schema: t.seatLinkOut },
 		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'get',
+		path: '/campaigns/{id}/seats/{seatId}/invite',
+		summary:
+			"The seat's open link again, to copy (CM, co-CMs). 409 for a link made before links could be copied.",
+		auth: true,
+		params: t.campaignSeatParam,
+		ok: { status: 200, schema: t.seatLinkCopy },
+		errors: ['invalid', 'unauthenticated', 'forbidden', 'not_found', 'conflict']
+	},
+	{
+		method: 'delete',
+		path: '/campaigns/{id}/seat-links',
+		summary: 'Withdraw every open seat link of the campaign (CM, co-CMs).',
+		auth: true,
+		params: t.idParam,
+		ok: { status: 200, schema: t.withdrawnCount },
+		errors: [...WRITE, 'unauthenticated', 'not_found']
+	},
+	{
+		method: 'get',
+		path: '/house-rule-presets',
+		summary:
+			'The house rule library: presets with their kind, value fields and the step that uses them.',
+		auth: true,
+		ok: { status: 200, schema: t.presetList },
+		errors: ['unauthenticated']
 	},
 	{
 		method: 'delete',
@@ -391,7 +420,7 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'post',
 		path: '/campaigns/{id}/seat-links',
-		summary: 'A fresh link for every empty seat, shown once (CM, co-CMs).',
+		summary: 'A fresh link for every empty seat (CM, co-CMs).',
 		auth: true,
 		params: t.idParam,
 		ok: { status: 201, schema: t.seatLinks },

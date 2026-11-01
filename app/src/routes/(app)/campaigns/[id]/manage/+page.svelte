@@ -5,7 +5,7 @@
   lands next to it. The tab comes from ?tab= (searches return to their tab) and stays across form posts.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Eye from '@lucide/svelte/icons/eye';
 	import { m } from '#lib/messages';
 	import { canInCampaign, type CampaignAction } from '#lib/campaign-rights';

@@ -89,10 +89,10 @@ async function walkWizard(page: Page, name: string) {
 	await page.getByLabel('Number of seats').fill('4');
 	await next.click();
 
-	await expect(page.getByRole('heading', { name: 'House rules' })).toBeVisible();
-	await page.getByRole('button', { name: 'Add a rule' }).click();
+	await expect(page.getByRole('heading', { name: 'House rules', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Add Write your own' }).click();
 	await page.getByLabel('Name of rule 1').fill('Short nights');
-	await page.getByLabel('Explanation of rule 1').fill('Games end after four turns.');
+	await page.getByLabel('Note for rule 1').fill('Games end after four turns.');
 	await next.click();
 
 	await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
@@ -110,7 +110,7 @@ test('wizard: an Admin creates a campaign through every step; a taken name retur
 	campaignId = new URL(admin.url()).pathname.split('/')[2]!;
 	await expect(admin.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
 	await expect(admin.getByText(/^Campaign created\./)).toBeVisible();
-	await expect(admin.locator('tbody tr')).toHaveCount(4);
+	await expect(admin.getByRole('list', { name: 'Seats' }).getByRole('listitem')).toHaveCount(4);
 
 	// The same name again, in another case: the wizard goes back to Basics with the reason under the field.
 	await walkWizard(admin, NAME.toUpperCase());
@@ -135,7 +135,68 @@ test('seats: the CM fills a seat by name; somebody not found gets the no-match n
 	await admin.getByRole('button', { name: 'Add to seat' }).click();
 	await expect(admin.getByText('Added to the seat.')).toBeVisible();
 	// A seat on its default name takes the player's display name.
-	await expect(admin.locator('tbody tr').nth(1)).toContainText('Scout Hendrik');
+	await expect(
+		admin.getByRole('list', { name: 'Seats' }).getByRole('listitem').nth(1)
+	).toContainText('Scout Hendrik');
+});
+
+test('house rules: the CM drags a preset in, sets a value and players see it; a value out of range is refused', async () => {
+	await admin.goto(`/campaigns/${campaignId}/manage?tab=settings`);
+	const library = admin.getByRole('region', { name: 'Rule library' });
+	const mine = admin.getByRole('region', { name: "This campaign's house rules" });
+	await library
+		.getByRole('group', { name: 'Trench depth' })
+		.dragTo(mine.getByText('Drop a rule here'));
+	const depth = mine.getByLabel('Depth (″)');
+	await expect(depth).toHaveValue('3');
+	await depth.fill('9');
+	await admin.getByRole('button', { name: 'Save settings' }).click();
+	await expect(admin.getByText('Use 1 to 4 inches.')).toBeVisible();
+
+	await depth.fill('2');
+	// Keyboard and click work like dragging.
+	await library.getByRole('button', { name: 'Add Attacker before repeat' }).press('Enter');
+	await expect(library.getByRole('group', { name: 'Attacker before repeat' })).toContainText(
+		'Added'
+	);
+	// Dragging a rule back to the library removes it; pressing Add puts it back.
+	await mine
+		.getByRole('button', { name: 'Drag Attacker before repeat back to the library to remove it' })
+		.dragTo(library.getByRole('group', { name: 'Starting glory' }));
+	await expect(library.getByRole('button', { name: 'Add Attacker before repeat' })).toBeVisible();
+	await library.getByRole('button', { name: 'Add Attacker before repeat' }).click();
+	await admin.getByRole('button', { name: 'Save settings' }).click();
+	await expect(admin.getByText('Settings saved.')).toBeVisible();
+
+	await admin.goto(`/campaigns/${campaignId}`);
+	await expect(admin.getByText('Depth: 2″', { exact: false })).toBeVisible();
+	await expect(admin.getByText('Attacker before repeat')).toBeVisible();
+});
+
+test('seat links: Make links for empty seats, then Withdraw all links stops them all', async () => {
+	await admin.goto(`/campaigns/${campaignId}/manage`);
+	await admin.getByRole('button', { name: 'Make links for empty seats' }).click();
+	const cards = admin.getByRole('list', { name: 'Seats' }).getByRole('listitem');
+	await expect(cards.filter({ hasText: 'Link ready' }).first()).toBeVisible();
+	await admin.getByRole('button', { name: 'Withdraw all links' }).click();
+	await admin.getByRole('button', { name: 'Withdraw every link?' }).click();
+	await expect(admin.getByText(/^Withdrew \d+ links?\./)).toBeVisible();
+	await expect(cards.filter({ hasText: 'Link ready' })).toHaveCount(0);
+	await expect(admin.getByRole('button', { name: 'Withdraw all links' })).toHaveCount(0);
+});
+
+test('saving stays in place: the page keeps its scroll and its tab', async () => {
+	await admin.setViewportSize({ width: 1366, height: 600 });
+	await admin.goto(`/campaigns/${campaignId}/manage?tab=settings`);
+	const save = admin.getByRole('button', { name: 'Save settings' });
+	await save.scrollIntoViewIfNeeded();
+	const before = await admin.evaluate(() => scrollY);
+	expect(before).toBeGreaterThan(0);
+	await save.click();
+	await expect(admin.getByText('Settings saved.')).toBeVisible();
+	expect(await admin.evaluate(() => scrollY)).toBeGreaterThan(before / 2);
+	await expect(admin).toHaveURL(/tab=settings/);
+	await admin.setViewportSize({ width: 1366, height: 768 });
 });
 
 test('requests: a User asks to join a listed campaign and the CM approves; a private one is not offered', async () => {
@@ -174,13 +235,13 @@ test('stages: mustering to active refuses seat links; back to mustering opens th
 	await expect(
 		admin.getByText('Seat links work only while the campaign is mustering.')
 	).toBeVisible();
-	await expect(admin.getByRole('button', { name: 'Make link' })).toHaveCount(0);
+	await expect(admin.getByRole('button', { name: 'Make links for empty seats' })).toHaveCount(0);
 	const refused = await admin.context().request.post(`/api/v1/campaigns/${campaignId}/seat-links`);
 	expect(refused.status()).toBe(409);
 
 	await admin.getByRole('button', { name: 'Back to mustering' }).click();
 	await expect(admin.getByRole('button', { name: 'Start the campaign' })).toBeVisible();
-	await expect(admin.getByRole('button', { name: 'Make link' }).first()).toBeVisible();
+	await expect(admin.getByRole('button', { name: 'Make links for empty seats' })).toBeVisible();
 });
 
 /** Press Restore on a deleted card and wait for the action's answer. */

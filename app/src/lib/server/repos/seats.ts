@@ -1,5 +1,5 @@
 /** Seats and seat links. The only SQL for campaign.seats and campaign.seat_invites. */
-import { and, asc, eq, ilike, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, ilike, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '../db';
 import { seatInvites, seats, users, type Seat, type SeatInvite } from '../db/schema';
 
@@ -18,35 +18,59 @@ export function insertMany(tx: Tx, campaignId: string, from: number, count: numb
 	return tx.insert(seats).values(rows).returning();
 }
 
-// Explicit aliases: Drizzle may leave columns unqualified, which inside a subquery would point at the inner table.
-const openLink = sql<boolean>`exists (select 1 from campaign.seat_invites i where i.seat_id = ${sql.raw('"campaign"."seats"."id"')}
-	and i.used_at is null and i.revoked_at is null and i.expires_at > now())`;
+/** A seat's open link: not used, not withdrawn, not expired (links without an expiry last until used). */
+const linkIsOpen = and(
+	eq(seatInvites.seatId, seats.id),
+	isNull(seatInvites.usedAt),
+	isNull(seatInvites.revokedAt),
+	or(isNull(seatInvites.expiresAt), gt(seatInvites.expiresAt, sql`now()`))
+);
 
 export interface SeatView {
 	seat: Seat;
 	playerName: string | null;
-	hasOpenLink: boolean;
+	/** The seat's open link, if any (a seat has at most one: making a link withdraws the old one). */
+	link: { tokenEnc: string | null; createdAt: Date; openedAt: Date | null } | null;
 }
 
-const viewFields = { seat: seats, playerName: users.displayName, hasOpenLink: openLink };
+const viewFields = {
+	seat: seats,
+	playerName: users.displayName,
+	link: {
+		id: seatInvites.id,
+		tokenEnc: seatInvites.tokenEnc,
+		createdAt: seatInvites.createdAt,
+		openedAt: seatInvites.openedAt
+	}
+};
 
-/** A campaign's seats in number order, with the player's display name and whether an open link exists. */
-export function list(tx: Tx, campaignId: string): Promise<SeatView[]> {
-	return tx
+const viewQuery = (tx: Tx) =>
+	tx
 		.select(viewFields)
 		.from(seats)
 		.leftJoin(users, eq(users.id, seats.userId))
+		.leftJoin(seatInvites, linkIsOpen);
+
+type ViewRow = Awaited<ReturnType<typeof viewQuery>>[number];
+const toView = (r: ViewRow): SeatView => ({
+	seat: r.seat,
+	playerName: r.playerName,
+	link: r.link?.id
+		? { tokenEnc: r.link.tokenEnc, createdAt: r.link.createdAt!, openedAt: r.link.openedAt }
+		: null
+});
+
+/** A campaign's seats in number order, with the player's display name and the open link. */
+export async function list(tx: Tx, campaignId: string): Promise<SeatView[]> {
+	const rows = await viewQuery(tx)
 		.where(eq(seats.campaignId, campaignId))
 		.orderBy(asc(seats.number));
+	return rows.map(toView);
 }
 
 export async function view(tx: Tx, id: string): Promise<SeatView> {
-	const [r] = await tx
-		.select(viewFields)
-		.from(seats)
-		.leftJoin(users, eq(users.id, seats.userId))
-		.where(eq(seats.id, id));
-	return r!;
+	const [r] = await viewQuery(tx).where(eq(seats.id, id));
+	return toView(r!);
 }
 
 /** A seat of this campaign, locked for this transaction. */
@@ -154,6 +178,29 @@ export async function lockInviteByToken(tx: Tx, tokenHash: string) {
 		.for('update');
 	return i ?? null;
 }
+
+/** Revoke every open link of a campaign's seats ("Withdraw all links"); returns how many. */
+export async function revokeAllOpen(tx: Tx, campaignId: string) {
+	const r = await tx
+		.update(seatInvites)
+		.set({ revokedAt: new Date() })
+		.where(
+			and(
+				isNull(seatInvites.usedAt),
+				isNull(seatInvites.revokedAt),
+				sql`${seatInvites.seatId} in (select id from campaign.seats where campaign_id = ${campaignId})`
+			)
+		)
+		.returning({ id: seatInvites.id });
+	return r.length;
+}
+
+/** The first time a link page opens. */
+export const markInviteOpened = (tx: Tx, id: string) =>
+	tx
+		.update(seatInvites)
+		.set({ openedAt: new Date() })
+		.where(and(eq(seatInvites.id, id), isNull(seatInvites.openedAt)));
 
 export const markInviteUsed = (tx: Tx, id: string, userId: string) =>
 	tx.update(seatInvites).set({ usedAt: new Date(), usedBy: userId }).where(eq(seatInvites.id, id));

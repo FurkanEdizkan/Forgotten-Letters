@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import Card from '#lib/ui/Card.svelte';
 	import Field from '#lib/ui/Field.svelte';
@@ -8,6 +9,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let newPassword = $state('');
 </script>
 
 <svelte:head><title>{m.forcedPassword.title} · {m.app.name}</title></svelte:head>
@@ -36,8 +38,10 @@
 				minlength={10}
 				maxlength={128}
 				hint={m.forcedPassword.newPasswordHint}
+				bind:value={newPassword}
 				error={form?.fields?.password}
 			/>
+			<PasswordMeter value={newPassword} error={form?.fields?.password} />
 			<div><Button kind="primary" type="submit">{m.forcedPassword.submit}</Button></div>
 		</form>
 	</Card>

@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Search from '@lucide/svelte/icons/search';
 	import Button from './Button.svelte';
 	import Field from './Field.svelte';
@@ -51,6 +51,7 @@
 	function oninput(e: Event) {
 		const v = (e.currentTarget as HTMLInputElement).value.trim();
 		clearTimeout(timer);
+		// A Find click or Enter cancels this (onsubmit), so a late search never lands after the next action.
 		if (v) timer = setTimeout(() => finder?.requestSubmit(), 300);
 	}
 </script>
@@ -61,6 +62,7 @@
 		role="search"
 		class="find"
 		bind:this={finder}
+		onsubmit={() => clearTimeout(timer)}
 		data-sveltekit-keepfocus
 		data-sveltekit-noscroll
 		data-sveltekit-replacestate

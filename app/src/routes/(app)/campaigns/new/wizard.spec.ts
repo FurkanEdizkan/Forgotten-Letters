@@ -36,8 +36,15 @@ describe('campaign wizard steps', () => {
 	});
 	it('keys house rule errors by row, on the House rules step', () => {
 		const rules = [
-			{ name: 'Night raids', text: '', on: true },
-			{ name: '', text: '', on: false }
+			{
+				name: 'Night raids',
+				text: '',
+				on: true,
+				kind: 'passive' as const,
+				preset: null,
+				values: {}
+			},
+			{ name: '', text: '', on: false, kind: 'passive' as const, preset: null, values: {} }
 		];
 		expect(checkStep(3, filled({ houseRules: rules }))).toEqual({
 			'houseRules.1.name': 'Name the rule.'

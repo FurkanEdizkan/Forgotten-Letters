@@ -33,17 +33,18 @@ describe('username (F12)', () => {
 });
 
 describe('password (F14)', () => {
-	it('accepts 10 to 128 characters of anything', () => {
-		expect(password.safeParse('0123456789').success).toBe(true);
-		expect(password.safeParse('ñ'.repeat(128)).success).toBe(true);
-		expect(password.safeParse('   spaces   ').success).toBe(true);
+	it('accepts 10 to 128 characters rated Strong or better, any characters', () => {
+		expect(password.safeParse('ñandú-óleo-4821').success).toBe(true);
+		expect(password.safeParse('Ñ7#'.repeat(42)).success).toBe(true);
+		expect(password.safeParse('  mud and 9 spades  ').success).toBe(true);
+		expect(password.safeParse('0123456789').success).toBe(false);
 	});
 	it('refuses 9 and 129 characters', () => {
 		expect(msg(password.safeParse('123456789'))).toBe('Use at least 10 characters.');
 		expect(msg(password.safeParse('x'.repeat(129)))).toBe('Use at most 128 characters.');
 	});
 	it('does not trim', () => {
-		expect(password.parse(' padded pw ')).toBe(' padded pw ');
+		expect(password.parse(' padded Pw 42 ')).toBe(' padded Pw 42 ');
 	});
 });
 

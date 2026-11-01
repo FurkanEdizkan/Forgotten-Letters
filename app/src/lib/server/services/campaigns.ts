@@ -18,6 +18,7 @@ import * as campaignsRepo from '../repos/campaigns';
 import * as seatsRepo from '../repos/seats';
 import * as usersRepo from '../repos/users';
 import { record, type Ctx, type SessionUser } from './audit';
+import { openLink } from './link-cipher';
 import { requireUser } from './auth';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -74,8 +75,21 @@ async function full(tx: Tx, id: string, userId: string): Promise<ApiCampaign> {
 	};
 }
 
-/** A seat as the API shows it; people outside the campaign see neither the player nor a renamed seat's name. */
-export function toSeat(v: seatsRepo.SeatView, showPlayers: boolean): ApiSeat {
+function linkOf(l: NonNullable<seatsRepo.SeatView['link']>): NonNullable<ApiSeat['link']> {
+	const token = openLink(l.tokenEnc);
+	return {
+		state: token ? 'ready' : 'old',
+		tail: token ? token.slice(-4) : null,
+		createdAt: l.createdAt.toISOString(),
+		openedAt: iso(l.openedAt)
+	};
+}
+
+/**
+ * A seat as the API shows it; people outside the campaign see neither the player nor a renamed seat's name, and
+ * only the CM and co-CMs see the seat's link.
+ */
+export function toSeat(v: seatsRepo.SeatView, showPlayers: boolean, showLink = false): ApiSeat {
 	const s = v.seat;
 	return {
 		id: s.id,
@@ -86,7 +100,7 @@ export function toSeat(v: seatsRepo.SeatView, showPlayers: boolean): ApiSeat {
 				? { id: s.userId, displayName: v.playerName ?? 'Former member' }
 				: null,
 		joinedAt: iso(s.joinedAt),
-		hasOpenLink: showPlayers && v.hasOpenLink,
+		link: showLink && v.link ? linkOf(v.link) : null,
 		version: s.version
 	};
 }

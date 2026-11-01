@@ -3,6 +3,7 @@
  * next to a field.
  */
 import { z } from 'zod';
+import { passwordProblem } from '#lib/password-strength';
 
 export const username = z
 	.string()
@@ -12,10 +13,11 @@ export const username = z
 	.max(32, 'Use at most 32 characters.')
 	.regex(/^[a-z0-9._-]+$/, 'Use letters, digits, dots, dashes and underscores only.');
 
-export const password = z
-	.string()
-	.min(10, 'Use at least 10 characters.')
-	.max(128, 'Use at most 128 characters.');
+/** A new password: long enough and rated Strong or better (the meter under the field uses the same rule). */
+export const password = z.string().superRefine((p, ctx) => {
+	const problem = passwordProblem(p);
+	if (problem) ctx.addIssue({ code: 'custom', message: problem });
+});
 
 export const displayName = z
 	.string()

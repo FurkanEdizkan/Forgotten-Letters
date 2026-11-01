@@ -6,6 +6,7 @@
  */
 import type { ApiSeat, ApiSeatInvitePreview, ApiSeatLink } from '#lib/api-types';
 import { joinOpen } from '#lib/campaign-stage';
+import { canInCampaign } from '#lib/campaign-rights';
 import type { NewAccountInput } from '#lib/schemas/auth';
 import { SEATS_MAX, SEATS_MIN } from '#lib/schemas/campaigns';
 import { AppError } from '../errors';
@@ -26,9 +27,9 @@ import {
 } from './auth';
 import { access, need, notEnded, toSeat } from './campaigns';
 import { hashPassword, newToken, tokenHash } from './passwords';
+import { openLink, sealLink } from './link-cipher';
 
-const DAY = 24 * 60 * 60 * 1000;
-export const SEAT_LINK_DAYS = 7;
+const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 /** The link for a token; relative when no ORIGIN is set (the page adds its own address). */
 export const seatLink = (token: string) =>
@@ -48,7 +49,8 @@ const linksClosed = () =>
 const stale = () =>
 	new AppError('conflict', 'Someone changed this seat meanwhile. Reload and try again.');
 
-const view = async (tx: Tx, id: string) => toSeat(await seatsRepo.view(tx, id), true);
+// Only seat changes by the CM or a co-CM return a single seat, so it carries the link.
+const view = async (tx: Tx, id: string) => toSeat(await seatsRepo.view(tx, id), true, true);
 
 /**
  * Put a person in an empty seat; a seat still called "Seat N" takes the player's name. Revokes the seat's open link
@@ -93,7 +95,8 @@ async function empty(tx: Tx, seat: seatsRepo.SeatRow, name?: string, version?: n
 export async function list(ctx: Ctx, campaignId: string): Promise<ApiSeat[]> {
 	const a = await access(db(), ctx, campaignId);
 	const show = !!a.role || a.seated;
-	return (await seatsRepo.list(db(), campaignId)).map((v) => toSeat(v, show));
+	const links = canInCampaign(a.role, a.me.role, 'seats');
+	return (await seatsRepo.list(db(), campaignId)).map((v) => toSeat(v, show, links));
 }
 
 /** Add seats; the campaign has 30 at most. Returns the new seats. */
@@ -107,7 +110,7 @@ export async function add(ctx: Ctx, campaignId: string, count: number): Promise<
 			throw new AppError('conflict', `A campaign has ${SEATS_MAX} seats at most.`);
 		const rows = await seatsRepo.insertMany(tx, campaignId, now.max + 1, count);
 		await record(tx, ctx, 'seat.added', { type: 'campaign', id: campaignId }, { count });
-		return rows.map((seat) => toSeat({ seat, playerName: null, hasOpenLink: false }, true));
+		return rows.map((seat) => toSeat({ seat, playerName: null, link: null }, true, true));
 	});
 }
 
@@ -165,19 +168,65 @@ async function issue(
 	const i = await seatsRepo.insertInvite(tx, {
 		seatId: s.id,
 		tokenHash: tokenHash(token),
-		createdBy: me.id,
-		expiresAt: new Date(Date.now() + SEAT_LINK_DAYS * DAY)
+		tokenEnc: sealLink(token),
+		createdBy: me.id
 	});
 	await record(tx, ctx, 'seat.link_made', { type: 'seat', id: s.id });
 	return {
 		seatId: s.id,
 		seatName: s.name,
 		url: seatLink(token),
-		expiresAt: i.expiresAt.toISOString()
+		expiresAt: iso(i.expiresAt)
 	};
 }
 
-/** A one-time link for an empty seat, shown only now; the seat's open link stops working. Mustering only. */
+const oldLink = () =>
+	new AppError('conflict', 'This link was made before links could be copied. Make a new one.');
+
+/** The seat's open link again, to copy; recorded in the audit log. */
+export async function copyLink(
+	ctx: Ctx,
+	campaignId: string,
+	seatId: string
+): Promise<ApiSeatLink & { createdAt: string }> {
+	return db().transaction(async (tx) => {
+		const a = await access(tx, ctx, campaignId);
+		need(a, 'seats');
+		const v = (await seatsRepo.list(tx, campaignId)).find((x) => x.seat.id === seatId);
+		if (!v) throw noSeat();
+		if (!v.link) throw new AppError('not_found', 'This seat has no open link. Make one first.');
+		const token = openLink(v.link.tokenEnc);
+		if (!token) throw oldLink();
+		await record(tx, ctx, 'seat.link_copied', { type: 'seat', id: seatId });
+		return {
+			seatId,
+			seatName: v.seat.name,
+			url: seatLink(token),
+			expiresAt: null,
+			createdAt: v.link.createdAt.toISOString()
+		};
+	});
+}
+
+/** Withdraw every open seat link of the campaign at once; returns how many stopped working. */
+export async function revokeAllLinks(ctx: Ctx, campaignId: string): Promise<number> {
+	return db().transaction(async (tx) => {
+		const a = await access(tx, ctx, campaignId, { lock: true });
+		need(a, 'seats');
+		const n = await seatsRepo.revokeAllOpen(tx, campaignId);
+		if (n)
+			await record(
+				tx,
+				ctx,
+				'seat.link_revoked',
+				{ type: 'campaign', id: campaignId },
+				{ count: n }
+			);
+		return n;
+	});
+}
+
+/** A lasting link for an empty seat (until someone takes it or it is withdrawn); the seat's old link stops working. Mustering only. */
 export async function makeLink(ctx: Ctx, campaignId: string, seatId: string): Promise<ApiSeatLink> {
 	return db().transaction(async (tx) => {
 		const a = await access(tx, ctx, campaignId, { lock: true });
@@ -190,7 +239,7 @@ export async function makeLink(ctx: Ctx, campaignId: string, seatId: string): Pr
 	});
 }
 
-/** A fresh link for every empty seat, shown only now; their old links stop working. Mustering only. */
+/** A fresh link for every empty seat; their old links stop working. Mustering only. */
 export async function makeAllLinks(ctx: Ctx, campaignId: string): Promise<ApiSeatLink[]> {
 	return db().transaction(async (tx) => {
 		const a = await access(tx, ctx, campaignId, { lock: true });
@@ -268,11 +317,12 @@ export async function preview(token: string): Promise<ApiSeatInvitePreview | { s
 	const c = s && (await campaignsRepo.findById(db(), s.campaignId));
 	if (!i || !s || !c) return { state: 'unknown' };
 	const cm = (await campaignsRepo.listMembers(db(), c.id)).find((m) => m.role === 'cm');
+	if (!i.openedAt) await seatsRepo.markInviteOpened(db(), i.id);
 	const state = i.usedAt
 		? ('used' as const)
 		: i.revokedAt || c.deletedAt
 			? ('revoked' as const)
-			: i.expiresAt <= new Date()
+			: i.expiresAt && i.expiresAt <= new Date()
 				? ('expired' as const)
 				: ('open' as const);
 	return {
@@ -285,7 +335,7 @@ export async function preview(token: string): Promise<ApiSeatInvitePreview | { s
 			cmName: cm?.displayName ?? ''
 		},
 		seatName: s.name,
-		expiresAt: i.expiresAt.toISOString()
+		expiresAt: iso(i.expiresAt)
 	};
 }
 
@@ -319,7 +369,7 @@ export async function accept(
 				'conflict',
 				'This seat link was already used. Ask the Campaign Master for a new one.'
 			);
-		if (i.expiresAt <= new Date())
+		if (i.expiresAt && i.expiresAt <= new Date())
 			throw new AppError(
 				'not_found',
 				'This seat link has expired. Ask the Campaign Master for a new one.'

@@ -1,25 +1,23 @@
 <!--
-  The Seats tab: the "Campaign created" message after the wizard, one "Fill a seat by name" control above the
-  table, "Make links for all empty seats" (every link shown once, for the group chat), the seat table, and Add
-  seats under it.
+  The Seats tab: the "Campaign created" message after the wizard, one "Fill a seat by name" control, "Make links
+  for empty seats" and "Withdraw all links" (confirm in place), the seat cards with the
+  picked seat's details, and Add seats under them.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Link from '@lucide/svelte/icons/link';
 	import { m } from '#lib/messages';
 	import { joinOpen, type Stage } from '#lib/campaign-stage';
 	import { SEATS_MAX } from '#lib/schemas/campaigns';
-	import type { ApiSeat, ApiSeatLink } from '#lib/api-types';
-	import { day } from '#lib/ui/campaign-facts';
+	import type { ApiSeat } from '#lib/api-types';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
-	import { absoluteLink } from '#lib/ui/links';
 	import Button from '#lib/ui/Button.svelte';
 	import Field from '#lib/ui/Field.svelte';
 	import Message from '#lib/ui/Message.svelte';
 	import PersonPicker from '#lib/ui/PersonPicker.svelte';
-	import SecretBox from '#lib/ui/SecretBox.svelte';
-	import SeatTable from '#lib/ui/SeatTable.svelte';
+	import SeatCards from '#lib/ui/SeatCards.svelte';
+	import ConfirmButton from '#lib/ui/ConfirmButton.svelte';
 	import Select from '#lib/ui/Select.svelte';
 
 	type Candidate = { id: string; displayName: string; username: string };
@@ -38,10 +36,12 @@
 	const empty = $derived(seats.filter((x) => !x.player).sort((a, b) => a.number - b.number));
 	const seatOptions = $derived(empty.map((x) => ({ value: x.id, label: x.name })));
 	const allLinks = $derived(resultOf(form, 'links'));
-	const fresh = $derived((allLinks.done?.links as ApiSeatLink[] | undefined) ?? []);
+
+	const revokeAll = $derived(resultOf(form, 'revokeAll'));
 	const assign = $derived(resultOf(form, 'assign'));
 	const add = $derived(resultOf(form, 'addSeats'));
 	const editable = $derived(stage !== 'ended');
+	const anyOpenLink = $derived(seats.some((x) => !x.player && x.link));
 </script>
 
 {#if created && !form}<Message>{m.campaigns.manage.created}</Message>{/if}
@@ -73,31 +73,30 @@
 	{/if}
 {/if}
 
-{#if joinOpen(stage, 'link')}
-	{#if empty.length}
-		<form method="POST" action="?/links" use:enhance>
-			<input type="hidden" name="op" value="links" />
-			<Button type="submit" icon={Link}>{s.allLinks}</Button>
-		</form>
-	{/if}
+{#if editable}
+	<div class="linkbar">
+		{#if joinOpen(stage, 'link') && empty.length}
+			<form method="POST" action="?/links" use:enhance>
+				<input type="hidden" name="op" value="links" />
+				<Button type="submit" icon={Link}>{s.allLinks}</Button>
+			</form>
+		{/if}
+		{#if anyOpenLink}
+			<form method="POST" action="?/revokeAll" use:enhance>
+				<input type="hidden" name="op" value="revokeAll" />
+				<ConfirmButton label={s.revokeAll} confirm={s.revokeAllConfirm} />
+			</form>
+		{/if}
+	</div>
 	{#if allLinks.error}<Message kind="danger">{allLinks.error}</Message>{/if}
-	{#if fresh.length}
-		<div class="links">
-			<p class="dim">{s.linksHelp}</p>
-			{#each fresh as l (l.seatId)}
-				<SecretBox
-					label={s.linkFor(l.seatName)}
-					value={absoluteLink(l.url)}
-					help={s.linkHelp(day(l.expiresAt))}
-				/>
-			{/each}
-		</div>
+	{#if revokeAll.error}<Message kind="danger">{revokeAll.error}</Message>{/if}
+	{#if revokeAll.done}
+		<p class="dim" role="status">{s.withdrawnAll(Number(revokeAll.done.withdrawn ?? 0))}</p>
 	{/if}
-{:else if editable}
-	<p class="dim">{s.linksClosed}</p>
+	{#if !joinOpen(stage, 'link')}<p class="dim">{s.linksClosed}</p>{/if}
 {/if}
 
-<SeatTable {seats} {stage} {form} />
+<SeatCards {seats} {stage} {form} />
 
 {#if editable}
 	<form class="add" method="POST" action="?/addSeats" use:enhance>
@@ -121,11 +120,12 @@
 {/if}
 
 <style>
-	.links {
-		display: grid;
+	.linkbar {
+		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-3);
-		max-width: 44rem;
 	}
+
 	.add {
 		display: flex;
 		align-items: end;

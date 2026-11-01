@@ -1,7 +1,7 @@
 <!--
   The wizard's Server step body. How the copy runs is a fact, not a choice: run directly, the port is a field and
-  the new address is shown; in Docker or in development (portLocked) the port is read-only with the .env lines that
-  change it. Either way a `port` field goes with the form.
+  the new address is shown; in Docker or in development (portLocked) the port is read-only (README explains
+  changing it). Either way a `port` field goes with the form.
 -->
 <script lang="ts">
 	import Copy from '@lucide/svelte/icons/copy';
@@ -39,12 +39,6 @@
 			<span class="lock"><Lock size={13} strokeWidth={1.6} aria-hidden={true} />{s.lockedTag}</span>
 		{/snippet}
 	</WizardField>
-	<div class="howto">
-		<p class="lab">{s.lockedHow}</p>
-		<pre class="codeb">APP_PORT={lockedPort}
-docker compose up -d</pre>
-	</div>
-	<Callout>{s.lockedNote}</Callout>
 {:else}
 	<div class="row2">
 		<WizardField
@@ -127,25 +121,5 @@ docker compose up -d</pre>
 	}
 	.copy:focus-visible {
 		outline: var(--border-focus) solid var(--blood-bright);
-	}
-	.howto {
-		display: grid;
-		gap: var(--space-2);
-	}
-	.howto .lab {
-		text-transform: none;
-		letter-spacing: 0;
-		color: var(--bone);
-	}
-	.codeb {
-		margin: 0;
-		padding: var(--space-3) var(--space-4);
-		border-radius: 0.45em;
-		border: var(--border-hairline) solid var(--rule);
-		background: var(--inset);
-		font-family: var(--font-mono);
-		font-size: 0.9rem;
-		line-height: 1.6;
-		color: var(--bone);
 	}
 </style>

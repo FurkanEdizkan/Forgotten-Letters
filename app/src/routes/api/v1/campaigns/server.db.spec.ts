@@ -23,6 +23,7 @@ import * as requests from './[id]/requests/+server';
 import * as myRequest from './[id]/requests/mine/+server';
 import * as approve from './[id]/requests/[rid]/approve/+server';
 import * as decline from './[id]/requests/[rid]/decline/+server';
+import * as presets from '../house-rule-presets/+server';
 
 useTestDatabase();
 
@@ -338,6 +339,50 @@ describe('seats', () => {
 			'forbidden'
 		);
 	});
+	it('GET /seats/:seatId/invite copies the stored link; DELETE /seat-links withdraws them all', async () => {
+		const { cm, user, id, seatId } = await world();
+		const made = await call(at(invite.POST, { id, seatId }), { method: 'POST', user: cm.actor });
+		const url = (made.body as { url: string }).url;
+		expect(await call(at(invite.GET, { id, seatId }), { user: cm.actor })).toMatchObject({
+			status: 200,
+			body: { seatId, url, expiresAt: null, createdAt: expect.any(String) }
+		});
+		expectError(
+			await call(at(invite.GET, { id, seatId: 'x' }), { user: cm.actor }),
+			400,
+			'invalid'
+		);
+		expectError(await call(at(invite.GET, { id, seatId }), { user: user.actor }), 403, 'forbidden');
+		expectError(
+			await call(at(links.DELETE, { id }), { method: 'DELETE', user: user.actor }),
+			403,
+			'forbidden'
+		);
+		expect(
+			await call(at(links.DELETE, { id }), { method: 'DELETE', user: cm.actor })
+		).toMatchObject({
+			status: 200,
+			body: { withdrawn: 1 }
+		});
+		expectError(
+			await call(at(links.DELETE, { id: 'x' }), { method: 'DELETE', user: cm.actor }),
+			400,
+			'invalid'
+		);
+	});
+	it('GET /house-rule-presets lists the library to anyone signed in', async () => {
+		const { user } = await world();
+		const r = await call(presets.GET, { user: user.actor });
+		expect(r).toMatchObject({
+			status: 200,
+			body: {
+				items: expect.arrayContaining([
+					expect.objectContaining({ key: 'trench-depth', kind: 'configuration' })
+				])
+			}
+		});
+		expectError(await call(presets.GET, {}), 401, 'unauthenticated');
+	});
 	it('POST /seats/:seatId/assign, GET /candidates and DELETE /seats/mine', async () => {
 		const { cm, user, id, seatId } = await world();
 		const found = await call(at(candidates.GET, { id }, '?q=vey'), { user: cm.actor });
@@ -592,7 +637,9 @@ describe('the OpenAPI document', () => {
 			'/campaigns/{id}',
 			'/campaigns/{id}/seats/{seatId}/invite',
 			'/campaigns/{id}/requests/{rid}/approve',
-			'/seat-invites/{token}/accept'
+			'/seat-invites/{token}/accept',
+			'/campaigns/{id}/seat-links',
+			'/house-rule-presets'
 		])
 			expect(paths).toContain(p);
 	});

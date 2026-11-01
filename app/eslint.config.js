@@ -46,7 +46,11 @@ export default defineConfig(
 				{
 					patterns: [
 						layer(['**/repos', '**/repos/**'], 'Routes call services, not repos.'),
-						layer(['drizzle-orm', 'drizzle-orm/**'], 'SQL lives in repos.')
+						layer(['drizzle-orm', 'drizzle-orm/**'], 'SQL lives in repos.'),
+						layer(
+							['$app/forms'],
+							'Use #lib/ui/enhance: it keeps a save in place instead of scrolling to the top.'
+						)
 					]
 				}
 			]
@@ -83,7 +87,7 @@ export default defineConfig(
 	},
 	{
 		files: ['src/lib/**'],
-		ignores: ['src/lib/server/**'],
+		ignores: ['src/lib/server/**', 'src/lib/ui/enhance.ts'],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -92,6 +96,10 @@ export default defineConfig(
 						layer(
 							['#lib/server', '#lib/server/**', '**/server', '**/server/**'],
 							'Shared and browser code never imports server code.'
+						),
+						layer(
+							['$app/forms'],
+							'Use #lib/ui/enhance: it keeps a save in place instead of scrolling to the top.'
 						)
 					]
 				}

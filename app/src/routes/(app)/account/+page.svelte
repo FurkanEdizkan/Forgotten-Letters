@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import Card from '#lib/ui/Card.svelte';
 	import Field from '#lib/ui/Field.svelte';
@@ -10,6 +11,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let newPassword = $state('');
 
 	/** The result of one of this page's forms, by its hidden `op`. */
 	const result = (op: string) =>
@@ -105,8 +107,10 @@
 				minlength={10}
 				maxlength={128}
 				hint={m.account.newPasswordHint}
+				bind:value={newPassword}
 				error={pass && !pass.ok ? pass.fields?.password : null}
 			/>
+			<PasswordMeter value={newPassword} error={pass && !pass.ok ? pass.fields?.password : null} />
 			<div><Button type="submit">{m.account.changePassword}</Button></div>
 		</form>
 	</Card>

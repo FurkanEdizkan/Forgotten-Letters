@@ -5,8 +5,9 @@
   note says so.
 -->
 <script lang="ts">
+	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
 	import { onMount, tick } from 'svelte';
-	import { enhance, type SubmitFunction } from '$app/forms';
+	import { enhance, type SubmitFunction } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { ACCENTS, TEXT_SCALE } from '#lib/schemas/settings';
 	import type { Accent } from '#lib/schemas/settings';
@@ -193,6 +194,7 @@
 					bind:value={password}
 					error={errors.password}
 				/>
+				<PasswordMeter value={password} error={errors.password} />
 				<WizardField
 					label={w.owner.repeat}
 					type="password"

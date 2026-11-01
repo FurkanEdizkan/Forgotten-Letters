@@ -58,6 +58,7 @@ export type AuditAction =
 	| 'seat.removed'
 	| 'seat.link_made'
 	| 'seat.link_revoked'
+	| 'seat.link_copied'
 	| 'seat.assigned'
 	| 'seat.joined'
 	| 'seat.left'

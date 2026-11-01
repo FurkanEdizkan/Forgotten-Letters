@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { ROLES } from '#lib/roles';
 	import Button from '#lib/ui/Button.svelte';

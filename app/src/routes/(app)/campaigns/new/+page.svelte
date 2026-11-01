@@ -7,7 +7,7 @@
 -->
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { enhance, type SubmitFunction } from '$app/forms';
+	import { enhance, type SubmitFunction } from '#lib/ui/enhance';
 	import Info from '@lucide/svelte/icons/info';
 	import { m } from '#lib/messages';
 	import { KINDS, SEATS_MAX, SEATS_MIN, VISIBILITIES } from '#lib/schemas/campaigns';
@@ -128,7 +128,7 @@
 <svelte:head><title>{w.title} · {m.app.name}</title></svelte:head>
 
 <h1>{w.title}</h1>
-<div class="wz">
+<div class="wz" class:wide={step === 3}>
 	<form method="POST" action="?/create" novalidate use:enhance={submit} class="wcol">
 		<Stepper steps={w.steps} current={step} label={w.progress} doneLabel={w.stepDone} />
 
@@ -227,7 +227,7 @@
 				<h2 id="t3" tabindex="-1" bind:this={titles[3]}>{w.rules.title}</h2>
 				<p class="dim">{w.rules.description}</p>
 			</header>
-			<HouseRulesEditor bind:rules={v.houseRules} {errors} />
+			<HouseRulesEditor bind:rules={v.houseRules} kind={v.kind} {errors} />
 		</section>
 
 		<!-- 5 · Map: reserved until step 2.5; nothing is saved for it. -->
@@ -279,6 +279,10 @@
 		grid-template-columns: minmax(0, 46rem) minmax(16rem, 20rem);
 		gap: var(--space-7);
 		align-items: start;
+	}
+	/* The House rules step has no preview beside it; its library and list take the whole width. */
+	.wz.wide {
+		grid-template-columns: minmax(0, 72rem);
 	}
 	.wcol {
 		display: grid;

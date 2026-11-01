@@ -4,7 +4,7 @@
   people who are not in it, without the seat names, plus "Ask to join". The CM and co-CMs get "Manage".
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Settings from '@lucide/svelte/icons/settings';
 	import { m } from '#lib/messages';
 	import { canInCampaign } from '#lib/campaign-rights';

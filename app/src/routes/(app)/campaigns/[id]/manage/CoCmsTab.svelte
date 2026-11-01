@@ -3,7 +3,7 @@
   the CM role to one (both confirm in place) and adds Admins or Owners by name. Co-CMs see the list only.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import type { ApiCampaign } from '#lib/api-types';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';

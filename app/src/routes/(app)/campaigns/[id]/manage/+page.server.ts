@@ -144,7 +144,7 @@ export const actions = {
 			return { op: 'removeSeat', id, done: true };
 		}),
 	/**
-	 * Make a one-time link for an empty seat, shown only now; it revokes the seat's open link.
+	 * Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.
 	 * Who: the CM and co-CMs, while the campaign is mustering.
 	 * In: form { id }.
 	 * Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.
@@ -157,7 +157,7 @@ export const actions = {
 			return { op: 'link', id, link };
 		}),
 	/**
-	 * Make links for every empty seat at once, each shown only now; their old links are revoked.
+	 * Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.
 	 * Who: the CM and co-CMs, while the campaign is mustering.
 	 * In: form { }.
 	 * Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.
@@ -179,6 +179,18 @@ export const actions = {
 		formAction(event, row, async ({ id }, ctx) => {
 			await seats.revokeLink(ctx, event.params.id, id);
 			return { op: 'revoke', id, done: true };
+		}),
+	/**
+	 * Withdraw every open seat link of the campaign at once; they stop working.
+	 * Who: the CM and co-CMs.
+	 * In: form { }.
+	 * Out: { op: 'revokeAll', withdrawn }.
+	 * Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
+	 */
+	revokeAll: (event) =>
+		formAction(event, nothing, async (_input, ctx) => {
+			const withdrawn = await seats.revokeAllLinks(ctx, event.params.id);
+			return { op: 'revokeAll', withdrawn };
 		}),
 	/**
 	 * Fill an empty seat with an existing account, picked by name.

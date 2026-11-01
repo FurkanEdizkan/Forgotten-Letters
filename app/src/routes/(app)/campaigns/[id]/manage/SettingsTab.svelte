@@ -3,7 +3,7 @@
   version. Someone saving over a newer change gets the reload message (409). Read-only once the campaign ends.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { VISIBILITIES, type HouseRule } from '#lib/schemas/campaigns';
 	import type { ApiCampaign } from '#lib/api-types';
@@ -101,7 +101,14 @@
 			error={result.fields.description}
 		/>
 		<h3>{w.rules.title}</h3>
-		<HouseRulesEditor bind:rules={v.rules} errors={result.fields} disabled={ended} />
+		<div class="wide">
+			<HouseRulesEditor
+				bind:rules={v.rules}
+				kind={campaign.kind}
+				errors={result.fields}
+				disabled={ended}
+			/>
+		</div>
 	</fieldset>
 	{#if result.error && !Object.keys(result.fields).length}
 		<Message kind="warn">{result.error}</Message>
@@ -120,6 +127,10 @@
 	fieldset {
 		display: grid;
 		gap: var(--space-4);
+	}
+	/* Text fields keep a readable width; the house rule library takes the page's width for its two columns. */
+	form > :global(*:not(fieldset)),
+	fieldset > :global(*:not(.wide)) {
 		max-width: 52rem;
 	}
 	fieldset {

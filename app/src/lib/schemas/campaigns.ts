@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { STAGES } from '../campaign-stage';
 import { newAccountInput } from './auth';
+import { checkValues, presetByKey, RULE_KINDS } from '../house-rule-presets';
 
 export const KINDS = ['carcass_front', 'generic'] as const;
 export const VISIBILITIES = ['listed', 'private'] as const;
@@ -24,15 +25,64 @@ export const campaignName = z
 
 export const description = z.string().trim().max(500, 'Use at most 500 characters.');
 
-export const houseRule = z.object({
-	name: z.string().trim().min(1, 'Name the rule.').max(60, 'Use at most 60 characters.'),
-	text: z.string().trim().max(500, 'Use at most 500 characters.').default(''),
-	on: z.boolean()
-});
+/**
+ * One house rule: from the preset library (`preset` names it, `values` fit its fields) or the CM's own words
+ * (`preset: null`, always passive, no values). Rules saved before the library read as the CM's own.
+ */
+export const houseRule = z
+	.object({
+		name: z.string().trim().min(1, 'Name the rule.').max(60, 'Use at most 60 characters.'),
+		text: z.string().trim().max(500, 'Use at most 500 characters.').default(''),
+		on: z.boolean(),
+		kind: z.enum(RULE_KINDS).default('passive'),
+		preset: z.string().max(60).nullable().default(null),
+		values: z.record(z.string(), z.union([z.number(), z.boolean(), z.string().max(60)])).default({})
+	})
+	.superRefine((r, ctx) => {
+		if (r.preset === null) {
+			if (r.kind !== 'passive')
+				ctx.addIssue({
+					code: 'custom',
+					message: 'Your own rules are played at the table.',
+					path: ['kind']
+				});
+			if (Object.keys(r.values).length)
+				ctx.addIssue({
+					code: 'custom',
+					message: 'Your own rules have no values.',
+					path: ['values']
+				});
+			return;
+		}
+		const p = presetByKey(r.preset);
+		if (!p)
+			return ctx.addIssue({
+				code: 'custom',
+				message: 'That preset does not exist.',
+				path: ['preset']
+			});
+		if (r.kind !== p.kind)
+			ctx.addIssue({ code: 'custom', message: 'Wrong kind for this preset.', path: ['kind'] });
+		for (const [key, message] of Object.entries(checkValues(p, r.values)))
+			ctx.addIssue({ code: 'custom', message, path: ['values', key] });
+	});
 
 export const houseRules = z
 	.array(houseRule)
-	.max(HOUSE_RULES_MAX, `Use at most ${HOUSE_RULES_MAX} house rules.`);
+	.max(HOUSE_RULES_MAX, `Use at most ${HOUSE_RULES_MAX} house rules.`)
+	.superRefine((rules, ctx) => {
+		const seen = new Set<string>();
+		rules.forEach((r, i) => {
+			if (!r.preset) return;
+			if (seen.has(r.preset))
+				ctx.addIssue({
+					code: 'custom',
+					message: 'This rule is already in the list.',
+					path: [i, 'preset']
+				});
+			seen.add(r.preset);
+		});
+	});
 
 const settingsFields = {
 	name: campaignName,

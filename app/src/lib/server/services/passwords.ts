@@ -102,40 +102,4 @@ export function temporaryPassword() {
 	return `${pick()}-${pick()}-${pick()}-${1000 + (randomBytes(2).readUInt16BE() % 9000)}`;
 }
 
-/** The most common passwords of 10+ characters; these are refused. */
-export const COMMON_PASSWORDS = new Set([
-	'1234567890',
-	'0123456789',
-	'12345678910',
-	'1234567891',
-	'0987654321',
-	'1111111111',
-	'0000000000',
-	'qwertyuiop',
-	'1q2w3e4r5t',
-	'1qaz2wsx3edc',
-	'password12',
-	'password123',
-	'password1234',
-	'passw0rd123',
-	'iloveyou12',
-	'qwerty1234',
-	'qwerty12345',
-	'qwerty123456',
-	'abcdefghij',
-	'abc1234567',
-	'aaaaaaaaaa',
-	'football12',
-	'baseball12',
-	'princess12',
-	'sunshine12',
-	'letmein123',
-	'welcome123',
-	'trustno1234',
-	'administrator',
-	'changeme123',
-	'trenchcrusade',
-	'forgottenletters'
-]);
-
-export const isCommonPassword = (p: string) => COMMON_PASSWORDS.has(p.toLowerCase());
+export { COMMON_PASSWORDS, isCommonPassword } from '#lib/password-strength';

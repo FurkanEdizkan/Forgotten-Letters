@@ -183,7 +183,10 @@ describe('seat links', () => {
 			seatName: 'Seat 1',
 			campaign: { id: campaign.id, cmName: cm.row.displayName }
 		});
-		expect((await seats.list(cm.ctx(), campaign.id))[0]!.hasOpenLink).toBe(true);
+		expect((await seats.list(cm.ctx(), campaign.id))[0]!.link).toMatchObject({
+			state: 'ready',
+			openedAt: expect.any(String)
+		});
 		const visitor = ctx();
 		await seats.accept(tokenOf(second.url), account(), visitor);
 		await expect(seats.makeLink(cm.ctx(), campaign.id, made[0]!.id)).rejects.toMatchObject({
@@ -228,7 +231,7 @@ describe('seat links', () => {
 		expect((await seats.list(cm.ctx(), campaign.id))[0]).toMatchObject({
 			name: 'Sister Vey',
 			player: { id: r.user!.id },
-			hasOpenLink: false
+			link: null
 		});
 		await expect(seats.accept(tokenOf(link.url), account(), ctx())).rejects.toMatchObject({
 			code: 'conflict',
@@ -270,6 +273,69 @@ describe('seat links', () => {
 			message: expect.stringContaining('expired')
 		});
 		expect(await seats.preview('nope')).toEqual({ state: 'unknown' });
+	});
+	it('a link lasts past 7 days, can be copied again, and dies once the seat is taken', async () => {
+		const cm = await person('admin');
+		const { campaign, seats: made } = await newCampaign(cm);
+		const link = await seats.makeLink(cm.ctx(), campaign.id, made[0]!.id);
+		expect(link.expiresAt).toBeNull();
+		await sql()`update campaign.seat_invites set created_at = now() - interval '30 days'`;
+		const copy = await seats.copyLink(cm.ctx(), campaign.id, made[0]!.id);
+		expect(copy.url).toBe(link.url);
+		const [log] =
+			await sql()`select count(*)::int as n from auth.audit_log where action = 'seat.link_copied'`;
+		expect(log!.n).toBe(1);
+		expect((await seats.list(cm.ctx(), campaign.id))[0]!.link).toMatchObject({
+			state: 'ready',
+			tail: link.url.slice(-4),
+			openedAt: null
+		});
+		await seats.accept(tokenOf(link.url), account(), ctx());
+		await expect(seats.copyLink(cm.ctx(), campaign.id, made[0]!.id)).rejects.toMatchObject({
+			code: 'not_found'
+		});
+	});
+	it('Withdraw all links stops every open link at once; used links stay used', async () => {
+		const cm = await person('admin');
+		const { campaign, seats: made } = await newCampaign(cm);
+		const used = await seats.makeLink(cm.ctx(), campaign.id, made[0]!.id);
+		await seats.accept(tokenOf(used.url), account(), ctx());
+		const a = await seats.makeLink(cm.ctx(), campaign.id, made[1]!.id);
+		await seats.makeLink(cm.ctx(), campaign.id, made[2]!.id);
+		expect(await seats.revokeAllLinks(cm.ctx(), campaign.id)).toBe(2);
+		expect(await seats.preview(tokenOf(a.url))).toMatchObject({ state: 'revoked' });
+		expect(await seats.preview(tokenOf(used.url))).toMatchObject({ state: 'used' });
+		expect((await seats.list(cm.ctx(), campaign.id)).every((x) => x.link === null)).toBe(true);
+		expect(await seats.revokeAllLinks(cm.ctx(), campaign.id)).toBe(0);
+		const player = await person('user');
+		await expect(seats.revokeAllLinks(player.ctx(), campaign.id)).rejects.toMatchObject({
+			code: 'forbidden'
+		});
+	});
+	it('a link made before links were stored reads as old and cannot be copied', async () => {
+		const cm = await person('admin');
+		const { campaign, seats: made } = await newCampaign(cm);
+		await seats.makeLink(cm.ctx(), campaign.id, made[0]!.id);
+		await sql()`update campaign.seat_invites set token_enc = null`;
+		expect((await seats.list(cm.ctx(), campaign.id))[0]!.link).toMatchObject({
+			state: 'old',
+			tail: null
+		});
+		await expect(seats.copyLink(cm.ctx(), campaign.id, made[0]!.id)).rejects.toMatchObject({
+			code: 'conflict',
+			message: expect.stringContaining('Make a new one')
+		});
+	});
+	it('only the CM and co-CMs see links; a player cannot copy one', async () => {
+		const cm = await person('admin');
+		const player = await person('user');
+		const { campaign, seats: made } = await newCampaign(cm);
+		await seats.makeLink(cm.ctx(), campaign.id, made[0]!.id);
+		await seats.assign(cm.ctx(), campaign.id, made[1]!.id, player.row.id);
+		expect((await seats.list(player.ctx(), campaign.id)).every((x) => x.link === null)).toBe(true);
+		await expect(seats.copyLink(player.ctx(), campaign.id, made[0]!.id)).rejects.toMatchObject({
+			code: 'forbidden'
+		});
 	});
 	it('two people accepting one link at once: exactly one wins', async () => {
 		const cm = await person('admin');

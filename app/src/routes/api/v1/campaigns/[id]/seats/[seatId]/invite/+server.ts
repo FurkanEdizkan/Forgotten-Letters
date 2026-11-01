@@ -4,7 +4,8 @@ import * as seats from '#lib/server/services/seats';
 import { campaignSeatParam } from '#lib/api-types';
 
 /**
- * Make a one-time link for an empty seat (7 days), shown only now; the seat's open link stops working.
+ * Make a lasting link for an empty seat (valid until the seat is taken or the link withdrawn); the seat's old link
+ * stops working.
  * Who: the CM and co-CMs.
  * In: path id, seatId.
  * Out: 201 SeatLink
@@ -13,6 +14,18 @@ import { campaignSeatParam } from '#lib/api-types';
 export const POST = api(async (event, ctx) => {
 	const { id, seatId } = parse(campaignSeatParam, event.params);
 	return json(await seats.makeLink(ctx, id, seatId), { status: 201 });
+});
+
+/**
+ * The seat's open link again, to copy; recorded in the audit log.
+ * Who: the CM and co-CMs.
+ * In: path id, seatId.
+ * Out: 200 SeatLinkCopy
+ * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat or no open link, 409 conflict link made before links could be copied.
+ */
+export const GET = api(async (event, ctx) => {
+	const { id, seatId } = parse(campaignSeatParam, event.params);
+	return json(await seats.copyLink(ctx, id, seatId));
 });
 
 /**

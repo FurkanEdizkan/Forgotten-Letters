@@ -199,19 +199,66 @@ export const seatOut = z
 		name: z.string(),
 		player: z.object({ id: z.string().uuid(), displayName: z.string() }).nullable(),
 		joinedAt: time.nullable(),
-		hasOpenLink: z.boolean(),
+		/** The seat's open link; only the CM and co-CMs see it. `old`: made before links could be copied. */
+		link: z
+			.object({
+				state: z.enum(['ready', 'old']),
+				/** The link's last four characters, to tell links apart without showing them. */
+				tail: z.string().nullable(),
+				createdAt: time,
+				openedAt: time.nullable()
+			})
+			.nullable(),
 		version: z.number().int()
 	})
 	.meta({ id: 'Seat' });
 
 export const seatList = z.object({ items: z.array(seatOut) });
 
-/** A seat link: the raw link exists only in this response. */
+/** A seat link. Null `expiresAt`: valid until someone takes the seat or the link is withdrawn. */
 export const seatLinkOut = z
-	.object({ seatId: z.string().uuid(), seatName: z.string(), url: z.string(), expiresAt: time })
+	.object({
+		seatId: z.string().uuid(),
+		seatName: z.string(),
+		url: z.string(),
+		expiresAt: time.nullable()
+	})
 	.meta({ id: 'SeatLink' });
 
 export const seatLinks = z.object({ links: z.array(seatLinkOut) });
+
+export const withdrawnCount = z.object({ withdrawn: z.number().int() });
+
+/** A seat's open link again, to copy. */
+export const seatLinkCopy = seatLinkOut.extend({ createdAt: time }).meta({ id: 'SeatLinkCopy' });
+
+const valueField = z.object({
+	key: z.string(),
+	label: z.string(),
+	type: z.enum(['inches', 'number', 'boolean', 'choice']),
+	default: z.union([z.number(), z.boolean(), z.string()]),
+	min: z.number().optional(),
+	max: z.number().optional(),
+	unit: z.string().optional(),
+	choices: z.array(z.object({ value: z.string(), label: z.string() })).optional()
+});
+/** The house rule library. */
+export const presetList = z.object({
+	items: z.array(
+		z
+			.object({
+				key: z.string(),
+				kind: z.enum(['passive', 'configuration']),
+				name: z.string(),
+				summary: z.string(),
+				houseOnly: z.boolean().optional(),
+				only: z.enum(['carcass_front']).optional(),
+				step: z.number().int(),
+				fields: z.array(valueField)
+			})
+			.meta({ id: 'HouseRulePreset' })
+	)
+});
 
 export const requestOut = z
 	.object({
@@ -239,7 +286,7 @@ export const seatInvitePreview = z
 			cmName: z.string()
 		}),
 		seatName: z.string(),
-		expiresAt: time
+		expiresAt: time.nullable()
 	})
 	.meta({ id: 'SeatInvitePreview' });
 

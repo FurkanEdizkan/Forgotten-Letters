@@ -4,7 +4,7 @@
   short optional note in the card, then turns into a disabled "Request sent".
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash from '@lucide/svelte/icons/trash-2';
 	import { m } from '#lib/messages';

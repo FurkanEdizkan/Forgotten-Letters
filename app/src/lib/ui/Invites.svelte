@@ -3,7 +3,7 @@
   revoke and re-send. Posts to the page's `create`, `revoke` and `resend` actions.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { m } from '#lib/messages';

@@ -3,7 +3,7 @@
   the setup wizard.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { ACCENTS, TEXT_SCALE, type Accent } from '#lib/schemas/settings';
 	import { ACCENT_COLOURS } from '#lib/ui/accents';
@@ -28,6 +28,14 @@
 		colour: ACCENT_COLOURS[a].base
 	}));
 	const look = m.wizard.look;
+
+	// A swatch recolours the whole app at once as a preview; Save keeps it. Leaving the page unsaved puts the saved
+	// accent back (the root layout keeps <html> in step with the saved settings after a save).
+	$effect(() => {
+		document.documentElement.dataset.accent = accent;
+		return () => (document.documentElement.dataset.accent = data.settings.accent);
+	});
+	const unsaved = $derived(accent !== data.settings.accent);
 
 	const failed = $derived(form && !('done' in form) ? form : null);
 	const fields = $derived((failed?.fields ?? {}) as Record<string, string | undefined>);
@@ -84,8 +92,8 @@
 					bind:value={() => accent, (v) => (accent = v as Accent)}
 					error={fields.accent}
 				/>
-				<p class="hint">{m.settings.accentHint}</p>
-				<!-- The preview follows the slider; the accent shows on the whole page once saved. -->
+				<p class="hint">{unsaved ? m.settings.accentPreview : m.settings.accentHint}</p>
+				<!-- The text size shows in this preview only: resizing the whole page under the slider would move it. -->
 				<TextPreview
 					scale={textScale}
 					label={look.preview}
@@ -106,9 +114,6 @@
 						<span class="label">{m.settings.port}</span>
 						<p class="data">{data.settings.port}</p>
 						<p class="dim">{m.settings.portLocked}</p>
-						<pre><code>APP_PORT={data.settings.port}</code></pre>
-						<p class="dim">{m.settings.portLockedThen}</p>
-						<pre><code>docker compose up -d</code></pre>
 						{#if fields.port}<p class="error">{fields.port}</p>{/if}
 					</div>
 				{:else}
@@ -161,12 +166,5 @@
 		font-size: var(--size-label);
 		border-left: var(--border-status-edge) solid var(--danger);
 		padding-left: var(--space-2);
-	}
-	pre {
-		margin: 0;
-		padding: var(--space-2) var(--space-3);
-		background: var(--inset);
-		border: var(--border-hairline) solid var(--rule);
-		overflow-x: auto;
 	}
 </style>

@@ -11,8 +11,14 @@ export const m = {
 		notice: 'Unofficial fan-made app. Not affiliated with Factory Fortress Inc.'
 	},
 
+	password: {
+		levels: ['Too common', 'Weak', 'Fair', 'Strong', 'Very strong'] as const,
+		accepted: 'Good to go.',
+		needed: (level: string) => `${level} or better is needed.`
+	},
 	common: {
 		save: 'Save',
+		add: 'Add',
 		copy: 'Copy',
 		copied: 'Copied',
 		confirmHint: 'Press again within 4 seconds to confirm.',
@@ -109,7 +115,7 @@ export const m = {
 			displayName: 'Display name',
 			displayNameHint: 'What others see. You can change it later.',
 			password: 'Password',
-			passwordHint: '10 to 128 characters.',
+			passwordHint: '10 to 128 characters, rated Strong or better.',
 			passwordCount: (n: number) => `This one has ${n}.`,
 			repeat: 'Repeat password',
 			repeatPlaceholder: 'Type it again',
@@ -141,9 +147,7 @@ export const m = {
 			addressHint: 'Share this with your players.',
 			moveNote:
 				'When you press Finish the app opens the new port, takes you there, then closes the old one.',
-			lockedTag: 'Set by Docker',
-			lockedHow: 'To change it, edit .env and restart',
-			lockedNote: 'This copy runs in Docker or in development, so the port is set outside the app.'
+			lockedTag: 'Set by Docker'
 		},
 		done: {
 			title: 'Ready',
@@ -178,7 +182,7 @@ export const m = {
 		displayName: 'Display name',
 		displayNameHint: 'Shown wherever you appear. You can change it later.',
 		password: 'Password',
-		passwordHint: '10 to 128 characters.',
+		passwordHint: '10 to 128 characters, rated Strong or better.',
 		submit: 'Create account',
 		toLogin: 'Go to sign in'
 	},
@@ -287,19 +291,33 @@ export const m = {
 			rules: {
 				title: 'House rules',
 				description:
-					"Your group's own rules, in your own words. Each one is a switch you can turn on or off later. Up to 30.",
+					'Drag rules from the library into your campaign, or write your own. Each can be turned on or off later. Up to 30.',
+				library: 'Rule library',
+				libraryHint: 'Drag a rule across, or press Add.',
+				filter: 'Filter rules',
+				filterPlaceholder: 'Search by name',
+				noMatch: 'No rule matches.',
+				own: 'Write your own',
+				ownSummary: 'A rule in your own words, played at the table.',
+				added: 'Added',
+				addRule: (name: string) => `Add ${name}`,
+				houseOnly: 'House rule, not in the books.',
+				campaign: "This campaign's house rules",
+				drop: 'Drop a rule here',
+				dropRemove: 'Drop here to remove the rule',
+				dragOut: (name: string) => `Drag ${name || 'this rule'} back to the library to remove it`,
+				kindPassive: 'In play',
+				kindConfig: 'Setting',
+				passiveNote: 'Players follow this at the table; the campaign page shows it.',
+				configNote: 'Saved now. The app applies settings once battles are tracked (a later step).',
 				name: (n: number) => `Name of rule ${n}`,
-				text: (n: number) => `Explanation of rule ${n}`,
-				colName: 'Name',
-				colText: 'Explanation',
-				colOn: 'On',
+				text: (n: number) => `Note for rule ${n}`,
 				namePlaceholder: 'Name the rule',
 				textPlaceholder: 'Explain it in a sentence or two (up to 500 characters)',
-				// The switch announces on or off itself; its name is the rule's.
+				notePlaceholder: 'A note for your players (optional)',
 				on: (name: string) => name || 'New rule',
-				remove: 'Remove',
-				add: 'Add a rule',
-				count: (n: number, of: number) => `${n} of ${of} · names up to 60 characters`,
+				remove: (name: string) => `Remove ${name || 'this rule'}`,
+				count: (n: number, of: number) => `${n} of ${of}`,
 				empty: 'No house rules yet. Add one, or move on.'
 			},
 			map: {
@@ -373,16 +391,33 @@ export const m = {
 				seat: 'Seat',
 				assign: 'Add to seat',
 				assigned: 'Added to the seat.',
-				allLinks: 'Make links for all empty seats',
-				linksHelp: 'Shown only now. Send each player their own link; each works once, for 7 days.',
-				number: '#',
-				name: 'Seat',
+				allLinks: 'Make links for empty seats',
+				revokeAll: 'Withdraw all links',
+				revokeAllConfirm: 'Withdraw every link?',
+				withdrawnAll: (n: number) =>
+					n === 1
+						? 'Withdrew 1 link. It no longer works.'
+						: `Withdrew ${n} links. They no longer work.`,
+				copyByHand: 'Copying is blocked here. Select the text and copy it yourself:',
+				cards: 'Seats',
+				pick: 'Pick a seat to see its details and its link.',
+				stTaken: 'Taken',
+				stReady: 'Link ready',
+				stOld: 'Old link',
+				stNone: 'No link',
 				player: 'Player',
 				joined: 'Joined',
-				actions: 'Actions',
-				notYet: 'not yet',
-				openSeat: 'open',
-				linkOut: 'link out',
+				openSeat: 'Open',
+				notYet: 'Not yet',
+				link: 'Link',
+				linkLasts: 'Works until someone takes the seat',
+				linkMade: 'Made',
+				linkOpened: 'Opened',
+				linkNone: 'No link yet',
+				linkOld: 'Made before links could be copied. Make a new one.',
+				linkMasked: (tail: string) => `/join/••••${tail}`,
+				copyLink: 'Copy link',
+				copied: 'Link copied.',
 				rename: (name: string) => `Rename ${name}`,
 				newName: (name: string) => `New name for ${name}`,
 				renameSave: 'Save',
@@ -391,15 +426,14 @@ export const m = {
 				freeConfirm: 'Free seat for good?',
 				makeLink: 'Make link',
 				newLink: 'New link',
-				linkFor: (seat: string) => `Link for ${seat}`,
-				linkHelp: (until: string) => `Shown once · valid to ${until}`,
-				revoke: 'Revoke',
-				remove: 'Remove',
+				linkMadeNow: 'Link made. Copy it and send it to the player.',
+				revoke: 'Withdraw link',
+				remove: 'Remove seat',
 				removeConfirm: 'Remove for good?',
 				add: 'Add seats',
 				addCount: 'Seats to add',
 				footer: (n: number, of: number) =>
-					`${n} of ${of} seats. Links are shown once; making a new one revokes the old.`,
+					`${n} of ${of} seats. A link works until someone takes the seat; a new link replaces the old.`,
 				linksClosed: 'Seat links work only while the campaign is mustering.',
 				noEmpty: 'Every seat is taken. Add a seat first.'
 			},
@@ -450,8 +484,8 @@ export const m = {
 	join: {
 		title: 'Take a seat',
 		invited: (seat: string) => `You're invited to take ${seat}.`,
-		meta: (kind: string, cm: string, until: string) =>
-			`${kind} · CM ${cm} · link valid until ${until}`,
+		meta: (kind: string, cm: string, until: string | null) =>
+			`${kind} · CM ${cm} · ${until ? `link valid until ${until}` : 'link works until the seat is taken'}`,
 		how: 'How to join',
 		signIn: 'Sign in',
 		signUp: 'Create an account',
@@ -460,7 +494,7 @@ export const m = {
 		usernameHint: '3 to 32 characters: letters, digits, dot, dash, underscore. Used to sign in.',
 		displayName: 'Display name',
 		displayNameHint: 'What others see. Your seat takes this name.',
-		passwordHint: '10 to 128 characters.',
+		passwordHint: '10 to 128 characters, rated Strong or better.',
 		signInSubmit: 'Sign in and take the seat',
 		signUpSubmit: 'Create account and take the seat',
 		take: 'Take the seat',
@@ -474,7 +508,7 @@ export const m = {
 		revoked: (campaign: string) =>
 			`The Campaign Master replaced or withdrew this link to a seat in ${campaign}.`,
 		expiredTitle: 'Link expired',
-		expired: (d: string) => `Seat links last 7 days. This one ended on ${d}.`,
+		expired: (d: string) => `This older link lasted 7 days and ended on ${d}.`,
 		unknownTitle: 'This link does not work',
 		unknown: 'It may be mistyped, or a newer link replaced it.',
 		askAgain: 'Ask the Campaign Master for a new link.',
@@ -491,7 +525,7 @@ export const m = {
 		passwordHeading: 'Password',
 		current: 'Current password',
 		newPassword: 'New password',
-		newPasswordHint: '10 to 128 characters.',
+		newPasswordHint: '10 to 128 characters, rated Strong or better.',
 		changePassword: 'Change password',
 		passwordChanged: 'Password changed. Your other devices were signed out.',
 		devicesHeading: 'Devices',
@@ -516,7 +550,7 @@ export const m = {
 			'Your password was reset. Enter the temporary password you were given, then choose your own.',
 		current: 'Temporary password',
 		newPassword: 'New password',
-		newPasswordHint: '10 to 128 characters.',
+		newPasswordHint: '10 to 128 characters, rated Strong or better.',
 		submit: 'Set password'
 	},
 
@@ -542,6 +576,8 @@ export const m = {
 		textScaleHint: 'Scales all text and spacing, from 90 to 130 %.',
 		accent: 'Accent',
 		accentHint: 'The colour of buttons, headings and the focus ring.',
+		accentPreview:
+			'Previewing this colour on the whole app. Save to keep it; leave the page to undo.',
 		accents: {
 			blood: 'Blood',
 			brass: 'Brass',
@@ -553,8 +589,7 @@ export const m = {
 		address: 'People open this copy at',
 		port: 'Port',
 		portHint: '1024 to 65535. The app moves to the new port right away.',
-		portLocked: 'The port is set outside the app. To change it, edit this line in .env:',
-		portLockedThen: 'Then restart the app:',
+		portLocked: 'Set outside the app, in the server settings.',
 		saved: 'Settings saved.',
 		moving: (to: string) => `The app now listens at ${to}. Taking you there…`
 	},
@@ -664,6 +699,7 @@ export const m = {
 			'seat.removed': 'Removed a seat',
 			'seat.link_made': 'Made a seat link',
 			'seat.link_revoked': 'Revoked a seat link',
+			'seat.link_copied': 'Copied a seat link',
 			'seat.assigned': 'Added someone to a seat',
 			'seat.joined': 'Took a seat by link',
 			'seat.left': 'Left a seat',

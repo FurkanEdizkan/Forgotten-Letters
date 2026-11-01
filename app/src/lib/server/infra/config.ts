@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
-const SECRETS = ['DATABASE_URL', 'POSTGRES_PASSWORD'] as const;
+const SECRETS = ['DATABASE_URL', 'POSTGRES_PASSWORD', 'LINK_KEY'] as const;
 
 const schema = z.object({
 	NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
@@ -17,6 +17,8 @@ const schema = z.object({
 	POSTGRES_USER: z.string().default('letters'),
 	POSTGRES_PASSWORD: z.string().optional(),
 	POSTGRES_DB: z.string().default('letters'),
+	/** Key for the stored seat links; unset, it is derived from the database password (services/link-cipher). */
+	LINK_KEY: z.string().min(16, 'LINK_KEY needs at least 16 characters.').optional(),
 	DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
 	DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5000),
 	/** The address people use, e.g. http://192.168.1.20:3000 or https://letters.example.org. */

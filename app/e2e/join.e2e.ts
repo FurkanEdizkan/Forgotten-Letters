@@ -1,6 +1,6 @@
 /**
- * Step 2 seat link flows end to end, each with its happy path and main error path: the CM makes a link (shown
- * once), a visitor creates an account on the join page and lands holding the seat, the used link is refused, an
+ * Step 2 seat link flows end to end, each with its happy path and main error path: the CM makes a link on a seat
+ * card and copies it (a lasting link, copied again later), a visitor creates an account on the join page and lands holding the seat, the used link is refused, an
  * existing user signs in on the join page for another seat, and unknown or withdrawn links say so. The owner runs
  * the campaign (Owners may create campaigns); it is made through the API, as the wizard's Create posts the same
  * service. Each visitor gets its own browser context and client address.
@@ -19,9 +19,21 @@ const NAME = 'Bleak Ford';
 let lastIp = 0;
 async function visitor(browser: Browser) {
 	const ctx = await browser.newContext({
-		extraHTTPHeaders: { 'X-Forwarded-For': `10.0.3.${++lastIp}` }
+		extraHTTPHeaders: { 'X-Forwarded-For': `10.0.3.${++lastIp}` },
+		// The CM's Copy link writes to the clipboard; the test reads it back.
+		permissions: ['clipboard-read', 'clipboard-write']
 	});
 	return ctx.newPage();
+}
+
+const seatCards = (page: Page) => page.getByRole('list', { name: 'Seats' }).getByRole('listitem');
+
+/** Pick a seat's card, press Copy link and read the link from the clipboard. */
+async function copyLink(seat: string) {
+	await seatCards(cm).filter({ hasText: seat }).getByRole('button').click();
+	await cm.getByRole('button', { name: 'Copy link' }).click();
+	await expect(cm.getByText('Link copied.')).toBeVisible();
+	return cm.evaluate(() => navigator.clipboard.readText());
 }
 
 let cm: Page;
@@ -54,24 +66,28 @@ test.beforeAll(async ({ browser }) => {
 	await other.context().close();
 });
 
-/** Make the link for one seat on the manage page and read it from its one-time box. */
+/** Make the link for one seat on its card and copy it. */
 async function makeLink(seat: string) {
 	await cm.goto(`/campaigns/${campaignId}/manage`);
-	const row = cm.locator('tbody tr', { hasText: seat });
-	await row.getByRole('button', { name: /^(Make link|New link)$/ }).click();
-	const box = cm.getByLabel(`Link for ${seat}`);
-	await expect(box).toHaveValue(/\/join\//);
-	return box.inputValue();
+	await seatCards(cm).filter({ hasText: seat }).getByRole('button').click();
+	await cm.getByRole('button', { name: /^(Make link|New link)$/ }).click();
+	await expect(cm.getByText('Link made.', { exact: false })).toBeVisible();
+	await cm.getByRole('button', { name: 'Copy link' }).click();
+	await expect(cm.getByText('Link copied.')).toBeVisible();
+	const link = await cm.evaluate(() => navigator.clipboard.readText());
+	expect(link).toMatch(/\/join\//);
+	return link;
 }
 
 test('seat link: a visitor creates an account and holds the seat; the same link again is used', async ({
 	browser
 }) => {
 	const link = await makeLink('Seat 1');
-	// Shown once: after a reload only "link out" is left.
+	// The link lasts: after a reload the card says so, the page never shows it in full, and Copy gives it again.
 	await cm.reload();
-	await expect(cm.getByLabel('Link for Seat 1')).toHaveCount(0);
-	await expect(cm.locator('tbody tr', { hasText: 'Seat 1' })).toContainText('link out');
+	await expect(seatCards(cm).filter({ hasText: 'Seat 1' })).toContainText('Link ready');
+	await expect(cm.getByText(link)).toHaveCount(0);
+	expect(await copyLink('Seat 1')).toBe(link);
 
 	const page = await visitor(browser);
 	await page.goto(link);
@@ -112,8 +128,8 @@ test('seat link: an existing user signs in on the join page and takes another se
 	await expect(page.getByText('Old Gregor (you)')).toBeVisible();
 
 	await cm.goto(`/campaigns/${campaignId}/manage`);
-	await expect(cm.locator('tbody tr').nth(0)).toContainText('Recruit Jakob');
-	await expect(cm.locator('tbody tr').nth(1)).toContainText('Old Gregor');
+	await expect(seatCards(cm).nth(0)).toContainText('Recruit Jakob');
+	await expect(seatCards(cm).nth(1)).toContainText('Old Gregor');
 });
 
 test('seat link: an unknown token and a withdrawn link say they do not work', async ({

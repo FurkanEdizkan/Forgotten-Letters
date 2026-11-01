@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import Download from '@lucide/svelte/icons/download';
 	import { m, fileSize } from '#lib/messages';
 	import Button from '#lib/ui/Button.svelte';

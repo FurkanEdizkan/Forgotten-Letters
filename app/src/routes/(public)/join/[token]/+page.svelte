@@ -4,7 +4,8 @@
   account", each taking the seat in the same step. Used, revoked, expired and unknown links say so, with the way on.
 -->
 <script lang="ts">
-	import { enhance, type SubmitFunction } from '$app/forms';
+	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
+	import { enhance, type SubmitFunction } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { dayYear, day } from '#lib/ui/campaign-facts';
 	import VisitorStage from '#lib/ui/VisitorStage.svelte';
@@ -15,6 +16,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let newPassword = $state('');
 	const j = m.join;
 
 	const pv = $derived(data.preview);
@@ -44,7 +46,11 @@
 			<h1>{pv.campaign.name}</h1>
 			<p class="lead">{j.invited(pv.seatName)}</p>
 			<p class="dim">
-				{j.meta(m.campaigns.kinds[pv.campaign.kind], pv.campaign.cmName, day(pv.expiresAt))}
+				{j.meta(
+					m.campaigns.kinds[pv.campaign.kind],
+					pv.campaign.cmName,
+					pv.expiresAt ? day(pv.expiresAt) : null
+				)}
 			</p>
 		</header>
 		{#if form?.message}<Callout kind="danger">{form.message}</Callout>{/if}
@@ -115,6 +121,11 @@
 								minlength={10}
 								maxlength={128}
 								hint={j.passwordHint}
+								bind:value={newPassword}
+								error={form?.values?.op === 'signup' ? form.fields?.password : null}
+							/>
+							<PasswordMeter
+								value={newPassword}
 								error={form?.values?.op === 'signup' ? form.fields?.password : null}
 							/>
 							<GlassButton variant="primary" type="submit" disabled={busy} class="go">
@@ -138,7 +149,7 @@
 							: j.usedTitle}
 			</h1>
 			<p class="lead">
-				{#if pv.state === 'expired'}{j.expired(dayYear(pv.expiresAt))}
+				{#if pv.state === 'expired'}{j.expired(pv.expiresAt ? dayYear(pv.expiresAt) : '')}
 				{:else if pv.state === 'unknown'}{j.unknown}
 				{:else if pv.state === 'revoked'}{j.revoked(pv.campaign.name)}
 				{:else}{j.used(pv.campaign.name)}{/if}

@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { enhance } from '$app/forms';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import SplitStage, { SPLIT } from '#lib/ui/SplitStage.svelte';
 	import WizardField from '#lib/ui/WizardField.svelte';

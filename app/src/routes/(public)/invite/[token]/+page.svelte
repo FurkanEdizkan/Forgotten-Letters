@@ -3,7 +3,8 @@
   (decision 48). Same states, form, field names and action as before.
 -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
+	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import VisitorStage from '#lib/ui/VisitorStage.svelte';
 	import WizardField from '#lib/ui/WizardField.svelte';
@@ -13,6 +14,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let newPassword = $state('');
 	const invite = $derived(data.invite);
 	const closed = $derived(
 		invite.state === 'open'
@@ -82,8 +84,10 @@
 				minlength={10}
 				maxlength={128}
 				hint={m.invite.passwordHint}
+				bind:value={newPassword}
 				error={form?.fields?.password}
 			/>
+			<PasswordMeter value={newPassword} error={form?.fields?.password} />
 			<GlassButton variant="primary" type="submit" disabled={busy} class="go"
 				>{m.invite.submit}</GlassButton
 			>

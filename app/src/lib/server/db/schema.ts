@@ -272,12 +272,15 @@ export const seatInvites = campaignSchema.table(
 			.notNull()
 			.references(() => seats.id, { onDelete: 'cascade' }),
 		tokenHash: text().notNull(),
+		/** The link itself, AES-256-GCM (services/link-cipher), so the CM can copy it again; null before 1 Nov 2026. */
+		tokenEnc: text(),
 		createdBy: uuid()
 			.notNull()
 			.references(() => users.id),
-		expiresAt: timestamp({ withTimezone: true })
-			.notNull()
-			.default(sql`now() + interval '7 days'`),
+		/** Null: valid until the seat is taken or the link withdrawn. Links made before 1 Nov 2026 keep 7 days. */
+		expiresAt: timestamp({ withTimezone: true }),
+		/** First time the link page was opened. */
+		openedAt: timestamp({ withTimezone: true }),
 		usedAt: timestamp({ withTimezone: true }),
 		usedBy: uuid().references(() => users.id),
 		revokedAt: timestamp({ withTimezone: true }),

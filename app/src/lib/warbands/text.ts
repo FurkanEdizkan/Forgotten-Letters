@@ -6,11 +6,21 @@
  * Reused from archive/carcass-front-v1:app/src/lib/tc-import.ts (toTcText, fromTcText), rewritten to ids and the
  * rules folder format.
  */
-import { matchNamed, type Named, type NamedFighter } from './match.ts';
+import { matchNamed, type Into, type Named, type NamedFighter } from './match.ts';
 import { fighterCosts, rating } from './prices.ts';
 import { nameOf, type Resolved, type SetWithBase } from './resolve.ts';
 import { rowOf } from './progression.ts';
-import type { Fighter, Group, Options, Price, WarbandState } from './types.ts';
+import { isActive } from './types.ts';
+import type { Fighter, Group, Options, Price, Status, WarbandState } from './types.ts';
+
+/** A status other than active, as the export writes it and the import reads it back. */
+const STATUS_TEXT: [Status, string, RegExp][] = [
+	['misses_next', 'Misses next game', /miss/i],
+	['captured', 'Captured', /captur/i],
+	['unfit', 'Unfit for duty', /unfit/i],
+	['retired', 'Retired', /retir/i],
+	['dead', 'Dead', /dead|killed/i]
+];
 
 const TITLES: [Group, string][] = [
 	['elite', 'Elites'],
@@ -38,7 +48,9 @@ export function toText(state: WarbandState, f: Resolved, opts?: Options): string
 	// The dead are off the table, so off the rating; their own cost is still shown.
 	const costOf = (x: Fighter) =>
 		costs.get(x.id) ??
-		fighterCosts({ ...state, fighters: [{ ...x, group: 'troop' }] }, f, opts).get(x.id) ?? {
+		fighterCosts({ ...state, fighters: [{ ...x, group: 'troop', status: 'active' }] }, f, opts).get(
+			x.id
+		) ?? {
 			ducats: 0,
 			glory: 0
 		};
@@ -49,13 +61,16 @@ export function toText(state: WarbandState, f: Resolved, opts?: Options): string
 	];
 	if (state.patronId) out.push(`Patron: ${nameOf(f, state.patronId)}`);
 	for (const [group, title] of TITLES) {
-		const xs = state.fighters.filter((x) => x.group === group);
+		// Fighters off the roster (dead, unfit, retired) are listed under Dead, with their status.
+		const xs = state.fighters.filter((x) => (isActive(x) ? x.group : 'dead') === group);
 		if (!xs.length) continue;
 		out.push('', `## ${title} ##`);
 		for (const x of xs) {
 			const unit = f.idx.units.get(x.unitId);
 			const kit = [...(unit?.kit.fixed ?? []), ...x.kit].map((i) => nameOf(f, i));
 			out.push('', fighterLabel(f, x), `• Cost: ${priced(costOf(x))}`);
+			const st = STATUS_TEXT.find(([k]) => k === x.status);
+			if (st) out.push(`• Status: ${st[1]}`);
 			if (x.upgrades.length)
 				out.push(`• Upgrades & Choices: ${x.upgrades.map((u) => nameOf(f, u)).join(', ')}`);
 			if (kit.length) out.push(`• Battlekit: ${kit.join(', ')}`);
@@ -182,7 +197,11 @@ export function parseText(text: string): Named {
 				else if (/skill|advance/i.test(key)) cur.skills = list(value);
 				else if (/injur|scar/i.test(key)) cur.injuries = list(value);
 				else if (/xp|experience/i.test(key)) cur.xp = Number(value.match(/\d+/)?.[0] ?? 0);
-				else if (/status/i.test(key) && /dead/i.test(value)) cur.group = 'dead';
+				else if (/status/i.test(key)) {
+					const st = STATUS_TEXT.find(([, , re]) => re.test(value));
+					if (st) cur.status = st[0];
+					if (st?.[0] === 'dead') cur.group = 'dead';
+				}
 				continue;
 			}
 			// "Unit - Name", "Name (Unit)", or a compact "Unit - 70 D" with the cost on the title line.
@@ -222,8 +241,5 @@ export function parseText(text: string): Named {
 }
 
 /** Read a Trench Companion text export into a warband of this rules set; what does not match is reported. */
-export const fromText = (
-	text: string,
-	set: SetWithBase,
-	into?: { factionId: string; variantId?: string }
-) => matchNamed(parseText(text), set, into);
+export const fromText = (text: string, set: SetWithBase, into?: Into) =>
+	matchNamed(parseText(text), set, into);

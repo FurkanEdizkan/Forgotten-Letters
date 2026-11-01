@@ -117,7 +117,8 @@ export function limitIssues(models: Model[], limits: ScopedLimit[], ctx: Ctx): L
 				(l.per.strict ? 1 : 0);
 		}
 		const check = (count: number, key: string, whose: string, fighterId?: string) => {
-			if (max != null && count > max)
+			// "Outnumbered by" (a strict per) binds the models it counts: with none of them it holds.
+			if (max != null && count > max && !(l.per && count === 0))
 				out.push({
 					key: `${n}:${key}:max`,
 					text: `${label}${whose} (${count}, at most ${Math.max(0, max)}).`,

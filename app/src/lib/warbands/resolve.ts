@@ -36,6 +36,10 @@ export interface Rules {
 	limits: Limit[];
 	prices: PriceRule[];
 	patron?: string;
+	/** Keywords every model has, its Mercenaries excepted. */
+	grant: { kw: string; value?: string | number }[];
+	/** Added to the campaign Threshold. */
+	thresholdModifier: number;
 }
 
 /** Keyword ids the battlekit rules know by name (found by name in the set, else `kw:<name>`). */
@@ -58,7 +62,10 @@ export type Concept = keyof typeof CONCEPTS;
 export interface Resolved {
 	set: RulesSet;
 	faction: Faction;
+	/** The variant laid over the faction: the chosen one, or the one the chosen dedication (a Sin) names. */
 	variant?: Variant;
+	/** The chosen dedication, when it lays an overlay. */
+	dedication?: string;
 	/** The variant's name, else the faction's. */
 	name: string;
 	alignment: Faction['alignment'];
@@ -148,7 +155,9 @@ function mergeRules(f: Faction, v?: Variant): Rules {
 		freeItems: f.freeItems ?? [],
 		limits: f.limits ?? [],
 		prices: f.prices ?? [],
-		patron: f.patron
+		patron: f.patron,
+		grant: f.grant ?? [],
+		thresholdModifier: f.thresholdModifier ?? 0
 	};
 	const o = v?.rules ?? {};
 	if (o.startDucats !== undefined) r.startDucats = o.startDucats;
@@ -158,6 +167,8 @@ function mergeRules(f: Faction, v?: Variant): Rules {
 	if (o.mustInclude) r.mustInclude = o.mustInclude;
 	if (o.prices) r.prices = o.prices;
 	if (o.patron !== undefined) r.patron = o.patron;
+	if (o.grant) r.grant = [...r.grant, ...o.grant];
+	if (o.thresholdModifier !== undefined) r.thresholdModifier = o.thresholdModifier;
 	if (o.limits) r.limits = byName(r.limits, o.limits);
 	if (o.caps)
 		r.caps = [...r.caps.filter((c) => !o.caps!.some((d) => d.unit === c.unit)), ...o.caps];
@@ -189,17 +200,26 @@ function hires(u: Unit, f: Faction, v?: Variant) {
 	return !h?.alignment || h.alignment === f.alignment;
 }
 
+/** The variant a faction's dedication lays over it (a Sin), if it names one. */
+export const dedicationVariant = (f: Faction, key: string | undefined) =>
+	key ? f.dedications?.find((d) => d.key === key)?.variant : undefined;
+
 export function resolveFaction(
 	input: SetWithBase,
 	factionId: string,
-	variantId?: string
+	variantId?: string,
+	dedication?: string
 ): Resolved {
 	const set = mergeSets(input);
 	const faction = set.factions.find((f) => f.id === factionId);
 	if (!faction) throw new Error(`No faction ${factionId} in ${set.manifest.id}.`);
-	const variant = variantId ? set.variants.find((v) => v.id === variantId) : undefined;
-	if (variantId && (!variant || variant.faction !== faction.id))
-		throw new Error(`No variant ${variantId} of ${factionId} in ${set.manifest.id}.`);
+	const viaDedication = dedicationVariant(faction, dedication);
+	if (variantId && viaDedication)
+		throw new Error(`${factionId}: a dedication with an overlay cannot be taken with a variant.`);
+	const vid = variantId ?? viaDedication;
+	const variant = vid ? set.variants.find((v) => v.id === vid) : undefined;
+	if (vid && (!variant || variant.faction !== faction.id))
+		throw new Error(`No variant ${vid} of ${factionId} in ${set.manifest.id}.`);
 	const rules = mergeRules(faction, variant);
 	const out = new Set(rules.excluded);
 	const keep = <T extends { id: string }>(xs: T[]) => xs.filter((x) => !out.has(x.id));
@@ -243,7 +263,8 @@ export function resolveFaction(
 		set,
 		faction,
 		variant,
-		name: variant?.name ?? faction.name,
+		dedication: viaDedication ? dedication : undefined,
+		name: viaDedication ? faction.name : (variant?.name ?? faction.name),
 		alignment: faction.alignment,
 		rules,
 		units,

@@ -11,6 +11,15 @@ import { z } from 'zod';
 export const GROUPS = ['elite', 'troop', 'mercenary', 'special', 'dead'] as const;
 export type Group = (typeof GROUPS)[number];
 
+/**
+ * A fighter's campaign status (Rulebook, Trauma Step): on the roster (active, misses the next game, captured) or
+ * gone from it (unfit for duty at the third Battle Scar, retired, dead). The old `dead` group reads as dead.
+ */
+export const STATUSES = ['active', 'misses_next', 'captured', 'unfit', 'retired', 'dead'] as const;
+export type Status = (typeof STATUSES)[number];
+/** Statuses that keep a fighter on the roster: it counts for the rating and the limits. */
+export const ON_ROSTER: readonly Status[] = ['active', 'misses_next', 'captured'];
+
 const lineId = z.string().regex(/^line:/, 'Use the line id the kit was bought from (line:…).');
 
 const price = z.object({ ducats: z.number().int(), glory: z.number().int() }).strict();
@@ -33,6 +42,9 @@ export const fighterSchema = z
 		/** Table rows (`table:trauma#11`) or free text. */
 		injuries: z.array(z.string().min(1)),
 		xp: z.number().int().min(0),
+		status: z.enum(STATUSES).optional(),
+		/** Battle Scars: the third makes the fighter unfit for duty. */
+		scars: z.number().int().min(0).optional(),
 		/** What was recorded as paid (an import's totals, a campaign purchase); the engine always prices by rule. */
 		paid: price.optional()
 	})
@@ -137,5 +149,6 @@ const singular = (s: string) =>
 /** The same name but for a plural; never one name inside another ("Raiders" is not "Anointed Raiders"). */
 export const sameName = (a: string, b: string) => singular(letters(a)) === singular(letters(b));
 
-export const isActive = (f: Fighter) => f.group !== 'dead';
+export const isActive = (f: Pick<Fighter, 'group' | 'status'>) =>
+	f.group !== 'dead' && ON_ROSTER.includes(f.status ?? 'active');
 export const coin = (c: 'ducats' | 'glory') => (c === 'glory' ? 'Glory' : 'Ducats');

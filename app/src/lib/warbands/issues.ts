@@ -131,11 +131,12 @@ function rosterIssues(models: Model[], state: WarbandState, f: Resolved, out: Ra
 	if (f.faction.requiresVariant && !f.variant)
 		out.push({ code: 'variant', text: "The warband must be one of its faction's variants." });
 	const ded = f.faction.dedications ?? [];
+	// A dedication that lays an overlay (a Sin) changes the list itself, so a list without one is not finished.
 	if (ded.length && !ded.some((d) => d.key === state.dedication))
 		out.push({
 			code: 'dedication',
 			text: `The warband must choose one of: ${ded.map((d) => d.name).join(', ')}.`,
-			warning: true
+			warning: !ded.some((d) => d.variant)
 		});
 }
 

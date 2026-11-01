@@ -69,7 +69,7 @@ function load(dir: string, seen = new Set<string>()): SetWithBase {
 function build(set: SetWithBase, l: LegalList) {
 	const variant = mergeSets(set).variants.find((v) => v.id === l.target);
 	const factionId = variant?.faction ?? l.target;
-	const f = resolveFaction(set, factionId, variant?.id);
+	const f = resolveFaction(set, factionId, variant?.id, l.dedication);
 	let n = 0;
 	const problems: string[] = [];
 	// A list names items; the warband holds lines. Take the best line, else any line of the item (so an excluded

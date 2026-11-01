@@ -4,9 +4,11 @@
  */
 export {
 	resolveFaction,
+	dedicationVariant,
 	mergeSets,
 	patronAllowed,
 	nameOf,
+	unitKey,
 	type Resolved,
 	type SetWithBase
 } from './resolve.ts';
@@ -17,7 +19,9 @@ export {
 	canStash,
 	availableUnits,
 	availableLines,
-	upgradeFor
+	upgradeFor,
+	capOf,
+	limitCount
 } from './checks.ts';
 export { canCopy } from './copy.ts';
 export { canChange } from './change.ts';
@@ -43,3 +47,4 @@ export { toText, fromText, parseText, refName, fighterLabel } from './text.ts';
 export { toJson, fromJson, fromTcJson, parseTcJson } from './json.ts';
 export { matchNamed, factionByName, findByName, skillRef, type Named } from './match.ts';
 export * from './types.ts';
+export * as campaign from './campaign.ts';

@@ -12,7 +12,7 @@
 import { bestLine, linesFor } from './model.ts';
 import { mergeSets, resolveFaction, type Resolved, type SetWithBase } from './resolve.ts';
 import { letters, sameName } from './types.ts';
-import type { Fighter, Group, Price, WarbandState } from './types.ts';
+import type { Fighter, Group, Price, Status, WarbandState } from './types.ts';
 
 export interface NamedFighter {
 	unit: string;
@@ -23,6 +23,7 @@ export interface NamedFighter {
 	skills: string[];
 	injuries: string[];
 	xp: number;
+	status?: Status;
 	paid?: Price;
 }
 
@@ -64,6 +65,9 @@ export function findByName<T extends { name: string }>(
 }
 
 /** A faction or variant by the name an export prints. */
+/** Which faction an import goes into: a variant, or a dedication (a Sin) that lays one. */
+export type Into = { factionId: string; variantId?: string; dedication?: string };
+
 export function factionByName(set: SetWithBase, name: string | undefined) {
 	const s = mergeSets(set);
 	if (!name) return null;
@@ -71,7 +75,15 @@ export function factionByName(set: SetWithBase, name: string | undefined) {
 	const v = find(s.variants, name);
 	const f = v ? undefined : (find(s.factions, name) ?? undefined);
 	const v2 = v ?? (f ? undefined : findByName(s.variants, name));
-	if (v2) return { factionId: v2.faction, variantId: v2.id };
+	if (v2) {
+		// A Sin's overlay is chosen as the faction's dedication, not as a variant.
+		const ded = s.factions
+			.find((x) => x.id === v2.faction)
+			?.dedications?.find((d) => d.variant === v2.id);
+		return ded
+			? { factionId: v2.faction, variantId: undefined, dedication: ded.key }
+			: { factionId: v2.faction, variantId: v2.id };
+	}
 	const f2 = f ?? findByName(s.factions, name);
 	return f2 ? { factionId: f2.id, variantId: undefined } : null;
 }
@@ -92,7 +104,7 @@ export function skillRef(f: Resolved, n: string): string | undefined {
 export function matchNamed(
 	named: Named,
 	set: SetWithBase,
-	into?: { factionId: string; variantId?: string }
+	into?: Into
 ): { state: WarbandState; unmatched: string[]; ambiguous: string[] } {
 	const unmatched: string[] = [];
 	// An item with more than one line in the source it was taken from: the first was taken, the player may change it.
@@ -112,7 +124,7 @@ export function matchNamed(
 	const which = into ?? factionByName(set, named.faction);
 	if (!which)
 		throw new Error(`No faction or variant named "${named.faction ?? ''}" in these rules.`);
-	const f = resolveFaction(set, which.factionId, which.variantId);
+	const f = resolveFaction(set, which.factionId, which.variantId, which.dedication);
 	const all = [...f.units, ...f.mercenaries, ...f.set.units];
 	const kept: number[] = [];
 	const fighters: Fighter[] = [];
@@ -159,6 +171,7 @@ export function matchNamed(
 			skills: refs(x.skills, 'skill'),
 			injuries: refs(x.injuries, 'injury'),
 			xp: x.xp,
+			...(x.status && x.status !== 'active' ? { status: x.status } : {}),
 			...(x.paid ? { paid: x.paid } : {})
 		});
 	});
@@ -179,7 +192,8 @@ export function matchNamed(
 		setId: f.set.manifest.id,
 		...(named.name ? { name: named.name } : {}),
 		factionId: f.faction.id,
-		...(f.variant ? { variantId: f.variant.id } : {}),
+		...(f.variant && !f.dedication ? { variantId: f.variant.id } : {}),
+		...(f.dedication ? { dedication: f.dedication } : {}),
 		...(patron ? { patronId: patron.id } : {}),
 		// A warband well into a campaign is rated above its starting Ducats; its rating is the limit it has reached.
 		ducatLimit: Math.max(f.rules.startDucats, named.rating ?? 0),

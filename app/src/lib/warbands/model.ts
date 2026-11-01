@@ -121,7 +121,13 @@ export function buildModel(
 	].filter((c): c is Carried => !!c);
 	const skills = [...fighter.skills, ...fighter.injuries];
 	const fx = effectsOf(skills, f.set.tables);
-	const refs: KwRef[] = [...unit.keywords, ...upgrades.flatMap((u) => u.keywords ?? [])];
+	// A faction or variant grant (Undead Horror) is every model's, the Mercenaries' excepted.
+	const granted = unit.category === 'mercenary' ? [] : f.rules.grant;
+	const refs: KwRef[] = [
+		...unit.keywords,
+		...granted,
+		...upgrades.flatMap((u) => u.keywords ?? [])
+	];
 	const kws = new Set(refs.map((r) => r.kw));
 	for (const k of fx.keywords) kws.add(k);
 	for (const k of fx.removed) kws.delete(k);

@@ -102,6 +102,26 @@ describe('the Trench Companion text export', () => {
 		expect(back.fighters[0]?.paid).toEqual({ ducats: 70, glory: 0 });
 	});
 
+	it('lists fighters off the roster under Dead with their status, and reads the status back', () => {
+		const order = resolveFaction(core, 'faction:order');
+		const killed = fighter(U('trooper'), { name: 'Kell', status: 'dead' });
+		const gone = fighter(U('trooper'), { name: 'Old Bram', status: 'retired' });
+		const away = fighter(U('trooper'), { name: 'Pike', status: 'captured' });
+		const text = toText(wb([fighter(U('captain')), killed, gone, away]), order);
+		const dead = text.slice(text.indexOf('## Dead ##'));
+		expect(dead).toContain('Trooper - Kell\n• Cost: 20 Ducats | 0 Glory\n• Status: Dead');
+		expect(dead).toContain('• Status: Retired');
+		expect(dead).not.toContain('Pike');
+		expect(text).toContain('• Status: Captured');
+		const back = fromText(text, core).state.fighters;
+		expect(back.map((x) => [x.name, x.status ?? 'active'])).toEqual([
+			[undefined, 'active'],
+			['Pike', 'captured'],
+			['Kell', 'dead'],
+			['Old Bram', 'retired']
+		]);
+	});
+
 	it("takes the text's rating as the ducat limit when it is above the starting Ducats", () => {
 		const text =
 			'Old Hands\nFaction: Order of Tests\nRating: 900 Ducats | 4 Glory\n\nElites\n\nCaptain\n• Cost: 60 Ducats | 0 Glory';

@@ -43,6 +43,22 @@ describe('limits: an action that newly breaks a max is refused; what a finished 
 		expect(canRecruit(wb([...devils, fighter(U('wretch'))]), f, U('wretch')).ok).toBe(false);
 	});
 
+	it('"must be outnumbered by" is not broken by a warband with none of the outnumbered models', () => {
+		const f = order({
+			text: 'Wretches outnumbered',
+			models: { units: [U('wretch')] },
+			max: 1,
+			per: { models: { keywords: ['kw:demonic'] }, strict: true }
+		});
+		const texts = (s: WarbandState) => issues(s, f).map((i) => i.text);
+		expect(texts(wb([fighter(U('trooper'))]))).not.toContainEqual(
+			expect.stringMatching(/Wretches outnumbered/)
+		);
+		expect(texts(wb([fighter(U('wretch'))]))).toContainEqual(
+			expect.stringMatching(/Wretches outnumbered/)
+		);
+	});
+
 	it('no more ranged weapons than melee weapons (per items, warband kit)', () => {
 		const f = order({
 			text: 'Not more ranged than melee',

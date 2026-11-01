@@ -77,7 +77,9 @@ export type AuditAction =
 	| 'homebrew.updated'
 	| 'homebrew.shared'
 	| 'homebrew.unshared'
-	| 'homebrew.deleted';
+	| 'homebrew.deleted'
+	| 'card_frame.set'
+	| 'card_frame.removed';
 
 export function record(
 	tx: Tx,

@@ -81,7 +81,7 @@
 				{#if unit}
 					<div class="stats">
 						{#each STATS as s (s)}<div>
-								<span>{m.rules.stats[s]}</span><b class="data">{unit.stats[s] ?? '—'}</b>
+								<span>{m.rules.stats[s]}</span><b class="data">{x.stats[s] ?? '—'}</b>
 							</div>{/each}
 					</div>
 				{/if}

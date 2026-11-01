@@ -41,6 +41,7 @@ import {
 } from '#lib/schemas/rules';
 import * as w from '#lib/schemas/warbands';
 import * as hb from '#lib/schemas/homebrew';
+import * as cf from '#lib/schemas/card-frames';
 import * as t from '#lib/api-types';
 import { ERROR_STATUS, type ErrorCode } from '../errors';
 import { SESSION_COOKIE } from './index';
@@ -590,6 +591,7 @@ export const ENDPOINTS: Endpoint[] = [
 	},
 	...warbandEndpoints(),
 	...homebrewEndpoints(),
+	...cardFrameEndpoints(),
 	{
 		method: 'get',
 		path: '/openapi.json',
@@ -805,6 +807,40 @@ function warbandEndpoints(): Endpoint[] {
 			ok: { status: 200, schema: w.campaignWarbandsOut },
 			errors: [...read, 'forbidden']
 		})
+	];
+}
+
+/** The fighter-card frame endpoints (step 4 revision 3): the Owner's frame per faction, variant or Sin. */
+function cardFrameEndpoints(): Endpoint[] {
+	const params = z.object({ target: cf.frameTarget });
+	return [
+		{
+			method: 'get',
+			path: '/card-frames',
+			summary: 'Every uploaded fighter-card frame.',
+			auth: true,
+			ok: { status: 200, schema: cf.cardFramesOut },
+			errors: ['unauthenticated']
+		},
+		{
+			method: 'put',
+			path: '/card-frames/{target}',
+			summary: 'Upload the card frame of a faction, variant or Sin (PNG, exactly 800×1000, 2 MB).',
+			auth: true,
+			params,
+			upload: true,
+			ok: { status: 200, schema: cf.cardFrameOut },
+			errors: [...WRITE, 'unauthenticated', 'not_found']
+		},
+		{
+			method: 'delete',
+			path: '/card-frames/{target}',
+			summary: 'Remove the card frame of a faction, variant or Sin.',
+			auth: true,
+			params,
+			ok: { status: 204 },
+			errors: [...WRITE, 'unauthenticated', 'not_found']
+		}
 	];
 }
 

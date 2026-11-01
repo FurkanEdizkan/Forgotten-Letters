@@ -34,6 +34,7 @@ export const seatRef = z
 		campaignId: z.uuid(),
 		campaignName: z.string(),
 		seatId: z.uuid(),
+		seatName: z.string(),
 		allowBeyondLimits: z.boolean()
 	})
 	.meta({ id: 'WarbandSeat' });
@@ -55,6 +56,8 @@ export const fighterOut = z
 				itemId: z.string(),
 				name: z.string(),
 				category: z.string(),
+				/** A weapon's range as printed (24", Melee); null for other kit. */
+				range: z.string().nullable(),
 				fixed: z.boolean(),
 				/** What it is worth to the warband now (a refund gives this back); `sell` is half, rounded up. */
 				price,
@@ -77,6 +80,14 @@ export const fighterOut = z
 		promotion: z.string().nullable(),
 		/** The image's address, or null for the empty slot. */
 		image: z.string().nullable(),
+		/** The profile the card and play mode show; armour counts bought armour and shields (revision 3, D7). */
+		stats: z.object({
+			movement: z.string().nullable(),
+			ranged: z.string().nullable(),
+			melee: z.string().nullable(),
+			armour: z.string().nullable(),
+			base: z.string().nullable()
+		}),
 		version: z.number().int()
 	})
 	.meta({ id: 'Fighter' });
@@ -150,6 +161,8 @@ export const warbandOut = z
 		elites: z.number().int(),
 		/** The caller may change the Patron now (R8: the owner until the first game, then the CM). */
 		canChangePatron: z.boolean(),
+		/** The fighter-card frame: the variant's or Sin's, else the faction's; null for the built-in frame. */
+		frame: z.string().nullable(),
 		/** The caller owns it; a campaign master sees it read-only. */
 		canEdit: z.boolean(),
 		version: z.number().int()

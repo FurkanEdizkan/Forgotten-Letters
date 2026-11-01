@@ -4,6 +4,7 @@
  * Scars, promotion), the Arsenal, the next game's Threshold and field strength, and the problems the engine finds.
  */
 import {
+	armourOf,
 	buildModel,
 	campaign,
 	fighterCosts,
@@ -18,6 +19,7 @@ import {
 import type { ApiFighter, ApiWarband, ApiWarbandCard } from '#lib/schemas/warbands';
 import type { Tx } from '../db';
 import * as repo from '../repos/warbands';
+import { frameFor } from './card-frames';
 import { toFighter, type Loaded } from './warband-state';
 
 const seatOut = (s: repo.SeatOf | null) =>
@@ -26,6 +28,7 @@ const seatOut = (s: repo.SeatOf | null) =>
 				campaignId: s.campaignId,
 				campaignName: s.campaignName,
 				seatId: s.seatId,
+				seatName: s.seatName,
 				allowBeyondLimits: s.allowBeyondLimits
 			}
 		: null;
@@ -94,6 +97,7 @@ function fighterOut(l: Loaded, r: repo.FighterRow, cost: Price, marks: number[])
 			itemId,
 			name: nameOf(f, itemId),
 			category: f.idx.items.get(itemId)?.category ?? 'equipment',
+			range: f.idx.items.get(itemId)?.range ?? null,
 			fixed,
 			...(lineId && !fixed ? piece(l, r.id, lineId) : { price: zero, sell: zero, buy: zero })
 		};
@@ -122,6 +126,14 @@ function fighterOut(l: Loaded, r: repo.FighterRow, cost: Price, marks: number[])
 		scars: r.battleScars,
 		promotion: campaign.promotion(l.state, f, x),
 		image: r.image ? `/uploads/fighters/${r.id}?v=${r.version}` : null,
+		stats: {
+			movement: unit?.stats.movement ?? null,
+			ranged: unit?.stats.ranged ?? null,
+			melee: unit?.stats.melee ?? null,
+			// An entry with no Armour shows a dash, not a computed 0.
+			armour: unit?.stats.armour == null ? null : model ? armourOf(model, f) : unit.stats.armour,
+			base: unit?.stats.base ?? null
+		},
 		version: r.version
 	};
 }
@@ -177,6 +189,7 @@ export async function viewOf(tx: Tx, l: Loaded): Promise<ApiWarband> {
 		advancementMarks: marks,
 		elites: campaign.elites(l.state, l.f),
 		canChangePatron: patronChangeable(l),
+		frame: await frameFor(tx, l.f),
 		canEdit: l.canEdit,
 		version: l.w.version
 	};

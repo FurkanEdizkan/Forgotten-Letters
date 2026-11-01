@@ -13,7 +13,8 @@ export const OWNER_SECTIONS = [
 	{ path: '/owner/settings', label: m.owner.tabs.settings },
 	{ path: '/owner/audit', label: m.owner.tabs.audit },
 	{ path: '/owner/backups', label: m.owner.tabs.backups },
-	{ path: '/owner/rules', label: m.owner.tabs.rules }
+	{ path: '/owner/rules', label: m.owner.tabs.rules },
+	{ path: '/owner/frames', label: m.owner.tabs.frames }
 ] as const;
 
 /** The compendium, open to every signed-in role; shown in the panel after the person's own areas. */

@@ -63,12 +63,13 @@
 				{#if x.status !== 'active'}<span class="st">{b.statuses[x.status]}</span>{/if}
 			</header>
 			{#if unit}
+				<!-- The fighter's own profile: armour with bought armour and shields, as on its card (revision 3, D7). -->
 				<div class="stats">
 					{#each STATS as s (s)}<div>
-							<span>{m.rules.stats[s]}</span><b class="data">{unit.stats[s] ?? '—'}</b>
+							<span>{m.rules.stats[s]}</span><b class="data">{x.stats[s] ?? '—'}</b>
 						</div>{/each}
-					{#if unit.stats.base}<div>
-							<span>{m.rules.stats.base}</span><b class="data">{unit.stats.base}</b>
+					{#if x.stats.base}<div>
+							<span>{m.rules.stats.base}</span><b class="data">{x.stats.base}</b>
 						</div>{/if}
 				</div>
 			{/if}

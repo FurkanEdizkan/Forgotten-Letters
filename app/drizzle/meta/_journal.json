@@ -64,6 +64,13 @@
       "when": 1793552414672,
       "tag": "0008_warband_campaign",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793573444121,
+      "tag": "0009_card_frames",
+      "breakpoints": true
     }
   ]
 }

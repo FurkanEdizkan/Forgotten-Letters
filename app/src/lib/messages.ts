@@ -569,7 +569,30 @@ export const m = {
 			settings: 'Settings',
 			audit: 'Audit log',
 			backups: 'Backups',
-			rules: 'Rules data'
+			rules: 'Rules data',
+			frames: 'Card frames'
+		},
+		frames: {
+			heading: 'Card frames',
+			intro:
+				"Each faction's fighter cards can have their own frame: a PNG of exactly 800×1000 with a transparent window, drawn over the card. A variant or Sin without its own frame uses its faction's; a faction without one uses the built-in frame. Frames are your group's own art.",
+			template: 'Download template',
+			templateBand: 'Frame band: draw here',
+			templatePhoto: 'Photo window: keep clear',
+			templateText: 'Text area: keep clear',
+			target: 'Faction, variant or Sin',
+			frame: 'Frame',
+			kinds: { faction: '', variant: 'variant', sin: 'Sin' } as Record<string, string>,
+			builtIn: 'built-in frame',
+			usesFaction: (name: string) => `uses ${name}'s`,
+			uploaded: 'uploaded',
+			upload: 'Upload',
+			replace: 'Replace',
+			remove: 'Remove',
+			pick: (name: string) => `Frame for ${name}`,
+			saved: 'Frame saved.',
+			removed: 'Frame removed.',
+			empty: 'No rules are loaded, so there are no factions to frame. Load rules under Rules data.'
 		},
 		httpWarning:
 			'This copy is served over plain HTTP. Passwords and sessions cross the network unencrypted. Use the https profile on an internet server.'
@@ -726,7 +749,9 @@ export const m = {
 			'homebrew.updated': 'Saved a homebrew set',
 			'homebrew.shared': 'Shared a homebrew set',
 			'homebrew.unshared': 'Made a homebrew set private',
-			'homebrew.deleted': 'Deleted a homebrew set'
+			'homebrew.deleted': 'Deleted a homebrew set',
+			'card_frame.set': 'Uploaded a card frame',
+			'card_frame.removed': 'Removed a card frame'
 		} as Record<string, string>,
 		roleChange: (from: string, to: string) => `${from} to ${to}`,
 		invite: 'an invite'
@@ -972,6 +997,41 @@ export const m = {
 			patronLater: 'Choose the Patron afterwards, on the Campaign panel.',
 			noRules: 'No rules are loaded yet. Ask an Owner to add the rules folders.',
 			cancel: 'Cancel'
+		},
+		cards: {
+			open: 'Card',
+			download: 'Download PNG',
+			failed: 'The card could not be saved. Try again.',
+			groupFrame: "The card uses your group's frame for this faction.",
+			builtInFrame: 'The card uses the built-in frame; the Owner can upload one for this faction.',
+			noPhoto: 'Add a photo on the fighter panel to put it on the card.',
+			size: (w: number, h: number) => `The PNG is ${w}×${h}.`,
+			labels: {
+				stats: {
+					movement: 'Move',
+					ranged: 'Ranged',
+					melee: 'Melee',
+					armour: 'Armour',
+					base: 'Base'
+				},
+				experience: 'Experience',
+				weapons: 'Weapons',
+				kit: 'Other kit',
+				skills: 'Skills',
+				injuries: 'Injuries',
+				keywords: 'Keywords',
+				status: 'Status',
+				statuses: {
+					active: 'Active',
+					misses_next: 'Misses the next game',
+					captured: 'Captured',
+					unfit: 'Unfit for duty',
+					retired: 'Retired',
+					dead: 'Dead'
+				} as Record<string, string>,
+				xp: (n: number, max: number | null) => (max == null ? `${n} XP` : `${n} of ${max} XP`),
+				app: 'Forgotten Letters'
+			}
 		},
 		builder: {
 			readOnly: (owner: string) =>

@@ -12,6 +12,7 @@
 	import { m } from '#lib/messages';
 	import { setRulesView } from '#lib/ui/rules/context';
 	import Button from '#lib/ui/Button.svelte';
+	import CardDialog from '#lib/ui/cards/CardDialog.svelte';
 	import Message from '#lib/ui/Message.svelte';
 	import { isActive } from '#lib/warbands/types';
 	import CampaignPanel from '#lib/ui/warbands/CampaignPanel.svelte';
@@ -45,6 +46,10 @@
 	const wb = $derived(data.warband);
 	const beyond = $derived(wb.seat ? wb.seat.allowBeyondLimits : wb.ignoreLimits);
 	const chosen = $derived(wb.fighters.find((x) => x.id === data.sel) ?? null);
+	// The card dialog is drawn in the browser from the warband already loaded, so it needs nothing from the server.
+	const carded = $derived(
+		wb.fighters.find((x) => x.id === page.url.searchParams.get('card')) ?? null
+	);
 	const holders = $derived([
 		{ id: 'arsenal', label: b.arsenal },
 		...wb.fighters
@@ -104,6 +109,9 @@
 	</div>
 </div>
 
+{#if carded}
+	<CardDialog warband={wb} fighter={carded} onclose={close} />
+{/if}
 {#if data.recruits}
 	<RecruitDialog units={data.recruits} group={data.addGroup} {beyond} {form} onclose={close} />
 {/if}

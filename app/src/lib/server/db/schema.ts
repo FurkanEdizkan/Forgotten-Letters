@@ -508,6 +508,23 @@ export const fighters = warbandSchema.table(
 	]
 );
 
+/**
+ * The Owner's fighter-card frames (step 4 revision 3): one per faction, variant or Sin id (`target`, shared by every
+ * rules version that has it). The PNG lives in the uploads volume as `frames/<id>`; `version` goes up on each
+ * replace and keys the browser's cache.
+ */
+export const cardFrames = warbandSchema.table(
+	'card_frames',
+	{
+		id: id(),
+		target: text().notNull().unique(),
+		version: integer().notNull().default(1),
+		updatedBy: uuid().references(() => users.id, { onDelete: 'set null' }),
+		updatedAt: updatedAt()
+	},
+	(t) => [check('card_frames_target_length', sql`char_length(${t.target}) between 1 and 200`)]
+);
+
 export const homebrewSchema = pgSchema('homebrew');
 
 export const homebrewKind = homebrewSchema.enum('kind', ['faction', 'variant', 'items']);
@@ -573,4 +590,5 @@ export type RuleNodeRow = typeof ruleNodes.$inferSelect;
 export type RuleEdgeRow = typeof ruleEdges.$inferSelect;
 export type WarbandRow = typeof warbands.$inferSelect;
 export type FighterRow = typeof fighters.$inferSelect;
+export type CardFrameRow = typeof cardFrames.$inferSelect;
 export type HomebrewRow = typeof homebrewSets.$inferSelect;

@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 9, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 10, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 9, applied: 9 });
+		expect(await migrationState()).toEqual({ total: 10, applied: 10 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 9, applied: 9 });
+		expect(await migrationState()).toEqual({ total: 10, applied: 10 });
 		expect(backups).toBe(0);
 
 		const tables =
@@ -177,5 +177,24 @@ describe('migrations', () => {
 			{ grp: 'dead', status: 'dead', battle_scars: 0 },
 			{ grp: 'troop', status: 'active', battle_scars: 0 }
 		]);
+	});
+	it('upgrading from revision 2: warbands stay as they are; card frames start empty, one per target', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(9) });
+		const sql = sqlClient();
+		const [u] =
+			await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.owner', 'O', 'x', 'owner') returning id`;
+		await sql`insert into warband.warbands (owner_id, name, rules_set, faction_id, ducat_limit) values (${u!.id}, 'Salt Choir', 'core-1.0.2', 'faction:new-antioch', 700)`;
+		await runMigrations();
+		expect(await sql`select name from warband.warbands`).toEqual([{ name: 'Salt Choir' }]);
+		expect(await sql`select * from warband.card_frames`).toEqual([]);
+		const [f] =
+			await sql`insert into warband.card_frames (target, updated_by) values ('faction:new-antioch', ${u!.id}) returning version`;
+		expect(f).toEqual({ version: 1 });
+		await expect(
+			sql`insert into warband.card_frames (target) values ('faction:new-antioch')`
+		).rejects.toThrow(/card_frames_target_unique/);
+		await sql`delete from auth.users where id = ${u!.id}`;
+		expect(await sql`select updated_by from warband.card_frames`).toEqual([{ updated_by: null }]);
 	});
 });

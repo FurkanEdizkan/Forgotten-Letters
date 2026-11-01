@@ -1,9 +1,11 @@
 <!--
   A fighter's picture slot (empty until a picture is added): PNG, JPEG or WebP up to 2 MB, uploaded as soon as it is
-  picked, with Change and Remove for its owner, and the refusal under it.
+  picked, with Change and Remove for its owner, and the refusal under it. Card opens the fighter's card for anyone
+  who can see the warband (?card=<fighter>).
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
+	import IdCard from '@lucide/svelte/icons/id-card';
 	import ImagePlus from '@lucide/svelte/icons/image-plus';
 	import { m } from '#lib/messages';
 	import type { ApiFighter } from '#lib/schemas/warbands';
@@ -23,6 +25,9 @@
 	{:else}
 		<div class="slot" aria-hidden="true"><ImagePlus size={26} strokeWidth={1.25} /></div>
 	{/if}
+	<a class="card" href="?sel={x.id}&card={x.id}" data-sveltekit-noscroll
+		><IdCard size={16} aria-hidden={true} />{m.warbands.cards.open}</a
+	>
 	{#if canEdit}
 		<form
 			method="POST"
@@ -80,6 +85,12 @@
 		border-style: dashed;
 		background: var(--inset);
 		color: var(--bone-faint);
+	}
+	.card {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		color: var(--bone);
 	}
 	label.up,
 	.link {

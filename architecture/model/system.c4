@@ -53,8 +53,8 @@ model {
           }
         }
         areas = page 'App shell, role areas and account' {
-          technology '/owner · /owner/settings · /admin · /home · /account · /warbands · /uploads/fighters/[id]'
-          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list, new-warband wizard, builder); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.'
+          technology '/owner · /owner/settings · /admin · /home · /account · /warbands · /warbands/[id]/play · /uploads/fighters/[id]'
+          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.'
           metadata {
             code ['app/src/routes/(app)/**', 'app/src/routes/uploads/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
           }
@@ -105,7 +105,7 @@ model {
       warbandEngine = module 'Warband engine' {
         #pure
         technology 'pure TypeScript'
-        description 'Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, stash and upgrade checks, availability, hands, headgear, variant overlays, fireteams, patron skills, limits with per and when, prices; Trench Companion text export and import.'
+        description 'Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, Arsenal and upgrade checks, availability, hands, headgear, variant and dedication (Sin) overlays, fireteams, patron skills, limits with per and when (Arsenal copies count), prices, sell at half and refund before the first game, campaign progression (threshold and field strength by games played, advancement marks, promotion caps), derived keywords; Trench Companion text export and import, JSON import.'
         metadata {
           code 'app/src/lib/warbands/**'
         }
@@ -186,9 +186,9 @@ model {
         }
         warbandService = module 'Warbands' {
           #server-only
-          description 'A player\'s warbands: create, recruit, equip, stash, fireteams, locations, dead fighters, fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player\'s seat (one campaign at a time).'
+          description 'A player\'s warbands: create, copy, recruit, equip, the Arsenal (move, sell, refund, copy items), fireteams, locations, fighter campaign data (status, experience, scars, advancements, injuries, promotion), warband campaign data (games played, victory points, failed promotions, ignore limits), fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player\'s seat (one campaign at a time).'
           metadata {
-            code 'app/src/lib/server/services/{warbands,warband-roster,warband-stash,warband-seats,warband-state,fighter-images}{,.spec,.db.spec}.ts'
+            code 'app/src/lib/server/services/{warbands,warband-*,fighter-images}{,.spec,.db.spec}.ts'
           }
         }
         homebrewService = module 'Homebrew' {
@@ -248,7 +248,7 @@ model {
       }
 
       warbandTables = layer 'warband schema' {
-        description 'Players\' warbands (the stash, fireteams and locations as typed JSONB on the warband) and their fighters.'
+        description 'Players\' warbands (the Arsenal, fireteams and locations as typed JSONB on the warband; games played, victory points, failed promotions, ignore limits) and their fighters (status, battle scars, experience, advancements, injuries).'
         metadata {
           tables ['warbands', 'fighters']
         }

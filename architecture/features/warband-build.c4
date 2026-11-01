@@ -3,30 +3,42 @@ views {
   dynamic view warband_build {
     title 'Build a warband'
     description '''
-      **A player builds a warband like the Trench Companion builder: faction, variant, patron and limit, then fighters and their kit, checked on every change; then assigns it to their campaign seat.**
+      **A player builds a warband like the Trench Companion builder, by the books: faction (with its variant or Sin), name and
+      starting banks; then fighters and their kit on a two-column page, checked on every change; the Arsenal, campaign data
+      and play mode; then assigns it to their campaign seat.**
 
       **Decisions**
       - The player owns the warband; it sits in at most one campaign at a time (seats.warband_id is unique).
       - Every change runs the warband engine; a refused change says why. A campaign whose CM allows going beyond
-        limits turns refusals into warnings for warbands in it.
-      - Groups: Elites, Troops, Mercenaries, Special, Dead; stash, fireteams, locations. Each fighter has an image slot
-        (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, stored in the uploads volume).
-      - Add fighter offers the entry's upgrades and loadouts; the engine checks them with the recruit, as one purchase.
+        limits turns refusals into warnings for warbands in it; outside a campaign the warband's own "ignore limits"
+        switch does the same (revision 2, R9).
+      - Groups: Elites, Troops, Mercenaries, Special; the Dead list shows fighters whose status is dead. Each fighter has
+        an image slot (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, in the uploads volume).
+      - Add fighter per group offers the entry's upgrades and loadouts and shows "n / max"; the engine checks them with
+        the recruit, as one purchase. The equip picker shows used / max, counting copies held in the Arsenal.
+      - Kit moves fighter to fighter and to and from the Arsenal. Sell gives half the price back, rounded up, in the
+        item's own currency; refund (full price) and fighter refund only while games played is 0 (a Trench Companion
+        convenience). Delete gives nothing back.
+      - Fighter campaign data is entered by hand: status (active, misses next game, captured, unfit, retired, dead),
+        experience with the advancement marks, battle scars (unfit at 3), advancements picked from the skill tables,
+        injuries from the trauma table, promote and demote (no more than 6 elites). Unfit sends the kit to the Arsenal.
+      - Threshold and field strength follow games played (Papal States 200 lower). The patron may change until the
+        first game, then only by the CM (R8). The Court's Sin is a dedication on the warband (R2).
+      - Play mode shows read-only fighter cards with full profiles and keyword pop-ups; print uses a print stylesheet.
       - A campaign keeps one rules version: the CM cannot change it while a seated warband uses other rules.
-      - Export as Trench Companion text and JSON; import Trench Companion text.
-      - The stash, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are
-        rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks; selling gives it
-        back.
+      - Export as Trench Companion text and JSON; import Trench Companion text and JSON.
+      - The Arsenal, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are
+        rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks.
     '''
-    user -> fl.app.web.areas 'new warband, add fighter, equip, upload image'
-    fl.app.web.areas -> fl.app.services.warbandService 'create / recruit / equip / image'
+    user -> fl.app.web.areas 'new warband, add fighter, equip, move, sell, campaign data, play'
+    fl.app.web.areas -> fl.app.services.warbandService 'create / recruit / equip / move / sell / refund / status / xp'
     fl.app.services.warbandService -> fl.app.services.rulesService 'the warband\'s rules set'
-    fl.app.services.warbandService -> fl.app.warbandEngine 'check the change'
+    fl.app.services.warbandService -> fl.app.warbandEngine 'check the change, sell value, refund window, progression'
     fl.app.services.warbandService -> fl.app.repos 'save with a version check'
-    fl.app.repos -> fl.app.warbandTables 'warbands, fighters, stash'
+    fl.app.repos -> fl.app.warbandTables 'warbands, fighters, Arsenal'
     user -> fl.app.web.areas 'assign to my seat'
     fl.app.web.areas -> fl.app.services.warbandService 'assignToSeat'
-    fl.app.services.warbandService -> fl.app.services.campaignService 'my seat, allow beyond limits'
+    fl.app.services.warbandService -> fl.app.services.campaignService 'my seat, allow beyond limits, CM for the patron'
     fl.app.services.warbandService -> fl.app.services.auditService 'record warband.assigned'
   }
 }

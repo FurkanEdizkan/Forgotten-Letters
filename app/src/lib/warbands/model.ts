@@ -198,7 +198,10 @@ export const negates = (m: Model, f: Resolved, kw: string) =>
  * value (fixed kit is already in the printed profile).
  */
 export function armourOf(m: Model, f: Resolved): string {
-	let v = Number.parseInt(m.unit.stats.armour ?? '0') || 0;
+	// A profile printing two values (one with and one without something) cannot be summed: it shows as printed.
+	const printed = m.unit.stats.armour?.trim();
+	if (printed && !/^[+-]?\d+$/.test(printed)) return printed;
+	let v = Number.parseInt(printed ?? '0') || 0;
 	for (const c of m.items) {
 		if (c.fixed || (c.item.category !== 'armour' && c.item.category !== 'shield')) continue;
 		for (const r of c.item.keywords) {

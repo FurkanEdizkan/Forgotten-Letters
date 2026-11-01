@@ -140,4 +140,12 @@ describe('keywords and armour', () => {
 		const h = fighter(U('hellknight'));
 		expect(armourOf(buildModel(wb([h]), f, h)!, f)).toBe('-1');
 	});
+	it('a profile with two Armour values keeps them as printed, bought armour or not', () => {
+		const f = resolveFaction(core, 'faction:order');
+		const unit = f.idx.units.get(U('trooper'))!;
+		const twin = { ...unit, stats: { ...unit.stats, armour: '-1/-2' } };
+		f.idx.units.set(U('trooper'), twin);
+		const t = fighter(U('trooper'), { kit: ['line:order/plate'] });
+		expect(armourOf(buildModel(wb([t]), f, t)!, f)).toBe('-1/-2');
+	});
 });

@@ -53,10 +53,10 @@ model {
           }
         }
         areas = page 'App shell, role areas and account' {
-          technology '/owner · /owner/settings · /admin · /home · /account'
-          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings.'
+          technology '/owner · /owner/settings · /admin · /home · /account · /warbands · /uploads/fighters/[id]'
+          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list, new-warband wizard, builder); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.'
           metadata {
-            code ['app/src/routes/(app)/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
+            code ['app/src/routes/(app)/**', 'app/src/routes/uploads/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
           }
         }
         api = endpoint 'JSON API v1' {
@@ -90,6 +90,24 @@ model {
         description 'Pure code used by pages, the API and services: role ranks and can(), input schemas, API types, the password strength rule, the house rule preset catalogue.'
         metadata {
           code ['app/src/lib/roles.ts', 'app/src/lib/campaign-stage.ts', 'app/src/lib/campaign-rights.ts', 'app/src/lib/password-strength.ts', 'app/src/lib/house-rule-presets.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
+        }
+      }
+
+      rulesLib = module 'Rules format and graph' {
+        #pure
+        technology 'zod · d3-force (graph view)'
+        description 'The rules folder format (one folder per version: core 1.0.1, core 1.0.2, Carcass Front; homebrew in the same shape), the checker that every id resolves, the edges between elements, the diff between versions.'
+        metadata {
+          code 'app/src/lib/rules/**'
+        }
+      }
+
+      warbandEngine = module 'Warband engine' {
+        #pure
+        technology 'pure TypeScript'
+        description 'Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, stash and upgrade checks, availability, hands, headgear, variant overlays, fireteams, patron skills, limits with per and when, prices; Trench Companion text export and import.'
+        metadata {
+          code 'app/src/lib/warbands/**'
         }
       }
 
@@ -159,6 +177,27 @@ model {
             code 'app/src/lib/server/services/join-requests{,.spec,.db.spec}.ts'
           }
         }
+        rulesService = module 'Rules data' {
+          #server-only
+          description 'Reads the mounted rules folders at start and on the Owner\'s Reload, checks each (a broken folder is not loaded and says why), caches nodes and edges, answers compendium searches, element pages with their links, and version diffs. Indexes homebrew sets beside the folders as hb:<id> (on every save and every load) and shows one only to its maker until shared.'
+          metadata {
+            code 'app/src/lib/server/services/{rules,rules-load}{,.spec,.db.spec}.ts'
+          }
+        }
+        warbandService = module 'Warbands' {
+          #server-only
+          description 'A player\'s warbands: create, recruit, equip, stash, fireteams, locations, dead fighters, fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player\'s seat (one campaign at a time).'
+          metadata {
+            code 'app/src/lib/server/services/{warbands,warband-roster,warband-stash,warband-seats,warband-state,fighter-images}{,.spec,.db.spec}.ts'
+          }
+        }
+        homebrewService = module 'Homebrew' {
+          #server-only
+          description 'Player-made factions, variants and items in the rules format: create blank or from a copy, edit, check, share with the install, export and import; indexed like a rules set so the compendium and builder use it; campaigns allow chosen homebrew.'
+          metadata {
+            code 'app/src/lib/server/services/homebrew{,.spec,.db.spec}.ts'
+          }
+        }
         backupService = module 'Backups' {
           #server-only
           description 'pg_dump before migrations and daily (14 days kept); owner download and restore.'
@@ -198,6 +237,27 @@ model {
         description 'Campaigns, who runs them (members: CM and co-CMs), their seats, one-time seat links and join requests. Everything cascades from the campaign, so the 30-day purge removes it all.'
         metadata {
           tables ['campaigns', 'members', 'seats', 'seat_invites', 'join_requests']
+        }
+      }
+
+      rulesTables = layer 'rules schema' {
+        description 'A cache of the loaded rules folders and homebrew sets: sets (with their check report), nodes (elements) and edges (links between them). Rebuilt from the folders at start and on Reload.'
+        metadata {
+          tables ['sets', 'nodes', 'edges']
+        }
+      }
+
+      warbandTables = layer 'warband schema' {
+        description 'Players\' warbands (the stash, fireteams and locations as typed JSONB on the warband) and their fighters.'
+        metadata {
+          tables ['warbands', 'fighters']
+        }
+      }
+
+      homebrewTables = layer 'homebrew schema' {
+        description 'Player-made rules sets in the rules folder format.'
+        metadata {
+          tables ['homebrew_sets']
         }
       }
 
@@ -242,6 +302,28 @@ model {
   fl.app.services -> fl.app.repos 'reads and writes'
   fl.app.services -> fl.app.infra 'config, logging, transactions'
   fl.app.services -> fl.app.shared 'roles, schemas'
+  fl.app.services.rulesService -> fl.app.rulesLib 'checks folders, derives edges'
+  fl.app.services.warbandService -> fl.app.warbandEngine 'checks every change'
+  fl.app.services.warbandService -> fl.app.services.rulesService 'the warband\'s rules set'
+  fl.app.services.warbandService -> fl.app.services.campaignService 'seat assignment, allow beyond limits'
+  fl.app.services.warbandService -> fl.app.services.auditService 'records created, imported, deleted, seat assignment'
+  fl.app.services.warbandService -> fl.app.services.authService 'who is acting'
+  fl.app.services.peopleService -> fl.app.services.warbandService 'removes an anonymised account\'s warbands'
+  fl.app.services.campaignService -> fl.app.services.rulesService 'checks the campaign\'s rules version'
+  fl.app.services.rulesService -> fl.app.warbandEngine 'builds the set chain the engine reads'
+  fl.app.shared -> fl.app.warbandEngine 'fighter groups in the warband schemas'
+  fl.app.authTables -> fl.app.warbandEngine 'fighter groups behind the group enum'
+  fl.app.ui -> fl.app.warbandEngine 'fighter groups on the builder'
+  fl.app.services.homebrewService -> fl.app.rulesLib 'checks homebrew'
+  fl.app.services.homebrewService -> fl.app.services.rulesService 'indexes a homebrew set'
+  fl.app.services.homebrewService -> fl.app.services.auditService 'records made, imported, saved, shared, deleted'
+  fl.app.services.homebrewService -> fl.app.services.authService 'who is acting'
+  fl.app.services.peopleService -> fl.app.services.homebrewService 'removes an anonymised account\'s private homebrew'
+  fl.app.services.campaignService -> fl.app.rulesLib 'homebrew set ids in the allow-list'
+  fl.app.services.warbandService -> fl.app.rulesLib 'homebrew set ids in a warband\'s rules'
+  fl.app.warbandEngine -> fl.app.rulesLib 'reads rules sets'
+  fl.app.web -> fl.app.rulesLib 'compendium rendering, graph'
+  fl.app.web -> fl.app.warbandEngine 'live checks in the builder'
   fl.app.services.authService -> fl.app.services.auditService 'records sign-ins'
   fl.app.services.peopleService -> fl.app.services.auditService 'records changes'
   fl.app.services.peopleService -> fl.app.services.authService 'ends sessions'
@@ -283,4 +365,12 @@ model {
   fl.app.infra -> fl.app.services.campaignService 'daily purge of deleted campaigns and expired seat links'
   fl.app.infra -> fl.app.server 'asks it to listen on a new port'
   fl.app.infra -> fl.db 'pool, migrations, dumps'
+  fl.app.repos -> fl.app.rulesTables 'SQL'
+  fl.app.rulesTables -> fl.db 'stored in'
+  fl.app.services.rulesService -> fl.app.services.auditService 'records reloads'
+  fl.app.services.rulesService -> fl.app.services.authService 'who is acting; only an owner reloads'
+  fl.app.shared -> fl.app.rulesLib 'id and type enums for the rules API schemas'
+  fl.app.authTables -> fl.app.rulesLib 'edge kinds behind the check constraint, the report type'
+  fl.app.infra -> fl.app.rulesLib 'the problem shape for unreadable files'
+  fl.app.ui -> fl.app.rulesLib 'rules text, keyword pop-ups, graph layout'
 }

@@ -1,0 +1,22 @@
+// Feature: load the rules folders. Code: services/rules, lib/rules, routes ((app)/owner/rules; api/v1/rules).
+views {
+  dynamic view rules_load {
+    title 'Load the rules folders'
+    description '''
+      **At start, and when the Owner presses Reload, the app reads every rules version folder, checks it and caches its elements and links.**
+
+      **Decisions**
+      - One complete folder per version (core-1.0.1, core-1.0.2); an expansion (carcass-front-1.0) names its base.
+        A new version starts as a copy of the last folder, then is edited. The folder is git-ignored and mounted
+        read-only (RULES_DIR, default /data/rules): no book text ships with the app.
+      - The checker refuses unknown keys and any id that does not resolve; a folder that fails is not loaded, and the
+        Owner sees the file and id at fault. Loaded folders are cached as rules.sets, nodes and edges.
+      - Campaigns choose a core version (plus Carcass Front for that type); warbands keep theirs.
+    '''
+    owner -> fl.app.web.areas 'Owner, Rules data: Reload'
+    fl.app.web.areas -> fl.app.services.rulesService 'reload'
+    fl.app.services.rulesService -> fl.app.rulesLib 'parse, check, derive edges'
+    fl.app.services.rulesService -> fl.app.repos 'replace the cached sets, nodes and edges'
+    fl.app.repos -> fl.app.rulesTables 'one transaction'
+  }
+}

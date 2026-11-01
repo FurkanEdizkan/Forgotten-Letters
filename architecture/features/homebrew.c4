@@ -1,0 +1,31 @@
+// Feature: homebrew factions. Code: routes ((app)/homebrew/**; api/v1/homebrew), services/homebrew, lib/rules.
+views {
+  dynamic view homebrew {
+    title 'Homebrew factions'
+    description '''
+      **A player creates their own faction, variant or items with custom rules, in the rules folder format, and builds warbands with it.**
+
+      **Decisions**
+      - Start blank or from a copy of an official faction or variant. Tabs: faction rules, units, armoury, keywords,
+        sharing. The same checker as the rules folders runs live.
+      - Private until the creator shares it with the install; a CM chooses which homebrew a campaign allows.
+      - Stored in homebrew_sets (data in the rules format) and indexed into the rules cache as set hb:<id>, so the
+        compendium, graph and builder treat it like any other set. Exports and imports as a rules folder.
+      - Saves send the whole set with its version; a draft with problems saves with its report, and the cache keeps
+        the last version that passed (last_good), so warbands built on it keep loading.
+      - Ids live in the set's namespace (type:hb-<tag>/…); a copy clones what the faction or variant owns.
+      - Decisions 61 to 63.
+    '''
+    user -> fl.app.web.areas 'new homebrew, edit units and armoury, share'
+    fl.app.web.areas -> fl.app.services.homebrewService 'create / update / share'
+    fl.app.services.homebrewService -> fl.app.rulesLib 'check'
+    fl.app.services.homebrewService -> fl.app.repos 'save with a version check'
+    fl.app.repos -> fl.app.homebrewTables 'homebrew_sets'
+    fl.app.services.homebrewService -> fl.app.services.rulesService 'index as set hb:<id>'
+    admin -> fl.app.web.areas 'campaign settings: allow homebrew'
+    fl.app.web.areas -> fl.app.services.campaignService 'update homebrewSets'
+    fl.app.services.campaignService -> fl.app.services.rulesService 'check it builds on the campaign\'s rules'
+    user -> fl.app.web.areas 'new warband on homebrew, assign to seat'
+    fl.app.web.areas -> fl.app.services.warbandService 'create / assign (only if allowed)'
+  }
+}

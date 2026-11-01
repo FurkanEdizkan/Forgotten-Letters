@@ -1,0 +1,32 @@
+// Feature: build a warband. Code: routes ((app)/warbands/**; api/v1/warbands; uploads/fighters), services/warbands, lib/warbands.
+views {
+  dynamic view warband_build {
+    title 'Build a warband'
+    description '''
+      **A player builds a warband like the Trench Companion builder: faction, variant, patron and limit, then fighters and their kit, checked on every change; then assigns it to their campaign seat.**
+
+      **Decisions**
+      - The player owns the warband; it sits in at most one campaign at a time (seats.warband_id is unique).
+      - Every change runs the warband engine; a refused change says why. A campaign whose CM allows going beyond
+        limits turns refusals into warnings for warbands in it.
+      - Groups: Elites, Troops, Mercenaries, Special, Dead; stash, fireteams, locations. Each fighter has an image slot
+        (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, stored in the uploads volume).
+      - Add fighter offers the entry's upgrades and loadouts; the engine checks them with the recruit, as one purchase.
+      - A campaign keeps one rules version: the CM cannot change it while a seated warband uses other rules.
+      - Export as Trench Companion text and JSON; import Trench Companion text.
+      - The stash, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are
+        rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks; selling gives it
+        back.
+    '''
+    user -> fl.app.web.areas 'new warband, add fighter, equip, upload image'
+    fl.app.web.areas -> fl.app.services.warbandService 'create / recruit / equip / image'
+    fl.app.services.warbandService -> fl.app.services.rulesService 'the warband\'s rules set'
+    fl.app.services.warbandService -> fl.app.warbandEngine 'check the change'
+    fl.app.services.warbandService -> fl.app.repos 'save with a version check'
+    fl.app.repos -> fl.app.warbandTables 'warbands, fighters, stash'
+    user -> fl.app.web.areas 'assign to my seat'
+    fl.app.web.areas -> fl.app.services.warbandService 'assignToSeat'
+    fl.app.services.warbandService -> fl.app.services.campaignService 'my seat, allow beyond limits'
+    fl.app.services.warbandService -> fl.app.services.auditService 'record warband.assigned'
+  }
+}

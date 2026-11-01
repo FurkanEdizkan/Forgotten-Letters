@@ -1,0 +1,19 @@
+// Feature: read the rules. Code: routes ((app)/rules/**; api/v1/rules), services/rules, lib/rules.
+views {
+  dynamic view compendium {
+    title 'Compendium'
+    description '''
+      **Anyone signed in reads the rules by version: sections like the Trench Companion compendium, a page per element with every link in and out, keyword pop-ups and a neighbourhood graph.**
+
+      **Decisions**
+      - Sections: Core Rules, Warbands, Comprehensive Rules, Battlekit (by category, search and filters), Campaigns,
+        Scenarios, Errata & FAQ (what changed between two versions, from comparing the folders).
+      - The graph shows an element's neighbours to depth 2 (d3-force); clicking a node opens its page.
+      - Homebrew sets appear like any other set, marked Homebrew, to those who can see them.
+    '''
+    user -> fl.app.web.areas 'open /rules, search, open an element'
+    fl.app.web.areas -> fl.app.services.rulesService 'search, node with edges, diff'
+    fl.app.services.rulesService -> fl.app.repos 'nodes and edges by set'
+    fl.app.web.areas -> fl.app.rulesLib 'render text links, lay out the graph'
+  }
+}

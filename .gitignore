@@ -27,3 +27,6 @@ architecture/.atlas/
 
 # The built guide (guide/site/), rebuilt by zensical build
 /guide/site/
+
+# Python bytecode caches (tools/packs and other scripts)
+__pycache__/

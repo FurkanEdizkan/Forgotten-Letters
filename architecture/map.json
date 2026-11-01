@@ -44,7 +44,7 @@
    "id": "fl.app.web.areas",
    "kind": "page",
    "title": "App shell, role areas and account",
-   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list, new-warband wizard, builder); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.",
+   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/**",
@@ -471,7 +471,7 @@
    "id": "fl.app.web.areas.route_app_warbands",
    "kind": "page",
    "title": "/warbands",
-   "description": "actions: import\naction:import: Import a Trench Companion text export as a new warband; names that do not match are reported.\n  Who: anyone signed in.\n  In: form warbandImport { text, rules (core or core+expansion) }.\n  Out: { op: 'import', done: true, id, name, unmatched, ambiguous }.\n  Errors: 400 invalid not a warband, 401 unauthenticated, 404 not_found rules not loaded, 409 conflict no rules.",
+   "description": "actions: copy, import, remove\naction:copy: Copy one of my warbands from the list and open the copy.\n  Who: the warband's owner.\n  In: form { id }.\n  Out: redirect to the copy.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:import: Import a Trench Companion text or a JSON export (ours or Trench Companion's) as a new warband; names that do not match are reported; games already played set the refund window and the next game (R1).\n  Who: anyone signed in.\n  In: form warbandImport { text, format (text | json), gamesPlayed?, rules (core or core+expansion) }.\n  Out: { op: 'import', done: true, id, name, unmatched, ambiguous }.\n  Errors: 400 invalid not a warband, 401 unauthenticated, 404 not_found rules not loaded, 409 conflict no rules.\naction:remove: Delete one of my warbands from the list, for good.\n  Who: the warband's owner.\n  In: form { id }.\n  Out: { op: 'remove', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/warbands/+page.server.ts",
@@ -486,7 +486,7 @@
    "id": "fl.app.web.areas.route_app_warbands_id",
    "kind": "page",
    "title": "/warbands/[id]",
-   "description": "actions: assign, buy, clearImage, editFighter, fireteams, image, locations, patch, recruit, remove, removeFighter, removeUpgrade, sell, stashBuy, stashGive, stashSell, unassign, upgrade\naction:assign: Put this warband in my seat of a campaign; recheck moves it to the campaign's rules first.\n  Who: the warband's owner, seated in that campaign.\n  In: form seatForm { campaignId, recheck? }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat, 409 conflict in another campaign, other rules or refused.\naction:buy: Buy kit for a fighter from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, lineId }.\n  Out: { op: 'buy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:clearImage: Remove a fighter's picture.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'clearImage', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:editFighter: Edit a fighter: name, group (Dead included), Experience, skills and injuries (one per line).\n  Who: the warband's owner.\n  In: form { fid, version, name, group, xp, skills, injuries }.\n  Out: { op: 'editFighter', done: true, id }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:fireteams: Save the fireteams (pairs of fighters).\n  Who: the warband's owner.\n  In: form { fireteams (JSON) }.\n  Out: { op: 'fireteams', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:image: Upload a fighter's picture (multipart field `image`): PNG, JPEG or WebP up to 2 MB, stored as sent.\n  Who: the warband's owner.\n  In: multipart form { fid, image }.\n  Out: { op: 'image', done: true, id: fid }.\n  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:locations: Save the locations (a name and a note each).\n  Who: the warband's owner.\n  In: form { locations (JSON) }.\n  Out: { op: 'locations', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:patch: Save the warband's details: name, Patron, ducat limit, banks and notes, with a version check.\n  Who: the warband's owner.\n  In: form warbandPatch { version, name, patronId, ducatLimit, stashDucats, unspentGlory, notes }.\n  Out: { op: 'patch', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:recruit: Recruit an entry from the Add fighter dialog, with the upgrades and loadout picked, paid from the banks.\n  Who: the warband's owner.\n  In: form { unitId, name?, up:<upgrade id> boxes, loadout (its lines, comma-separated) }.\n  Out: { op: 'recruit', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:remove: Delete the warband for good and go back to the list.\n  Who: the warband's owner.\n  In: form { }.\n  Out: redirect to /warbands.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeFighter: Remove a fighter; its worth goes back to the banks.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'removeFighter', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:removeUpgrade: Take an upgrade off a fighter.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'removeUpgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:sell: Sell one piece of a fighter's bought kit.\n  Who: the warband's owner.\n  In: form { fid, lineId }.\n  Out: { op: 'sell', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashBuy: Buy kit into the stash.\n  Who: the warband's owner.\n  In: form { lineId }.\n  Out: { op: 'stashBuy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashGive: Give a piece from the stash to a fighter.\n  Who: the warband's owner.\n  In: form { lineId, fighterId }.\n  Out: { op: 'stashGive', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashSell: Sell one piece from the stash.\n  Who: the warband's owner.\n  In: form { lineId }.\n  Out: { op: 'stashSell', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:unassign: Take this warband out of its campaign seat.\n  Who: the warband's owner (the seat holder).\n  In: form { campaignId }.\n  Out: { op: 'unassign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:upgrade: Give a fighter an upgrade from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'upgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.",
+   "description": "actions: assign, buy, clearImage, copy, copyFighter, editFighter, fireteams, image, leave, locations, move, patch, recruit, remove, removeFighter, removeUpgrade, stashBuy, unassign, upgrade\naction:assign: Put this warband in my seat of a campaign; recheck moves it to the campaign's rules first.\n  Who: the warband's owner, seated in that campaign.\n  In: form seatForm { campaignId, recheck? }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat, 409 conflict in another campaign, other rules or refused.\naction:buy: Buy kit for a fighter from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, lineId }.\n  Out: { op: 'buy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:clearImage: Remove a fighter's picture.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'clearImage', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:copy: Copy the whole warband and open the copy.\n  Who: the warband's owner.\n  In: form copyInput { name? }.\n  Out: redirect to the copy.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:copyFighter: Copy a fighter (entry, upgrades, bought kit), paid from the banks.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'copyFighter', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:editFighter: Edit a fighter: name, rank (group), status, Experience, Battle Scars, skills and injuries (one per line).\n  Who: the warband's owner.\n  In: form { fid, version, name?, group?, status?, xp?, scars?, skills?, injuries? }.\n  Out: { op: 'editFighter', done: true, id }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:fireteams: Save the fireteams (pairs of fighters).\n  Who: the warband's owner.\n  In: form { fireteams (JSON) }.\n  Out: { op: 'fireteams', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:image: Upload a fighter's picture (multipart field `image`): PNG, JPEG or WebP up to 2 MB, stored as sent.\n  Who: the warband's owner.\n  In: multipart form { fid, image }.\n  Out: { op: 'image', done: true, id: fid }.\n  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:leave: One piece of bought kit leaves a fighter or the Arsenal: sold (half back), refunded (before the first game) or deleted (nothing back).\n  Who: the warband's owner.\n  In: form kitLeave { from: fighter id | 'arsenal', lineId, mode }.\n  Out: { op: 'leave', done: true, id: from }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused or refund after the first game.\naction:locations: Save the locations (a name and a note each).\n  Who: the warband's owner.\n  In: form { locations (JSON) }.\n  Out: { op: 'locations', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:move: Move one piece of bought kit between fighters and the Arsenal (no money).\n  Who: the warband's owner.\n  In: form moveInput { lineId, from, to }.\n  Out: { op: 'move', done: true, id: from }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:patch: Save the warband's details or campaign data: name, Patron, dedication, ducat limit, banks, notes, games played, victory points, failed promotions, ignore limits; with a version check.\n  Who: the warband's owner; once a seated warband has played, its campaign master for the Patron only.\n  In: form warbandPatch { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes?, gamesPlayed?, victoryPoints?, failedPromotions?, ignoreLimits? }.\n  Out: { op: 'patch', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:recruit: Recruit an entry from the Add fighter dialog, with the upgrades and loadout picked, paid from the banks.\n  Who: the warband's owner.\n  In: form { unitId, name?, up:<upgrade id> boxes, loadout (its lines, comma-separated) }.\n  Out: { op: 'recruit', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:remove: Delete the warband for good and go back to the list.\n  Who: the warband's owner.\n  In: form { }.\n  Out: redirect to /warbands.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeFighter: Remove a fighter: refund (its worth back, only before the first game) or delete (nothing back).\n  Who: the warband's owner.\n  In: form fighterLeave { fid, mode }.\n  Out: { op: 'removeFighter', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:removeUpgrade: Take an upgrade off a fighter.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'removeUpgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashBuy: Buy kit into the stash.\n  Who: the warband's owner.\n  In: form { lineId }.\n  Out: { op: 'stashBuy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:unassign: Take this warband out of its campaign seat.\n  Who: the warband's owner (the seat holder).\n  In: form { campaignId }.\n  Out: { op: 'unassign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:upgrade: Give a fighter an upgrade from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'upgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/warbands/[id]/+page.server.ts",
@@ -498,10 +498,25 @@
    "parent": "fl.app.web.areas"
   },
   {
+   "id": "fl.app.web.areas.route_app_warbands_id_play",
+   "kind": "page",
+   "title": "/warbands/[id]/play",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/warbands/[id]/play/+page.server.ts",
+    "app/src/routes/(app)/warbands/[id]/play/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
    "id": "fl.app.web.areas.route_app_warbands_new",
    "kind": "page",
    "title": "/warbands/new",
-   "description": "actions: create\naction:create: Create a warband from the wizard and open its builder; from a seat it takes the campaign's rules and the seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: form warbandCreate { rules, factionId, variantId?, patronId?, name, ducatLimit?, campaignId? }.\n  Out: redirect to /warbands/<id>.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules or seat, 409 conflict no rules or campaign ended.",
+   "description": "actions: create\naction:create: Create a warband from the new-warband list and open its builder; from a seat it takes the campaign's rules and the seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: form warbandCreate { rules, factionId, variantId?, dedication?, patronId?, name, ducatLimit?, unspentGlory?, ignoreLimits?, campaignId? }.\n  Out: redirect to /warbands/<id>.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules or seat, 409 conflict no rules or campaign ended.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/warbands/new/+page.server.ts",
@@ -1391,7 +1406,7 @@
    "id": "fl.app.web.api.route_api_v1_warbands",
    "kind": "endpoint",
    "title": "/api/v1/warbands",
-   "description": "GET POST\nGET: My warbands, by name, with rating, problems and seat.\n  Who: anyone signed in (their own).\n  In: nothing.\n  Out: 200 { items: WarbandCard[] }\n  Errors: 401 unauthenticated.\nPOST: Create a warband (faction, variant, Patron, name, ducat limit); from a seat it takes the campaign's rules and seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: { name, factionId, variantId?, patronId?, ducatLimit?, rulesSet?, rulesExpansions?, campaignId? }\n  Out: 201 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found rules or seat, 409 conflict no rules loaded or campaign ended.",
+   "description": "GET POST\nGET: My warbands, by name, with rating, problems and seat.\n  Who: anyone signed in (their own).\n  In: nothing.\n  Out: 200 { items: WarbandCard[] }\n  Errors: 401 unauthenticated.\nPOST: Create a warband (faction with its variant or dedication, Patron, name, starting Ducats and Glory, ignore limits); from a seat it takes the campaign's rules and seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: { name, factionId, variantId?, dedication?, patronId?, ducatLimit?, unspentGlory?, ignoreLimits?, rulesSet?, rulesExpansions?, campaignId? }\n  Out: 201 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found rules or seat, 409 conflict no rules loaded or campaign ended.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/+server.ts"
@@ -1405,10 +1420,24 @@
    "id": "fl.app.web.api.route_api_v1_warbands_id",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]",
-   "description": "DELETE GET PATCH\nDELETE: Delete a warband for good; it leaves its seat, its fighters and images go too.\n  Who: its owner.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.\nGET: One warband with its fighters, costs, rating, problems and seat, with an ETag of its version.\n  Who: its owner; the CM and co-CMs of the campaign it sits in (read-only).\n  In: path id.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found, 409 conflict its faction is not in its rules.\nPATCH: Change the warband's name, Patron, dedication, ducat limit, banks or notes, with a version check.\n  Who: its owner.\n  In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or the engine refuses it.",
+   "description": "DELETE GET PATCH\nDELETE: Delete a warband for good; it leaves its seat, its fighters and images go too.\n  Who: its owner.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.\nGET: One warband with its fighters, costs, rating, problems and seat, with an ETag of its version.\n  Who: its owner; the CM and co-CMs of the campaign it sits in (read-only).\n  In: path id.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found, 409 conflict its faction is not in its rules.\nPATCH: Change the warband's name, Patron, dedication, ducat limit, banks, notes or campaign data (games played, victory points, failed promotions, ignore limits), with a version check.\n  Who: its owner; once a seated warband has played, only its campaign's CM and co-CMs change the Patron (R8), and they change nothing else.\n  In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes?, gamesPlayed?, victoryPoints?, failedPromotions?, ignoreLimits? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or the engine refuses it.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_copy",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/copy",
+   "description": "POST\nPOST: Copy a warband: same rules, faction, banks, fighters (without images), Arsenal, fireteams, locations and notes, as a new warband of the caller's in no seat.\n  Who: the warband's owner.\n  In: path id; { name? } (default: \"<name> (copy)\")\n  Out: 200 Warband (the copy)\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/copy/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1447,10 +1476,24 @@
    "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]/fighters/[fid]",
-   "description": "DELETE PATCH\nDELETE: Remove a fighter: its worth goes back to the banks, it leaves its fireteam, its image goes.\n  Who: the warband's owner.\n  In: path id, fid.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.\nPATCH: Edit a fighter: name, group (Dead included), Experience, skills and injuries (ids or names), with its version.\n  Who: the warband's owner.\n  In: path id, fid; { version, name?, group?, xp?, skills?, injuries? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or refused with its reasons.",
+   "description": "DELETE PATCH\nDELETE: Remove a fighter: `refund` gives back what it was worth (only before the warband's first game), `delete` gives nothing back; it leaves its fireteam, its image goes.\n  Who: the warband's owner.\n  In: path id, fid; query ?mode=refund|delete (default delete)\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons or refund after the first game.\nPATCH: Edit a fighter: name, rank (group: Elites promotes a Troop, Troops demotes it), status, Experience, Battle Scars, skills (advancements) and injuries (ids or names), with its version. Unfit for duty puts its bought kit in the Arsenal; promotion and Limited Potential follow the book.\n  Who: the warband's owner.\n  In: path id, fid; { version, name?, group?, status?, xp?, scars?, skills?, injuries? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or refused with its reasons.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid_copy",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters/[fid]/copy",
+   "description": "POST\nPOST: Copy a fighter: the same entry, upgrades and bought kit (no name, skills, injuries or Experience), recruited and paid for whole from the banks, with every recruit check.\n  Who: the warband's owner.\n  In: path id, fid.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/copy/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1475,7 +1518,7 @@
    "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid_kit",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]/fighters/[fid]/kit",
-   "description": "DELETE GET POST\nDELETE: Sell one piece of the fighter's bought kit; its worth goes back to the banks.\n  Who: the warband's owner.\n  In: path id, fid; query ?line=<line id>\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons.\nGET: The armoury lines this fighter may look at, with price and whether it may take each now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id, fid.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit for the fighter from an armoury line, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id, fid; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "description": "DELETE GET POST\nDELETE: One piece of the fighter's bought kit leaves: `sell` gives half its price back (rounded up, in its currency), `refund` all of it (only before the warband's first game), `delete` nothing.\n  Who: the warband's owner.\n  In: path id, fid; query ?line=<line id>&mode=sell|refund|delete (default sell)\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons or refund after the first game.\nGET: The armoury lines this fighter may look at, with price and whether it may take each now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id, fid.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit for the fighter from an armoury line, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id, fid; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/kit/+server.ts"
@@ -1514,6 +1557,20 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_kit_move",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/kit/move",
+   "description": "POST\nPOST: Move one piece of bought kit between fighters and the Arsenal; no money changes hands. A fighter that takes it is checked as for buying it, except for money.\n  Who: the warband's owner.\n  In: path id; { lineId, from: fighter id | 'arsenal', to: fighter id | 'arsenal' }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not held there, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/kit/move/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_warbands_id_locations",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]/locations",
@@ -1545,7 +1602,7 @@
    "id": "fl.app.web.api.route_api_v1_warbands_id_stash",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]/stash",
-   "description": "DELETE GET POST\nDELETE: Sell one piece from the stash; its price goes back to the banks.\n  Who: the warband's owner.\n  In: path id; query ?line=<line id>\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not in the stash.\nGET: What may be bought into the stash: the warband's armoury, with price and whether it may now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit into the stash, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "description": "DELETE GET POST\nDELETE: One piece leaves the Arsenal: `sell` gives half its price back (rounded up, in its currency), `refund` all of it (only before the warband's first game), `delete` nothing.\n  Who: the warband's owner.\n  In: path id; query ?line=<line id>&mode=sell|refund|delete (default sell)\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not in the Arsenal, 409 conflict refund after the first game.\nGET: What may be bought into the Arsenal (the stash): the warband's armoury, with price and whether it may now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit into the stash, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/[id]/stash/+server.ts"
@@ -1559,7 +1616,7 @@
    "id": "fl.app.web.api.route_api_v1_warbands_id_stash_give",
    "kind": "endpoint",
    "title": "/api/v1/warbands/[id]/stash/give",
-   "description": "POST\nPOST: Give a piece from the stash to a fighter (sold from the stash and bought for the fighter, with its checks).\n  Who: the warband's owner.\n  In: path id; { lineId, fighterId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "description": "POST\nPOST: Give a piece from the Arsenal to a fighter: it moves, with the fighter's checks and no money (as kit/move).\n  Who: the warband's owner.\n  In: path id; { lineId, fighterId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/[id]/stash/give/+server.ts"
@@ -1587,7 +1644,7 @@
    "id": "fl.app.web.api.route_api_v1_warbands_import",
    "kind": "endpoint",
    "title": "/api/v1/warbands/import",
-   "description": "POST\nPOST: Import a Trench Companion text export as a new warband; names that do not match are reported, not dropped.\n  Who: anyone signed in.\n  In: { text, name?, rulesSet?, rulesExpansions? }\n  Out: 201 { warband: Warband, unmatched: string[], ambiguous: string[] }\n  Errors: 400 invalid not a warband or no such faction, 401 unauthenticated, 403 forbidden other site, 404 not_found rules not loaded, 409 conflict no rules loaded.",
+   "description": "POST\nPOST: Import a Trench Companion text export, or a JSON export (ours or Trench Companion's), as a new warband; names that do not match are reported, not dropped. Games already played set the refund window and the next game (R1).\n  Who: anyone signed in.\n  In: { text, format? (text | json, default text), gamesPlayed?, name?, rulesSet?, rulesExpansions? }\n  Out: 201 { warband: Warband, unmatched: string[], ambiguous: string[] }\n  Errors: 400 invalid not a warband or no such faction, 401 unauthenticated, 403 forbidden other site, 404 not_found rules not loaded, 409 conflict no rules loaded.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/warbands/import/+server.ts"
@@ -1868,7 +1925,7 @@
    "id": "fl.app.warbandTables",
    "kind": "layer",
    "title": "warband schema",
-   "description": "Players' warbands (the stash, fireteams and locations as typed JSONB on the warband) and their fighters.",
+   "description": "Players' warbands (the Arsenal, fireteams and locations as typed JSONB on the warband; games played, victory points, failed promotions, ignore limits) and their fighters (status, battle scars, experience, advancements, injuries).",
    "tags": [],
    "code": [],
    "tables": [
@@ -2103,7 +2160,7 @@
    "id": "fl.app.warbandEngine",
    "kind": "module",
    "title": "Warband engine",
-   "description": "Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, stash and upgrade checks, availability, hands, headgear, variant overlays, fireteams, patron skills, limits with per and when, prices; Trench Companion text export and import.",
+   "description": "Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, Arsenal and upgrade checks, availability, hands, headgear, variant and dedication (Sin) overlays, fireteams, patron skills, limits with per and when (Arsenal copies count), prices, sell at half and refund before the first game, campaign progression (threshold and field strength by games played, advancement marks, promotion caps), derived keywords; Trench Companion text export and import, JSON import.",
    "tags": [
     "pure"
    ],
@@ -2329,12 +2386,12 @@
    "id": "fl.app.services.warbandService",
    "kind": "module",
    "title": "Warbands",
-   "description": "A player's warbands: create, recruit, equip, stash, fireteams, locations, dead fighters, fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player's seat (one campaign at a time).",
+   "description": "A player's warbands: create, copy, recruit, equip, the Arsenal (move, sell, refund, copy items), fireteams, locations, fighter campaign data (status, experience, scars, advancements, injuries, promotion), warband campaign data (games played, victory points, failed promotions, ignore limits), fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player's seat (one campaign at a time).",
    "tags": [
     "server-only"
    ],
    "code": [
-    "app/src/lib/server/services/{warbands,warband-roster,warband-stash,warband-seats,warband-state,fighter-images}{,.spec,.db.spec}.ts"
+    "app/src/lib/server/services/{warbands,warband-*,fighter-images}{,.spec,.db.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -3597,18 +3654,18 @@
   {
    "id": "warband_build",
    "title": "Build a warband",
-   "description": "**A player builds a warband like the Trench Companion builder: faction, variant, patron and limit, then fighters and their kit, checked on every change; then assigns it to their campaign seat.**\n\n**Decisions**\n- The player owns the warband; it sits in at most one campaign at a time (seats.warband_id is unique).\n- Every change runs the warband engine; a refused change says why. A campaign whose CM allows going beyond\n  limits turns refusals into warnings for warbands in it.\n- Groups: Elites, Troops, Mercenaries, Special, Dead; stash, fireteams, locations. Each fighter has an image slot\n  (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, stored in the uploads volume).\n- Add fighter offers the entry's upgrades and loadouts; the engine checks them with the recruit, as one purchase.\n- A campaign keeps one rules version: the CM cannot change it while a seated warband uses other rules.\n- Export as Trench Companion text and JSON; import Trench Companion text.\n- The stash, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are\n  rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks; selling gives it\n  back.",
+   "description": "**A player builds a warband like the Trench Companion builder, by the books: faction (with its variant or Sin), name and\nstarting banks; then fighters and their kit on a two-column page, checked on every change; the Arsenal, campaign data\nand play mode; then assigns it to their campaign seat.**\n\n**Decisions**\n- The player owns the warband; it sits in at most one campaign at a time (seats.warband_id is unique).\n- Every change runs the warband engine; a refused change says why. A campaign whose CM allows going beyond\n  limits turns refusals into warnings for warbands in it; outside a campaign the warband's own \"ignore limits\"\n  switch does the same (revision 2, R9).\n- Groups: Elites, Troops, Mercenaries, Special; the Dead list shows fighters whose status is dead. Each fighter has\n  an image slot (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, in the uploads volume).\n- Add fighter per group offers the entry's upgrades and loadouts and shows \"n / max\"; the engine checks them with\n  the recruit, as one purchase. The equip picker shows used / max, counting copies held in the Arsenal.\n- Kit moves fighter to fighter and to and from the Arsenal. Sell gives half the price back, rounded up, in the\n  item's own currency; refund (full price) and fighter refund only while games played is 0 (a Trench Companion\n  convenience). Delete gives nothing back.\n- Fighter campaign data is entered by hand: status (active, misses next game, captured, unfit, retired, dead),\n  experience with the advancement marks, battle scars (unfit at 3), advancements picked from the skill tables,\n  injuries from the trauma table, promote and demote (no more than 6 elites). Unfit sends the kit to the Arsenal.\n- Threshold and field strength follow games played (Papal States 200 lower). The patron may change until the\n  first game, then only by the CM (R8). The Court's Sin is a dedication on the warband (R2).\n- Play mode shows read-only fighter cards with full profiles and keyword pop-ups; print uses a print stylesheet.\n- A campaign keeps one rules version: the CM cannot change it while a seated warband uses other rules.\n- Export as Trench Companion text and JSON; import Trench Companion text and JSON.\n- The Arsenal, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are\n  rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks.",
    "dynamic": true,
    "steps": [
     {
      "from": "user",
      "to": "fl.app.web.areas",
-     "label": "new warband, add fighter, equip, upload image"
+     "label": "new warband, add fighter, equip, move, sell, campaign data, play"
     },
     {
      "from": "fl.app.web.areas",
      "to": "fl.app.services.warbandService",
-     "label": "create / recruit / equip / image"
+     "label": "create / recruit / equip / move / sell / refund / status / xp"
     },
     {
      "from": "fl.app.services.warbandService",
@@ -3618,7 +3675,7 @@
     {
      "from": "fl.app.services.warbandService",
      "to": "fl.app.warbandEngine",
-     "label": "check the change"
+     "label": "check the change, sell value, refund window, progression"
     },
     {
      "from": "fl.app.services.warbandService",
@@ -3628,7 +3685,7 @@
     {
      "from": "fl.app.repos",
      "to": "fl.app.warbandTables",
-     "label": "warbands, fighters, stash"
+     "label": "warbands, fighters, Arsenal"
     },
     {
      "from": "user",
@@ -3643,7 +3700,7 @@
     {
      "from": "fl.app.services.warbandService",
      "to": "fl.app.services.campaignService",
-     "label": "my seat, allow beyond limits"
+     "label": "my seat, allow beyond limits, CM for the patron"
     },
     {
      "from": "fl.app.services.warbandService",

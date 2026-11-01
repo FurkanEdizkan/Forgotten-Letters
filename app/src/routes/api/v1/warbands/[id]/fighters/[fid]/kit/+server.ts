@@ -1,6 +1,7 @@
 import { api, body, parse } from '#lib/server/http';
 import * as roster from '#lib/server/services/warband-roster';
-import { fighterParams, lineInput, lineQuery } from '#lib/schemas/warbands';
+import * as items from '#lib/server/services/warband-items';
+import { fighterParams, kitLeaveQuery, lineInput } from '#lib/schemas/warbands';
 
 /**
  * The armoury lines this fighter may look at, with price and whether it may take each now (and why not).
@@ -27,14 +28,15 @@ export const POST = api(async (event, ctx) => {
 });
 
 /**
- * Sell one piece of the fighter's bought kit; its worth goes back to the banks.
+ * One piece of the fighter's bought kit leaves: `sell` gives half its price back (rounded up, in its currency),
+ * `refund` all of it (only before the warband's first game), `delete` nothing.
  * Who: the warband's owner.
- * In: path id, fid; query ?line=<line id>
+ * In: path id, fid; query ?line=<line id>&mode=sell|refund|delete (default sell)
  * Out: 200 Warband
- * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons.
+ * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons or refund after the first game.
  */
 export const DELETE = api(async (event, ctx) => {
 	const { id, fid } = parse(fighterParams, event.params);
-	const { line } = parse(lineQuery, Object.fromEntries(event.url.searchParams));
-	return roster.sell(ctx, id, fid, line);
+	const { line, mode } = parse(kitLeaveQuery, Object.fromEntries(event.url.searchParams));
+	return items.leave(ctx, id, fid, line, mode);
 });

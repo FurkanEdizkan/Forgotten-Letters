@@ -1,22 +1,14 @@
 /**
- * What a warband holds beside its roster: the stash (kit bought but not carried, priced at its line), the
- * fireteams and the locations. Changes run through the same lock and checks as the roster's (warband-state).
+ * What a warband holds beside its roster: the Arsenal (the stash: kit bought but not carried, priced at its line),
+ * the fireteams and the locations. Kit leaving or moving is in `warband-items.ts`. Changes run through the same
+ * lock and checks as the roster's (warband-state).
  */
-import { canEquip, canStash, priceOf, stashCost, type WarbandState } from '#lib/warbands';
+import { canStash, priceOf, stashCost, type WarbandState } from '#lib/warbands';
 import type { ApiArmouryLine } from '#lib/schemas/warbands';
-import { AppError } from '../errors';
 import { db } from '../db';
 import * as repo from '../repos/warbands';
 import type { Ctx } from './audit';
-import {
-	allowChange,
-	banksAfter,
-	change,
-	decide,
-	fighterOf,
-	load,
-	type Loaded
-} from './warband-state';
+import { allowChange, change, decide, load, type Loaded } from './warband-state';
 
 // ---------------------------------------------------------------- stash
 
@@ -56,40 +48,6 @@ export function stashBuy(ctx: Ctx, id: string, lineId: string) {
 		decide(l, canStash(l.state, l.f, lineId, l.opts));
 		const after = { ...l.state, stash: [...l.state.stash, lineId] };
 		await repo.update(tx, l.w.id, { stash: after.stash, ...stashBanks(l, after) });
-	});
-}
-
-const withoutOne = (xs: string[], x: string) => {
-	const at = xs.lastIndexOf(x);
-	if (at < 0) throw new AppError('not_found', 'The stash holds no such kit.');
-	return xs.filter((_, i) => i !== at);
-};
-
-/** Sell one piece from the stash; its price goes back to the banks. */
-export function stashSell(ctx: Ctx, id: string, lineId: string) {
-	return change(ctx, id, async (tx, l) => {
-		const after = { ...l.state, stash: withoutOne(l.state.stash, lineId) };
-		await repo.update(tx, l.w.id, { stash: after.stash, ...stashBanks(l, after) });
-	});
-}
-
-/**
- * Give a piece from the stash to a fighter: sold from the stash and bought for the fighter in one step, so the
- * fighter's checks (and its price) apply as for any purchase.
- */
-export function stashGive(ctx: Ctx, id: string, lineId: string, fid: string) {
-	return change(ctx, id, async (tx, l) => {
-		const x = fighterOf(l, fid);
-		const stash = withoutOne(l.state.stash, lineId);
-		const refunded = { ...l.state, stash, ...stashBanks(l, { ...l.state, stash }) };
-		decide(l, canEquip(refunded, l.f, fid, lineId, l.opts));
-		const kit = [...x.kit, lineId];
-		const after = {
-			...refunded,
-			fighters: refunded.fighters.map((y) => (y.id === fid ? { ...y, kit } : y))
-		};
-		await repo.updateFighter(tx, fid, { kit });
-		await repo.update(tx, l.w.id, { stash, ...banksAfter({ ...l, state: refunded }, after) });
 	});
 }
 

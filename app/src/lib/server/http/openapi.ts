@@ -638,10 +638,15 @@ function warbandEndpoints(): Endpoint[] {
 				ok: { status: 200, schema: w.choicesOut }
 			}
 		),
-		one('post', '/warbands/import', 'Import a Trench Companion text export as a new warband.', {
-			body: w.warbandImport,
-			ok: { status: 201, schema: w.importOut }
-		}),
+		one(
+			'post',
+			'/warbands/import',
+			'Import a Trench Companion text or a JSON export as a new warband.',
+			{
+				body: w.warbandImport,
+				ok: { status: 201, schema: w.importOut }
+			}
+		),
 		one(
 			'get',
 			'/warbands/{id}',
@@ -651,10 +656,29 @@ function warbandEndpoints(): Endpoint[] {
 				errors: [...read, 'conflict']
 			}
 		),
-		one('patch', '/warbands/{id}', 'Change name, Patron, dedication, limit, banks or notes.', {
+		one(
+			'patch',
+			'/warbands/{id}',
+			'Change name, Patron, dedication, limit, banks, notes, campaign data.',
+			{
+				params: id,
+				body: w.warbandPatch
+			}
+		),
+		one('post', '/warbands/{id}/copy', 'Copy a warband (fighters, Arsenal; no seat, no images).', {
 			params: id,
-			body: w.warbandPatch
+			body: w.copyInput,
+			errors: [...WRITE, 'unauthenticated', 'not_found']
 		}),
+		one(
+			'post',
+			'/warbands/{id}/kit/move',
+			'Move kit between fighters and the Arsenal (no money).',
+			{
+				params: id,
+				body: w.moveInput
+			}
+		),
 		one('delete', '/warbands/{id}', 'Delete a warband for good.', {
 			params: id,
 			ok: { status: 204 },
@@ -677,13 +701,22 @@ function warbandEndpoints(): Endpoint[] {
 		one(
 			'patch',
 			'/warbands/{id}/fighters/{fid}',
-			'Edit a fighter (name, group, XP, skills, injuries).',
+			'Edit a fighter (name, rank, status, XP, scars, skills, injuries).',
 			{
 				params: fighter,
 				body: w.fighterPatch
 			}
 		),
-		one('delete', '/warbands/{id}/fighters/{fid}', 'Remove a fighter; its worth goes back.', {
+		one(
+			'delete',
+			'/warbands/{id}/fighters/{fid}',
+			'Remove a fighter: refund (before the first game) or delete.',
+			{
+				params: fighter,
+				query: w.fighterLeaveQuery
+			}
+		),
+		one('post', '/warbands/{id}/fighters/{fid}/copy', 'Copy a fighter, paid from the banks.', {
 			params: fighter
 		}),
 		one('get', '/warbands/{id}/fighters/{fid}/kit', 'The armoury for this fighter, and why not.', {
@@ -694,10 +727,15 @@ function warbandEndpoints(): Endpoint[] {
 			params: fighter,
 			body: w.lineInput
 		}),
-		one('delete', '/warbands/{id}/fighters/{fid}/kit', 'Sell one piece of a fighter’s kit.', {
-			params: fighter,
-			query: w.lineQuery
-		}),
+		one(
+			'delete',
+			'/warbands/{id}/fighters/{fid}/kit',
+			'Sell (half), refund or delete one piece of kit.',
+			{
+				params: fighter,
+				query: w.kitLeaveQuery
+			}
+		),
 		one('get', '/warbands/{id}/fighters/{fid}/upgrades', 'The upgrades a fighter may take.', {
 			params: fighter,
 			ok: { status: 200, schema: w.upgradesOut }
@@ -724,19 +762,24 @@ function warbandEndpoints(): Endpoint[] {
 			params: fighter,
 			errors: [...WRITE, 'unauthenticated', 'not_found']
 		}),
-		one('get', '/warbands/{id}/stash', 'What may be bought into the stash.', {
+		one('get', '/warbands/{id}/stash', 'What may be bought into the Arsenal.', {
 			params: id,
 			ok: { status: 200, schema: w.armouryOut }
 		}),
-		one('post', '/warbands/{id}/stash', 'Buy kit into the stash.', {
+		one('post', '/warbands/{id}/stash', 'Buy kit into the Arsenal.', {
 			params: id,
 			body: w.lineInput
 		}),
-		one('delete', '/warbands/{id}/stash', 'Sell one piece from the stash.', {
-			params: id,
-			query: w.lineQuery
-		}),
-		one('post', '/warbands/{id}/stash/give', 'Give a piece from the stash to a fighter.', {
+		one(
+			'delete',
+			'/warbands/{id}/stash',
+			'Sell (half), refund or delete one piece in the Arsenal.',
+			{
+				params: id,
+				query: w.kitLeaveQuery
+			}
+		),
+		one('post', '/warbands/{id}/stash/give', 'Move a piece from the Arsenal to a fighter.', {
 			params: id,
 			body: w.giveInput
 		}),

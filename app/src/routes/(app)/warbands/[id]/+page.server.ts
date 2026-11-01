@@ -7,12 +7,15 @@ import * as rules from '#lib/server/services/rules';
 import * as roster from '#lib/server/services/warband-roster';
 import * as holdings from '#lib/server/services/warband-stash';
 import * as warbands from '#lib/server/services/warbands';
-import { lineInput, giveInput, warbandPatch } from '#lib/schemas/warbands';
-import type { Item, Unit } from '#lib/rules/pack';
+import * as items from '#lib/server/services/warband-items';
+import { copyInput, lineInput, moveInput, warbandPatch } from '#lib/schemas/warbands';
+import type { Item, Table, Unit } from '#lib/rules/pack';
 import { requireSignedIn } from '../../guard';
 import {
 	fid,
 	fighterForm,
+	fighterLeave,
+	kitLeave,
 	fighterImage,
 	fighterLine,
 	fighterUpgrade,
@@ -23,8 +26,9 @@ import {
 } from './form';
 import type { Actions, PageServerLoad } from './$types';
 
-// The dialogs live in the query (?add, ?equip=<fighter>, ?stash, ?export), so a change made inside one reloads
-// its list in place and the dialog stays open on its updated choices.
+// The right-hand panel and the dialogs live in the query (?sel=<fighter>|arsenal|campaign, ?add=<group>,
+// ?equip=<fighter>, ?stash=<category>, ?export), so a change made inside one reloads its list in place and the
+// dialog or panel stays open on its updated choices.
 export const load: PageServerLoad = async (event) => {
 	requireSignedIn(event);
 	const ctx = ctxOf(event);
@@ -34,12 +38,13 @@ export const load: PageServerLoad = async (event) => {
 	const set = warband.rulesExpansions.at(-1) ?? warband.rulesSet;
 	const equip = warband.canEdit ? q.get('equip') : null;
 	const fighter = warband.fighters.find((x) => x.id === equip) ?? null;
+	const chosen = warband.fighters.find((x) => x.id === q.get('sel')) ?? null;
 	const [index, els, recruits, armoury, upgrades, stashLines, exported, mine] = await Promise.all([
 		orPageError(event, rules.index(ctx, set)),
-		orPageError(event, rules.elements(ctx, set, ['unit', 'item'])),
+		orPageError(event, rules.elements(ctx, set, ['unit', 'item', 'table'])),
 		warband.canEdit && q.has('add') ? roster.recruits(ctx, id) : null,
 		fighter ? roster.armoury(ctx, id, fighter.id) : null,
-		fighter ? roster.upgradesFor(ctx, id, fighter.id) : null,
+		chosen ? roster.upgradesFor(ctx, id, chosen.id) : null,
 		warband.canEdit && q.has('stash') ? holdings.stashLines(ctx, id) : null,
 		q.has('export') ? warbands.exportOf(ctx, id, 'text') : null,
 		warband.canEdit ? campaigns.list(ctx, { scope: 'mine', limit: 100 }) : null
@@ -63,9 +68,25 @@ export const load: PageServerLoad = async (event) => {
 		items: Object.fromEntries(
 			els.filter((e) => e.type === 'item' && itemIds.has(e.id)).map((e) => [e.id, e.data as Item])
 		),
-		patrons: warband.canEdit ? await warbandPatrons(ctx, warband) : [],
+		/** The skill and trauma tables, for the advancement and injury pickers. */
+		tables: els
+			.filter((e) => e.type === 'table')
+			.map((e) => e.data as Table)
+			.filter((t) => t.kind === 'skill' || t.kind === 'trauma')
+			.map((t) => ({
+				id: t.id,
+				name: t.name,
+				kind: t.kind,
+				rows: t.rows.map((r) => ({ roll: r.roll, name: r.name }))
+			})),
+		patrons: warband.canEdit || warband.canChangePatron ? await warbandPatrons(ctx, warband) : [],
+		sel: q.get('sel') ?? 'warband',
+		addGroup: q.get('add') || null,
+		stashCategory: q.get('stash') || null,
 		recruits,
-		equip: fighter && { fighter, armoury: armoury!, upgrades: upgrades! },
+		equip: fighter && { fighter, armoury: armoury! },
+		equipCategory: q.get('cat') || null,
+		upgrades,
 		stashLines,
 		exportText: exported?.body ?? null,
 		seats: (mine?.items ?? [])
@@ -87,9 +108,11 @@ const done = (op: string, id?: string) => ({ op, done: true, ...(id ? { id } : {
 
 export const actions = {
 	/**
-	 * Save the warband's details: name, Patron, ducat limit, banks and notes, with a version check.
-	 * Who: the warband's owner.
-	 * In: form warbandPatch { version, name, patronId, ducatLimit, stashDucats, unspentGlory, notes }.
+	 * Save the warband's details or campaign data: name, Patron, dedication, ducat limit, banks, notes, games
+	 * played, victory points, failed promotions, ignore limits; with a version check.
+	 * Who: the warband's owner; once a seated warband has played, its campaign master for the Patron only.
+	 * In: form warbandPatch { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?,
+	 * notes?, gamesPlayed?, victoryPoints?, failedPromotions?, ignoreLimits? }.
 	 * Out: { op: 'patch', done: true }.
 	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.
 	 */
@@ -126,9 +149,9 @@ export const actions = {
 			return done('recruit');
 		}),
 	/**
-	 * Edit a fighter: name, group (Dead included), Experience, skills and injuries (one per line).
+	 * Edit a fighter: name, rank (group), status, Experience, Battle Scars, skills and injuries (one per line).
 	 * Who: the warband's owner.
-	 * In: form { fid, version, name, group, xp, skills, injuries }.
+	 * In: form { fid, version, name?, group?, status?, xp?, scars?, skills?, injuries? }.
 	 * Out: { op: 'editFighter', done: true, id }.
 	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.
 	 */
@@ -138,15 +161,15 @@ export const actions = {
 			return done('editFighter', fid);
 		}),
 	/**
-	 * Remove a fighter; its worth goes back to the banks.
+	 * Remove a fighter: refund (its worth back, only before the first game) or delete (nothing back).
 	 * Who: the warband's owner.
-	 * In: form { fid }.
+	 * In: form fighterLeave { fid, mode }.
 	 * Out: { op: 'removeFighter', done: true }.
 	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
 	 */
 	removeFighter: (event) =>
-		formAction(event, fid, async (input, ctx) => {
-			await roster.removeFighter(ctx, event.params.id, input.fid);
+		formAction(event, fighterLeave, async (input, ctx) => {
+			await roster.removeFighter(ctx, event.params.id, input.fid, input.mode);
 			return done('removeFighter');
 		}),
 	/**
@@ -162,17 +185,59 @@ export const actions = {
 			return done('buy', input.lineId);
 		}),
 	/**
-	 * Sell one piece of a fighter's bought kit.
+	 * One piece of bought kit leaves a fighter or the Arsenal: sold (half back), refunded (before the first game)
+	 * or deleted (nothing back).
 	 * Who: the warband's owner.
-	 * In: form { fid, lineId }.
-	 * Out: { op: 'sell', done: true, id: fid }.
+	 * In: form kitLeave { from: fighter id | 'arsenal', lineId, mode }.
+	 * Out: { op: 'leave', done: true, id: from }.
+	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused or refund after
+	 * the first game.
+	 */
+	leave: (event) =>
+		formAction(event, kitLeave, async (input, ctx) => {
+			await items.leave(ctx, event.params.id, input.from, input.lineId, input.mode);
+			return done('leave', input.from);
+		}),
+	/**
+	 * Move one piece of bought kit between fighters and the Arsenal (no money).
+	 * Who: the warband's owner.
+	 * In: form moveInput { lineId, from, to }.
+	 * Out: { op: 'move', done: true, id: from }.
 	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
 	 */
-	sell: (event) =>
-		formAction(event, fighterLine, async (input, ctx) => {
-			await roster.sell(ctx, event.params.id, input.fid, input.lineId);
-			return done('sell', input.fid);
+	move: (event) =>
+		formAction(event, moveInput, async (input, ctx) => {
+			await items.move(ctx, event.params.id, input.lineId, input.from, input.to);
+			return done('move', input.from);
 		}),
+	/**
+	 * Copy a fighter (entry, upgrades, bought kit), paid from the banks.
+	 * Who: the warband's owner.
+	 * In: form { fid }.
+	 * Out: { op: 'copyFighter', done: true, id: fid }.
+	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+	 */
+	copyFighter: (event) =>
+		formAction(event, fid, async (input, ctx) => {
+			await roster.copyFighter(ctx, event.params.id, input.fid);
+			return done('copyFighter', input.fid);
+		}),
+	/**
+	 * Copy the whole warband and open the copy.
+	 * Who: the warband's owner.
+	 * In: form copyInput { name? }.
+	 * Out: redirect to the copy.
+	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+	 */
+	copy: async (event) => {
+		let to = '';
+		const r = await formAction(event, copyInput, async (input, ctx) => {
+			to = (await warbands.copy(ctx, event.params.id, input.name)).id;
+			return done('copy');
+		});
+		if ('done' in r) redirect(303, `/warbands/${to}`);
+		return r;
+	},
 	/**
 	 * Give a fighter an upgrade from the Equip dialog.
 	 * Who: the warband's owner.
@@ -232,30 +297,6 @@ export const actions = {
 		formAction(event, lineInput, async (input, ctx) => {
 			await holdings.stashBuy(ctx, event.params.id, input.lineId);
 			return done('stashBuy', input.lineId);
-		}),
-	/**
-	 * Sell one piece from the stash.
-	 * Who: the warband's owner.
-	 * In: form { lineId }.
-	 * Out: { op: 'stashSell', done: true }.
-	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
-	 */
-	stashSell: (event) =>
-		formAction(event, lineInput, async (input, ctx) => {
-			await holdings.stashSell(ctx, event.params.id, input.lineId);
-			return done('stashSell');
-		}),
-	/**
-	 * Give a piece from the stash to a fighter.
-	 * Who: the warband's owner.
-	 * In: form { lineId, fighterId }.
-	 * Out: { op: 'stashGive', done: true }.
-	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
-	 */
-	stashGive: (event) =>
-		formAction(event, giveInput, async (input, ctx) => {
-			await holdings.stashGive(ctx, event.params.id, input.lineId, input.fighterId);
-			return done('stashGive');
 		}),
 	/**
 	 * Save the fireteams (pairs of fighters).

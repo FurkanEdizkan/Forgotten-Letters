@@ -30,10 +30,26 @@ export type WarbandFields = Partial<
 		| 'fireteams'
 		| 'locations'
 		| 'notes'
+		| 'gamesPlayed'
+		| 'victoryPoints'
+		| 'failedPromotions'
+		| 'ignoreLimits'
 	>
 >;
 export type FighterFields = Partial<
-	Pick<FighterRow, 'name' | 'grp' | 'kit' | 'upgrades' | 'skills' | 'injuries' | 'xp' | 'image'>
+	Pick<
+		FighterRow,
+		| 'name'
+		| 'grp'
+		| 'kit'
+		| 'upgrades'
+		| 'skills'
+		| 'injuries'
+		| 'xp'
+		| 'status'
+		| 'battleScars'
+		| 'image'
+	>
 >;
 
 export async function insert(tx: Tx, row: typeof warbands.$inferInsert) {

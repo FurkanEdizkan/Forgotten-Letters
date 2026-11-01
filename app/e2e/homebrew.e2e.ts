@@ -143,7 +143,6 @@ test('a warband on the homebrew', async () => {
 		.getByLabel('Rules version')
 		.selectOption({ label: 'Cinder Wardens (homebrew on Core Rules 1.0.2)' });
 	await expect(maker).toHaveURL(/rules=/);
-	await maker.getByText('Lantern Guild', { exact: true }).click();
 	await maker.getByText('Cinder Wardens', { exact: true }).click();
 	await maker.getByLabel('Name', { exact: true }).fill('Ember Watch');
 	await maker.getByRole('button', { name: 'Create warband' }).click();
@@ -168,7 +167,7 @@ test('another player cannot see it until it is shared', async () => {
 });
 
 test('a seat takes the warband only once the CM allows its homebrew', async () => {
-	await maker.goto(`/warbands/${warbandId}`);
+	await maker.goto(`/warbands/${warbandId}?sel=campaign`);
 	await maker.getByLabel('Campaign', { exact: true }).selectOption({ label: 'Ember Fields' });
 	await maker.getByRole('button', { name: 'Assign', exact: true }).click();
 	await expect(maker.getByText(/does not allow the homebrew Cinder Wardens/)).toBeVisible();
@@ -178,7 +177,7 @@ test('a seat takes the warband only once the CM allows its homebrew', async () =
 	await cm.getByRole('button', { name: 'Save settings' }).click();
 	await expect(cm.getByText('Settings saved.')).toBeVisible();
 
-	await maker.goto(`/warbands/${warbandId}`);
+	await maker.goto(`/warbands/${warbandId}?sel=campaign`);
 	await maker.getByLabel('Campaign', { exact: true }).selectOption({ label: 'Ember Fields' });
 	await maker.getByRole('button', { name: 'Assign', exact: true }).click();
 	await expect(maker.getByRole('link', { name: 'Ember Fields' })).toBeVisible();

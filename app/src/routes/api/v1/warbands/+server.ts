@@ -13,9 +13,11 @@ import { warbandCreate } from '#lib/schemas/warbands';
 export const GET = api(async (_event, ctx) => ({ items: await warbands.listMine(ctx) }));
 
 /**
- * Create a warband (faction, variant, Patron, name, ducat limit); from a seat it takes the campaign's rules and seat.
+ * Create a warband (faction with its variant or dedication, Patron, name, starting Ducats and Glory, ignore limits);
+ * from a seat it takes the campaign's rules and seat.
  * Who: anyone signed in; with campaignId, a player seated in that campaign.
- * In: { name, factionId, variantId?, patronId?, ducatLimit?, rulesSet?, rulesExpansions?, campaignId? }
+ * In: { name, factionId, variantId?, dedication?, patronId?, ducatLimit?, unspentGlory?, ignoreLimits?, rulesSet?,
+ * rulesExpansions?, campaignId? }
  * Out: 201 Warband
  * Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found rules or seat, 409 conflict no rules loaded or campaign ended.
  */

@@ -1,6 +1,7 @@
 /**
- * A warband's roster: recruit, edit and remove fighters (groups, Dead included), buy and sell kit, and upgrades.
- * The stash, fireteams and locations are in `warband-stash.ts`, fighter images in `fighter-images.ts`. Every change locks the warband, runs the engine's check for it
+ * A warband's roster: recruit fighters, buy kit, and upgrades; editing, copying and removing a fighter are in
+ * `warband-fighters.ts` (re-exported here). Kit leaving or moving is in `warband-items.ts`; the Arsenal, fireteams and locations in `warband-stash.ts`,
+ * fighter images in `fighter-images.ts`. Every change locks the warband, runs the engine's check for it
  * (or `canChange` when it has none) and is refused with the engine's reasons unless the warband's campaign allows
  * going beyond limits. Buying takes the worth it adds from the banks; selling gives back what it took away, so a
  * discounted or free first copy refunds what it cost.
@@ -8,41 +9,26 @@
 import {
 	availableLines,
 	availableUnits,
+	buildModels,
+	capOf,
 	canEquip,
 	canRecruitWith,
 	canUpgrade,
+	isActive,
+	limitCount,
 	loadoutOptions,
 	priceOf,
-	skillRef,
-	upgradeFor,
-	type WarbandState
+	unitKey,
+	upgradeFor
 } from '#lib/warbands';
-import type {
-	ApiArmouryLine,
-	ApiRecruit,
-	ApiUpgrade,
-	ApiWarband,
-	FighterPatch
-} from '#lib/schemas/warbands';
+import type { ApiArmouryLine, ApiRecruit, ApiUpgrade } from '#lib/schemas/warbands';
 import { AppError } from '../errors';
-import { db, type Tx } from '../db';
+import { db } from '../db';
 import * as repo from '../repos/warbands';
 import type { Ctx } from './audit';
-import * as images from './fighter-images';
-import {
-	allowChange,
-	banksAfter,
-	change,
-	decide,
-	fighterOf,
-	load,
-	stale,
-	type Loaded
-} from './warband-state';
+import { allowChange, change, decide, fighterOf, load, payFor, type Loaded } from './warband-state';
 
-/** Save the banks after a fighter change (and bump the warband's version). */
-const payFor = (tx: Tx, l: Loaded, after: WarbandState, extra: repo.WarbandFields = {}) =>
-	repo.update(tx, l.w.id, { ...banksAfter(l, after), ...extra });
+export { copyFighter, editFighter, removeFighter } from './warband-fighters';
 
 // ---------------------------------------------------------------- fighters
 
@@ -52,12 +38,19 @@ const payFor = (tx: Tx, l: Loaded, after: WarbandState, extra: repo.WarbandField
  */
 export async function recruits(ctx: Ctx, id: string): Promise<ApiRecruit[]> {
 	const l = await load(db(), ctx, id);
+	const on = l.state.fighters.filter(isActive);
 	return availableUnits(l.state, l.f, l.opts).map((u) => {
 		const p = priceOf(l.state, l.f, { unitId: u.unit.id }, l.opts);
+		const key = unitKey(l.f, u.unit);
 		return {
 			unitId: u.unit.id,
 			name: u.unit.name,
 			category: u.unit.category,
+			taken: on.filter((x) => {
+				const unit = l.f.idx.units.get(x.unitId);
+				return !!unit && unitKey(l.f, unit) === key;
+			}).length,
+			max: capOf(l.f, u.unit),
 			cost: p.cost,
 			currency: p.currency,
 			ok: u.ok,
@@ -114,72 +107,21 @@ export function recruit(
 	});
 }
 
-/** A skill or injury as given: an id kept, a name matched to the rules, anything else kept as text. */
-const refOf = (l: Loaded, s: string) => (/^(skill|table):/.test(s) ? s : (skillRef(l.f, s) ?? s));
-
-/**
- * Edit a fighter: name, group (Dead included: it leaves its fireteam), Experience, skills and injuries; with its
- * version.
- */
-export function editFighter(ctx: Ctx, id: string, fid: string, input: FighterPatch) {
-	return change(ctx, id, async (tx, l) => {
-		const x = fighterOf(l, fid);
-		const fields: repo.FighterFields = {
-			...(input.name !== undefined ? { name: input.name || null } : {}),
-			...(input.group !== undefined ? { grp: input.group } : {}),
-			...(input.xp !== undefined ? { xp: input.xp } : {}),
-			...(input.skills ? { skills: input.skills.map((s) => refOf(l, s)) } : {}),
-			...(input.injuries ? { injuries: input.injuries.map((s) => refOf(l, s)) } : {})
-		};
-		const y = {
-			...x,
-			...(fields.name !== undefined ? { name: fields.name ?? undefined } : {}),
-			...(fields.grp ? { group: fields.grp } : {}),
-			...(fields.xp !== undefined ? { xp: fields.xp } : {}),
-			...(fields.skills ? { skills: fields.skills } : {}),
-			...(fields.injuries ? { injuries: fields.injuries } : {})
-		};
-		// A fighter moved to Dead leaves its fireteam, as one removed does.
-		const fireteams =
-			y.group === 'dead' ? l.state.fireteams.filter((t) => !t.includes(fid)) : l.state.fireteams;
-		const after = {
-			...l.state,
-			fighters: l.state.fighters.map((f) => (f.id === fid ? y : f)),
-			fireteams
-		};
-		allowChange(l, after);
-		if (!(await repo.updateFighter(tx, fid, fields, input.version))) throw stale();
-		// Moving to Dead or back changes the worth on the table, not the banks (a fallen fighter is no refund).
-		await repo.update(tx, l.w.id, fireteams === l.state.fireteams ? {} : { fireteams });
-	});
-}
-
-/** Remove a fighter: what it was worth goes back to the banks, it leaves its fireteam, its image goes. */
-export async function removeFighter(ctx: Ctx, id: string, fid: string): Promise<ApiWarband> {
-	let hadImage = false;
-	const out = await change(ctx, id, async (tx, l) => {
-		fighterOf(l, fid);
-		hadImage = !!l.rows.find((r) => r.id === fid)?.image;
-		const fireteams = l.state.fireteams.filter((t) => !t.includes(fid));
-		const after = { ...l.state, fighters: l.state.fighters.filter((x) => x.id !== fid), fireteams };
-		allowChange(l, after);
-		await repo.removeFighter(tx, fid);
-		await payFor(tx, l, after, { fireteams });
-	});
-	if (hadImage) await images.removeFile(id, fid);
-	return out;
-}
-
 // ---------------------------------------------------------------- kit and upgrades
 
 /** The lines a fighter may look at in the Equip dialog, with prices and whether it may take each now. */
 export async function armoury(ctx: Ctx, id: string, fid: string): Promise<ApiArmouryLine[]> {
 	const l = await load(db(), ctx, id);
 	fighterOf(l, fid);
+	const models = buildModels(l.state, l.f);
+	const lctx = { f: l.f, state: l.state, opts: l.opts };
 	return availableLines(l.state, l.f, fid, l.opts).map((x) => {
 		const p = priceOf(l.state, l.f, { lineId: x.line.id, fighterId: fid }, l.opts);
 		const item = l.f.idx.items.get(x.line.item);
 		return {
+			...(x.line.limit != null
+				? { used: limitCount(x.line, models, l.state, lctx), limit: x.line.limit }
+				: {}),
 			lineId: x.line.id,
 			itemId: x.line.item,
 			name: item?.name ?? x.line.item,
@@ -208,20 +150,6 @@ export function buy(ctx: Ctx, id: string, fid: string, lineId: string) {
 	});
 }
 
-/** Sell one piece of a fighter's bought kit (fixed kit is not sold); its worth goes back to the banks. */
-export function sell(ctx: Ctx, id: string, fid: string, lineId: string) {
-	return change(ctx, id, async (tx, l) => {
-		const x = fighterOf(l, fid);
-		const at = x.kit.lastIndexOf(lineId);
-		if (at < 0) throw new AppError('not_found', 'That fighter does not carry that kit.');
-		const kit = x.kit.filter((_, i) => i !== at);
-		const after = withKit(l, fid, kit);
-		allowChange(l, after);
-		await repo.updateFighter(tx, fid, { kit });
-		await payFor(tx, l, after);
-	});
-}
-
 /** The upgrades a fighter's entry may take, with price, whether it has it, and whether it may take it now. */
 export async function upgradesFor(ctx: Ctx, id: string, fid: string): Promise<ApiUpgrade[]> {
 	const l = await load(db(), ctx, id);
@@ -235,6 +163,9 @@ export async function upgradesFor(ctx: Ctx, id: string, fid: string): Promise<Ap
 			return {
 				upgradeId: u.id,
 				name: u.name,
+				text: u.text ?? null,
+				taken: l.state.fighters.filter((y) => isActive(y) && y.upgrades.includes(u.id)).length,
+				max: u.max ?? null,
 				cost: u.cost,
 				currency: u.currency,
 				has: x.upgrades.includes(u.id),

@@ -6,11 +6,7 @@
  */
 import {
 	canChange,
-	fighterCosts,
-	issues as issuesOf,
-	nameOf,
 	rating,
-	refName,
 	resolveFaction,
 	type Check,
 	type Fighter,
@@ -19,7 +15,6 @@ import {
 	type SetWithBase,
 	type WarbandState
 } from '#lib/warbands';
-import type { ApiFighter, ApiWarband, ApiWarbandCard } from '#lib/schemas/warbands';
 import { AppError } from '../errors';
 import { db, type Tx } from '../db';
 import * as campaignsRepo from '../repos/campaigns';
@@ -27,6 +22,9 @@ import * as repo from '../repos/warbands';
 import type { Ctx, SessionUser } from './audit';
 import { requireUser } from './auth';
 import { rulesSetOf } from './rules';
+import { viewOf } from './warband-view';
+
+export { cardOf, viewOf } from './warband-view';
 
 export const notFound = () => new AppError('not_found', 'No such warband.');
 export const stale = () =>
@@ -56,11 +54,15 @@ export interface Loaded {
 	me: SessionUser;
 }
 
-/** The engine's options for a warband in this seat: beyond limits if the CM allows it; Q37 once play has begun. */
+/**
+ * The engine's options for a warband in this seat: beyond limits if the CM allows it (outside a campaign, if the
+ * warband's own "ignore limits" switch is on); Q37 once play has begun.
+ */
 export const optionsFor = (
-	seat: Pick<repo.SeatOf, 'allowBeyondLimits' | 'stage'> | null
+	seat: Pick<repo.SeatOf, 'allowBeyondLimits' | 'stage'> | null,
+	w?: Pick<repo.WarbandRow, 'ignoreLimits'>
 ): Options => ({
-	allowBeyondLimits: !!seat?.allowBeyondLimits,
+	allowBeyondLimits: seat ? seat.allowBeyondLimits : !!w?.ignoreLimits,
 	later: seat?.stage === 'active'
 });
 
@@ -68,11 +70,15 @@ export const optionsFor = (
 export async function resolveFor(
 	rules: { rulesSet: string; rulesExpansions: string[] },
 	factionId: string,
-	variantId: string | null
+	variantId: string | null,
+	dedication?: string | null
 ) {
 	const set = await rulesSetOf(rules.rulesSet, rules.rulesExpansions);
 	try {
-		return { set, f: resolveFaction(set, factionId, variantId ?? undefined) };
+		return {
+			set,
+			f: resolveFaction(set, factionId, variantId ?? undefined, dedication ?? undefined)
+		};
 	} catch {
 		throw new AppError(
 			'conflict',
@@ -81,7 +87,7 @@ export async function resolveFor(
 	}
 }
 
-const toFighter = (r: repo.FighterRow): Fighter => ({
+export const toFighter = (r: repo.FighterRow): Fighter => ({
 	id: r.id,
 	unitId: r.unitId,
 	...(r.name ? { name: r.name } : {}),
@@ -90,7 +96,9 @@ const toFighter = (r: repo.FighterRow): Fighter => ({
 	upgrades: r.upgrades,
 	skills: r.skills,
 	injuries: r.injuries,
-	xp: r.xp
+	xp: r.xp,
+	status: r.status,
+	scars: r.battleScars
 });
 
 export const stateOf = (
@@ -146,14 +154,14 @@ export async function load(
 ): Promise<Loaded> {
 	const { w, seat, canEdit, me } = await see(tx, ctx, id, opts);
 	const rows = await repo.fightersOf(tx, [id]);
-	const { set, f } = await resolveFor(w, w.factionId, w.variantId);
+	const { set, f } = await resolveFor(w, w.factionId, w.variantId, w.dedication);
 	return {
 		w,
 		rows,
 		seat,
 		set,
 		f,
-		opts: optionsFor(seat),
+		opts: optionsFor(seat, w),
 		state: stateOf(w, rows, set),
 		canEdit,
 		me
@@ -179,109 +187,6 @@ export function banksAfter(l: Loaded, after: WarbandState) {
 	};
 }
 
-// ---------------------------------------------------------------- shapes
-
-const seatOut = (s: repo.SeatOf | null) =>
-	s
-		? {
-				campaignId: s.campaignId,
-				campaignName: s.campaignName,
-				seatId: s.seatId,
-				allowBeyondLimits: s.allowBeyondLimits
-			}
-		: null;
-
-/** A list card; a warband whose rules are no longer loaded still lists, by its ids. */
-export function cardOf(
-	w: repo.WarbandRow,
-	l: Pick<Loaded, 'f' | 'state' | 'opts'> | null,
-	seat: repo.SeatOf | null
-): ApiWarbandCard {
-	const r = l ? rating(l.state, l.f, l.opts) : { ducats: 0, glory: 0 };
-	return {
-		id: w.id,
-		name: w.name,
-		rulesSet: w.rulesSet,
-		rulesExpansions: w.rulesExpansions,
-		factionId: w.factionId,
-		factionName: l?.f.faction.name ?? w.factionId,
-		variantName: l?.f.variant?.name ?? null,
-		rating: r,
-		ducatLimit: w.ducatLimit,
-		fighters: l ? l.state.fighters.filter((x) => x.group !== 'dead').length : 0,
-		problems: l ? issuesOf(l.state, l.f, l.opts).filter((i) => i.severity === 'error').length : 0,
-		seat: seatOut(seat)
-	};
-}
-
-function fighterOut(
-	l: Loaded,
-	r: repo.FighterRow,
-	cost: { ducats: number; glory: number }
-): ApiFighter {
-	const { f } = l;
-	const unit = f.idx.units.get(r.unitId);
-	const item = (itemId: string, lineId: string | null, fixed: boolean) => ({
-		lineId,
-		itemId,
-		name: nameOf(f, itemId),
-		fixed
-	});
-	return {
-		id: r.id,
-		unitId: r.unitId,
-		unitName: unit?.name ?? r.unitId,
-		name: r.name,
-		group: r.grp,
-		cost,
-		kit: [
-			...(unit?.kit.fixed ?? []).map((i) => item(i, null, true)),
-			...r.kit.map((l) => item(f.idx.lines.get(l)?.item ?? l, l, false))
-		],
-		upgrades: r.upgrades.map((u) => ({ id: u, name: nameOf(f, u) })),
-		skills: r.skills.map((s) => ({ ref: s, name: refName(f, s) })),
-		injuries: r.injuries.map((s) => ({ ref: s, name: refName(f, s) })),
-		xp: r.xp,
-		image: r.image ? `/uploads/fighters/${r.id}?v=${r.version}` : null,
-		version: r.version
-	};
-}
-
-/** The whole warband as the builder and the API show it: costs, rating, problems, seat. */
-export async function viewOf(tx: Tx, l: Loaded): Promise<ApiWarband> {
-	const costs = fighterCosts(l.state, l.f, l.opts);
-	// The dead are off the table, so off the rating; their own cost is still shown.
-	const costOf = (r: repo.FighterRow) =>
-		costs.get(r.id) ??
-		fighterCosts({ ...l.state, fighters: [{ ...toFighter(r), group: 'troop' }] }, l.f, l.opts).get(
-			r.id
-		) ?? { ducats: 0, glory: 0 };
-	const card = cardOf(l.w, l, l.seat);
-	return {
-		...card,
-		ownerId: l.w.ownerId,
-		ownerName: await repo.ownerName(tx, l.w.ownerId),
-		variantId: l.w.variantId,
-		patronId: l.w.patronId,
-		patronName: l.w.patronId ? nameOf(l.f, l.w.patronId) : null,
-		dedication: l.w.dedication,
-		stashDucats: l.w.stashDucats,
-		unspentGlory: l.w.unspentGlory,
-		stash: l.w.stash.map((id) => {
-			const itemId = l.f.idx.lines.get(id)?.item ?? id;
-			return { lineId: id, itemId, name: nameOf(l.f, itemId) };
-		}),
-		fireteams: l.w.fireteams,
-		locations: l.w.locations,
-		notes: l.w.notes,
-		fighters: l.rows.map((r) => fighterOut(l, r, costOf(r))),
-		fireteamsMax: l.f.rules.fireteams ?? 0,
-		issues: issuesOf(l.state, l.f, l.opts),
-		canEdit: l.canEdit,
-		version: l.w.version
-	};
-}
-
 /** Load again after a change (same transaction) and shape it. */
 export async function reloadView(tx: Tx, ctx: Ctx, id: string) {
 	return viewOf(tx, await load(tx, ctx, id));
@@ -301,3 +206,7 @@ export function fighterOf(l: Loaded, fid: string) {
 	if (!x) throw new AppError('not_found', 'No such fighter in this warband.');
 	return x;
 }
+
+/** Save the banks after a fighter change (and bump the warband's version). */
+export const payFor = (tx: Tx, l: Loaded, after: WarbandState, extra: repo.WarbandFields = {}) =>
+	repo.update(tx, l.w.id, { ...banksAfter(l, after), ...extra });

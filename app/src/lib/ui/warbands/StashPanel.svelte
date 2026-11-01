@@ -1,101 +1,221 @@
 <!--
-  The stash: the banks (Ducats and unspent Glory), the kit held, each with Sell and "Give to" a fighter, and "Buy
-  into stash" (a dialog with the warband's armoury).
+  The Arsenal panel (the warband's stash, Rulebook Quartermaster): the strongbox (Ducats and Glory, with Edit), the
+  value of the items it holds, and the items by category (exploration finds apart), each category with + to buy
+  straight into it and each item with its ⋮ menu (move to a fighter, sell at half, refund before the first game,
+  copy, delete). Limits count Arsenal copies with the ones on fighters.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { m } from '#lib/messages';
+	import { elementHref } from '#lib/rules/text';
 	import type { ApiWarband } from '#lib/schemas/warbands';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
 	import Button from '#lib/ui/Button.svelte';
+	import Field from '#lib/ui/Field.svelte';
 	import Message from '#lib/ui/Message.svelte';
+	import { rulesView } from '#lib/ui/rules/context';
+	import ItemMenu from './ItemMenu.svelte';
 
-	type Props = { warband: ApiWarband; form: FormResult };
-	let { warband: w, form }: Props = $props();
+	type Props = { warband: ApiWarband; holders: { id: string; label: string }[]; form: FormResult };
+	let { warband: wb, holders, form }: Props = $props();
 	const b = m.warbands.builder;
-	const active = $derived(
-		w.fighters
-			.filter((x) => x.group !== 'dead')
-			.map((x) => ({ value: x.id, label: x.name ?? x.unitName }))
+	const view = rulesView();
+	const CATS = ['ranged', 'melee', 'grenade', 'armour', 'shield', 'equipment', 'special'];
+	let editing = $state(false);
+	const patch = $derived(resultOf(form, 'patch'));
+	const left = $derived(resultOf(form, 'leave', 'arsenal'));
+	const moved = $derived(resultOf(form, 'move', 'arsenal'));
+	const value = $derived(
+		wb.stash.reduce(
+			(t, s) => ({ ducats: t.ducats + s.price.ducats, glory: t.glory + s.price.glory }),
+			{ ducats: 0, glory: 0 }
+		)
 	);
-	const error = $derived(resultOf(form, 'stashGive').error ?? resultOf(form, 'stashSell').error);
+	const groups = $derived([
+		...CATS.map((c) => ({
+			c,
+			label: b.categories[c] ?? c,
+			list: wb.stash.filter((s) => !s.exploration && s.category === c)
+		})),
+		{ c: 'exploration', label: b.explorationItems, list: wb.stash.filter((s) => s.exploration) }
+	]);
+	$effect(() => {
+		if (patch.done) editing = false;
+	});
 </script>
 
-<section class="stash">
-	<h3>{b.stash}</h3>
-	<p class="data banks">
-		<span><span class="dim">{b.stashDucats}</span> <strong>{w.stashDucats}</strong></span>
-		<span><span class="dim">{b.unspentGlory}</span> <strong>{w.unspentGlory}</strong></span>
-	</p>
-	{#if error}<Message kind="danger">{error}</Message>{/if}
-	{#if w.stash.length}
-		<ul>
-			{#each w.stash as s, i (i)}
-				<li>
-					<span>{s.name}</span>
-					{#if w.canEdit}
-						<form class="give" method="POST" action="?/stashGive" use:enhance>
-							<input type="hidden" name="op" value="stashGive" />
-							<input type="hidden" name="lineId" value={s.lineId} />
-							<label class="visually-hidden" for="give-{i}">{b.giveTo}</label>
-							<select id="give-{i}" name="fighterId" disabled={!active.length}>
-								{#each active as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
-							</select>
-							<Button type="submit" disabled={!active.length}>{b.give}</Button>
-						</form>
-						<form method="POST" action="?/stashSell" use:enhance>
-							<input type="hidden" name="op" value="stashSell" />
-							<input type="hidden" name="lineId" value={s.lineId} />
-							<Button type="submit" kind="danger">{b.sell(s.name)}</Button>
-						</form>
+<article class="panel" data-panel="arsenal">
+	<header class="pnh">
+		<a class="back" href="?sel=warband" aria-label={b.backToWarband}>‹</a>
+		<h2>{b.arsenal}</h2>
+	</header>
+	<div class="pnb">
+		<div class="kv">
+			<span>{b.strongbox}</span>
+			<b class="data">{m.warbands.money(wb.stashDucats, wb.unspentGlory)}</b>
+			{#if wb.canEdit && !editing}<Button onclick={() => (editing = true)}>{b.edit}</Button>{/if}
+		</div>
+		{#if editing}
+			<form
+				class="edit"
+				method="POST"
+				action="?/patch"
+				use:enhance={() =>
+					({ update }) =>
+						update({ reset: false })}
+			>
+				<input type="hidden" name="op" value="patch" />
+				<input type="hidden" name="version" value={wb.version} />
+				<Field
+					label={b.stashDucats}
+					name="stashDucats"
+					type="number"
+					value={String(wb.stashDucats)}
+					error={patch.fields.stashDucats}
+				/>
+				<Field
+					label={b.unspentGlory}
+					name="unspentGlory"
+					type="number"
+					value={String(wb.unspentGlory)}
+					error={patch.fields.unspentGlory}
+				/>
+				<div class="row">
+					<Button kind="primary" type="submit">{b.save}</Button>
+					<Button onclick={() => (editing = false)}>{m.warbands.wizard.cancel}</Button>
+				</div>
+			</form>
+		{/if}
+		<div class="kv">
+			<span>{b.itemsValue}</span><span class="data"
+				>{m.warbands.money(value.ducats, value.glory)}</span
+			>
+		</div>
+		{#each groups as g (g.c)}
+			<div class="cat">
+				{g.label}
+				{#if wb.canEdit && g.c !== 'exploration'}<a
+						class="plus"
+						href="?sel=arsenal&stash={g.c}"
+						aria-label={b.buyCat(g.label)}><Plus size={16} aria-hidden={true} /></a
+					>{/if}
+			</div>
+			{#each g.list as s, i (`${i}:${s.lineId}`)}
+				<div class="it" data-stash={s.lineId}>
+					<a href={elementHref(view.set, s.itemId)}>{s.name}</a>
+					<span class="c data">{m.warbands.money(s.price.ducats, s.price.glory)}</span>
+					{#if wb.canEdit}
+						<ItemMenu
+							from="arsenal"
+							lineId={s.lineId}
+							name={s.name}
+							price={s.price}
+							sell={s.sell}
+							buy={s.buy}
+							canRefund={wb.canRefund}
+							holders={holders.filter((h) => h.id !== 'arsenal')}
+						/>
 					{/if}
-				</li>
+				</div>
+			{:else}
+				<p class="none">{b.noneYet}</p>
 			{/each}
-		</ul>
-	{:else}
-		<p class="dim">{b.stashEmpty}</p>
-	{/if}
-	{#if w.canEdit}<div><Button href="?stash" icon={Plus}>{b.stashBuy}</Button></div>{/if}
-</section>
+		{/each}
+		{#if left.error || moved.error}<Message kind="danger">{left.error ?? moved.error}</Message>{/if}
+		<p class="note">{b.arsenalRules}</p>
+	</div>
+</article>
 
 <style>
-	.stash {
-		display: grid;
+	.panel {
+		background: var(--panel);
+		border: var(--border-hairline) solid var(--rule);
+	}
+	.pnh {
+		display: flex;
 		gap: var(--space-3);
-		align-content: start;
+		align-items: center;
+		padding: var(--space-2) var(--space-4);
+		background: var(--blood);
 	}
-	.banks {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-4);
+	.pnh h2 {
 		margin: 0;
+		color: var(--bone);
+		font-family: var(--font-body);
+		font-size: var(--size-title);
+		font-weight: 600;
+		letter-spacing: normal;
+		text-transform: none;
 	}
-	ul {
-		margin: 0;
-		padding: 0;
-		list-style: none;
+	.back {
+		color: var(--bone);
+		text-decoration: none;
+		font-size: 1.4em;
+		line-height: 1;
 	}
-	li {
+	.pnb {
+		display: grid;
+		gap: var(--space-2);
+		padding: var(--space-3) var(--space-4) var(--space-4);
+	}
+	.kv {
+		display: grid;
+		grid-template-columns: 9rem minmax(0, 1fr) auto;
+		gap: var(--space-3);
+		align-items: center;
+	}
+	.kv > span:first-child {
+		color: var(--bone-faint);
+	}
+	.edit {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+		padding: var(--space-3);
+		background: var(--inset);
+	}
+	.row {
+		grid-column: 1 / -1;
 		display: flex;
-		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+	.cat {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-top: var(--space-2);
+		padding: 2px var(--space-2);
+		background: var(--inset);
+		color: var(--bone-dim);
+		font-size: var(--size-label);
+	}
+	.plus {
+		display: grid;
+		place-items: center;
+		margin-left: auto;
+		color: var(--bone);
+	}
+	.it {
+		display: flex;
 		gap: var(--space-2);
 		align-items: center;
-		justify-content: space-between;
-		padding: var(--space-2) 0;
-		border-bottom: var(--border-hairline) solid var(--rule);
+		padding: 2px var(--space-2);
 	}
-	.give {
-		display: flex;
-		gap: var(--space-2);
+	.it a {
+		color: var(--bone);
+	}
+	.c {
 		margin-left: auto;
 	}
-	select {
-		height: 36px;
+	.none,
+	.note {
+		margin: 0;
 		padding: 0 var(--space-2);
-		background: var(--inset);
-		color: var(--bone);
-		border: var(--border-hairline) solid var(--rule-strong);
-		font: inherit;
+		color: var(--bone-faint);
+		font-size: var(--size-label);
+	}
+	.note {
+		margin-top: var(--space-3);
 	}
 </style>

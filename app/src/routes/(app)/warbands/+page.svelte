@@ -1,7 +1,8 @@
 <!--
-  /warbands: my warbands as cards (name, faction, rating against the limit, problems, campaign seat), "New warband",
-  and importing a Trench Companion text export. An import reports what it could not match, with a link to the new
-  warband.
+  /warbands: my warbands as cards (name, faction with variant or Sin, rating against the limit, games, problems,
+  campaign seat), filtered by faction and campaign and sorted; each card's ⋮ menu opens, copies, exports or deletes
+  it. "New warband", and importing a Trench Companion text or a JSON export. An import reports what it could not
+  match, with a link to the new warband.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
@@ -9,10 +10,13 @@
 	import { m } from '#lib/messages';
 	import { resultOf } from '#lib/ui/form-result';
 	import Button from '#lib/ui/Button.svelte';
+	import ConfirmButton from '#lib/ui/ConfirmButton.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import Field from '#lib/ui/Field.svelte';
 	import Message from '#lib/ui/Message.svelte';
 	import Select from '#lib/ui/Select.svelte';
 	import TextArea from '#lib/ui/TextArea.svelte';
+	import Menu from '#lib/ui/warbands/Menu.svelte';
 	import WarbandCard from '#lib/ui/warbands/WarbandCard.svelte';
 	import type { PageProps } from './$types';
 
@@ -21,6 +25,39 @@
 	const imp = $derived(resultOf(form, 'import'));
 	const done = $derived(
 		imp.done as null | { id: string; name: string; unmatched: string[]; ambiguous: string[] }
+	);
+	let faction = $state('');
+	let campaign = $state('');
+	let sort = $state<'name' | 'rating' | 'games'>('name');
+	const opt = (xs: [string, string][], all: string) => [
+		{ value: '', label: all },
+		...[...new Map(xs)].map(([value, label]) => ({ value, label }))
+	];
+	const factions = $derived(
+		opt(
+			data.warbands.map((c) => [c.factionId, c.factionName]),
+			w.list.allFactions
+		)
+	);
+	const campaigns = $derived(
+		opt(
+			data.warbands.map((c) =>
+				c.seat ? [c.seat.campaignId, c.seat.campaignName] : ['none', w.notSeated]
+			),
+			w.list.allCampaigns
+		)
+	);
+	const shown = $derived(
+		data.warbands
+			.filter((c) => !faction || c.factionId === faction)
+			.filter((c) => !campaign || (c.seat?.campaignId ?? 'none') === campaign)
+			.toSorted((a, b) =>
+				sort === 'rating'
+					? b.rating.ducats - a.rating.ducats
+					: sort === 'games'
+						? b.gamesPlayed - a.gamesPlayed
+						: a.name.localeCompare(b.name)
+			)
 	);
 </script>
 
@@ -35,9 +72,43 @@
 </div>
 
 {#if data.warbands.length}
+	<div class="flt">
+		<Select label={w.list.faction} name="faction" options={factions} bind:value={faction} />
+		<Select label={w.list.campaign} name="campaign" options={campaigns} bind:value={campaign} />
+		<Select
+			label={w.list.sort}
+			name="sort"
+			options={[
+				{ value: 'name', label: w.list.byName },
+				{ value: 'rating', label: w.list.byRating },
+				{ value: 'games', label: w.list.byGames }
+			]}
+			bind:value={sort}
+		/>
+	</div>
 	<div class="cards">
-		{#each data.warbands as card (card.id)}
-			<WarbandCard {card} href="/warbands/{card.id}" />
+		{#each shown as card (card.id)}
+			<WarbandCard {card} href="/warbands/{card.id}">
+				{#snippet menu()}
+					<Menu label={w.list.menu(card.name)}>
+						<a href="/warbands/{card.id}">{w.list.open}</a>
+						<form method="POST" action="?/copy" use:enhance>
+							<input type="hidden" name="op" value="copy" />
+							<input type="hidden" name="id" value={card.id} />
+							<button type="submit">{w.list.copy}</button>
+						</form>
+						<a href="/api/v1/warbands/{card.id}/export?format=text" download>{w.list.exportText}</a>
+						<a href="/api/v1/warbands/{card.id}/export?format=json" download>{w.list.exportJson}</a>
+						<form method="POST" action="?/remove" use:enhance>
+							<input type="hidden" name="op" value="remove" />
+							<input type="hidden" name="id" value={card.id} />
+							<ConfirmButton label={w.list.delete} confirm={w.list.deleteConfirm} />
+						</form>
+					</Menu>
+				{/snippet}
+			</WarbandCard>
+		{:else}
+			<p class="dim">{w.list.noMatch}</p>
 		{/each}
 	</div>
 {:else}
@@ -83,6 +154,23 @@
 			error={imp.fields.text}
 		/>
 		<div class="row">
+			<Select
+				label={w.import.format}
+				name="format"
+				options={[
+					{ value: 'text', label: w.import.formatText },
+					{ value: 'json', label: w.import.formatJson }
+				]}
+			/>
+			<Field
+				label={w.import.gamesPlayed}
+				name="gamesPlayed"
+				type="number"
+				min={0}
+				max={100}
+				hint={w.import.gamesPlayedHint}
+				error={imp.fields.gamesPlayed}
+			/>
 			{#if data.rules.length}<Select
 					label={w.import.rules}
 					name="rules"
@@ -100,6 +188,12 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: var(--space-4);
+	}
+	.flt {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+		align-items: end;
 	}
 	.cards {
 		display: grid;

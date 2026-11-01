@@ -34,9 +34,11 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
 	/**
-	 * Create a warband from the wizard and open its builder; from a seat it takes the campaign's rules and the seat.
+	 * Create a warband from the new-warband list and open its builder; from a seat it takes the campaign's rules and
+	 * the seat.
 	 * Who: anyone signed in; with campaignId, a player seated in that campaign.
-	 * In: form warbandCreate { rules, factionId, variantId?, patronId?, name, ducatLimit?, campaignId? }.
+	 * In: form warbandCreate { rules, factionId, variantId?, dedication?, patronId?, name, ducatLimit?,
+	 * unspentGlory?, ignoreLimits?, campaignId? }.
 	 * Out: redirect to /warbands/<id>.
 	 * Errors: 400 invalid, 401 unauthenticated, 404 not_found rules or seat, 409 conflict no rules or campaign ended.
 	 */

@@ -28,6 +28,9 @@ import * as stash from './[id]/stash/+server';
 import * as give from './[id]/stash/give/+server';
 import * as fireteams from './[id]/fireteams/+server';
 import * as locations from './[id]/locations/+server';
+import * as copyWarband from './[id]/copy/+server';
+import * as move from './[id]/kit/move/+server';
+import * as copyFighter from './[id]/fighters/[fid]/copy/+server';
 import * as seat from '../campaigns/[id]/seats/mine/warband/+server';
 import * as seated from '../campaigns/[id]/warbands/+server';
 import * as campaignRoute from '../campaigns/[id]/+server';
@@ -298,7 +301,8 @@ describe('fighters', () => {
 			method: 'DELETE',
 			user: me.actor
 		});
-		expect(sold.body.stashDucats).toBe(670);
+		// The default is to sell: half the Hook Rifle's 10 Ducats back.
+		expect(sold.body.stashDucats).toBe(665);
 		expectError(
 			await call(at(kit.DELETE, { id, fid }), { method: 'DELETE', user: me.actor }),
 			400,
@@ -678,6 +682,222 @@ describe('every warband endpoint', () => {
 	});
 });
 
+describe('revision 2 endpoints', () => {
+	it('DELETE kit and stash with a mode: sell half after the first game, refund refused', async () => {
+		const { me, stranger, id, fid } = await world();
+		let r = await call(at(kit.POST, { id, fid }), {
+			method: 'POST',
+			user: me.actor,
+			body: { lineId: RIFLE }
+		});
+		const v = r.body.version as number;
+		r = await call(at(one.PATCH, { id }), {
+			method: 'PATCH',
+			user: me.actor,
+			body: { version: v, gamesPlayed: 1 }
+		});
+		expect(r.body).toMatchObject({ gamesPlayed: 1, canRefund: false });
+		const bank = r.body.stashDucats as number;
+		expectError(
+			await call(at(kit.DELETE, { id, fid }, `?line=${RIFLE}&mode=refund`), {
+				method: 'DELETE',
+				user: me.actor
+			}),
+			409,
+			'conflict'
+		);
+		expectError(
+			await call(at(kit.DELETE, { id, fid }, `?line=${RIFLE}&mode=give`), {
+				method: 'DELETE',
+				user: me.actor
+			}),
+			400,
+			'invalid'
+		);
+		expectError(
+			await call(at(kit.DELETE, { id, fid }, `?line=${RIFLE}`), {
+				method: 'DELETE',
+				user: stranger.actor
+			}),
+			404,
+			'not_found'
+		);
+		r = await call(at(kit.DELETE, { id, fid }, `?line=${RIFLE}`), {
+			method: 'DELETE',
+			user: me.actor
+		});
+		expect(r.body.stashDucats).toBe(bank + 5);
+		await call(at(stash.POST, { id }), { method: 'POST', user: me.actor, body: { lineId: RIFLE } });
+		r = await call(at(stash.DELETE, { id }, `?line=${RIFLE}&mode=delete`), {
+			method: 'DELETE',
+			user: me.actor
+		});
+		expect(r.body.stash).toEqual([]);
+	});
+	it('POST /kit/move, /fighters/:fid/copy and /copy; DELETE a fighter with a mode', async () => {
+		const { me, stranger, id, fid } = await world();
+		await call(at(stash.POST, { id }), { method: 'POST', user: me.actor, body: { lineId: RIFLE } });
+		let r = await call(at(move.POST, { id }), {
+			method: 'POST',
+			user: me.actor,
+			body: { lineId: RIFLE, from: 'arsenal', to: fid }
+		});
+		expect(r.status).toBe(200);
+		expect(r.body.stash).toEqual([]);
+		expectError(
+			await call(at(move.POST, { id }), {
+				method: 'POST',
+				user: me.actor,
+				body: { lineId: RIFLE, from: 'x', to: fid }
+			}),
+			400,
+			'invalid'
+		);
+		expectError(
+			await call(at(move.POST, { id }), {
+				method: 'POST',
+				user: stranger.actor,
+				body: { lineId: RIFLE, from: fid, to: 'arsenal' }
+			}),
+			404,
+			'not_found'
+		);
+		r = await call(at(copyFighter.POST, { id, fid }), { method: 'POST', user: me.actor });
+		expect(r.body.fighters).toHaveLength(2);
+		expectError(
+			await call(at(copyFighter.POST, { id, fid: 'nope' }), { method: 'POST', user: me.actor }),
+			400,
+			'invalid'
+		);
+		expectError(
+			await call(at(copyFighter.POST, { id, fid }), { method: 'POST', user: stranger.actor }),
+			404,
+			'not_found'
+		);
+		const second = r.body.fighters[1].id as string;
+		r = await call(at(fighter.DELETE, { id, fid: second }, '?mode=refund'), {
+			method: 'DELETE',
+			user: me.actor
+		});
+		expect(r.body.fighters).toHaveLength(1);
+		expectError(
+			await call(at(fighter.DELETE, { id, fid }, '?mode=sell'), {
+				method: 'DELETE',
+				user: me.actor
+			}),
+			400,
+			'invalid'
+		);
+		r = await call(at(copyWarband.POST, { id }), {
+			method: 'POST',
+			user: me.actor,
+			body: { name: 'Second Lamp' }
+		});
+		expect(r.body).toMatchObject({ name: 'Second Lamp', seat: null });
+		expect(r.body.id).not.toBe(id);
+		expectError(
+			await call(at(copyWarband.POST, { id }), {
+				method: 'POST',
+				user: me.actor,
+				body: { name: ''.padEnd(90, 'x') }
+			}),
+			400,
+			'invalid'
+		);
+		expectError(
+			await call(at(copyWarband.POST, { id }), { method: 'POST', user: stranger.actor, body: {} }),
+			404,
+			'not_found'
+		);
+	});
+	it('PATCH /warbands/:id: campaign data; once played, the CM changes the Patron and nothing else', async () => {
+		const { me, id } = await world();
+		const cm = await person('admin');
+		const { campaign, seats } = await newCampaign(cm, { kind: 'generic' });
+		await seatsService.assign(cm.ctx(), campaign.id, seats[0]!.id, me.row.id);
+		const put = await call(at(seat.PUT, { id: campaign.id }), {
+			method: 'PUT',
+			user: me.actor,
+			body: { warbandId: id }
+		});
+		expect(put.status).toBe(200);
+		let w = await call(at(one.GET, { id }), { user: me.actor });
+		const played = await call(at(one.PATCH, { id }), {
+			method: 'PATCH',
+			user: me.actor,
+			body: { version: w.body.version, gamesPlayed: 1, victoryPoints: 3 }
+		});
+		expect(played.body).toMatchObject({ gamesPlayed: 1, victoryPoints: 3, canChangePatron: false });
+		expectError(
+			await call(at(one.PATCH, { id }), {
+				method: 'PATCH',
+				user: cm.actor,
+				body: { version: played.body.version, name: 'Renamed' }
+			}),
+			403,
+			'forbidden'
+		);
+		w = await call(at(one.GET, { id }), { user: cm.actor });
+		expect(w.body.canChangePatron).toBe(true);
+		const byCm = await call(at(one.PATCH, { id }), {
+			method: 'PATCH',
+			user: cm.actor,
+			body: { version: w.body.version, patronId: null }
+		});
+		expect(byCm.status).toBe(200);
+		expectError(
+			await call(at(one.PATCH, { id }), {
+				method: 'PATCH',
+				user: me.actor,
+				body: { version: byCm.body.version, gamesPlayed: 200 }
+			}),
+			400,
+			'invalid'
+		);
+	});
+	it('POST /warbands/import with format json; refuses JSON that is not a warband', async () => {
+		const { me, id } = await world();
+		const out = await call(at(exp.GET, { id }, '?format=json'), { user: me.actor });
+		const text = typeof out.body === 'string' ? out.body : JSON.stringify(out.body);
+		const r = await call(imp.POST, {
+			method: 'POST',
+			user: me.actor,
+			body: { text, format: 'json', gamesPlayed: 2 }
+		});
+		expect(r.status).toBe(201);
+		expect(r.body.warband).toMatchObject({ gamesPlayed: 2, canRefund: false });
+		expectError(
+			await call(imp.POST, {
+				method: 'POST',
+				user: me.actor,
+				body: { text: '{"app":"elsewhere"}', format: 'json' }
+			}),
+			400,
+			'invalid'
+		);
+	});
+	it('PATCH a fighter’s status, scars and rank; refuses a bad status', async () => {
+		const { me, id, fid } = await world();
+		const w = await call(at(one.GET, { id }), { user: me.actor });
+		const v = w.body.fighters[0].version as number;
+		const r = await call(at(fighter.PATCH, { id, fid }), {
+			method: 'PATCH',
+			user: me.actor,
+			body: { version: v, status: 'captured', scars: 1, group: 'elite' }
+		});
+		expect(r.body.fighters[0]).toMatchObject({ status: 'captured', scars: 1, group: 'elite' });
+		expectError(
+			await call(at(fighter.PATCH, { id, fid }), {
+				method: 'PATCH',
+				user: me.actor,
+				body: { version: v + 1, status: 'lost' }
+			}),
+			400,
+			'invalid'
+		);
+	});
+});
+
 describe('the OpenAPI document', () => {
 	it('lists the warband paths', () => {
 		const paths = Object.keys(openApiDocument().paths ?? {});
@@ -686,6 +906,9 @@ describe('the OpenAPI document', () => {
 			'/warbands/{id}',
 			'/warbands/{id}/fighters/{fid}/kit',
 			'/warbands/{id}/fighters/{fid}/image',
+			'/warbands/{id}/fighters/{fid}/copy',
+			'/warbands/{id}/kit/move',
+			'/warbands/{id}/copy',
 			'/campaigns/{id}/seats/mine/warband',
 			'/campaigns/{id}/warbands'
 		])

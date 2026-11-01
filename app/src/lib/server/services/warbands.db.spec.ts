@@ -14,6 +14,7 @@ import * as campaigns from './campaigns';
 import * as people from './people';
 import * as roster from './warband-roster';
 import * as holdings from './warband-stash';
+import * as items from './warband-items';
 import * as images from './fighter-images';
 import * as seats from './seats';
 import * as warbands from './warbands';
@@ -120,7 +121,7 @@ describe('the roster', () => {
 		expect(units.find((u) => u.unitId === TORCH)).toMatchObject({ ok: false, cost: 30 });
 		expect(v.issues.filter((i) => i.severity === 'error')).toEqual([]);
 	});
-	it('buys and sells kit at what it cost; refuses kit over its limit', async () => {
+	it('buys kit, refunds it at what it cost before the first game; refuses kit over its limit', async () => {
 		const p = await player();
 		const w = await p.make();
 		let v = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
@@ -138,9 +139,9 @@ describe('the roster', () => {
 		await expect(roster.buy(p.ctx(), w.id, v.fighters[2]!.id, SMOKE)).rejects.toMatchObject({
 			message: expect.stringMatching(/Limit 2\/2 used/)
 		});
-		v = await roster.sell(p.ctx(), w.id, fid, RIFLE);
+		v = await items.leave(p.ctx(), w.id, fid, RIFLE, 'refund');
 		expect(v).toMatchObject({ stashDucats: 600, rating: { ducats: 100 } });
-		await expect(roster.sell(p.ctx(), w.id, fid, RIFLE)).rejects.toMatchObject({
+		await expect(items.leave(p.ctx(), w.id, fid, RIFLE, 'refund')).rejects.toMatchObject({
 			code: 'not_found'
 		});
 	});
@@ -209,7 +210,7 @@ describe('the roster', () => {
 			injuries: ['Scarred', 'a limp']
 		});
 		expect(w.fighters[0]).toMatchObject({
-			group: 'dead',
+			status: 'dead',
 			xp: 4,
 			injuries: [
 				{ ref: 'table:wounds#7-12', name: 'Scarred' },
@@ -222,10 +223,10 @@ describe('the roster', () => {
 		).rejects.toMatchObject({ code: 'conflict' });
 		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
 		const torch = w.fighters[1]!;
-		w = await roster.removeFighter(p.ctx(), w.id, torch.id);
+		w = await roster.removeFighter(p.ctx(), w.id, torch.id, 'refund');
 		expect(w).toMatchObject({ stashDucats: 640, fighters: [{ id: warden.id }] });
 	});
-	it('stashes kit, sells it, gives it to a fighter; fireteams and locations', async () => {
+	it('stashes kit, refunds it, moves it to a fighter; fireteams and locations', async () => {
 		const p = await player();
 		let w = await p.make();
 		w = await holdings.stashBuy(p.ctx(), w.id, RIFLE);
@@ -233,10 +234,10 @@ describe('the roster', () => {
 		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
 		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
 		const [a, b] = w.fighters.map((x) => x.id);
-		w = await holdings.stashGive(p.ctx(), w.id, RIFLE, a!);
+		w = await items.move(p.ctx(), w.id, RIFLE, 'arsenal', a!);
 		expect(w).toMatchObject({ stashDucats: 630, stash: [], rating: { ducats: 70 } });
 		await holdings.stashBuy(p.ctx(), w.id, SMOKE);
-		w = await holdings.stashSell(p.ctx(), w.id, SMOKE);
+		w = await items.leave(p.ctx(), w.id, 'arsenal', SMOKE, 'refund');
 		expect(w.stashDucats).toBe(630);
 		w = await holdings.setFireteams(p.ctx(), w.id, [[a!, b!]]);
 		expect(w.fireteams).toEqual([[a, b]]);
@@ -480,5 +481,162 @@ describe('images and accounts', () => {
 		await people.anonymise(owner.ctx(), p.row.id, disabled.version);
 		const [row] = await sql()`select count(*)::int as n from warband.warbands where id = ${w.id}`;
 		expect(row!.n).toBe(0);
+	});
+});
+
+describe('revision 2: the Arsenal, selling and campaign data', () => {
+	it('sells at half (rounded up) after the first game; refuses a refund then; delete gives nothing', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		const fid = w.fighters[0]!.id;
+		w = await roster.buy(p.ctx(), w.id, fid, RIFLE);
+		await roster.buy(p.ctx(), w.id, fid, SMOKE);
+		w = await holdings.stashBuy(p.ctx(), w.id, 'line:lantern-guild/quilted-coat');
+		expect(w).toMatchObject({ stashDucats: 640, canRefund: true });
+		expect(w.fighters[0]!.kit.find((k) => k.lineId === RIFLE)).toMatchObject({
+			price: { ducats: 10 },
+			sell: { ducats: 5 }
+		});
+		w = await warbands.patch(p.ctx(), w.id, { version: w.version, gamesPlayed: 1 });
+		expect(w).toMatchObject({ canRefund: false, gamesPlayed: 1 });
+		await expect(items.leave(p.ctx(), w.id, fid, RIFLE, 'refund')).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		w = await items.leave(p.ctx(), w.id, fid, SMOKE, 'sell');
+		expect(w.stashDucats).toBe(643); // 5 Ducats: 3 back
+		w = await items.leave(p.ctx(), w.id, 'arsenal', 'line:lantern-guild/quilted-coat', 'sell');
+		expect(w).toMatchObject({ stashDucats: 651, stash: [] }); // 15: 8 back
+		w = await items.leave(p.ctx(), w.id, fid, RIFLE, 'delete');
+		expect(w.stashDucats).toBe(651);
+		await expect(roster.removeFighter(p.ctx(), w.id, fid, 'refund')).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		w = await roster.removeFighter(p.ctx(), w.id, fid, 'delete');
+		expect(w).toMatchObject({ stashDucats: 651, fighters: [] });
+	});
+	it('moves kit between fighters and the Arsenal with no money; checks the fighter that takes it', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		const [a, b] = w.fighters.map((x) => x.id);
+		w = await roster.buy(p.ctx(), w.id, a!, SMOKE);
+		const bank = w.stashDucats;
+		w = await items.move(p.ctx(), w.id, SMOKE, a!, 'arsenal');
+		expect(w).toMatchObject({ stashDucats: bank, stash: [{ lineId: SMOKE }] });
+		w = await items.move(p.ctx(), w.id, SMOKE, 'arsenal', b!);
+		expect(w.fighters[1]!.kit.map((k) => k.lineId)).toContain(SMOKE);
+		w = await roster.buy(p.ctx(), w.id, a!, SMOKE);
+		// One Smoke Pot per model: B cannot take a second.
+		await expect(items.move(p.ctx(), w.id, SMOKE, a!, b!)).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		await expect(items.move(p.ctx(), w.id, RIFLE, a!, b!)).rejects.toMatchObject({
+			code: 'not_found'
+		});
+	});
+	it('statuses: unfit sends bought kit to the Arsenal and leaves the rating; dead is off the roster', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		const x = w.fighters[0]!;
+		w = await roster.buy(p.ctx(), w.id, x.id, RIFLE);
+		w = await roster.editFighter(p.ctx(), w.id, x.id, {
+			version: w.fighters[0]!.version,
+			status: 'unfit',
+			scars: 3
+		});
+		expect(w).toMatchObject({
+			rating: { ducats: 0 },
+			stash: [{ lineId: RIFLE }]
+		});
+		expect(w.fighters[0]).toMatchObject({ status: 'unfit', scars: 3 });
+		expect(w.fighters[0]!.kit.filter((k) => !k.fixed)).toEqual([]);
+		w = await roster.editFighter(p.ctx(), w.id, x.id, {
+			version: w.fighters[0]!.version,
+			status: 'active'
+		});
+		expect(w.rating.ducats).toBe(30);
+	});
+	it('promotes by the book and caps Limited Potential', async () => {
+		const p = await player();
+		let w = await p.make({ variantId: 'variant:lantern-guild/ash-wardens' });
+		w = await roster.recruit(p.ctx(), w.id, { unitId: 'unit:lantern-guild/ash-warden' });
+		const ash = w.fighters[0]!;
+		expect(ash).toMatchObject({ xpMax: 7, promotion: null });
+		await expect(
+			roster.editFighter(p.ctx(), w.id, ash.id, { version: ash.version, xp: 8 })
+		).rejects.toMatchObject({ code: 'conflict' });
+		w = await roster.editFighter(p.ctx(), w.id, ash.id, {
+			version: ash.version,
+			group: 'elite',
+			xp: 4
+		});
+		expect(w.fighters[0]).toMatchObject({ group: 'elite', xp: 4, advancementsDue: 2 });
+		expect(w.elites).toBe(1);
+		w = await warbands.patch(p.ctx(), w.id, { version: w.version, gamesPlayed: 2 });
+		expect(w.nextGame).toEqual({ game: 3, threshold: 600, fieldStrength: 8 });
+	});
+	it('copies a fighter (paid) and a warband (no seat, same fighters)', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		w = await roster.buy(p.ctx(), w.id, w.fighters[0]!.id, RIFLE);
+		w = await roster.copyFighter(p.ctx(), w.id, w.fighters[0]!.id);
+		expect(w).toMatchObject({ stashDucats: 620, rating: { ducats: 80 } });
+		expect(w.fighters[1]!.kit.map((k) => k.lineId)).toEqual([RIFLE]);
+		const c = await warbands.copy(p.ctx(), w.id);
+		expect(c).toMatchObject({ name: 'Lamp Wardens (copy)', seat: null, stashDucats: 620 });
+		expect(c.fighters).toHaveLength(2);
+		expect(c.id).not.toBe(w.id);
+	});
+	it('ignore limits turns refusals into warnings outside a campaign', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: WARDEN });
+		await expect(roster.recruit(p.ctx(), w.id, { unitId: WARDEN })).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		w = await warbands.patch(p.ctx(), w.id, { version: w.version, ignoreLimits: true });
+		w = await roster.recruit(p.ctx(), w.id, { unitId: WARDEN });
+		expect(w.fighters).toHaveLength(2);
+		expect(w.issues.length).toBeGreaterThan(0);
+	});
+	it('the Patron: the owner until the first game; then only the campaign master', async () => {
+		const p = await player();
+		const { cm, campaign } = await seated(p);
+		let w = await warbands.create(
+			p.ctx(),
+			warbandCreate.parse({ name: 'Seated', factionId: LG, campaignId: campaign.id })
+		);
+		expect(w.canChangePatron).toBe(true);
+		w = await warbands.patch(p.ctx(), w.id, { version: w.version, gamesPlayed: 1 });
+		expect(w.canChangePatron).toBe(false);
+		await expect(
+			warbands.patch(p.ctx(), w.id, { version: w.version, patronId: null, name: 'x' })
+		).resolves.toBeTruthy(); // unchanged Patron: fine
+		w = await warbands.get(p.ctx(), w.id);
+		await expect(
+			warbands.patch(cm.ctx(), w.id, { version: w.version, name: 'CM rename' })
+		).rejects.toMatchObject({ code: 'forbidden' });
+		const asCm = await warbands.get(cm.ctx(), w.id);
+		expect(asCm.canChangePatron).toBe(true);
+	});
+	it('imports our JSON export and refuses JSON that is not a warband', async () => {
+		const p = await player();
+		let w = await p.make();
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		const out = await warbands.exportOf(p.ctx(), w.id, 'json');
+		const r = await warbands.importText(p.ctx(), {
+			text: out.body,
+			format: 'json',
+			gamesPlayed: 2
+		});
+		expect(r.warband).toMatchObject({ factionId: LG, gamesPlayed: 2, canRefund: false });
+		expect(r.warband.fighters).toHaveLength(1);
+		await expect(
+			warbands.importText(p.ctx(), { text: '{"app":"other"}', format: 'json' })
+		).rejects.toMatchObject({ code: 'invalid' });
 	});
 });

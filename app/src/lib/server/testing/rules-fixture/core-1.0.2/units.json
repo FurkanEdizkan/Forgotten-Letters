@@ -77,7 +77,8 @@
 			}
 		],
 		"abilities": [],
-		"kit": {}
+		"kit": {},
+		"promotion": "limited"
 	},
 	{
 		"id": "unit:mercenaries/sellsword",

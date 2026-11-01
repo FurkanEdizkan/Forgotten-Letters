@@ -1,15 +1,17 @@
 <!--
-  A warband card (DESIGN.md §7, Card): the name in the title style, the faction (and variant), the rating in Ducats
-  and Glory against the ducat limit, how many fighters and problems, and the campaign it sits in. The whole card
-  opens the builder; `actions` sit at its foot, outside the link.
+  A warband card (DESIGN.md §7, Card): the name in the title style, the faction (and variant or Sin), the rating in
+  Ducats and Glory against the ducat limit, games played, how many fighters and problems, and the campaign it sits
+  in. The whole card opens the builder; `actions` sit at its foot and `menu` (a ⋮ menu) at its top right, outside
+  the link.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { m } from '#lib/messages';
 	import type { ApiWarbandCard } from '#lib/schemas/warbands';
 
-	type Props = { card: ApiWarbandCard; href?: string; actions?: Snippet };
-	let { card, href, actions }: Props = $props();
+	type Props = { card: ApiWarbandCard; href?: string; actions?: Snippet; menu?: Snippet };
+	let { card, href, actions, menu }: Props = $props();
+	const sub = $derived(card.variantName ?? card.dedicationName);
 	const w = m.warbands;
 </script>
 
@@ -17,8 +19,9 @@
 	<h3 class="name">
 		{#if href}<a {href}>{card.name}</a>{:else}{card.name}{/if}
 	</h3>
+	{#if menu}<div class="menu">{@render menu()}</div>{/if}
 	<p class="dim">
-		{card.variantName ?? card.factionName}{card.variantName ? ` · ${card.factionName}` : ''}
+		{sub ?? card.factionName}{sub ? ` · ${card.factionName}` : ''}
 	</p>
 	<p class="data">
 		<strong>{w.rating(card.rating.ducats, card.rating.glory)}</strong>
@@ -26,6 +29,7 @@
 	</p>
 	<p class="meta data">
 		{w.fighters(card.fighters)} ·
+		{#if card.gamesPlayed}{w.games(card.gamesPlayed)} ·{/if}
 		<span class:ok={!card.problems} class:bad={card.problems > 0}
 			>{card.problems ? w.problems(card.problems) : w.noProblems}</span
 		>
@@ -47,6 +51,12 @@
 	}
 	.link:hover {
 		background: var(--panel-hover);
+	}
+	.menu {
+		position: absolute;
+		z-index: 2;
+		top: var(--space-2);
+		right: var(--space-2);
 	}
 	.name {
 		padding: 0;

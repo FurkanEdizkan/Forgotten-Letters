@@ -5,9 +5,17 @@
  * fireteams and locations in `warband-stash.ts`, images in `fighter-images.ts`; the shared core in `warband-state.ts`.
  */
 import { isHomebrewSet } from '#lib/rules/homebrew';
-import { fromText, mergeSets, resolveFaction, toJson, toText } from '#lib/warbands';
+import {
+	dedicationVariant,
+	fromJson,
+	fromTcJson,
+	fromText,
+	resolveFaction,
+	toJson,
+	toText,
+	type SetWithBase
+} from '#lib/warbands';
 import type {
-	ApiChoices,
 	ApiWarband,
 	ApiWarbandCard,
 	WarbandCreate,
@@ -21,6 +29,7 @@ import { record, type Ctx } from './audit';
 import { requireUser } from './auth';
 import * as images from './fighter-images';
 import { homebrewAllowed, mySeat, seatWarband } from './warband-seats';
+import { pickRules } from './warband-choices';
 import * as rules from './rules';
 import {
 	allowChange,
@@ -33,119 +42,10 @@ import {
 	stateOf,
 	viewOf
 } from './warband-state';
+import { patronChangeable } from './warband-view';
 
 const invalid = (field: string, message: string) =>
 	new AppError('invalid', message, { [field]: message });
-
-// ---------------------------------------------------------------- rules choices
-
-/** Loaded rules to build for: each core version (newest first) and each expansion on its base. */
-async function rulesOptions() {
-	const sets = (await rules.listSets()).filter((s) => s.ok);
-	const byVersion = (a: { version: string | null }, b: { version: string | null }) =>
-		(b.version ?? '').localeCompare(a.version ?? '', 'en', { numeric: true });
-	const cores = sets.filter((s) => s.kind === 'core').sort(byVersion);
-	const out = cores.map((c) => ({ value: c.id, label: `${c.name} ${c.version ?? ''}`.trim() }));
-	for (const e of sets.filter((s) => s.kind === 'expansion').sort(byVersion)) {
-		const core = cores.find((c) => c.id === e.base);
-		if (core)
-			out.push({
-				value: `${core.id}+${e.id}`,
-				label: `${e.name} ${e.version ?? ''} on ${core.name} ${core.version ?? ''}`.trim()
-			});
-	}
-	return out;
-}
-
-/**
- * Homebrew to build on, after the official rules: every loaded set the person may see, as its whole chain; from a
- * campaign seat, the sets the campaign allows, on the campaign's rules.
- */
-async function homebrewOptions(ctx: Ctx, campaign?: { rules: string; allowed: string[] }) {
-	const sets = (await rules.sets(ctx, true)).filter((s) => s.ok && isHomebrewSet(s.id));
-	const names = new Map((await rules.listSets(true)).map((s) => [s.id, s]));
-	const out: { value: string; label: string }[] = [];
-	for (const s of sets) {
-		if (campaign && !campaign.allowed.includes(s.id.slice(3))) continue;
-		const b = names.get(s.base ?? '');
-		const on = b ? `${b.name} ${isHomebrewSet(b.id) ? '' : (b.version ?? '')}`.trim() : s.base;
-		out.push({
-			value: campaign ? `${campaign.rules}+${s.id}` : (await rules.chainOf(s.id)).join('+'),
-			label: `${s.name} (homebrew on ${on})`
-		});
-	}
-	return out;
-}
-
-/** The rules a new warband is built for: the given ones, else the newest loaded core version. */
-async function pickRules(input: { rulesSet?: string; rulesExpansions?: string[] }) {
-	if (input.rulesSet)
-		return { rulesSet: input.rulesSet, rulesExpansions: input.rulesExpansions ?? [] };
-	const first = (await rulesOptions())[0];
-	if (!first) throw new AppError('conflict', 'No rules are loaded yet. Ask an Owner to add them.');
-	return { rulesSet: first.value, rulesExpansions: [] };
-}
-
-/**
- * What the new-warband wizard offers for one rules choice: the rules to pick from (the loaded versions, then the
- * homebrew the person may see; from a campaign seat, its rules and the homebrew it allows), then each faction with
- * its variants, starting Ducats and the Patrons each may serve. A homebrew pick offers the factions it makes or
- * varies (all of them for a set of items).
- */
-export async function choices(
-	ctx: Ctx,
-	rulesValue?: string,
-	campaign?: { rules: string; allowed: string[] }
-): Promise<ApiChoices> {
-	requireUser(ctx);
-	const options = [
-		...(campaign
-			? (await rulesOptions()).filter((o) => o.value === campaign.rules)
-			: await rulesOptions()),
-		...(await homebrewOptions(ctx, campaign))
-	];
-	const picked =
-		rulesValue && options.some((o) => o.value === rulesValue) ? rulesValue : options[0]?.value;
-	if (!picked) return { rules: [], picked: '', factions: [] };
-	const [core, ...exp] = picked.split('+');
-	const set = await rules.rulesSetOf(core!, exp);
-	const all = mergeSets(set);
-	const own = set.manifest.kind === 'homebrew' ? set : null;
-	const mine = (id: string) =>
-		!own ||
-		(!own.factions.length && !own.variants.length) ||
-		own.factions.some((f) => f.id === id) ||
-		own.variants.some((v) => v.faction === id);
-	const playable = all.factions.filter(
-		(f) => mine(f.id) && all.units.some((u) => u.owner === f.id && u.category !== 'mercenary')
-	);
-	return {
-		rules: options,
-		picked,
-		factions: playable.map((fa) => {
-			const variants = all.variants.filter((v) => v.faction === fa.id);
-			const patrons = Object.fromEntries(
-				[undefined, ...variants.map((v) => v.id)].map((v) => [
-					v ?? '',
-					resolveFaction(set, fa.id, v).patrons.map((p) => ({ id: p.id, name: p.name }))
-				])
-			);
-			return {
-				id: fa.id,
-				name: fa.name,
-				alignment: fa.alignment,
-				startDucats: fa.startDucats,
-				startGlory: fa.startGlory,
-				variants: variants.map((v) => ({
-					id: v.id,
-					name: v.name,
-					startDucats: resolveFaction(set, fa.id, v.id).rules.startDucats
-				})),
-				patrons
-			};
-		})
-	};
-}
 
 // ---------------------------------------------------------------- reading
 
@@ -162,13 +62,13 @@ export async function listMine(ctx: Ctx): Promise<ApiWarbandCard[]> {
 		rows.map(async (w) => {
 			const seat = seats.find((s) => s.warbandId === w.id && !s.deletedAt) ?? null;
 			try {
-				const { set, f } = await resolveFor(w, w.factionId, w.variantId);
+				const { set, f } = await resolveFor(w, w.factionId, w.variantId, w.dedication);
 				const state = stateOf(
 					w,
 					fighters.filter((x) => x.warbandId === w.id),
 					set
 				);
-				return cardOf(w, { f, state, opts: optionsFor(seat) }, seat);
+				return cardOf(w, { f, state, opts: optionsFor(seat, w) }, seat);
 			} catch {
 				return cardOf(w, null, seat);
 			}
@@ -210,10 +110,13 @@ export async function create(ctx: Ctx, input: WarbandCreate): Promise<ApiWarband
 		const set = await rules.rulesSetOf(picked.rulesSet, picked.rulesExpansions);
 		let f;
 		try {
-			f = resolveFaction(set, input.factionId, input.variantId);
+			f = resolveFaction(set, input.factionId, input.variantId, input.dedication);
 		} catch {
 			throw invalid(input.variantId ? 'variantId' : 'factionId', 'Pick a faction of these rules.');
 		}
+		const keys = f.faction.dedications?.map((d) => d.key) ?? [];
+		if (input.dedication && !keys.includes(input.dedication))
+			throw invalid('dedication', 'Pick one of the faction’s dedications.');
 		if (input.patronId && !f.patrons.some((p) => p.id === input.patronId))
 			throw invalid('patronId', 'This warband cannot serve that Patron.');
 		const ducatLimit = input.ducatLimit ?? f.rules.startDucats;
@@ -222,11 +125,13 @@ export async function create(ctx: Ctx, input: WarbandCreate): Promise<ApiWarband
 			name: input.name,
 			...picked,
 			factionId: f.faction.id,
-			variantId: f.variant?.id ?? null,
+			variantId: f.dedication ? null : (f.variant?.id ?? null),
+			dedication: input.dedication ?? null,
 			patronId: input.patronId ?? null,
 			ducatLimit,
 			stashDucats: ducatLimit,
-			unspentGlory: f.rules.startGlory
+			unspentGlory: input.unspentGlory ?? f.rules.startGlory,
+			ignoreLimits: !!input.ignoreLimits
 		});
 		await record(tx, ctx, 'warband.created', { type: 'warband', id: w.id }, { name: w.name });
 		if (at && !at.seat.warbandId) await seatWarband(tx, ctx, at.seat.id, w.id);
@@ -235,9 +140,10 @@ export async function create(ctx: Ctx, input: WarbandCreate): Promise<ApiWarband
 }
 
 /**
- * Import a Trench Companion text export as a new warband for these rules (the newest core when none is given).
- * Names are matched to the rules; what does not match is reported (unmatched), as is kit with more than one source
- * (ambiguous). The list is kept as it was, even if it breaks a limit: the problem list says so.
+ * Import a warband for these rules (the newest core when none is given): a Trench Companion text export, or a JSON
+ * export (ours, or Trench Companion's). Names are matched to the rules; what does not match is reported (unmatched),
+ * as is kit with more than one source (ambiguous). The list is kept as it was, even if it breaks a limit: the
+ * problem list says so. `gamesPlayed` sets the refund window and the next game's Threshold (R1).
  */
 export async function importText(ctx: Ctx, input: WarbandImport) {
 	const me = requireUser(ctx);
@@ -246,7 +152,7 @@ export async function importText(ctx: Ctx, input: WarbandImport) {
 	const set = await rules.rulesSetOf(picked.rulesSet, picked.rulesExpansions);
 	let read;
 	try {
-		read = fromText(input.text, set);
+		read = input.format === 'json' ? readJson(input.text, set) : fromText(input.text, set);
 	} catch (e) {
 		throw invalid('text', e instanceof Error ? e.message : 'That text is not a warband.');
 	}
@@ -258,11 +164,13 @@ export async function importText(ctx: Ctx, input: WarbandImport) {
 			...picked,
 			factionId: s.factionId,
 			variantId: s.variantId ?? null,
+			dedication: s.dedication ?? null,
 			patronId: s.patronId ?? null,
 			ducatLimit: s.ducatLimit,
 			stashDucats: s.stashDucats,
 			unspentGlory: s.unspentGlory,
 			stash: s.stash,
+			gamesPlayed: input.gamesPlayed ?? 0,
 			locations: s.locations.map((l) => ({
 				name: l.name.slice(0, 120),
 				...(l.note ? { note: l.note } : {})
@@ -280,6 +188,8 @@ export async function importText(ctx: Ctx, input: WarbandImport) {
 				skills: x.skills,
 				injuries: x.injuries,
 				xp: Math.min(x.xp, 1000),
+				status: x.status ?? (x.group === 'dead' ? 'dead' : 'active'),
+				battleScars: Math.min(x.scars ?? 0, 10),
 				sort: i + 1
 			}))
 		);
@@ -306,11 +216,27 @@ export async function importText(ctx: Ctx, input: WarbandImport) {
 
 // ---------------------------------------------------------------- changing
 
-/** Change the warband's own fields (name, Patron, dedication, limit, banks, notes), with a version check. */
+/**
+ * Change the warband's own fields (name, Patron, dedication, limit, banks, notes, games played, victory points,
+ * failed promotions, ignore limits), with a version check. Once a seated warband has played, only its campaign's
+ * masters change the Patron, and they change nothing else (R8). A new dedication that lays another overlay (the
+ * Court's Sin) is saved as it is; the problem list says what no longer fits.
+ */
 export async function patch(ctx: Ctx, id: string, input: WarbandPatch): Promise<ApiWarband> {
 	return db().transaction(async (tx) => {
-		const l = await load(tx, ctx, id, { lock: true, edit: true });
+		const l = await load(tx, ctx, id, { lock: true });
 		if (l.w.version !== input.version) throw stale();
+		const given = Object.entries(input)
+			.filter(([k, v]) => k !== 'version' && v !== undefined)
+			.map(([k]) => k);
+		const patron = input.patronId !== undefined && input.patronId !== l.w.patronId;
+		if (!l.canEdit && (given.some((k) => k !== 'patronId') || !patronChangeable(l)))
+			throw new AppError('forbidden', 'Only its owner can change a warband.');
+		if (patron && !patronChangeable(l))
+			throw new AppError(
+				'forbidden',
+				'The warband has played: only the campaign master can change its Patron now.'
+			);
 		if (input.patronId && !l.f.patrons.some((p) => p.id === input.patronId))
 			throw invalid('patronId', 'This warband cannot serve that Patron.');
 		const keys = l.f.faction.dedications?.map((d) => d.key) ?? [];
@@ -323,13 +249,85 @@ export async function patch(ctx: Ctx, id: string, input: WarbandPatch): Promise<
 			...(input.ducatLimit !== undefined ? { ducatLimit: input.ducatLimit } : {}),
 			...(input.stashDucats !== undefined ? { stashDucats: input.stashDucats } : {}),
 			...(input.unspentGlory !== undefined ? { unspentGlory: input.unspentGlory } : {}),
-			...(input.notes !== undefined ? { notes: input.notes } : {})
+			...(input.notes !== undefined ? { notes: input.notes } : {}),
+			...(input.gamesPlayed !== undefined ? { gamesPlayed: input.gamesPlayed } : {}),
+			...(input.victoryPoints !== undefined ? { victoryPoints: input.victoryPoints } : {}),
+			...(input.failedPromotions !== undefined ? { failedPromotions: input.failedPromotions } : {}),
+			...(input.ignoreLimits !== undefined ? { ignoreLimits: input.ignoreLimits } : {})
 		};
-		const after = stateOf({ ...l.w, ...fields }, l.rows, l.set);
-		allowChange(l, after);
+		const overlayChanged =
+			input.dedication !== undefined &&
+			dedicationVariant(l.f.faction, input.dedication ?? undefined) !==
+				dedicationVariant(l.f.faction, l.w.dedication ?? undefined);
+		if (!overlayChanged) allowChange(l, stateOf({ ...l.w, ...fields }, l.rows, l.set));
 		if (!(await repo.update(tx, id, fields, input.version))) throw stale();
 		return reloadView(tx, ctx, id);
 	});
+}
+
+/**
+ * Copy a warband: the same rules, faction, banks, fighters (with their kit, Experience and campaign data; without
+ * images), Arsenal, fireteams, locations and notes, as a new warband of the caller's, in no seat.
+ */
+export async function copy(ctx: Ctx, id: string, name?: string): Promise<ApiWarband> {
+	const me = requireUser(ctx);
+	return db().transaction(async (tx) => {
+		const l = await load(tx, ctx, id, { edit: true });
+		const w = await repo.insert(tx, {
+			...l.w,
+			id: undefined,
+			createdAt: undefined,
+			updatedAt: undefined,
+			version: undefined,
+			ownerId: me.id,
+			name: name ?? `${l.w.name} (copy)`.slice(0, 80),
+			fireteams: []
+		});
+		const made = await repo.insertFighters(
+			tx,
+			l.rows.map((r) => ({
+				warbandId: w.id,
+				unitId: r.unitId,
+				name: r.name,
+				grp: r.grp,
+				kit: r.kit,
+				upgrades: r.upgrades,
+				skills: r.skills,
+				injuries: r.injuries,
+				xp: r.xp,
+				status: r.status,
+				battleScars: r.battleScars,
+				sort: r.sort
+			}))
+		);
+		const idOf = new Map(l.rows.map((r, i) => [r.id, made[i]!.id]));
+		const fireteams = l.w.fireteams
+			.map(([a, b]) => [idOf.get(a), idOf.get(b)])
+			.filter((t): t is [string, string] => !!t[0] && !!t[1]);
+		if (fireteams.length) await repo.update(tx, w.id, { fireteams });
+		await record(
+			tx,
+			ctx,
+			'warband.created',
+			{ type: 'warband', id: w.id },
+			{ name: w.name, from: id }
+		);
+		return reloadView(tx, ctx, w.id);
+	});
+}
+
+/** A JSON export as a warband: ours (ids as stored), else Trench Companion's (names matched to the rules). */
+function readJson(text: string, set: SetWithBase) {
+	const ours = fromJson(text);
+	if (ours.ok) return { state: ours.state, unmatched: [] as string[], ambiguous: [] as string[] };
+	let raw: unknown;
+	try {
+		raw = JSON.parse(text);
+	} catch {
+		throw new Error('That is not JSON.');
+	}
+	if ((raw as { app?: unknown })?.app) throw new Error(ours.error);
+	return fromTcJson(raw, set);
 }
 
 /** Delete a warband for good: it leaves its seat, its fighters and their images go too. */
@@ -348,3 +346,4 @@ export async function removeAllOf(tx: Tx, userId: string): Promise<string[]> {
 }
 
 export { assignToSeat, clearSeat, ofCampaign } from './warband-seats';
+export { choices } from './warband-choices';

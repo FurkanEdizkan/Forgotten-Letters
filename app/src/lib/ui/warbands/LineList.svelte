@@ -1,6 +1,7 @@
 <!--
   An armoury as the builder offers it: lines by category, each with its item's name (linked to the compendium), its
-  keyword chips (pop-ups), its price, and Buy, or the reasons it cannot be taken now. A refused buy shows the
+  keyword chips (pop-ups), its price and "used / most" for a Battlekit Limit, and Buy, or the reasons it cannot be
+  taken now. A refused buy shows the
   engine's reasons beside its line.
 -->
 <script lang="ts">
@@ -49,7 +50,11 @@
 						{#if !l.ok}<p class="why">{l.reasons.join('. ')}.</p>{/if}
 						{#if r.error}<p class="why" role="alert">{r.error}</p>{/if}
 					</div>
-					<span class="data price">{m.warbands.price(l.price, l.currency)}</span>
+					<span class="data price"
+						>{m.warbands.price(l.price, l.currency)}{#if l.limit != null}<span class="used"
+								>{b.usedOf(l.used ?? 0, l.limit)}</span
+							>{/if}</span
+					>
 					<form method="POST" action="?/{op}" use:enhance>
 						<input type="hidden" name="op" value={op} />
 						<input type="hidden" name="id" value={l.lineId} />
@@ -100,6 +105,11 @@
 		font-size: var(--size-label);
 	}
 	.price {
+		display: grid;
 		text-align: right;
+	}
+	.used {
+		color: var(--bone-dim);
+		font-size: var(--size-label);
 	}
 </style>

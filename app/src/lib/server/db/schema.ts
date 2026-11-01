@@ -28,7 +28,7 @@ import { ACCENTS, PORT, TEXT_SCALE } from '../../schemas/settings';
 import type { HouseRule } from '../../schemas/campaigns';
 import type { Problem } from '../../rules/check';
 import { EDGE_KINDS } from '../../rules/pack';
-import { GROUPS } from '../../warbands/types';
+import { GROUPS, STATUSES } from '../../warbands/types';
 
 export const auth = pgSchema('auth');
 
@@ -413,6 +413,7 @@ export const ruleEdges = rulesSchema.table(
 export const warbandSchema = pgSchema('warband');
 
 export const fighterGroup = warbandSchema.enum('fighter_group', GROUPS);
+export const fighterStatus = warbandSchema.enum('fighter_status', STATUSES);
 
 /**
  * A player's warband, as the warband engine reads it (app/src/lib/warbands): the rules it is built for (a core
@@ -444,12 +445,22 @@ export const warbands = warbandSchema.table(
 		fireteams: jsonb().$type<[string, string][]>().notNull().default([]),
 		locations: jsonb().$type<{ name: string; note?: string }[]>().notNull().default([]),
 		notes: text().notNull().default(''),
+		/** Campaign games the warband has played: Threshold, field strength and the refund window follow it. */
+		gamesPlayed: integer().notNull().default(0),
+		victoryPoints: integer().notNull().default(0),
+		/** Promotion dice rolled in a row without a 6 (the sixth counts as a 6). */
+		failedPromotions: integer().notNull().default(0),
+		/** Outside a campaign, refusals become warnings (in a campaign the CM's switch decides). */
+		ignoreLimits: boolean().notNull().default(false),
 		version: integer().notNull().default(1),
 		createdAt: createdAt(),
 		updatedAt: updatedAt()
 	},
 	(t) => [
 		index('warbands_owner_idx').on(t.ownerId),
+		check('warbands_games_range', sql`${t.gamesPlayed} between 0 and 100`),
+		check('warbands_vp_range', sql`${t.victoryPoints} between -1000 and 1000`),
+		check('warbands_failed_promotions_range', sql`${t.failedPromotions} between 0 and 100`),
 		check('warbands_name_length', sql`char_length(${t.name}) between 1 and 80`),
 		check('warbands_ducat_limit_range', sql`${t.ducatLimit} between 0 and 100000`),
 		check('warbands_notes_length', sql`char_length(${t.notes}) <= 4000`),
@@ -479,6 +490,8 @@ export const fighters = warbandSchema.table(
 		skills: jsonb().$type<string[]>().notNull().default([]),
 		injuries: jsonb().$type<string[]>().notNull().default([]),
 		xp: integer().notNull().default(0),
+		status: fighterStatus().notNull().default('active'),
+		battleScars: integer().notNull().default(0),
 		image: text(),
 		sort: integer().notNull(),
 		version: integer().notNull().default(1),
@@ -489,6 +502,7 @@ export const fighters = warbandSchema.table(
 		index('fighters_warband_idx').on(t.warbandId, t.sort),
 		check('fighters_name_length', sql`char_length(${t.name}) between 1 and 120`),
 		check('fighters_xp_range', sql`${t.xp} between 0 and 1000`),
+		check('fighters_scars_range', sql`${t.battleScars} between 0 and 10`),
 		check('fighters_image_type', sql`${t.image} in ('image/png', 'image/jpeg', 'image/webp')`),
 		check('fighters_kit_array', sql`jsonb_typeof(${t.kit}) = 'array'`)
 	]

@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 8, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 9, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 8, applied: 8 });
+		expect(await migrationState()).toEqual({ total: 9, applied: 9 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 8, applied: 8 });
+		expect(await migrationState()).toEqual({ total: 9, applied: 9 });
 		expect(backups).toBe(0);
 
 		const tables =
@@ -137,5 +137,45 @@ describe('migrations', () => {
 		await expect(
 			sql`insert into homebrew.homebrew_sets (owner_id, name, kind, base_set, data) values (${u!.id}, '', 'faction', 'core-1.0.2', '{}')`
 		).rejects.toThrow(/homebrew_sets_name_length/);
+	});
+	it('upgrading from step 4: the Dead group becomes the dead status; Court Sins become a dedication', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(8) });
+		const sql = sqlClient();
+		const [u] =
+			await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.player', 'P', 'x', 'user') returning id`;
+		const [court] =
+			await sql`insert into warband.warbands (owner_id, name, rules_set, faction_id, variant_id, ducat_limit) values (${u!.id}, 'Gilded Maw', 'core-1.0.2', 'faction:seven-headed-serpent', 'variant:seven-headed-serpent/greed', 700) returning id`;
+		const [other] =
+			await sql`insert into warband.warbands (owner_id, name, rules_set, faction_id, variant_id, ducat_limit) values (${u!.id}, 'Salt Choir', 'core-1.0.2', 'faction:new-antioch', 'variant:new-antioch/eire-rangers', 700) returning id`;
+		await sql`insert into warband.fighters (warband_id, unit_id, grp, sort) values (${other!.id}, 'unit:new-antioch/yeoman', 'dead', 1), (${other!.id}, 'unit:new-antioch/yeoman', 'troop', 2)`;
+		await runMigrations();
+		const ws =
+			await sql`select id, variant_id, dedication, games_played, victory_points, failed_promotions, ignore_limits from warband.warbands order by name`;
+		expect(ws).toEqual([
+			{
+				id: court!.id,
+				variant_id: null,
+				dedication: 'greed',
+				games_played: 0,
+				victory_points: 0,
+				failed_promotions: 0,
+				ignore_limits: false
+			},
+			{
+				id: other!.id,
+				variant_id: 'variant:new-antioch/eire-rangers',
+				dedication: null,
+				games_played: 0,
+				victory_points: 0,
+				failed_promotions: 0,
+				ignore_limits: false
+			}
+		]);
+		const fs = await sql`select grp, status, battle_scars from warband.fighters order by sort`;
+		expect(fs).toEqual([
+			{ grp: 'dead', status: 'dead', battle_scars: 0 },
+			{ grp: 'troop', status: 'active', battle_scars: 0 }
+		]);
 	});
 });

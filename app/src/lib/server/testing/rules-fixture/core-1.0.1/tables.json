@@ -31,5 +31,52 @@
 				"name": "Old Charm"
 			}
 		]
+	},
+	{
+		"id": "table:threshold",
+		"name": "Marsh Threshold",
+		"kind": "threshold",
+		"rows": [
+			{
+				"roll": "1",
+				"name": "Game 1",
+				"effects": {
+					"thresholdDucats": 500,
+					"fieldStrength": 6
+				}
+			},
+			{
+				"roll": "2",
+				"name": "Game 2",
+				"effects": {
+					"thresholdDucats": 550,
+					"fieldStrength": 7
+				}
+			},
+			{
+				"roll": "3+",
+				"name": "Each game past the table",
+				"effects": {
+					"thresholdDucatsPerGame": 50,
+					"fieldStrengthPerGame": 1
+				}
+			}
+		]
+	},
+	{
+		"id": "table:marsh-skills",
+		"name": "Marsh Skills",
+		"kind": "skill",
+		"dice": "2D6",
+		"rows": [
+			{
+				"roll": "2-6",
+				"name": "Steady Aim"
+			},
+			{
+				"roll": "7-12",
+				"name": "Quick Feet"
+			}
+		]
 	}
 ]

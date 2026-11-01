@@ -1,7 +1,9 @@
 <!--
-  /warbands/new: the new-warband wizard on one page, each choice opening the next: rules version, faction tiles,
-  variant, Patron, then name and ducat limit (the faction's starting Ducats unless changed). From a campaign seat
-  (?campaign=) the rules are the campaign's and cannot change.
+  /warbands/new: one list, one click (Trench Companion's new-warband list, our look): each faction with its variants
+  underneath, and the Court with its Sins (a dedication, R2). Then the name, the starting Ducats (the ducat limit;
+  the banks start full) and Glory, prefilled from the rules and changeable, "Ignore limits" outside a campaign, and
+  Create. The Patron is chosen afterwards on the Campaign panel (the book has it chosen after recruiting). From a
+  campaign seat (?campaign=) the rules are the campaign's and cannot change.
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
@@ -18,26 +20,17 @@
 	const w = m.warbands.wizard;
 	const result = $derived(resultOf(form, 'create'));
 
-	let factionId = $state('');
-	let variantId = $state('');
-	let patronId = $state('');
+	/** The pick: `<faction>`, `<faction>|v|<variant>` or `<faction>|d|<dedication>`. */
+	let pick = $state('');
 	let name = $state('');
+	const [factionId = '', kind = '', key = ''] = $derived(pick.split('|'));
 	const faction = $derived(data.choices.factions.find((f) => f.id === factionId));
-	const variant = $derived(faction?.variants.find((v) => v.id === variantId));
-	const patrons = $derived(faction?.patrons[variantId] ?? []);
-	const start = $derived(variant?.startDucats ?? faction?.startDucats ?? 0);
-	// A new faction or variant starts the limit again from its starting Ducats; typing changes it.
-	let limit = $derived(String(start));
-	// Another faction or variant serves other Patrons, so the pick starts again.
-	const pickFaction = (id: string) => {
-		factionId = id;
-		variantId = '';
-		patronId = '';
-	};
-	const pickVariant = (id: string) => {
-		variantId = id;
-		patronId = '';
-	};
+	const variant = $derived(kind === 'v' ? faction?.variants.find((v) => v.id === key) : undefined);
+	const startD = $derived(variant?.startDucats ?? faction?.startDucats ?? 0);
+	const startG = $derived(variant?.startGlory ?? faction?.startGlory ?? 0);
+	// A new pick starts the banks again from its starting Ducats and Glory; typing changes them.
+	let limit = $derived(String(startD));
+	let glory = $derived(String(startG));
 </script>
 
 <svelte:head><title>{w.title} · {m.app.name}</title></svelte:head>
@@ -57,6 +50,9 @@
 	>
 		<input type="hidden" name="op" value="create" />
 		<input type="hidden" name="rules" value={data.choices.picked} />
+		<input type="hidden" name="factionId" value={factionId} />
+		<input type="hidden" name="variantId" value={kind === 'v' ? key : ''} />
+		<input type="hidden" name="dedication" value={kind === 'd' ? key : ''} />
 		{#if data.campaign}<input type="hidden" name="campaignId" value={data.campaign.id} />{/if}
 
 		<div class="narrow">
@@ -69,10 +65,7 @@
 				onchange={(e) =>
 					goto(
 						`?${data.campaign ? `campaign=${data.campaign.id}&` : ''}rules=${encodeURIComponent((e.currentTarget as HTMLSelectElement).value)}`,
-						{
-							replace: true,
-							reset: false
-						}
+						{ replace: true, reset: false }
 					)}
 			/>
 			{#if !data.campaign}<p class="dim small">{w.rulesHint}</p>{/if}
@@ -80,76 +73,39 @@
 
 		<fieldset>
 			<legend>{w.faction}</legend>
-			<div class="tiles">
+			<div class="fams">
 				{#each data.choices.factions as f (f.id)}
-					<label class="tile" class:on={factionId === f.id}>
-						<input
-							type="radio"
-							name="factionId"
-							value={f.id}
-							checked={factionId === f.id}
-							onchange={() => pickFaction(f.id)}
-						/>
-						<span class="tname">{f.name}</span>
-						<span class="dim small">{f.alignment} · {w.start(f.startDucats, f.startGlory)}</span>
-					</label>
-				{/each}
-			</div>
-			{#if result.fields.factionId}<p class="err">{result.fields.factionId}</p>{/if}
-		</fieldset>
-
-		{#if faction && faction.variants.length}
-			<fieldset>
-				<legend>{w.variant}</legend>
-				<div class="tiles">
-					<label class="tile" class:on={variantId === ''}>
-						<input
-							type="radio"
-							name="variantId"
-							value=""
-							checked={variantId === ''}
-							onchange={() => pickVariant('')}
-						/>
-						<span class="tname">{w.noVariant}</span>
-					</label>
-					{#each faction.variants as v (v.id)}
-						<label class="tile" class:on={variantId === v.id}>
-							<input
-								type="radio"
-								name="variantId"
-								value={v.id}
-								checked={variantId === v.id}
-								onchange={() => pickVariant(v.id)}
-							/>
-							<span class="tname">{v.name}</span>
-						</label>
-					{/each}
-				</div>
-			</fieldset>
-		{/if}
-
-		{#if faction}
-			<fieldset>
-				<legend>{w.patron}</legend>
-				{#if patrons.length}
-					<div class="tiles">
-						<label class="tile" class:on={patronId === ''}>
-							<input type="radio" name="patronId" value="" bind:group={patronId} />
-							<span class="tname">{w.noPatron}</span>
-						</label>
-						{#each patrons as p (p.id)}
-							<label class="tile" class:on={patronId === p.id}>
-								<input type="radio" name="patronId" value={p.id} bind:group={patronId} />
-								<span class="tname">{p.name}</span>
+					<div class="fam" data-faction={f.id}>
+						{#if f.dedications.length}
+							<p class="fname">{f.name} <span class="dim small">{w.pickSin}</span></p>
+						{:else}
+							<label class="opt fname" class:on={pick === f.id}>
+								<input type="radio" name="pick" value={f.id} bind:group={pick} />
+								{f.name}
+								<span class="dim small">{w.start(f.startDucats, f.startGlory)}</span>
+							</label>
+						{/if}
+						{#each f.variants as v (v.id)}
+							<label class="opt v" class:on={pick === `${f.id}|v|${v.id}`}>
+								<input type="radio" name="pick" value="{f.id}|v|{v.id}" bind:group={pick} />
+								{v.name}
+							</label>
+						{/each}
+						{#each f.dedications as d (d.key)}
+							<label class="opt v" class:on={pick === `${f.id}|d|${d.key}`}>
+								<input type="radio" name="pick" value="{f.id}|d|{d.key}" bind:group={pick} />
+								{d.name}
 							</label>
 						{/each}
 					</div>
-				{:else}
-					<p class="dim">{w.noPatrons}</p>
-				{/if}
-				{#if result.fields.patronId}<p class="err">{result.fields.patronId}</p>{/if}
-			</fieldset>
+				{/each}
+			</div>
+			{#if result.fields.factionId || result.fields.dedication}<p class="err">
+					{result.fields.factionId ?? result.fields.dedication}
+				</p>{/if}
+		</fieldset>
 
+		{#if faction}
 			<div class="row narrow">
 				<Field
 					label={w.name}
@@ -160,21 +116,35 @@
 					error={result.fields.name}
 				/>
 				<Field
-					label={w.limit}
+					label={w.startDucats}
 					name="ducatLimit"
 					type="number"
 					inputmode="numeric"
 					min={0}
 					max={100000}
 					bind:value={limit}
-					hint={w.limitHint(start)}
+					hint={w.limitHint(startD)}
 					error={result.fields.ducatLimit}
 				/>
+				<Field
+					label={w.startGlory}
+					name="unspentGlory"
+					type="number"
+					inputmode="numeric"
+					min={0}
+					max={10000}
+					bind:value={glory}
+					error={result.fields.unspentGlory}
+				/>
 			</div>
+			{#if !data.campaign}
+				<label class="check"><input type="checkbox" name="ignoreLimits" /> {w.ignoreLimits}</label>
+			{/if}
+			<p class="dim small">{w.patronLater}</p>
 			{#if result.error && !Object.keys(result.fields).length}
 				<Message kind="danger">{result.error}</Message>
 			{/if}
-			<div class="row">
+			<div class="actions">
 				<Button kind="primary" type="submit">{w.create}</Button>
 				<Button href={data.campaign ? `/campaigns/${data.campaign.id}` : '/warbands'}
 					>{w.cancel}</Button
@@ -196,58 +166,85 @@
 		border: 0;
 		min-width: 0;
 	}
-	legend,
-	.tname {
-		font-family: var(--font-body);
+	legend {
+		margin-bottom: var(--space-2);
 		font-size: var(--size-title);
 		font-weight: 700;
 		letter-spacing: var(--track-title);
 		text-transform: uppercase;
-		color: var(--bone);
-	}
-	legend {
-		margin-bottom: var(--space-2);
 	}
 	.narrow {
-		max-width: 40rem;
+		max-width: 52rem;
 	}
-	.tiles {
+	.fams {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
 		gap: var(--space-3);
+		align-items: start;
 	}
-	.tile {
+	.fam {
 		display: grid;
-		gap: var(--space-1);
-		padding: var(--space-3) var(--space-4);
 		background: var(--panel);
 		border: var(--border-hairline) solid var(--rule);
 		border-top: var(--border-card-top) solid var(--blood);
+	}
+	.fname {
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		background: var(--panel-raised);
+		font-weight: 600;
+	}
+	.opt {
+		display: grid;
+		gap: 2px;
+		padding: var(--space-2) var(--space-3);
+		border-top: var(--border-hairline) solid var(--rule);
+		color: var(--bone-dim);
 		cursor: pointer;
 	}
-	.tile:hover {
+	.opt.fname {
+		border-top: 0;
+		color: var(--bone);
+	}
+	.opt.v {
+		padding-left: var(--space-5);
+		border-left: 3px solid var(--rule-strong);
+	}
+	.opt:hover {
 		background: var(--panel-hover);
 	}
-	.tile.on {
-		outline: var(--border-focus) solid var(--blood-bright);
+	.opt.on {
+		color: var(--bone);
+		background: var(--panel-hover);
+		border-left-color: var(--blood-bright);
+		box-shadow: inset 3px 0 0 var(--blood-bright);
 	}
-	.tile:has(input:focus-visible) {
+	.opt:has(input:focus-visible) {
 		outline: var(--border-focus) solid var(--blood-bright);
-		outline-offset: 2px;
+		outline-offset: -2px;
 	}
-	.tile input {
+	.opt input {
 		position: absolute;
 		opacity: 0;
 		pointer-events: none;
 	}
 	.row {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: 2fr 1fr 1fr;
 		gap: var(--space-4);
 		align-items: start;
 	}
-	.row:last-child {
+	.check {
 		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+	}
+	.check input {
+		accent-color: var(--blood-bright);
+	}
+	.actions {
+		display: flex;
+		gap: var(--space-2);
 	}
 	.small {
 		font-size: var(--size-label);

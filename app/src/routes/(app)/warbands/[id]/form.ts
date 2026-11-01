@@ -4,7 +4,13 @@
  * loadout as its lines joined by commas; these turn them back before the shared schemas parse.
  */
 import { z } from 'zod';
-import { fighterPatch, fireteamsInput, locationsInput, recruitInput } from '#lib/schemas/warbands';
+import {
+	fighterPatch,
+	fireteamsInput,
+	leaveMode,
+	locationsInput,
+	recruitInput
+} from '#lib/schemas/warbands';
 import { withJsonField } from '../../campaigns/form';
 
 const lines = (v: unknown) =>
@@ -30,6 +36,12 @@ export const fighterForm = z.preprocess(
 );
 
 export const fighterLine = fid.extend({ lineId: z.string().min(1).max(160) });
+export const kitLeave = z.object({
+	from: z.union([z.uuid(), z.literal('arsenal')]),
+	lineId: z.string().min(1).max(160),
+	mode: leaveMode
+});
+export const fighterLeave = fid.extend({ mode: z.enum(['refund', 'delete']) });
 export const fighterUpgrade = fid.extend({ upgradeId: z.string().min(1).max(160) });
 export const fighterImage = fid.extend({
 	image: z.instanceof(Blob, { message: 'Pick an image file.' })

@@ -96,7 +96,7 @@ export async function assignToSeat(
 					{ recheck: want }
 				);
 			const there = { rulesSet: a.c.rulesSet, rulesExpansions: [...a.c.rulesExpansions, ...hb] };
-			const { set, f } = await resolveFor(there, l.w.factionId, l.w.variantId);
+			const { set, f } = await resolveFor(there, l.w.factionId, l.w.variantId, l.w.dedication);
 			const opts = optionsFor({ allowBeyondLimits: a.c.allowBeyondLimits, stage: a.c.stage });
 			const state = stateOf(l.w, l.rows, set);
 			// Legal there as a change from nothing: an unfinished list may move over, a broken one may not.

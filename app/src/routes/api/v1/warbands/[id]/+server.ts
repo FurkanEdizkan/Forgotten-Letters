@@ -17,9 +17,12 @@ export const GET = api(async (event, ctx) => {
 });
 
 /**
- * Change the warband's name, Patron, dedication, ducat limit, banks or notes, with a version check.
- * Who: its owner.
- * In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes? }
+ * Change the warband's name, Patron, dedication, ducat limit, banks, notes or campaign data (games played, victory
+ * points, failed promotions, ignore limits), with a version check.
+ * Who: its owner; once a seated warband has played, only its campaign's CM and co-CMs change the Patron (R8), and
+ * they change nothing else.
+ * In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes?,
+ * gamesPlayed?, victoryPoints?, failedPromotions?, ignoreLimits? }
  * Out: 200 Warband
  * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or the engine refuses it.
  */

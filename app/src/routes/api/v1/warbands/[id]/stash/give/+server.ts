@@ -1,10 +1,10 @@
 import { api, body, parse } from '#lib/server/http';
-import * as holdings from '#lib/server/services/warband-stash';
+import * as items from '#lib/server/services/warband-items';
 import { giveInput } from '#lib/schemas/warbands';
 import { idParam } from '#lib/api-types';
 
 /**
- * Give a piece from the stash to a fighter (sold from the stash and bought for the fighter, with its checks).
+ * Give a piece from the Arsenal to a fighter: it moves, with the fighter's checks and no money (as kit/move).
  * Who: the warband's owner.
  * In: path id; { lineId, fighterId }
  * Out: 200 Warband
@@ -12,5 +12,5 @@ import { idParam } from '#lib/api-types';
  */
 export const POST = api(async (event, ctx) => {
 	const { lineId, fighterId } = await body(event, giveInput);
-	return holdings.stashGive(ctx, parse(idParam, event.params).id, lineId, fighterId);
+	return items.move(ctx, parse(idParam, event.params).id, lineId, 'arsenal', fighterId);
 });

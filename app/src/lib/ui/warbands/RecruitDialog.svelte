@@ -1,6 +1,6 @@
 <!--
-  The Add fighter dialog: every entry the warband could field (its own list, then Mercenaries), with its price and
-  Recruit, or the reasons it cannot be recruited now. An entry with upgrades offers them as boxes, one with loadouts
+  The Add fighter dialog for one group (the group's +): its entries, each with its price, "taken / most" and Recruit,
+  or the reasons it cannot be recruited now (the engine's). An entry with upgrades offers them as boxes, one with loadouts
   a choice of loadout; the engine checks them with the recruit, and a refusal shows its reasons in the dialog.
 -->
 <script lang="ts">
@@ -14,22 +14,37 @@
 	import { rulesView } from '#lib/ui/rules/context';
 	import Dialog from './Dialog.svelte';
 
-	type Props = { units: ApiRecruit[]; beyond: boolean; form: FormResult; onclose: () => void };
-	let { units, beyond, form, onclose }: Props = $props();
+	type Props = {
+		units: ApiRecruit[];
+		/** The group it was opened for (elite, troop, mercenary), or null for every entry. */
+		group: string | null;
+		beyond: boolean;
+		form: FormResult;
+		onclose: () => void;
+	};
+	let { units: all, group, beyond, form, onclose }: Props = $props();
+	const units = $derived(
+		group && group !== 'special' ? all.filter((u) => u.category === group) : all
+	);
 	const b = m.warbands.builder;
 	const view = rulesView();
 	const r = $derived(resultOf(form, 'recruit'));
 </script>
 
-<Dialog title={b.addTitle} {onclose}>
+<Dialog title={group ? b.addToTitle(b.groups[group] ?? group) : b.addTitle} {onclose}>
 	<p class="dim">{b.addHint}</p>
 	{#if r.error}<Message kind="danger">{r.error}</Message>{/if}
 	<ul>
+		{#if !units.length}<li class="none dim">{b.noneToAdd}</li>{/if}
 		{#each units as u (u.unitId)}
 			<li class:off={!u.ok} data-unit={u.unitId}>
 				<div>
 					<a href={elementHref(view.set, u.unitId)}>{u.name}</a>
-					<span class="dim small">{b.groups[u.category]}</span>
+					<span class="dim small"
+						>{b.groups[u.category]} · {u.max != null
+							? b.usedOf(u.taken, u.max)
+							: b.takenAny(u.taken)}</span
+					>
 					{#if !u.ok}<p class="why">{u.reasons.join('. ')}.</p>{/if}
 				</div>
 				<span class="data">{m.warbands.price(u.cost, u.currency)}</span>

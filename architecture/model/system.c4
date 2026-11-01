@@ -53,8 +53,8 @@ model {
           }
         }
         areas = page 'App shell, role areas and account' {
-          technology '/owner · /owner/settings · /admin · /home · /account · /warbands · /warbands/[id]/play · /uploads/fighters/[id]'
-          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.'
+          technology '/owner · /owner/settings · /admin · /home · /account · /warbands · /warbands/[id]/play · /owner/frames · /uploads/fighters/[id] · /uploads/frames/[id]'
+          description 'The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list with filters, new-warband list grouped by faction, the two-column builder with the Arsenal, Campaign and fighter panels, play mode and print); fighter images are served from /uploads/fighters/[id] to whoever may see the warband. A fighter\'s card is drawn on a canvas in the browser from its photo, data and faction frame and saved as a PNG; the Owner uploads frames under /owner/frames, served from /uploads/frames/[id] to anyone signed in.'
           metadata {
             code ['app/src/routes/(app)/**', 'app/src/routes/uploads/**', 'app/src/routes/+layout*', 'app/src/routes/+page*', 'app/src/routes/+error.svelte']
           }
@@ -191,6 +191,13 @@ model {
             code 'app/src/lib/server/services/{warbands,warband-*,fighter-images}{,.spec,.db.spec}.ts'
           }
         }
+        cardFrameService = module 'Card frames' {
+          #server-only
+          description 'The Owner\'s fighter-card frames: one PNG per faction, variant or Sin (800×1000, checked by file signature and size, in the uploads volume), replaced or removed from Owner → Card frames; looked up by the warband\'s resolved variant, then its faction, else the built-in frame. Holds the image file helpers fighter images share.'
+          metadata {
+            code 'app/src/lib/server/services/{card-frames,image-files}{,.spec,.db.spec}.ts'
+          }
+        }
         homebrewService = module 'Homebrew' {
           #server-only
           description 'Player-made factions, variants and items in the rules format: create blank or from a copy, edit, check, share with the install, export and import; indexed like a rules set so the compendium and builder use it; campaigns allow chosen homebrew.'
@@ -250,7 +257,7 @@ model {
       warbandTables = layer 'warband schema' {
         description 'Players\' warbands (the Arsenal, fireteams and locations as typed JSONB on the warband; games played, victory points, failed promotions, ignore limits) and their fighters (status, battle scars, experience, advancements, injuries).'
         metadata {
-          tables ['warbands', 'fighters']
+          tables ['warbands', 'fighters', 'card_frames']
         }
       }
 
@@ -321,6 +328,12 @@ model {
   fl.app.services.peopleService -> fl.app.services.homebrewService 'removes an anonymised account\'s private homebrew'
   fl.app.services.campaignService -> fl.app.rulesLib 'homebrew set ids in the allow-list'
   fl.app.services.warbandService -> fl.app.rulesLib 'homebrew set ids in a warband\'s rules'
+  fl.app.services.cardFrameService -> fl.app.services.rulesService 'is the target a loaded faction, variant or Sin'
+  fl.app.services.cardFrameService -> fl.app.services.auditService 'records frame set and removed'
+  fl.app.services.cardFrameService -> fl.app.repos 'card_frames rows'
+  fl.app.services.cardFrameService -> fl.app.services.authService 'who is acting; Owner only'
+  fl.app.services.cardFrameService -> fl.app.rulesLib 'leaves homebrew set ids out of the frame targets'
+  fl.app.services.warbandService -> fl.app.services.cardFrameService 'the warband\'s frame; fighter image files'
   fl.app.warbandEngine -> fl.app.rulesLib 'reads rules sets'
   fl.app.web -> fl.app.rulesLib 'compendium rendering, graph'
   fl.app.web -> fl.app.warbandEngine 'live checks in the builder'

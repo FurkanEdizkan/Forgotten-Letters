@@ -1,0 +1,30 @@
+// Feature: fighter cards with faction frames (step 4 revision 3). Code: routes ((app)/owner/frames; api/v1/card-frames;
+// uploads/frames; the card dialog on (app)/warbands/[id]), services/card-frames, services/image-files, lib/ui/cards.
+views {
+  dynamic view fighter_card {
+    title 'Fighter card'
+    description '''
+      **The Owner uploads a frame per faction; a player opens a fighter's card, drawn in the browser from the fighter's
+      photo, its data and its faction's frame, and saves it as a PNG.**
+
+      **Decisions** (review page "Revision 3", approved 2 Nov 2026)
+      - The card is 4:5, 800×1000, drawn on a canvas; the same canvas is shown and saved (D1, D2). No server rendering.
+      - Frames are uploaded in the app by the Owner only (D3, D4): a PNG of exactly 800×1000, at most 2 MB, checked by
+        its file signature; one per faction, optionally one per variant or Sin (D5). Homebrew uses the built-in frame (D6).
+      - Lookup: the warband's resolved variant (a Court Sin dedication sets it) → its faction → the built-in brass frame.
+      - The fighter output carries its stats; armour includes bought armour and shields, on the card and in play mode (D7).
+      - The photo fills its window, aligned to the upper third (D8). No print sheet (D9).
+      - Frames are the group's own art, kept in the uploads volume and backups, never in the repository.
+    '''
+    user -> fl.app.web.areas 'Owner: upload or remove a frame'
+    fl.app.web.areas -> fl.app.services.cardFrameService 'setFrame / clearFrame'
+    fl.app.services.cardFrameService -> fl.app.services.rulesService 'is the target a loaded faction, variant or Sin'
+    fl.app.services.cardFrameService -> fl.app.repos 'upsert card_frames'
+    fl.app.repos -> fl.app.warbandTables 'card_frames'
+    fl.app.services.cardFrameService -> fl.app.services.auditService 'record card_frame.set / removed'
+    user -> fl.app.web.areas 'player: fighter → Card'
+    fl.app.web.areas -> fl.app.services.warbandService 'the warband view: stats, frame URL, seat'
+    fl.app.services.warbandService -> fl.app.services.cardFrameService 'frame for the resolved faction'
+    fl.app.web.areas -> fl.app.services.cardFrameService 'GET /uploads/frames/[id]'
+  }
+}

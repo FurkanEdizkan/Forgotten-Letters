@@ -317,6 +317,8 @@ export const unit = z
 				limits: z.array(limit).optional()
 			})
 			.strict(),
+		/** Campaign: `never` cannot be Promoted to ELITE; `limited` has at most 7 Experience (Limited Potential). */
+		promotion: z.enum(['never', 'limited']).optional(),
 		hiredBy: z
 			.object({ alignment: z.enum(ALIGNMENTS).optional(), factions: z.array(id).optional() })
 			.strict()
@@ -358,7 +360,11 @@ const factionRules = {
 	limits: z.array(limit).optional(),
 	prices: z.array(priceRule).optional(),
 	/** The Patron the warband must serve. */
-	patron: idOf('patron').optional()
+	patron: idOf('patron').optional(),
+	/** Keywords every model of the warband has (Undead Horror, Rampant Charge); its Mercenaries do not. */
+	grant: z.array(kwRef).optional(),
+	/** Added to the campaign Threshold (Papal States: -200). */
+	thresholdModifier: z.number().int().optional()
 };
 
 export const faction = z
@@ -367,8 +373,13 @@ export const faction = z
 		name,
 		alignment: z.enum(ALIGNMENTS),
 		...factionRules,
-		/** A Sin, a dedication: chosen before recruiting (Q63). */
-		dedications: z.array(z.object({ key: z.string(), name }).strict()).optional(),
+		/**
+		 * A Sin, a dedication: chosen before recruiting (Q63). `variant` names the overlay the choice lays over the
+		 * faction (its units, lines and rules), like a variant; the warband stores the key, not the variant.
+		 */
+		dedications: z
+			.array(z.object({ key: z.string(), name, variant: idOf('variant').optional() }).strict())
+			.optional(),
 		mercenaries: z.array(idOf('unit')).optional(),
 		/** The warband must take one of this faction's variants (it is never fielded bare). */
 		requiresVariant: z.boolean().optional(),

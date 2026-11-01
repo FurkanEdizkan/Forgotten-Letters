@@ -4,6 +4,8 @@ import { ctxOf, formAction, orPageError } from '#lib/server/http';
 import * as campaigns from '#lib/server/services/campaigns';
 import * as seats from '#lib/server/services/seats';
 import * as joinRequests from '#lib/server/services/join-requests';
+import * as rules from '#lib/server/services/rules';
+import * as homebrew from '#lib/server/services/homebrew';
 import { canInCampaign } from '#lib/campaign-rights';
 import {
 	approveInput,
@@ -40,17 +42,28 @@ export const load: PageServerLoad = async (event) => {
 	// "Fill a seat by name" and "Add a co-CM" search through the page's own query, so they work without scripts.
 	const find = query(event.url, 'find');
 	const cmFind = query(event.url, 'cmfind');
-	const [seatList, requests, candidates, coCmCandidates]: [
+	const [seatList, requests, candidates, coCmCandidates, sets, homebrewChoices]: [
 		ApiSeat[],
 		ApiJoinRequest[],
 		Candidate[],
-		Candidate[]
+		Candidate[],
+		Awaited<ReturnType<typeof rules.sets>>,
+		Awaited<ReturnType<typeof homebrew.allowable>>
 	] = await Promise.all([
 		seats.list(ctx, id),
 		can('requests') ? joinRequests.listOpen(ctx, id) : [],
 		find && can('seats') ? seats.candidates(ctx, id, find) : [],
-		cmFind && can('co_cms') ? campaigns.coCmCandidates(ctx, id, cmFind) : []
+		cmFind && can('co_cms') ? campaigns.coCmCandidates(ctx, id, cmFind) : [],
+		rules.sets(ctx),
+		homebrew.allowable(ctx, campaign.homebrewSets)
 	]);
+	// The loaded core versions to play, newest first; the current one stays listed even if it is not loaded now.
+	const cores = sets
+		.filter((x) => x.ok && x.kind === 'core')
+		.sort((a, z) => (z.version ?? '').localeCompare(a.version ?? '', 'en', { numeric: true }))
+		.map((x) => ({ value: x.id, label: `${x.name} ${x.version ?? ''}`.trim() }));
+	if (!cores.some((x) => x.value === campaign.rulesSet))
+		cores.push({ value: campaign.rulesSet, label: campaign.rulesSet });
 	return {
 		campaign,
 		seats: seatList,
@@ -59,6 +72,8 @@ export const load: PageServerLoad = async (event) => {
 		candidates,
 		cmFind: cmFind ?? '',
 		coCmCandidates,
+		cores,
+		homebrewChoices,
 		created: event.url.searchParams.has('created'),
 		tab: event.url.searchParams.get('tab') ?? 'seats'
 	};
@@ -85,16 +100,20 @@ export const actions = {
 	 * Save the campaign's settings and house rules, with a version check.
 	 * Who: the CM and co-CMs, until the campaign ends.
 	 * In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON),
-	 * version }.
+	 * rulesSet, allowBeyondLimits, homebrewSets (JSON), version }.
 	 * Out: { op: 'settings', done: true }.
 	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name
 	 * taken or campaign ended.
 	 */
 	settings: (event) =>
-		formAction(event, withJsonField(campaignPatch, 'houseRules'), async (input, ctx) => {
-			await campaigns.update(ctx, event.params.id, input);
-			return { op: 'settings', done: true };
-		}),
+		formAction(
+			event,
+			withJsonField(withJsonField(campaignPatch, 'houseRules'), 'homebrewSets'),
+			async (input, ctx) => {
+				await campaigns.update(ctx, event.params.id, input);
+				return { op: 'settings', done: true };
+			}
+		),
 	/**
 	 * Add empty seats, named on after the last one.
 	 * Who: the CM and co-CMs, until the campaign ends.

@@ -1,0 +1,103 @@
+<!--
+  A keyword chip (DESIGN.md §7): square, panel-raised, a rule-coloured edge (the format's keywords carry no kind of
+  the design's six), the name in Title Case and its value. It links to the keyword's page; hovering or focusing it
+  shows the keyword's text in a pop-up, and Escape closes it. Links inside that text read as their names.
+-->
+<script lang="ts">
+	import { elementHref, inline } from '#lib/rules/text';
+	import { rulesView } from './context';
+
+	type Props = { id: string; value?: string | number; label?: string | null };
+	let { id, value, label = null }: Props = $props();
+
+	const view = rulesView();
+	const uid = $props.id();
+	let open = $state(false);
+	const kw = $derived(view.keywords[id]);
+	const name = $derived(label ?? kw?.name ?? view.names[id]?.name ?? id);
+	// A value may itself be a keyword (NEGATE FEAR): show its name, not its id.
+	const shown = $derived(
+		typeof value === 'string' && /^[a-z]+:/.test(value)
+			? (view.keywords[value]?.name ?? view.names[value]?.name ?? value)
+			: value
+	);
+	// With a value, the name's placeholder ("[KEYWORD]", "(X)") is what the value fills in.
+	const bare = $derived(name.replace(/\s*[[(][^\])]*[\])]\s*/g, ' ').trim());
+	const text = $derived(
+		inline(kw?.text ?? '')
+			.map((x) => (x.t === 'text' ? x.text : (x.label ?? view.names[x.id]?.name ?? x.id)))
+			.join('')
+	);
+</script>
+
+<!-- Escape closes a pop-up opened by hovering too, not only one opened by focus. -->
+<svelte:window
+	onkeydown={(e) => {
+		if (open && e.key === 'Escape') open = false;
+	}}
+/>
+
+<span
+	class="kw"
+	role="presentation"
+	onmouseenter={() => (open = true)}
+	onmouseleave={() => (open = false)}
+>
+	<a
+		class="chip"
+		href={elementHref(view.set, id)}
+		aria-describedby={text ? `${uid}-pop` : undefined}
+		onfocus={() => (open = true)}
+		onblur={() => (open = false)}>{shown !== undefined ? `${bare} ${shown}` : name}</a
+	>
+	{#if text}
+		<span id="{uid}-pop" role="tooltip" class="pop" hidden={!open}>
+			<strong>{kw?.name ?? name}</strong>
+			{text}
+		</span>
+	{/if}
+</span>
+
+<style>
+	.kw {
+		position: relative;
+		display: inline-block;
+	}
+	.chip {
+		display: inline-block;
+		padding: 0 var(--space-2);
+		background: var(--panel-raised);
+		border: var(--border-hairline) solid var(--rule);
+		border-left: var(--border-chip-edge) solid var(--rule-strong);
+		color: var(--bone);
+		text-decoration: none;
+		line-height: 1.6;
+		white-space: nowrap;
+	}
+	.chip:hover {
+		border-color: var(--rule-strong);
+	}
+	.pop {
+		position: absolute;
+		z-index: 20;
+		left: 0;
+		top: calc(100% + var(--space-1));
+		width: max-content;
+		max-width: 22rem;
+		padding: var(--space-2) var(--space-3);
+		background: var(--panel);
+		border: var(--border-hairline) solid var(--rule-strong);
+		box-shadow: var(--shadow-overlay);
+		color: var(--bone);
+		white-space: normal;
+		font-size: var(--size-body);
+		line-height: var(--line-body);
+	}
+	.pop[hidden] {
+		display: none;
+	}
+	.pop strong {
+		display: block;
+		color: var(--blood-pale);
+	}
+</style>

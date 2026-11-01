@@ -1,0 +1,23 @@
+[
+	{
+		"id": "unit:lantern-guild/bog-runner",
+		"owner": "faction:lantern-guild",
+		"name": "Bog Runner",
+		"category": "troop",
+		"availability": {
+			"min": 0,
+			"max": 2
+		},
+		"cost": 25,
+		"currency": "ducats",
+		"stats": {
+			"movement": "7\"",
+			"base": "25mm"
+		},
+		"keywords": [],
+		"abilities": [],
+		"kit": {
+			"loadouts": [["item:cudgel", "item:mire-boots"], ["item:hook-rifle"], ["item:pike"]]
+		}
+	}
+]

@@ -1,7 +1,7 @@
 /**
  * Service tests on real PostgreSQL. `useTestDatabase()` gives the calling test file its own fresh database in the
  * run's container, points the app at it (`useDatabase`), applies the migrations with `runMigrations()` and empties
- * the auth and campaign tables (and resets the settings row and its caches) before every test. Helpers make people and request contexts.
+ * the auth, campaign and homebrew tables (and resets the settings row and its caches) before every test. Helpers make people and request contexts.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import postgres from 'postgres';
@@ -44,6 +44,7 @@ export function pointAppAt(url: string) {
 	process.env.RUN_STARTUP = 'false';
 	process.env.NODE_ENV = 'test';
 	process.env.BACKUP_DIR ??= `/tmp/letters-test-backups-${process.pid}`;
+	process.env.UPLOADS_DIR ??= `/tmp/letters-test-uploads-${process.pid}`;
 	logger.level = 'silent';
 	useDatabase(url);
 }
@@ -56,7 +57,9 @@ export function useTestDatabase() {
 		passwordHash ||= await hashPassword(PASSWORD);
 	});
 	beforeEach(async () => {
-		await sqlClient()`truncate campaign.join_requests, campaign.seat_invites, campaign.seats, campaign.members, campaign.campaigns, auth.audit_log, auth.sessions, auth.invites, auth.users restart identity cascade`;
+		await sqlClient()`truncate campaign.join_requests, campaign.seat_invites, campaign.seats, campaign.members, campaign.campaigns, homebrew.homebrew_sets, auth.audit_log, auth.sessions, auth.invites, auth.users restart identity cascade`;
+		// Homebrew sets indexed by an earlier test would outlive their rows in the rules cache.
+		await sqlClient()`delete from rules.sets where id like 'hb:%'`;
 		// The cascade empties app.settings too (updated_by points at auth.users): put back the row the migration made.
 		await sqlClient()`insert into app.settings (id) values (1)`;
 		forgetCachedSettings();

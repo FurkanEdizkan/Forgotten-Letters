@@ -1,0 +1,11 @@
+[
+	{
+		"id": "upgrade:lantern-guild/veteran",
+		"owner": "faction:lantern-guild",
+		"name": "Veteran",
+		"cost": 1,
+		"currency": "glory",
+		"for": ["unit:lantern-guild/warden"],
+		"text": "A warden who has seen many nights."
+	}
+]

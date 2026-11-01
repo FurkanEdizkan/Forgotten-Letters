@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 5, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 8, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 5, applied: 5 });
+		expect(await migrationState()).toEqual({ total: 8, applied: 8 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 5, applied: 5 });
+		expect(await migrationState()).toEqual({ total: 8, applied: 8 });
 		expect(backups).toBe(0);
 
 		const tables =
@@ -80,5 +80,62 @@ describe('migrations', () => {
 		const [link] =
 			await sql`select expires_at is not null as dated, token_enc from campaign.seat_invites`;
 		expect(link).toEqual({ dated: true, token_enc: null });
+	});
+	it('upgrading from step 2: campaigns get core-1.0.2, Carcass Front ones also its expansion', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(5) });
+		const sql = sqlClient();
+		const [u] =
+			await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.cm2', 'CM', 'x', 'admin') returning id`;
+		await sql`insert into campaign.campaigns (name, kind, visibility, created_by) values ('Front', 'carcass_front', 'private', ${u!.id}), ('Other', 'generic', 'private', ${u!.id})`;
+		await runMigrations();
+		const rows =
+			await sql`select name, rules_set, rules_expansions from campaign.campaigns order by name`;
+		expect(rows.map((r) => ({ ...r }))).toEqual([
+			{ name: 'Front', rules_set: 'core-1.0.2', rules_expansions: ['carcass-front-1.0'] },
+			{ name: 'Other', rules_set: 'core-1.0.2', rules_expansions: [] }
+		]);
+		const [cache] = await sql`select count(*)::int as n from rules.sets`;
+		expect(cache!.n).toBe(0);
+	});
+	it('upgrading from step 3: seats have no warband, campaigns keep their limits', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(6) });
+		const sql = sqlClient();
+		const [u] =
+			await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.cm3', 'CM', 'x', 'admin') returning id`;
+		const [c] =
+			await sql`insert into campaign.campaigns (name, kind, visibility, created_by) values ('Mire', 'generic', 'private', ${u!.id}) returning id`;
+		await sql`insert into campaign.seats (campaign_id, number, name, user_id, joined_at) values (${c!.id}, 1, 'Seat 1', ${u!.id}, now())`;
+		await runMigrations();
+		const [seat] = await sql`select warband_id from campaign.seats`;
+		expect(seat!.warband_id).toBeNull();
+		const [camp] = await sql`select allow_beyond_limits from campaign.campaigns`;
+		expect(camp!.allow_beyond_limits).toBe(false);
+		const [w] =
+			await sql`insert into warband.warbands (owner_id, name, rules_set, faction_id, ducat_limit) values (${u!.id}, 'Old Lanterns', 'core-1.0.2', 'faction:lantern-guild', 700) returning version, stash, updated_at`;
+		expect(w).toMatchObject({ version: 1, stash: [] });
+	});
+	it('upgrading from before homebrew: campaigns allow none; a set keeps updated_at current', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(7) });
+		const sql = sqlClient();
+		const [u] =
+			await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.cm4', 'CM', 'x', 'admin') returning id`;
+		await sql`insert into campaign.campaigns (name, kind, visibility, created_by) values ('Fen', 'generic', 'private', ${u!.id})`;
+		await runMigrations();
+		const [camp] = await sql`select homebrew_sets from campaign.campaigns`;
+		expect(camp!.homebrew_sets).toEqual([]);
+		const [h] =
+			await sql`insert into homebrew.homebrew_sets (owner_id, name, kind, base_set, data) values (${u!.id}, 'Fen Kin', 'faction', 'core-1.0.2', '{}') returning id, visibility, report, last_good, updated_at`;
+		expect(h).toMatchObject({ visibility: 'private', report: [], last_good: null });
+		const [after] =
+			await sql`update homebrew.homebrew_sets set name = 'Fen Folk' where id = ${h!.id} returning updated_at`;
+		expect(new Date(after!.updated_at).getTime()).toBeGreaterThanOrEqual(
+			new Date(h!.updated_at).getTime()
+		);
+		await expect(
+			sql`insert into homebrew.homebrew_sets (owner_id, name, kind, base_set, data) values (${u!.id}, '', 'faction', 'core-1.0.2', '{}')`
+		).rejects.toThrow(/homebrew_sets_name_length/);
 	});
 });

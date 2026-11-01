@@ -1,0 +1,8 @@
+[
+	{
+		"id": "scenario:crossing",
+		"name": "The Crossing",
+		"text": "Two warbands race over a broken bridge.",
+		"victory": "Hold the far bank."
+	}
+]

@@ -1,0 +1,13 @@
+[
+	{
+		"id": "item:rusty-blade",
+		"name": "Rusty Blade",
+		"category": "melee",
+		"type": "1-Handed",
+		"keywords": [
+			{
+				"kw": "kw:nowhere"
+			}
+		]
+	}
+]

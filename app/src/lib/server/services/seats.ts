@@ -72,7 +72,10 @@ export async function fill(
 	await requestsRepo.closeOpenFor(tx, seat.campaignId, user.id);
 }
 
-/** Empty a seat; a seat named after the leaving player gets its default name back. */
+/**
+ * Empty a seat; a seat named after the leaving player gets its default name back. The player's warband leaves with
+ * them, so it is free for another campaign and never sits on someone else's seat.
+ */
 async function empty(tx: Tx, seat: seatsRepo.SeatRow, name?: string, version?: number) {
 	const player = seat.userId ? await usersRepo.findById(tx, seat.userId) : null;
 	return seatsRepo.update(
@@ -81,6 +84,7 @@ async function empty(tx: Tx, seat: seatsRepo.SeatRow, name?: string, version?: n
 		{
 			userId: null,
 			joinedAt: null,
+			warbandId: null,
 			name:
 				name ??
 				(player && seat.name === player.displayName.slice(0, 40)

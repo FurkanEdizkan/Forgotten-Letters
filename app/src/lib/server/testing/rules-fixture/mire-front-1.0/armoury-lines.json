@@ -1,0 +1,9 @@
+[
+	{
+		"id": "line:lantern-guild/mire-boots",
+		"owner": "faction:lantern-guild",
+		"item": "item:mire-boots",
+		"cost": 4,
+		"currency": "ducats"
+	}
+]

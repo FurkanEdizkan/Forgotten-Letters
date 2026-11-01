@@ -1,7 +1,8 @@
 /**
  * The request pipeline.
- * - Start-up (once): check settings, wait for the database, back up and migrate, log "Setup is open at <address>"
- *   while no owner exists, listen on the port saved in settings (custom server only), start the background jobs.
+ * - Start-up (once): check settings, wait for the database, back up and migrate, load the rules folders, log "Setup
+ *   is open at <address>" while no owner exists, listen on the port saved in settings (custom server only), start
+ *   the background jobs.
  * - Every request: request id, readiness gate (503 while starting or shutting down), cross-site check, setup guard
  *   (while no owner exists pages lead to /welcome and the API answers 409; afterwards /welcome and /setup lead to
  *   /login), session, forced password change, security headers, one access-log line, error mapping.
@@ -18,6 +19,7 @@ import { housekeeping } from '#lib/server/jobs';
 import * as backups from '#lib/server/services/backups';
 import { isSetupOpen, logSetupOpen } from '#lib/server/services/setup';
 import { getAppearance, listenOnSavedPort } from '#lib/server/services/settings';
+import { loadAll as loadRules } from '#lib/server/services/rules';
 import { TEXT_SCALE } from '#lib/schemas/settings';
 import { resolveSession } from '#lib/server/services/auth';
 import { isCrossSite, isHttps, SESSION_COOKIE, setSessionCookie } from '#lib/server/http';
@@ -45,6 +47,8 @@ export const init: ServerInit = async () => {
 			.dump('pre-migrate')
 			.catch((e) => logger.error({ err: e }, 'Backup before migrating failed; migrating anyway'))
 	);
+	// A broken or missing rules folder never stops the app: it is reported on Owner, Rules data.
+	await loadRules().catch((e) => logger.error({ err: e }, 'Loading the rules folders failed'));
 	await logSetupOpen();
 	await listenOnSavedPort();
 	startJobs(housekeeping());

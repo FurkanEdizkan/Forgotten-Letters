@@ -1,0 +1,20 @@
+[
+	{
+		"id": "faction:lantern-guild",
+		"name": "Lantern Guild",
+		"alignment": "faithful",
+		"startDucats": 700,
+		"startGlory": 0,
+		"fireteams": 2,
+		"leader": "unit:lantern-guild/warden",
+		"mercenaries": ["unit:mercenaries/sellsword"],
+		"text": "Lamp-keepers of the marsh roads. Led by a [[unit:lantern-guild/warden]].\n\n## Fireteams\nTwo fireteams of torchbearers."
+	},
+	{
+		"id": "faction:mercenaries",
+		"name": "Sellswords",
+		"alignment": "faithful",
+		"startDucats": 0,
+		"startGlory": 0
+	}
+]

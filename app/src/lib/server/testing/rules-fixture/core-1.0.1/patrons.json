@@ -1,0 +1,16 @@
+[
+	{
+		"id": "patron:the-keeper",
+		"name": "The Keeper",
+		"alignment": "faithful",
+		"factions": ["faction:lantern-guild"],
+		"text": "Watches the roads.",
+		"skills": [
+			{
+				"id": "skill:the-keeper/vigil",
+				"name": "Vigil",
+				"text": "Once per game, stand back up."
+			}
+		]
+	}
+]

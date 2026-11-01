@@ -117,6 +117,18 @@ export const campaignPatch = z
 	.object({
 		...settingsFields,
 		houseRules: houseRules.optional(),
+		/** The core rules version; Carcass Front campaigns keep their expansion on top. Left out: unchanged. */
+		rulesSet: z
+			.string()
+			.max(80)
+			.regex(/^[a-z0-9][a-z0-9.-]*$/, 'Pick a rules version.')
+			.optional(),
+		/** Warbands in the campaign may go beyond their limits. A form sends "false", or "on" when ticked. */
+		allowBeyondLimits: z
+			.union([z.boolean(), z.enum(['true', 'on', 'false']).transform((v) => v !== 'false')])
+			.optional(),
+		/** The homebrew sets (ids) warbands in the campaign may be built on; the whole list. Left out: unchanged. */
+		homebrewSets: z.array(z.uuid()).max(50, 'Allow at most 50 homebrew sets.').optional(),
 		version: z.coerce.number().int().min(1)
 	})
 	.refine(datesInOrder, datesIssue);

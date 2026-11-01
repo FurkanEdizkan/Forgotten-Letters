@@ -3,6 +3,10 @@
 !/docs/superpowers/
 !/docs/adr/
 
+# The rules folders (one per version: core-1.0.2/, carcass-front-1.0/ …) hold the books' rules: local only,
+# mounted into the app per install
+/rules/
+
 # The campaign map extracted from the book (local only)
 /assets/map/
 

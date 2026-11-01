@@ -1,6 +1,6 @@
 <!--
   The shell's left panel (DESIGN.md §5): the areas the person can use, the current one marked, the owner area as a
-  group of its sections, your campaigns (up to 8, then "All campaigns…", from the (app) layout's data), and the help
+  group of its sections, Warbands, Homebrew and the Rules compendium (every role), your campaigns (up to 8, then "All campaigns…", from the (app) layout's data), and the help
   and legal links at its foot. It pushes the page instead of covering it and slides
   in 220 ms (off under reduced motion). `state` is 'auto' until the browser has run: then CSS opens it on a
   full-HD window, so the first paint already matches the width.
@@ -9,7 +9,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { m } from '#lib/messages';
-	import { campaignLinks, HELP_LINKS, isUnder, OWNER_SECTIONS } from './nav';
+	import {
+		campaignLinks,
+		HELP_LINKS,
+		HOMEBREW_LINK,
+		isUnder,
+		OWNER_SECTIONS,
+		RULES_LINK,
+		WARBANDS_LINK
+	} from './nav';
 
 	type Props = {
 		id: string;
@@ -46,6 +54,15 @@
 				<a class="area" href={area.path} aria-current={current(area.path)}>{area.label}</a>
 			{/if}
 		{/each}
+		<a class="area" href={WARBANDS_LINK.path} aria-current={current(WARBANDS_LINK.path)}
+			>{WARBANDS_LINK.label}</a
+		>
+		<a class="area" href={HOMEBREW_LINK.path} aria-current={current(HOMEBREW_LINK.path)}
+			>{HOMEBREW_LINK.label}</a
+		>
+		<a class="area" href={RULES_LINK.path} aria-current={current(RULES_LINK.path)}
+			>{RULES_LINK.label}</a
+		>
 		<span class="area group" id="{id}-campaigns">{m.campaigns.sidePanel}</span>
 		<ul aria-labelledby="{id}-campaigns">
 			{#each camps.links as c (c.path)}

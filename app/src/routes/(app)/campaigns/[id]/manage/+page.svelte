@@ -103,7 +103,7 @@
 				{form}
 			/>
 		{:else if id === 'settings'}
-			<SettingsTab campaign={camp} {form} />
+			<SettingsTab campaign={camp} cores={data.cores} homebrew={data.homebrewChoices} {form} />
 		{:else if id === 'danger'}
 			<section class="danger">
 				<h3>{mg.danger.heading}</h3>

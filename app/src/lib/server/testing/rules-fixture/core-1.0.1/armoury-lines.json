@@ -1,0 +1,64 @@
+[
+	{
+		"id": "line:lantern-guild/hook-rifle",
+		"owner": "faction:lantern-guild",
+		"item": "item:hook-rifle",
+		"cost": 10,
+		"currency": "ducats"
+	},
+	{
+		"id": "line:lantern-guild/cudgel",
+		"owner": "faction:lantern-guild",
+		"item": "item:cudgel",
+		"cost": 2,
+		"currency": "ducats"
+	},
+	{
+		"id": "line:lantern-guild/smoke-pot",
+		"owner": "faction:lantern-guild",
+		"item": "item:smoke-pot",
+		"cost": 5,
+		"currency": "ducats",
+		"limit": 2
+	},
+	{
+		"id": "line:lantern-guild/quilted-coat",
+		"owner": "faction:lantern-guild",
+		"item": "item:quilted-coat",
+		"cost": 15,
+		"currency": "ducats"
+	},
+	{
+		"id": "line:lantern-guild/pavise",
+		"owner": "faction:lantern-guild",
+		"item": "item:pavise",
+		"cost": 10,
+		"currency": "ducats",
+		"stipulations": {
+			"only": {
+				"units": ["unit:lantern-guild/warden"]
+			}
+		}
+	},
+	{
+		"id": "line:lantern-guild/lantern",
+		"owner": "faction:lantern-guild",
+		"item": "item:lantern",
+		"cost": 5,
+		"currency": "ducats"
+	},
+	{
+		"id": "line:lantern-guild/bell",
+		"owner": "faction:lantern-guild",
+		"item": "item:bell",
+		"cost": 20,
+		"currency": "ducats"
+	},
+	{
+		"id": "line:ash-wardens/cudgel",
+		"owner": "variant:lantern-guild/ash-wardens",
+		"item": "item:cudgel",
+		"cost": 1,
+		"currency": "ducats"
+	}
+]

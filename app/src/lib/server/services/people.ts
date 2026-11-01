@@ -5,6 +5,9 @@
  */
 import { can, type Role } from '#lib/roles';
 import { AppError } from '../errors';
+import { removeWarbands as removeWarbandFiles } from './fighter-images';
+import { removeAllOf as removeWarbandsOf } from './warbands';
+import { removeAllOf as removeHomebrewOf } from './homebrew';
 import { db } from '../db';
 import * as usersRepo from '../repos/users';
 import { record, type Ctx } from './audit';
@@ -148,10 +151,15 @@ export async function resetPassword(ctx: Ctx, id: string, version: number) {
 	});
 }
 
-/** A disabled account's display name becomes "Former member"; its history stays. */
+/**
+ * A disabled account's display name becomes "Former member"; its history stays. Its warbands are removed (they
+ * are the person's own data, not the group's history), with their fighter images once the change is saved; so is
+ * its private homebrew, while shared homebrew (and any set others still build on) stays, made by "Former member".
+ */
 export async function anonymise(ctx: Ctx, id: string, version: number) {
 	requireOwner(ctx);
-	return db().transaction(async (tx) => {
+	let gone: string[] = [];
+	const out = await db().transaction(async (tx) => {
 		const u = await load(tx, id);
 		if (!u.disabledAt) throw new AppError('conflict', 'Disable the account first.');
 		const next = await usersRepo.update(
@@ -161,7 +169,11 @@ export async function anonymise(ctx: Ctx, id: string, version: number) {
 			version
 		);
 		if (!next) throw stale();
-		await record(tx, ctx, 'account.anonymised', { type: 'user', id });
+		gone = await removeWarbandsOf(tx, id);
+		await removeHomebrewOf(tx, id);
+		await record(tx, ctx, 'account.anonymised', { type: 'user', id }, { warbands: gone.length });
 		return toPerson(next);
 	});
+	await removeWarbandFiles(gone);
+	return out;
 }

@@ -15,6 +15,8 @@ services:
     volumes:
       - backups:/data/backups
       - uploads:/data/uploads
+      # The group's own rules folders (git-ignored, never in the image), read at start and on the Owner's Reload.
+      - ./rules:/data/rules:ro
     depends_on:
       db:
         condition: service_healthy

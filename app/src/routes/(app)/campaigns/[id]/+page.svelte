@@ -1,7 +1,9 @@
 <!--
   /campaigns/[id]: what every member sees: the facts, who runs it, the house rules and the seats. A player may
   leave their seat while the campaign is mustering (confirm in place). A listed campaign shows the same page to
-  people who are not in it, without the seat names, plus "Ask to join". The CM and co-CMs get "Manage".
+  people who are not in it, without the seat names, plus "Ask to join". The CM and co-CMs get "Manage" and every
+  seat's warband (read-only links); a seated player assigns one of their warbands to their seat, or builds one for
+  it.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
@@ -19,6 +21,7 @@
 	import Field from '#lib/ui/Field.svelte';
 	import Message from '#lib/ui/Message.svelte';
 	import Select from '#lib/ui/Select.svelte';
+	import WarbandCard from '#lib/ui/warbands/WarbandCard.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -59,6 +62,19 @@
 			: []
 	);
 	let asking = $state(false);
+	const wc = m.warbands.campaign;
+	const assigned = $derived(resultOf(form, 'assignWarband'));
+	const cleared = $derived(resultOf(form, 'clearWarband'));
+	const warbandOptions = $derived(
+		data.myWarbands
+			.filter((x) => x.id !== data.myWarband?.id)
+			.map((x) => ({
+				value: x.id,
+				label: x.otherRules
+					? `${x.name} (${wc.otherRules(m.warbands.rulesOf(x.rulesSet, x.rulesExpansions))})`
+					: x.name
+			}))
+	);
 </script>
 
 <svelte:head><title>{camp.name} · {m.app.name}</title></svelte:head>
@@ -162,6 +178,49 @@
 				{/each}
 			</ol>
 		{/if}
+		{#if camp.mySeat}
+			<section class="mine" aria-label={wc.mine}>
+				<h3>{wc.mine}</h3>
+				{#if data.myWarband}
+					<WarbandCard card={data.myWarband} href="/warbands/{data.myWarband.id}" />
+					{#if camp.stage !== 'ended'}
+						<form class="row" method="POST" action="?/clearWarband" use:enhance>
+							<input type="hidden" name="op" value="clearWarband" />
+							<Button type="submit">{wc.clear}</Button>
+						</form>
+					{/if}
+				{:else}
+					<p class="dim">{wc.none}</p>
+				{/if}
+				{#if camp.stage !== 'ended'}
+					{#if warbandOptions.length}
+						<form
+							class="row end"
+							method="POST"
+							action="?/assignWarband"
+							use:enhance={() =>
+								({ update }) =>
+									update({ reset: false })}
+						>
+							<input type="hidden" name="op" value="assignWarband" />
+							<Select label={wc.pick} name="warbandId" options={warbandOptions} />
+							<Button type="submit">{wc.assignButton}</Button>
+							{#if assigned.fields.recheck}
+								<Button type="submit" name="recheck" value="true">{wc.recheck}</Button>
+							{/if}
+						</form>
+					{/if}
+					{#if assigned.error}<Message kind="danger">{assigned.error}</Message>{/if}
+					{#if cleared.error}<Message kind="danger">{cleared.error}</Message>{/if}
+					<div class="row">
+						<Button href="/warbands/new?campaign={camp.id}">{wc.newHere}</Button>
+					</div>
+				{/if}
+				<p class="dim small">
+					{wc.rules(m.warbands.rulesOf(camp.rulesSet, camp.rulesExpansions))}
+				</p>
+			</section>
+		{/if}
 		{#if left.error}<Message kind="danger">{left.error}</Message>{/if}
 		{#if camp.mySeat && joinOpen(camp.stage, 'leave')}
 			<form class="row" method="POST" action="?/leave" use:enhance>
@@ -172,6 +231,24 @@
 		{/if}
 	</section>
 </div>
+
+{#if data.seatedWarbands}
+	<section class="warbands">
+		<h3>{wc.seats} <span class="count data">{data.seatedWarbands.length}</span></h3>
+		{#if data.seatedWarbands.length}
+			<div class="wcards">
+				{#each data.seatedWarbands as s (s.seatId)}
+					<div class="seated">
+						<span class="dim small">{wc.seat}: {s.seatName}</span>
+						<WarbandCard card={s.warband} href="/warbands/{s.warband.id}" />
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="dim">{wc.seatsNone}</p>
+		{/if}
+	</section>
+{/if}
 
 <style>
 	.head {
@@ -243,5 +320,20 @@
 	}
 	.small {
 		font-size: var(--size-label);
+	}
+	.mine {
+		margin-top: var(--space-4);
+	}
+	.end {
+		align-items: end;
+	}
+	.wcards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+		gap: var(--space-4);
+	}
+	.seated {
+		display: grid;
+		gap: var(--space-1);
 	}
 </style>

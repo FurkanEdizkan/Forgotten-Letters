@@ -1,0 +1,16 @@
+[
+	{
+		"id": "page:core/movement",
+		"section": "core-rules",
+		"title": "Movement",
+		"order": 1,
+		"body": "## Moving\nA model moves up to its movement.\nIt may not cross a wall.\n\n- Walk\n- Dash\n\nSee [[kw:steady]] and [[item:hook-rifle|the hook rifle]]."
+	},
+	{
+		"id": "page:core/shooting",
+		"section": "core-rules",
+		"title": "Shooting",
+		"order": 2,
+		"body": "Shoot with a ranged item such as the [[item:hook-rifle]]."
+	}
+]

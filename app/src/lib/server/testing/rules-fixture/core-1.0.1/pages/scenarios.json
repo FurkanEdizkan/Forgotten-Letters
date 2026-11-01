@@ -1,0 +1,7 @@
+{
+	"id": "page:scenarios/intro",
+	"section": "scenarios",
+	"title": "Playing a scenario",
+	"order": 1,
+	"body": "Pick a scenario such as [[scenario:crossing]]."
+}

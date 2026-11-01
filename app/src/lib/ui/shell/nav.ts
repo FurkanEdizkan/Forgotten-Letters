@@ -12,8 +12,18 @@ export const OWNER_SECTIONS = [
 	{ path: '/owner/invites', label: m.owner.tabs.invites },
 	{ path: '/owner/settings', label: m.owner.tabs.settings },
 	{ path: '/owner/audit', label: m.owner.tabs.audit },
-	{ path: '/owner/backups', label: m.owner.tabs.backups }
+	{ path: '/owner/backups', label: m.owner.tabs.backups },
+	{ path: '/owner/rules', label: m.owner.tabs.rules }
 ] as const;
+
+/** The compendium, open to every signed-in role; shown in the panel after the person's own areas. */
+export const RULES_LINK = { path: '/rules', label: m.rules.sidePanel } as const;
+
+/** Everyone's own warbands, for every signed-in role; shown in the panel before the compendium. */
+export const WARBANDS_LINK = { path: '/warbands', label: m.warbands.sidePanel } as const;
+
+/** Everyone's own homebrew, and what others shared; for every signed-in role, after Warbands. */
+export const HOMEBREW_LINK = { path: '/homebrew', label: m.homebrew.sidePanel } as const;
 
 /** Every help and legal page, by its slug under /help. Docs sits in the top bar; the rest at the panel's foot. */
 export const HELP_SLUGS = [

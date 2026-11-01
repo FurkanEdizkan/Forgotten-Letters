@@ -1,7 +1,9 @@
 /**
  * The database schema. Each area of the app has its own Postgres schema: `auth` holds accounts, sessions, invites
  * and the audit log; `app` holds the copy-wide settings; `campaign` holds campaigns, their rights (members), places
- * (seats), seat links and join requests. Ids come from Postgres 18's uuidv7() (time-ordered);
+ * (seats), seat links and join requests; `rules` caches the loaded rules folders (sets, their elements as nodes and
+ * the links between them as edges); `warband` holds players' warbands and their fighters; `homebrew` holds player-made
+ * rules sets. Ids come from Postgres 18's uuidv7() (time-ordered);
  * append-only logs use bigint identity. Names are snake_case in SQL and camelCase in TypeScript.
  */
 import { sql } from 'drizzle-orm';
@@ -24,6 +26,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import { ACCENTS, PORT, TEXT_SCALE } from '../../schemas/settings';
 import type { HouseRule } from '../../schemas/campaigns';
+import type { Problem } from '../../rules/check';
+import { EDGE_KINDS } from '../../rules/pack';
+import { GROUPS } from '../../warbands/types';
 
 export const auth = pgSchema('auth');
 
@@ -189,6 +194,20 @@ export const campaigns = campaignSchema.table(
 		startsOn: date(),
 		endsOn: date(),
 		houseRules: jsonb().$type<HouseRule[]>().notNull().default([]),
+		/** The rules folder (core version) the campaign plays; no foreign key, since a reload rebuilds the cache. */
+		rulesSet: text().notNull().default('core-1.0.2'),
+		/** Expansion folders on top of it (Carcass Front campaigns: carcass-front-1.0). */
+		rulesExpansions: text()
+			.array()
+			.notNull()
+			.default(sql`'{}'::text[]`),
+		/** The CM lets warbands in this campaign go beyond their limits: refusals become warnings. */
+		allowBeyondLimits: boolean().notNull().default(false),
+		/** Homebrew sets (homebrew.homebrew_sets ids) the CM allows; no foreign key on an array, so deletes tidy it. */
+		homebrewSets: uuid()
+			.array()
+			.notNull()
+			.default(sql`'{}'::uuid[]`),
 		createdBy: uuid()
 			.notNull()
 			.references(() => users.id),
@@ -248,6 +267,8 @@ export const seats = campaignSchema.table(
 		name: text().notNull(),
 		userId: uuid().references(() => users.id),
 		joinedAt: timestamp({ withTimezone: true }),
+		/** The seat holder's warband for this campaign; a warband sits in one seat at most. */
+		warbandId: uuid().references((): AnyPgColumn => warbands.id, { onDelete: 'set null' }),
 		version: integer().notNull().default(1),
 		createdAt: createdAt(),
 		updatedAt: updatedAt()
@@ -258,6 +279,8 @@ export const seats = campaignSchema.table(
 			.on(t.campaignId, t.userId)
 			.where(sql`${t.userId} is not null`),
 		index('seats_user_idx').on(t.userId),
+		uniqueIndex('seats_warband_key').on(t.warbandId),
+		check('seats_warband_with_user', sql`${t.warbandId} is null or ${t.userId} is not null`),
 		check('seats_name_length', sql`char_length(${t.name}) between 1 and 40`),
 		check('seats_joined_with_user', sql`(${t.userId} is null) = (${t.joinedAt} is null)`)
 	]
@@ -320,6 +343,207 @@ export const joinRequests = campaignSchema.table(
 	]
 );
 
+export const rulesSchema = pgSchema('rules');
+
+/**
+ * A cache of the rules folders, rebuilt from RULES_DIR at start and on the Owner's Reload (one transaction). One row
+ * per folder, loaded or not: `report` lists what is wrong with a folder that failed its check (it then has no
+ * nodes). Never edited, so no updated_at or version.
+ */
+export const ruleSets = rulesSchema.table(
+	'sets',
+	{
+		/** The folder name: core-1.0.2, carcass-front-1.0. */
+		id: text().primaryKey(),
+		name: text().notNull(),
+		/** Null when the manifest could not be read. */
+		kind: text(),
+		version: text(),
+		base: text(),
+		checksum: text().notNull(),
+		report: jsonb().$type<Problem[]>().notNull().default([]),
+		ok: boolean().notNull(),
+		loadedAt: timestamp({ withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		check('sets_kind', sql`${t.kind} in ('core', 'expansion', 'homebrew')`),
+		check('sets_report_array', sql`jsonb_typeof(${t.report}) = 'array'`)
+	]
+);
+
+/** The elements of a loaded set (its own only: a chain is read as several set ids). */
+export const ruleNodes = rulesSchema.table(
+	'nodes',
+	{
+		setId: text()
+			.notNull()
+			.references(() => ruleSets.id, { onDelete: 'cascade' }),
+		id: text().notNull(),
+		type: text().notNull(),
+		name: text().notNull(),
+		data: jsonb().$type<Record<string, unknown>>().notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.setId, t.id] }),
+		index('nodes_name_idx').on(sql`lower(${t.name})`),
+		index('nodes_type_idx').on(t.setId, t.type)
+	]
+);
+
+const edgeKindList = sql.raw(EDGE_KINDS.map((k) => `'${k}'`).join(', '));
+
+/** The links between elements; the key also serves lookups by (set_id, from_id). */
+export const ruleEdges = rulesSchema.table(
+	'edges',
+	{
+		setId: text()
+			.notNull()
+			.references(() => ruleSets.id, { onDelete: 'cascade' }),
+		fromId: text().notNull(),
+		toId: text().notNull(),
+		kind: text().notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.setId, t.fromId, t.toId, t.kind] }),
+		index('edges_to_idx').on(t.setId, t.toId),
+		check('edges_kind', sql`${t.kind} in (${edgeKindList})`)
+	]
+);
+
+export const warbandSchema = pgSchema('warband');
+
+export const fighterGroup = warbandSchema.enum('fighter_group', GROUPS);
+
+/**
+ * A player's warband, as the warband engine reads it (app/src/lib/warbands): the rules it is built for (a core
+ * folder and any expansions on it), the faction, variant and Patron ids, the ducat limit and the two banks. The
+ * stash, fireteams and locations are typed JSONB (zod-checked engine shapes); the stash is a list of the armoury
+ * line ids each piece was bought from, so it needs no table. Deleting the owner's account removes their warbands.
+ */
+export const warbands = warbandSchema.table(
+	'warbands',
+	{
+		id: id(),
+		ownerId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text().notNull(),
+		rulesSet: text().notNull(),
+		rulesExpansions: text()
+			.array()
+			.notNull()
+			.default(sql`'{}'::text[]`),
+		factionId: text().notNull(),
+		variantId: text(),
+		patronId: text(),
+		dedication: text(),
+		ducatLimit: integer().notNull(),
+		stashDucats: integer().notNull().default(0),
+		unspentGlory: integer().notNull().default(0),
+		stash: jsonb().$type<string[]>().notNull().default([]),
+		fireteams: jsonb().$type<[string, string][]>().notNull().default([]),
+		locations: jsonb().$type<{ name: string; note?: string }[]>().notNull().default([]),
+		notes: text().notNull().default(''),
+		version: integer().notNull().default(1),
+		createdAt: createdAt(),
+		updatedAt: updatedAt()
+	},
+	(t) => [
+		index('warbands_owner_idx').on(t.ownerId),
+		check('warbands_name_length', sql`char_length(${t.name}) between 1 and 80`),
+		check('warbands_ducat_limit_range', sql`${t.ducatLimit} between 0 and 100000`),
+		check('warbands_notes_length', sql`char_length(${t.notes}) <= 4000`),
+		check('warbands_stash_array', sql`jsonb_typeof(${t.stash}) = 'array'`),
+		check('warbands_fireteams_array', sql`jsonb_typeof(${t.fireteams}) = 'array'`),
+		check('warbands_locations_array', sql`jsonb_typeof(${t.locations}) = 'array'`)
+	]
+);
+
+/**
+ * One fighter of a warband, in roster order (`sort`: prices depend on it, the first copy of an entry may cost
+ * less). Kit is the armoury line ids it was bought from; skills and injuries are ids or table rows, or free text.
+ * `image` is the content type of its uploaded picture (the file lives in the uploads volume), null for none.
+ */
+export const fighters = warbandSchema.table(
+	'fighters',
+	{
+		id: id(),
+		warbandId: uuid()
+			.notNull()
+			.references(() => warbands.id, { onDelete: 'cascade' }),
+		unitId: text().notNull(),
+		name: text(),
+		grp: fighterGroup().notNull(),
+		kit: jsonb().$type<string[]>().notNull().default([]),
+		upgrades: jsonb().$type<string[]>().notNull().default([]),
+		skills: jsonb().$type<string[]>().notNull().default([]),
+		injuries: jsonb().$type<string[]>().notNull().default([]),
+		xp: integer().notNull().default(0),
+		image: text(),
+		sort: integer().notNull(),
+		version: integer().notNull().default(1),
+		createdAt: createdAt(),
+		updatedAt: updatedAt()
+	},
+	(t) => [
+		index('fighters_warband_idx').on(t.warbandId, t.sort),
+		check('fighters_name_length', sql`char_length(${t.name}) between 1 and 120`),
+		check('fighters_xp_range', sql`${t.xp} between 0 and 1000`),
+		check('fighters_image_type', sql`${t.image} in ('image/png', 'image/jpeg', 'image/webp')`),
+		check('fighters_kit_array', sql`jsonb_typeof(${t.kit}) = 'array'`)
+	]
+);
+
+export const homebrewSchema = pgSchema('homebrew');
+
+export const homebrewKind = homebrewSchema.enum('kind', ['faction', 'variant', 'items']);
+export const homebrewVisibility = homebrewSchema.enum('visibility', ['private', 'shared']);
+
+/**
+ * A player-made faction, variant or set of items: `data` is a whole rules set in the rules folder format (manifest
+ * kind homebrew, base = `base_set`), saved even while it fails its check. The rules service indexes it into the
+ * rules cache as set `hb:<id>` when it passes, else its last version that passed (`last_good`). Private until its
+ * owner shares it with the install.
+ */
+export const homebrewSets = homebrewSchema.table(
+	'homebrew_sets',
+	{
+		id: id(),
+		ownerId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text().notNull(),
+		kind: homebrewKind().notNull(),
+		/** The rules set it builds on: a folder (core-1.0.2) or another homebrew set (hb:<id>). */
+		baseSet: text().notNull(),
+		visibility: homebrewVisibility().notNull().default('private'),
+		data: jsonb().$type<Record<string, unknown>>().notNull(),
+		/** The faction or variant id it was copied from, if any. */
+		copiedFrom: text(),
+		/** The current data's check problems (empty: it passes), written by every index. */
+		report: jsonb().$type<Problem[]>().notNull().default([]),
+		/**
+		 * The last version that passed its checks: what the cache serves while a newer draft fails, so warbands built
+		 * on a shared set keep loading. Null until a version passes.
+		 */
+		lastGood: jsonb().$type<{
+			data: Record<string, unknown>;
+			version: number;
+			checkedAt: string;
+		}>(),
+		version: integer().notNull().default(1),
+		createdAt: createdAt(),
+		updatedAt: updatedAt()
+	},
+	(t) => [
+		index('homebrew_sets_owner_idx').on(t.ownerId),
+		index('homebrew_sets_base_idx').on(t.baseSet),
+		check('homebrew_sets_name_length', sql`char_length(${t.name}) between 1 and 80`),
+		check('homebrew_sets_data_object', sql`jsonb_typeof(${t.data}) = 'object'`),
+		check('homebrew_sets_report_array', sql`jsonb_typeof(${t.report}) = 'array'`)
+	]
+);
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
@@ -330,3 +554,9 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type Seat = typeof seats.$inferSelect;
 export type SeatInvite = typeof seatInvites.$inferSelect;
 export type JoinRequest = typeof joinRequests.$inferSelect;
+export type RuleSetRow = typeof ruleSets.$inferSelect;
+export type RuleNodeRow = typeof ruleNodes.$inferSelect;
+export type RuleEdgeRow = typeof ruleEdges.$inferSelect;
+export type WarbandRow = typeof warbands.$inferSelect;
+export type FighterRow = typeof fighters.$inferSelect;
+export type HomebrewRow = typeof homebrewSets.$inferSelect;

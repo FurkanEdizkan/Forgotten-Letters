@@ -1,0 +1,7 @@
+{
+	"id": "page:campaigns/upkeep",
+	"section": "campaigns",
+	"title": "Upkeep",
+	"order": 1,
+	"body": "Pay for your warband after each game. Roll on the [[table:wounds]]."
+}

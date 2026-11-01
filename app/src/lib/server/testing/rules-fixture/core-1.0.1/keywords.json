@@ -1,0 +1,33 @@
+[
+	{
+		"id": "kw:steady",
+		"name": "Steady",
+		"kind": "tag",
+		"text": "A steady model ignores the first shove each turn."
+	},
+	{
+		"id": "kw:volley",
+		"name": "Volley",
+		"kind": "effect",
+		"param": "X",
+		"text": "Roll X extra dice when shooting at a model in the open."
+	},
+	{
+		"id": "kw:weighty",
+		"name": "Weighty",
+		"kind": "effect",
+		"text": "Moving with this item costs 1\" more. Not with [[kw:steady]] models."
+	},
+	{
+		"id": "kw:stalwart",
+		"name": "Stalwart",
+		"kind": "tag",
+		"text": "Never flees from a lost fight."
+	},
+	{
+		"id": "kw:smoke",
+		"name": "Smoke",
+		"kind": "effect",
+		"text": "Leaves a cloud that blocks sight until the next turn."
+	}
+]

@@ -22,6 +22,18 @@ const patch = (c: { name: string; visibility: string; version: number }, over = 
 	campaignPatch.parse({ name: c.name, visibility: c.visibility, version: c.version, ...over });
 
 describe('create', () => {
+	it('reads core 1.0.2, plus the Carcass Front expansion for a Carcass Front campaign', async () => {
+		const admin = await person('admin');
+		const cf = await newCampaign(admin, { kind: 'carcass_front' });
+		const generic = await newCampaign(admin, { kind: 'generic', name: 'Plain Field' });
+		const rows = await sql()`select id, rules_set, rules_expansions from campaign.campaigns`;
+		const of = (id: string) => rows.find((r) => r.id === id);
+		expect(of(cf.campaign.id)).toMatchObject({
+			rules_set: 'core-1.0.2',
+			rules_expansions: ['carcass-front-1.0']
+		});
+		expect(of(generic.campaign.id)).toMatchObject({ rules_expansions: [] });
+	});
 	it('makes the campaign, its CM row and N seats in one go, and audits it', async () => {
 		const admin = await person('admin');
 		const { campaign, seats: made } = await newCampaign(admin, { seats: 4 });

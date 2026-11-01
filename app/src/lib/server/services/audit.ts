@@ -65,7 +65,19 @@ export type AuditAction =
 	| 'request.made'
 	| 'request.approved'
 	| 'request.declined'
-	| 'request.withdrawn';
+	| 'request.withdrawn'
+	| 'rules.reloaded'
+	| 'warband.created'
+	| 'warband.imported'
+	| 'warband.deleted'
+	| 'warband.assigned'
+	| 'warband.unassigned'
+	| 'homebrew.created'
+	| 'homebrew.imported'
+	| 'homebrew.updated'
+	| 'homebrew.shared'
+	| 'homebrew.unshared'
+	| 'homebrew.deleted';
 
 export function record(
 	tx: Tx,

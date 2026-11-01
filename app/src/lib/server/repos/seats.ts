@@ -119,7 +119,7 @@ export const emptySeats = (tx: Tx, campaignId: string) =>
 export async function update(
 	tx: Tx,
 	id: string,
-	fields: Partial<Pick<Seat, 'name' | 'userId' | 'joinedAt'>>,
+	fields: Partial<Pick<Seat, 'name' | 'userId' | 'joinedAt' | 'warbandId'>>,
 	version?: number
 ) {
 	const [s] = await tx

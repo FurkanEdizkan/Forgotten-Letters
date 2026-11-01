@@ -3,6 +3,8 @@ import { ctxOf, formAction, orPageError } from '#lib/server/http';
 import * as campaigns from '#lib/server/services/campaigns';
 import * as seats from '#lib/server/services/seats';
 import * as joinRequests from '#lib/server/services/join-requests';
+import * as warbands from '#lib/server/services/warbands';
+import { canInCampaign } from '#lib/campaign-rights';
 import { personInput, requestInput } from '#lib/schemas/campaigns';
 import type { ApiCampaign, ApiSeat } from '#lib/api-types';
 import type { Actions, PageServerLoad } from './$types';
@@ -12,9 +14,34 @@ export const load: PageServerLoad = async (event) => {
 	// The campaign first: a campaign you may not see answers 404 before anything else is asked.
 	const campaign: ApiCampaign = await orPageError(event, campaigns.get(ctx, event.params.id));
 	const member = !!campaign.myRole || campaign.mySeat;
-	const seatList: ApiSeat[] = member ? await seats.list(ctx, event.params.id) : [];
-	return { campaign, seats: seatList };
+	const runs =
+		!!event.locals.user && canInCampaign(campaign.myRole, event.locals.user.role, 'manage');
+	const [seatList, mine, seated] = await Promise.all([
+		member ? seats.list(ctx, event.params.id) : ([] as ApiSeat[]),
+		campaign.mySeat ? warbands.listMine(ctx) : null,
+		runs ? warbands.ofCampaign(ctx, event.params.id) : null
+	]);
+	// My warbands that could sit here: not in another campaign. One built for other rules is offered too; assigning
+	// it asks to re-check it against this campaign's rules.
+	const rules = [campaign.rulesSet, ...campaign.rulesExpansions].join('+');
+	return {
+		campaign,
+		seats: seatList,
+		myWarband: mine?.find((w) => w.seat?.campaignId === campaign.id) ?? null,
+		myWarbands: (mine ?? [])
+			.filter((w) => !w.seat || w.seat.campaignId === campaign.id)
+			.map((w) => ({
+				...w,
+				otherRules: [w.rulesSet, ...w.rulesExpansions].join('+') !== rules
+			})),
+		seatedWarbands: seated
+	};
 };
+
+const assignForm = z.object({
+	warbandId: z.uuid('Pick a warband.'),
+	recheck: z.enum(['true']).optional()
+});
 
 const opOnly = z.object({});
 
@@ -30,6 +57,34 @@ export const actions = {
 		formAction(event, opOnly, async (_input, ctx) => {
 			await seats.leave(ctx, event.params.id);
 			return { op: 'leave', done: true };
+		}),
+	/**
+	 * Put one of my warbands in my seat here; recheck moves it to this campaign's rules first.
+	 * Who: the seat holder, until the campaign ends.
+	 * In: form { warbandId, recheck? }.
+	 * Out: { op: 'assignWarband', done: true }.
+	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not mine, 404 not_found no seat, 409 conflict in another
+	 * campaign, other rules, refused or campaign ended.
+	 */
+	assignWarband: (event) =>
+		formAction(event, assignForm, async (input, ctx) => {
+			await warbands.assignToSeat(ctx, event.params.id, {
+				warbandId: input.warbandId,
+				recheck: !!input.recheck
+			});
+			return { op: 'assignWarband', done: true };
+		}),
+	/**
+	 * Take my warband out of my seat here; the seat stays mine.
+	 * Who: the seat holder, until the campaign ends.
+	 * In: form { }.
+	 * Out: { op: 'clearWarband', done: true }.
+	 * Errors: 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.
+	 */
+	clearWarband: (event) =>
+		formAction(event, opOnly, async (_input, ctx) => {
+			await warbands.clearSeat(ctx, event.params.id);
+			return { op: 'clearWarband', done: true };
 		}),
 	/**
 	 * Ask to join this listed campaign, with an optional note for the CM.

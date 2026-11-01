@@ -1,0 +1,14 @@
+[
+	{
+		"id": "variant:lantern-guild/ash-wardens",
+		"faction": "faction:lantern-guild",
+		"name": "Ash Wardens",
+		"replaces": [
+			{
+				"from": "unit:lantern-guild/torchbearer",
+				"to": "unit:lantern-guild/ash-warden"
+			}
+		],
+		"text": "Wardens who walk the burnt fields."
+	}
+]

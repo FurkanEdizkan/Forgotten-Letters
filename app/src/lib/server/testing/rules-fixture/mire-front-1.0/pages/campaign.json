@@ -1,0 +1,9 @@
+[
+	{
+		"id": "page:mire/campaign",
+		"section": "campaigns",
+		"title": "The Mire Front",
+		"order": 2,
+		"body": "A campaign fought in the reeds. Bring [[item:mire-boots]]."
+	}
+]

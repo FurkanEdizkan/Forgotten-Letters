@@ -1,0 +1,106 @@
+[
+	{
+		"id": "unit:lantern-guild/warden",
+		"owner": "faction:lantern-guild",
+		"name": "Warden",
+		"category": "elite",
+		"availability": {
+			"min": 1,
+			"max": 1
+		},
+		"cost": 60,
+		"currency": "ducats",
+		"stats": {
+			"movement": "6\"",
+			"ranged": "+1",
+			"melee": "+1",
+			"armour": "0",
+			"base": "32mm"
+		},
+		"keywords": [
+			{
+				"kw": "kw:stalwart"
+			}
+		],
+		"abilities": [
+			{
+				"name": "Steady Hand",
+				"text": "Re-roll one failed shot each turn."
+			}
+		],
+		"upgrades": ["upgrade:lantern-guild/veteran"],
+		"kit": {
+			"fixed": ["item:lantern"],
+			"includedInCost": true
+		}
+	},
+	{
+		"id": "unit:lantern-guild/torchbearer",
+		"owner": "faction:lantern-guild",
+		"name": "Torchbearer",
+		"category": "troop",
+		"availability": {
+			"min": 0,
+			"max": null
+		},
+		"cost": 30,
+		"currency": "ducats",
+		"stats": {
+			"movement": "6\"",
+			"ranged": "0",
+			"melee": "0",
+			"armour": "0",
+			"base": "25mm"
+		},
+		"keywords": [],
+		"abilities": [],
+		"kit": {}
+	},
+	{
+		"id": "unit:lantern-guild/ash-warden",
+		"owner": "variant:lantern-guild/ash-wardens",
+		"name": "Ash Walker",
+		"category": "troop",
+		"availability": {
+			"min": 0,
+			"max": null
+		},
+		"cost": 35,
+		"currency": "ducats",
+		"stats": {
+			"movement": "6\"",
+			"base": "25mm"
+		},
+		"keywords": [
+			{
+				"kw": "kw:steady"
+			}
+		],
+		"abilities": [],
+		"kit": {}
+	},
+	{
+		"id": "unit:mercenaries/sellsword",
+		"owner": "faction:mercenaries",
+		"name": "Sellsword",
+		"category": "mercenary",
+		"availability": {
+			"min": 0,
+			"max": 1
+		},
+		"cost": 70,
+		"currency": "ducats",
+		"stats": {
+			"movement": "6\"",
+			"melee": "+2"
+		},
+		"keywords": [],
+		"abilities": [],
+		"kit": {
+			"fixed": ["item:cudgel"]
+		},
+		"hiredBy": {
+			"alignment": "faithful"
+		}
+	}
+]

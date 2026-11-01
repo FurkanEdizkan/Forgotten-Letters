@@ -1,0 +1,14 @@
+[
+	{
+		"id": "item:mire-boots",
+		"name": "Mire Boots",
+		"category": "equipment",
+		"type": "Equipment",
+		"keywords": [
+			{
+				"kw": "kw:steady"
+			}
+		],
+		"text": "Worn on the [[page:mire/campaign|Mire Front]]."
+	}
+]

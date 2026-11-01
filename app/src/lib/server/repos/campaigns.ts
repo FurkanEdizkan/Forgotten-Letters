@@ -68,6 +68,9 @@ export async function update(
 			| 'endsOn'
 			| 'houseRules'
 			| 'deletedAt'
+			| 'rulesSet'
+			| 'allowBeyondLimits'
+			| 'homebrewSets'
 		>
 	>,
 	version?: number

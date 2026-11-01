@@ -26,6 +26,10 @@ const schema = z.object({
 	LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 	BACKUP_DIR: z.string().default('/data/backups'),
 	BACKUP_KEEP_DAYS: z.coerce.number().int().min(1).default(14),
+	/** The rules folders, one per version (core-1.0.2/, carcass-front-1.0/); Docker mounts ./rules here read-only. */
+	RULES_DIR: z.string().default('/data/rules'),
+	/** Uploaded files (fighter images under fighters/); Docker keeps them on the uploads volume. */
+	UPLOADS_DIR: z.string().default('/data/uploads'),
 	RETENTION_DAYS: z.coerce.number().int().min(7).default(180),
 	/** Run migrations and jobs at start (off in unit tests that bring their own database). */
 	RUN_STARTUP: z

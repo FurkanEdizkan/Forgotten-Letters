@@ -17,9 +17,12 @@ import { db, type Tx } from '../db';
 import * as campaignsRepo from '../repos/campaigns';
 import * as seatsRepo from '../repos/seats';
 import * as usersRepo from '../repos/users';
+import * as warbandsRepo from '../repos/warbands';
 import { record, type Ctx, type SessionUser } from './audit';
 import { openLink } from './link-cipher';
 import { requireUser } from './auth';
+import { hbSetId, isHomebrewSet } from '#lib/rules/homebrew';
+import { checkHomebrewPick, checkRulesPick, homebrewClosure, mayUse } from './rules';
 
 const DAY = 24 * 60 * 60 * 1000;
 /** A deleted campaign can be restored for this long; then the daily purge removes it. */
@@ -70,6 +73,10 @@ async function full(tx: Tx, id: string, userId: string): Promise<ApiCampaign> {
 		...toCard(r),
 		description: r.c.description,
 		houseRules: r.c.houseRules,
+		rulesSet: r.c.rulesSet,
+		rulesExpansions: r.c.rulesExpansions,
+		allowBeyondLimits: r.c.allowBeyondLimits,
+		homebrewSets: r.c.homebrewSets,
 		members: await campaignsRepo.listMembers(tx, id),
 		version: r.c.version
 	};
@@ -194,6 +201,8 @@ export async function create(
 			startsOn: input.startsOn ?? null,
 			endsOn: input.endsOn ?? null,
 			houseRules: input.houseRules,
+			// A Carcass Front campaign reads the core rules plus the Carcass Front expansion folder.
+			rulesExpansions: input.kind === 'carcass_front' ? ['carcass-front-1.0'] : [],
 			createdBy: me.id
 		});
 		if (!c) throw nameTaken();
@@ -217,6 +226,53 @@ export async function get(ctx: Ctx, id: string): Promise<ApiCampaign> {
 	return full(db(), id, a.me.id);
 }
 
+/**
+ * A campaign keeps one rules version for every warband in it: changing the version (or the expansions on it) is
+ * refused while a seated warband is built for other rules, naming them, so nobody plays a list nobody checked.
+ */
+async function noSeatedWarbandsOff(tx: Tx, id: string, rulesSet: string, expansions: string[]) {
+	// Homebrew on top is the warband's own choice (the allow-list governs it), not the campaign's rules.
+	const key = (set: string, exp: string[]) =>
+		[set, ...exp.filter((e) => !isHomebrewSet(e)).sort()].join('+');
+	const off = (await warbandsRepo.rulesInCampaign(tx, id)).filter(
+		(w) => key(w.rulesSet, w.rulesExpansions) !== key(rulesSet, expansions)
+	);
+	if (!off.length) return;
+	const message = `${off.map((w) => w.name).join(', ')} ${off.length === 1 ? 'is' : 'are'} built for other rules. Take ${off.length === 1 ? 'it' : 'them'} out of the seats (or move ${off.length === 1 ? 'it' : 'them'} to ${rulesSet}) first.`;
+	throw new AppError('conflict', message, { rulesSet: message });
+}
+
+/**
+ * The homebrew a campaign allows: sets newly ticked must be ones the person can see and must pass their checks;
+ * every allowed set must build only on the campaign's rules (checked again when the version changes); and a set
+ * a seated warband is built on stays allowed until that warband leaves its seat.
+ */
+async function checkHomebrewChoice(
+	tx: Tx,
+	ctx: Ctx,
+	c: campaignsRepo.CampaignRow,
+	next: string[],
+	rulesSet: string
+) {
+	const added = next.filter((x) => !c.homebrewSets.includes(x));
+	try {
+		await mayUse(ctx, added.map(hbSetId));
+	} catch {
+		throw new AppError('invalid', 'Pick homebrew sets you can see.', {
+			homebrewSets: 'Pick homebrew sets you can see.'
+		});
+	}
+	await checkHomebrewPick(rulesSet, c.rulesExpansions, rulesSet === c.rulesSet ? added : next);
+	const keep = await homebrewClosure(next);
+	const off = (await warbandsRepo.rulesInCampaign(tx, c.id)).filter((w) =>
+		w.rulesExpansions.some((e) => isHomebrewSet(e) && !keep.has(e))
+	);
+	if (off.length) {
+		const message = `${off.map((w) => w.name).join(', ')} ${off.length === 1 ? 'is' : 'are'} built on homebrew this would no longer allow. Take ${off.length === 1 ? 'it' : 'them'} out of the seats first.`;
+		throw new AppError('conflict', message, { homebrewSets: message });
+	}
+}
+
 /** Change the settings; `version` must match, so two people never overwrite each other. */
 export async function update(ctx: Ctx, id: string, input: CampaignPatch): Promise<ApiCampaign> {
 	return db().transaction(async (tx) => {
@@ -225,10 +281,22 @@ export async function update(ctx: Ctx, id: string, input: CampaignPatch): Promis
 		notEnded(a);
 		if (a.c.version !== input.version) throw stale();
 		if (await campaignsRepo.nameTaken(tx, input.name, id)) throw nameTaken();
+		if (input.rulesSet && input.rulesSet !== a.c.rulesSet) {
+			await checkRulesPick(input.rulesSet, a.c.rulesExpansions);
+			await noSeatedWarbandsOff(tx, id, input.rulesSet, a.c.rulesExpansions);
+		}
+		const homebrew = input.homebrewSets ? [...new Set(input.homebrewSets)] : a.c.homebrewSets;
+		if (input.homebrewSets || (input.rulesSet && input.rulesSet !== a.c.rulesSet))
+			await checkHomebrewChoice(tx, ctx, a.c, homebrew, input.rulesSet ?? a.c.rulesSet);
 		await campaignsRepo.update(
 			tx,
 			id,
 			{
+				...(input.rulesSet ? { rulesSet: input.rulesSet } : {}),
+				...(input.allowBeyondLimits !== undefined
+					? { allowBeyondLimits: input.allowBeyondLimits }
+					: {}),
+				...(input.homebrewSets ? { homebrewSets: homebrew } : {}),
 				name: input.name,
 				description: input.description,
 				visibility: input.visibility,

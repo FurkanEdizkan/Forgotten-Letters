@@ -1,0 +1,85 @@
+[
+	{
+		"id": "item:hook-rifle",
+		"name": "Hook Rifle",
+		"category": "ranged",
+		"type": "2-Handed",
+		"range": "24\"",
+		"keywords": [
+			{
+				"kw": "kw:volley",
+				"value": 2
+			}
+		],
+		"text": "A long rifle with a grappling hook under the barrel."
+	},
+	{
+		"id": "item:cudgel",
+		"name": "Cudgel",
+		"category": "melee",
+		"type": "1-Handed",
+		"keywords": [
+			{
+				"kw": "kw:weighty",
+				"value": 1
+			},
+			{
+				"kw": "kw:weighty",
+				"value": 2
+			}
+		]
+	},
+	{
+		"id": "item:smoke-pot",
+		"name": "Smoke Pot",
+		"category": "grenade",
+		"type": "Grenade",
+		"range": "8\"",
+		"keywords": [
+			{
+				"kw": "kw:smoke"
+			}
+		]
+	},
+	{
+		"id": "item:quilted-coat",
+		"name": "Quilted Coat",
+		"category": "armour",
+		"type": "Armour",
+		"keywords": []
+	},
+	{
+		"id": "item:pavise",
+		"name": "Pavise",
+		"category": "shield",
+		"type": "Shield",
+		"keywords": [
+			{
+				"kw": "kw:weighty"
+			}
+		]
+	},
+	{
+		"id": "item:lantern",
+		"name": "Signal Lantern",
+		"category": "equipment",
+		"type": "Equipment",
+		"keywords": [
+			{
+				"kw": "kw:steady"
+			}
+		],
+		"text": "Lit at dusk; a warband carrying it keeps its nerve."
+	},
+	{
+		"id": "item:pike",
+		"name": "Long Pike",
+		"category": "melee",
+		"type": "2-Handed",
+		"keywords": [
+			{
+				"kw": "kw:weighty"
+			}
+		]
+	}
+]

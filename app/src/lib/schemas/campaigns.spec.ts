@@ -64,6 +64,16 @@ describe('patches and seat links', () => {
 			campaignPatch.parse({ name: 'X', visibility: 'private', version: 2, kind: 'generic' })
 		).not.toHaveProperty('kind');
 	});
+	it('reads "allow beyond limits" from a form (hidden false, then the box) or JSON', () => {
+		const base = { name: 'X', visibility: 'private', version: 2 };
+		expect(campaignPatch.parse({ ...base, allowBeyondLimits: 'on' }).allowBeyondLimits).toBe(true);
+		expect(campaignPatch.parse({ ...base, allowBeyondLimits: 'false' }).allowBeyondLimits).toBe(
+			false
+		);
+		expect(campaignPatch.parse({ ...base, allowBeyondLimits: true }).allowBeyondLimits).toBe(true);
+		expect(campaignPatch.parse(base).allowBeyondLimits).toBeUndefined();
+		expect(campaignPatch.safeParse({ ...base, rulesSet: 'Core 1' }).success).toBe(false);
+	});
 
 	it('changes a seat by name or frees it', () => {
 		expect(seatPatch.safeParse({ version: 1 }).success).toBe(false);

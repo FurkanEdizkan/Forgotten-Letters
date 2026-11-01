@@ -1,0 +1,7 @@
+{
+	"id": "mire-front-1.0",
+	"name": "Mire Front",
+	"kind": "expansion",
+	"version": "1.0",
+	"base": "core-1.0.2"
+}

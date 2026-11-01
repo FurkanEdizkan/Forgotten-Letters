@@ -14,6 +14,8 @@
 	--panel-hover: #33302b;
 	--rule: #33302a;
 	--rule-strong: #565249;
+	/* Behind a modal dialog: dims the page under it (DESIGN.md §2, Surfaces). */
+	--scrim: rgb(0 0 0 / 0.55);
 
 	/* Text */
 	--bone: #ece5d3;
@@ -106,6 +108,20 @@
 	--easing: ease-out;
 	--live-flash: 1.5s;
 	--toast-time: 8s;
+	/* Rules graph node types (compendium): their own names, so meanings elsewhere stay reserved. */
+	--graph-faction: #d8392e;
+	--graph-variant: #d98c80;
+	--graph-unit: #ece5d3;
+	--graph-item: #6aa2d6;
+	--graph-line: #857b6c;
+	--graph-keyword: #b583d4;
+	--graph-upgrade: #e0a23a;
+	--graph-patron: #d4a537;
+	--graph-skill: #c98b5a;
+	--graph-table: #55aab4;
+	--graph-scenario: #8fb04a;
+	--graph-page: #b0a791;
+	--graph-location: #7fa37a;
 }
 
 :root[data-density='compact'] {

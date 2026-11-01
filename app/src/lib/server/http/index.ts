@@ -96,14 +96,15 @@ type Handler = (event: RequestEvent, ctx: Ctx) => Promise<Response | unknown>;
 
 /**
  * Wrap an API handler: writes must send JSON (other sites are refused in the hook); the result becomes JSON; errors become the
- * one error shape with the request id. `role` requires a signed-in account of at least that role.
+ * one error shape with the request id. `auth: false` lets visitors call it; `upload: true` takes a raw or multipart
+ * body (an upload checks its own size and type).
  */
-export function api(handler: Handler, opts: { auth?: boolean } = { auth: true }) {
+export function api(handler: Handler, opts: { auth?: boolean; upload?: boolean } = { auth: true }) {
 	return async (event: RequestEvent) => {
 		const requestId = event.locals.requestId;
 		try {
 			const write = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
-			if (write) {
+			if (write && !opts.upload) {
 				const type = event.request.headers.get('content-type') ?? '';
 				const hasBody =
 					event.request.headers.get('content-length') !== '0' && event.request.body !== null;
@@ -155,8 +156,9 @@ export async function formAction<S extends z.ZodType, T>(
 	run: (data: z.infer<S>, ctx: Ctx) => Promise<T>
 ) {
 	const raw = await formObject(event);
+	// Typed text only: never passwords, and never an uploaded file (it cannot travel back to the page).
 	const values = Object.fromEntries(
-		Object.entries(raw).filter(([k]) => !/password|current/i.test(k))
+		Object.entries(raw).filter(([k, v]) => typeof v === 'string' && !/password|current/i.test(k))
 	);
 	try {
 		return await run(parse(schema, raw), ctxOf(event));

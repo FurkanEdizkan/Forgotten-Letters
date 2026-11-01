@@ -1,0 +1,35 @@
+[
+	{
+		"id": "table:wounds",
+		"name": "Wound Table",
+		"kind": "trauma",
+		"dice": "2D6",
+		"rows": [
+			{
+				"roll": "2-6",
+				"name": "Bruised",
+				"text": "No lasting harm."
+			},
+			{
+				"roll": "7-12",
+				"name": "Scarred",
+				"text": "Gains [[kw:stalwart]]."
+			}
+		]
+	},
+	{
+		"id": "table:boons",
+		"name": "Boons",
+		"kind": "glory",
+		"rows": [
+			{
+				"roll": "-",
+				"name": "Lucky Coin"
+			},
+			{
+				"roll": "-",
+				"name": "Old Charm"
+			}
+		]
+	}
+]

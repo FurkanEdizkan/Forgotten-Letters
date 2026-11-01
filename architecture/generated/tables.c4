@@ -38,4 +38,31 @@ model {
       metadata { generated 'true' }
     }
   }
+
+  extend fl.app.rulesTables {
+    table_sets = table 'sets' {
+      metadata { generated 'true' }
+    }
+    table_nodes = table 'nodes' {
+      metadata { generated 'true' }
+    }
+    table_edges = table 'edges' {
+      metadata { generated 'true' }
+    }
+  }
+
+  extend fl.app.warbandTables {
+    table_warbands = table 'warbands' {
+      metadata { generated 'true' }
+    }
+    table_fighters = table 'fighters' {
+      metadata { generated 'true' }
+    }
+  }
+
+  extend fl.app.homebrewTables {
+    table_homebrew_sets = table 'homebrew_sets' {
+      metadata { generated 'true' }
+    }
+  }
 }

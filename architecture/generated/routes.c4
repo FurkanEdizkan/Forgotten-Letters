@@ -100,12 +100,22 @@ action:withdraw: Withdraw my open request to join a campaign.
       }
     }
     route_app_campaigns_id = page '/campaigns/[id]' {
-      description 'actions: ask, leave, transfer, withdraw
+      description 'actions: ask, assignWarband, clearWarband, leave, transfer, withdraw
 action:ask: Ask to join this listed campaign, with an optional note for the CM.
   Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.
   In: form { note? }.
   Out: { op: \'ask\', done: true }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.
+action:assignWarband: Put one of my warbands in my seat here; recheck moves it to this campaign\'s rules first.
+  Who: the seat holder, until the campaign ends.
+  In: form { warbandId, recheck? }.
+  Out: { op: \'assignWarband\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not mine, 404 not_found no seat, 409 conflict in another campaign, other rules, refused or campaign ended.
+action:clearWarband: Take my warband out of my seat here; the seat stays mine.
+  Who: the seat holder, until the campaign ends.
+  In: form { }.
+  Out: { op: \'clearWarband\', done: true }.
+  Errors: 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.
 action:leave: Leave my seat in this campaign; the seat stays, empty.
   Who: the seat holder, while the campaign is mustering.
   In: form { } (the campaign from the path).
@@ -201,7 +211,7 @@ action:revokeAll: Withdraw every open seat link of the campaign at once; they st
   Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
 action:settings: Save the campaign\'s settings and house rules, with a version check.
   Who: the CM and co-CMs, until the campaign ends.
-  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.
+  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), rulesSet, allowBeyondLimits, homebrewSets (JSON), version }.
   Out: { op: \'settings\', done: true }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.
 action:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.
@@ -238,6 +248,47 @@ action:create: Create a campaign from the wizard: the campaign, its CM (the crea
         generated 'true'
         route '/home'
         code ['app/src/routes/(app)/home/+page.svelte']
+      }
+    }
+    route_app_homebrew = page '/homebrew' {
+      description 'actions: create, import
+action:create: Make a homebrew set and open its editor.
+  Who: anyone signed in, on rules they can see.
+  In: form homebrewCreate { name, base, start (faction, variant, items or copy), of? }.
+  Out: redirect to /homebrew/<id>.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules not loaded.
+action:import: Import an exported homebrew file as a new set of mine and open it; refused with its problems if it fails its checks.
+  Who: anyone signed in, on a base they can see.
+  In: form { text } (the file\'s JSON).
+  Out: redirect to /homebrew/<id>.
+  Errors: 400 invalid not JSON or with problems, 401 unauthenticated, 404 not_found base not loaded.'
+      metadata {
+        generated 'true'
+        route '/homebrew'
+        code ['app/src/routes/(app)/homebrew/+page.server.ts', 'app/src/routes/(app)/homebrew/+page.svelte']
+      }
+    }
+    route_app_homebrew_id = page '/homebrew/[id]' {
+      description 'actions: remove, save, share
+action:remove: Delete the set for good and go back to the list.
+  Who: its maker; Owners.
+  In: form {}.
+  Out: redirect to /homebrew.
+  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict in use.
+action:save: Save the whole set (its data as one JSON field), with a version check; it is checked and re-indexed.
+  Who: its maker.
+  In: form homebrewUpdate { version, name?, data (JSON) }.
+  Out: { op: \'save\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker, 404 not_found, 409 conflict changed meanwhile.
+action:share: Share the set with everyone here, or make it private again.
+  Who: its maker.
+  In: form { on: true|false }.
+  Out: { op: \'share\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker, 404 not_found, 409 conflict base private or in use by others.'
+      metadata {
+        generated 'true'
+        route '/homebrew/[id]'
+        code ['app/src/routes/(app)/homebrew/[id]/+page.server.ts', 'app/src/routes/(app)/homebrew/[id]/+page.svelte']
       }
     }
     route_app_owner = page '/owner' {
@@ -329,6 +380,19 @@ action:revoke: Revoke a pending invite; its link stops working.
         code ['app/src/routes/(app)/owner/invites/+page.server.ts', 'app/src/routes/(app)/owner/invites/+page.svelte']
       }
     }
+    route_app_owner_rules = page '/owner/rules' {
+      description 'actions: reload
+action:reload: Read the rules folders again and replace the cache; a folder that fails its check is not loaded.
+  Who: owners.
+  In: form {} (nothing).
+  Out: { op: \'reload\', ok, failed } the number of folders loaded and not loaded.
+  Errors: 401 unauthenticated, 403 forbidden not an owner.'
+      metadata {
+        generated 'true'
+        route '/owner/rules'
+        code ['app/src/routes/(app)/owner/rules/+page.server.ts', 'app/src/routes/(app)/owner/rules/+page.svelte']
+      }
+    }
     route_app_owner_settings = page '/owner/settings' {
       description 'actions: save
 action:save: Change the copy-wide text size, accent and port.
@@ -340,6 +404,200 @@ action:save: Change the copy-wide text size, accent and port.
         generated 'true'
         route '/owner/settings'
         code ['app/src/routes/(app)/owner/settings/+page.server.ts', 'app/src/routes/(app)/owner/settings/+page.svelte']
+      }
+    }
+    route_app_rules = page '/rules' {
+      metadata {
+        generated 'true'
+        route '/rules'
+        code ['app/src/routes/(app)/rules/+page.server.ts', 'app/src/routes/(app)/rules/+page.svelte']
+      }
+    }
+    route_app_rules_set = page '/rules/[set]' {
+      description 'layout'
+      metadata {
+        generated 'true'
+        route '/rules/[set]'
+        code ['app/src/routes/(app)/rules/[set]/+layout.server.ts', 'app/src/routes/(app)/rules/[set]/+layout.svelte', 'app/src/routes/(app)/rules/[set]/+page.server.ts']
+      }
+    }
+    route_app_rules_set_battlekit = page '/rules/[set]/battlekit' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/battlekit'
+        code ['app/src/routes/(app)/rules/[set]/battlekit/+page.server.ts', 'app/src/routes/(app)/rules/[set]/battlekit/+page.svelte']
+      }
+    }
+    route_app_rules_set_e_id = page '/rules/[set]/e/[...id]' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/e/[...id]'
+        code ['app/src/routes/(app)/rules/[set]/e/[...id]/+page.server.ts', 'app/src/routes/(app)/rules/[set]/e/[...id]/+page.svelte']
+      }
+    }
+    route_app_rules_set_s_section = page '/rules/[set]/s/[section]' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/s/[section]'
+        code ['app/src/routes/(app)/rules/[set]/s/[section]/+page.server.ts', 'app/src/routes/(app)/rules/[set]/s/[section]/+page.svelte']
+      }
+    }
+    route_app_rules_set_search = page '/rules/[set]/search' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/search'
+        code ['app/src/routes/(app)/rules/[set]/search/+page.server.ts', 'app/src/routes/(app)/rules/[set]/search/+page.svelte']
+      }
+    }
+    route_app_rules_set_warbands = page '/rules/[set]/warbands' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/warbands'
+        code ['app/src/routes/(app)/rules/[set]/warbands/+page.server.ts', 'app/src/routes/(app)/rules/[set]/warbands/+page.svelte']
+      }
+    }
+    route_app_rules_set_warbands_id = page '/rules/[set]/warbands/[...id]' {
+      metadata {
+        generated 'true'
+        route '/rules/[set]/warbands/[...id]'
+        code ['app/src/routes/(app)/rules/[set]/warbands/[...id]/+page.server.ts', 'app/src/routes/(app)/rules/[set]/warbands/[...id]/+page.svelte']
+      }
+    }
+    route_app_warbands = page '/warbands' {
+      description 'actions: import
+action:import: Import a Trench Companion text export as a new warband; names that do not match are reported.
+  Who: anyone signed in.
+  In: form warbandImport { text, rules (core or core+expansion) }.
+  Out: { op: \'import\', done: true, id, name, unmatched, ambiguous }.
+  Errors: 400 invalid not a warband, 401 unauthenticated, 404 not_found rules not loaded, 409 conflict no rules.'
+      metadata {
+        generated 'true'
+        route '/warbands'
+        code ['app/src/routes/(app)/warbands/+page.server.ts', 'app/src/routes/(app)/warbands/+page.svelte']
+      }
+    }
+    route_app_warbands_id = page '/warbands/[id]' {
+      description 'actions: assign, buy, clearImage, editFighter, fireteams, image, locations, patch, recruit, remove, removeFighter, removeUpgrade, sell, stashBuy, stashGive, stashSell, unassign, upgrade
+action:assign: Put this warband in my seat of a campaign; recheck moves it to the campaign\'s rules first.
+  Who: the warband\'s owner, seated in that campaign.
+  In: form seatForm { campaignId, recheck? }.
+  Out: { op: \'assign\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat, 409 conflict in another campaign, other rules or refused.
+action:buy: Buy kit for a fighter from the Equip dialog.
+  Who: the warband\'s owner.
+  In: form { fid, lineId }.
+  Out: { op: \'buy\', done: true, id: lineId }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:clearImage: Remove a fighter\'s picture.
+  Who: the warband\'s owner.
+  In: form { fid }.
+  Out: { op: \'clearImage\', done: true, id: fid }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:editFighter: Edit a fighter: name, group (Dead included), Experience, skills and injuries (one per line).
+  Who: the warband\'s owner.
+  In: form { fid, version, name, group, xp, skills, injuries }.
+  Out: { op: \'editFighter\', done: true, id }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.
+action:fireteams: Save the fireteams (pairs of fighters).
+  Who: the warband\'s owner.
+  In: form { fireteams (JSON) }.
+  Out: { op: \'fireteams\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:image: Upload a fighter\'s picture (multipart field `image`): PNG, JPEG or WebP up to 2 MB, stored as sent.
+  Who: the warband\'s owner.
+  In: multipart form { fid, image }.
+  Out: { op: \'image\', done: true, id: fid }.
+  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:locations: Save the locations (a name and a note each).
+  Who: the warband\'s owner.
+  In: form { locations (JSON) }.
+  Out: { op: \'locations\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:patch: Save the warband\'s details: name, Patron, ducat limit, banks and notes, with a version check.
+  Who: the warband\'s owner.
+  In: form warbandPatch { version, name, patronId, ducatLimit, stashDucats, unspentGlory, notes }.
+  Out: { op: \'patch\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.
+action:recruit: Recruit an entry from the Add fighter dialog, with the upgrades and loadout picked, paid from the banks.
+  Who: the warband\'s owner.
+  In: form { unitId, name?, up:<upgrade id> boxes, loadout (its lines, comma-separated) }.
+  Out: { op: \'recruit\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:remove: Delete the warband for good and go back to the list.
+  Who: the warband\'s owner.
+  In: form { }.
+  Out: redirect to /warbands.
+  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
+action:removeFighter: Remove a fighter; its worth goes back to the banks.
+  Who: the warband\'s owner.
+  In: form { fid }.
+  Out: { op: \'removeFighter\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:removeUpgrade: Take an upgrade off a fighter.
+  Who: the warband\'s owner.
+  In: form { fid, upgradeId }.
+  Out: { op: \'removeUpgrade\', done: true, id: upgradeId }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:sell: Sell one piece of a fighter\'s bought kit.
+  Who: the warband\'s owner.
+  In: form { fid, lineId }.
+  Out: { op: \'sell\', done: true, id: fid }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:stashBuy: Buy kit into the stash.
+  Who: the warband\'s owner.
+  In: form { lineId }.
+  Out: { op: \'stashBuy\', done: true, id: lineId }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:stashGive: Give a piece from the stash to a fighter.
+  Who: the warband\'s owner.
+  In: form { lineId, fighterId }.
+  Out: { op: \'stashGive\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:stashSell: Sell one piece from the stash.
+  Who: the warband\'s owner.
+  In: form { lineId }.
+  Out: { op: \'stashSell\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:unassign: Take this warband out of its campaign seat.
+  Who: the warband\'s owner (the seat holder).
+  In: form { campaignId }.
+  Out: { op: \'unassign\', done: true }.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.
+action:upgrade: Give a fighter an upgrade from the Equip dialog.
+  Who: the warband\'s owner.
+  In: form { fid, upgradeId }.
+  Out: { op: \'upgrade\', done: true, id: upgradeId }.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/warbands/[id]'
+        code ['app/src/routes/(app)/warbands/[id]/+page.server.ts', 'app/src/routes/(app)/warbands/[id]/+page.svelte']
+      }
+    }
+    route_app_warbands_new = page '/warbands/new' {
+      description 'actions: create
+action:create: Create a warband from the wizard and open its builder; from a seat it takes the campaign\'s rules and the seat.
+  Who: anyone signed in; with campaignId, a player seated in that campaign.
+  In: form warbandCreate { rules, factionId, variantId?, patronId?, name, ducatLimit?, campaignId? }.
+  Out: redirect to /warbands/<id>.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules or seat, 409 conflict no rules or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/warbands/new'
+        code ['app/src/routes/(app)/warbands/new/+page.server.ts', 'app/src/routes/(app)/warbands/new/+page.svelte']
+      }
+    }
+    route_uploads_fighters_id = endpoint '/uploads/fighters/[id]' {
+      description 'GET
+GET: A fighter\'s image, with its stored content type. The address carries the fighter\'s version (?v=), so a browser may keep it; it is private, never shared caches.
+  Who: the warband\'s owner; the CM and co-CMs of the campaign it sits in.
+  In: path id (the fighter).
+  Out: 200 image/png, image/jpeg or image/webp.
+  Errors: 401 unauthenticated, 404 not_found no image or not visible.'
+      metadata {
+        generated 'true'
+        route '/uploads/fighters/[id]'
+        code ['app/src/routes/uploads/fighters/[id]/+server.ts']
       }
     }
   }
@@ -750,6 +1008,24 @@ DELETE: Leave one\'s own seat.
         code ['app/src/routes/api/v1/campaigns/[id]/seats/mine/+server.ts']
       }
     }
+    route_api_v1_campaigns_id_seats_mine_warband = endpoint '/api/v1/campaigns/[id]/seats/mine/warband' {
+      description 'DELETE PUT
+DELETE: Take my warband out of my seat; the seat stays mine.
+  Who: a player seated in the campaign, until it ends.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no seat, 409 conflict campaign ended.
+PUT: Put one of my warbands in my seat (replacing the one there); recheck moves it to the campaign\'s rules first.
+  Who: a player seated in the campaign, until it ends.
+  In: path id; { warbandId, recheck? }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not my warband or other site, 404 not_found no seat or warband, 409 conflict in another campaign, other rules, refused with its reasons or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/seats/mine/warband'
+        code ['app/src/routes/api/v1/campaigns/[id]/seats/mine/warband/+server.ts']
+      }
+    }
     route_api_v1_campaigns_id_stage = endpoint '/api/v1/campaigns/[id]/stage' {
       description 'POST
 POST: Move the campaign to another stage (mustering and active both ways, active to ended).
@@ -774,6 +1050,104 @@ POST: Hand the CM role to a co-CM; the old CM becomes a co-CM.
         generated 'true'
         route '/api/v1/campaigns/[id]/transfer'
         code ['app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts']
+      }
+    }
+    route_api_v1_campaigns_id_warbands = endpoint '/api/v1/campaigns/[id]/warbands' {
+      description 'GET
+GET: Every seat\'s warband in the campaign: name, faction, rating, problems.
+  Who: the CM and co-CMs.
+  In: path id.
+  Out: 200 { items: { seatId, seatName, warband: WarbandCard }[] }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/campaigns/[id]/warbands'
+        code ['app/src/routes/api/v1/campaigns/[id]/warbands/+server.ts']
+      }
+    }
+    route_api_v1_homebrew = endpoint '/api/v1/homebrew' {
+      description 'GET POST
+GET: My homebrew sets and the ones others shared, by name, each with whether it passes its checks.
+  Who: anyone signed in.
+  In: nothing.
+  Out: 200 { mine: HomebrewCard[], shared: HomebrewCard[] }
+  Errors: 401 unauthenticated.
+POST: Make a homebrew set on a rules set: a blank faction, a blank variant of a faction, blank items, or a copy of a faction or variant.
+  Who: anyone signed in, on rules they can see.
+  In: { name, base, start: faction|variant|items|copy, of? (the faction or variant) }
+  Out: 201 Homebrew
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found base not loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/homebrew'
+        code ['app/src/routes/api/v1/homebrew/+server.ts']
+      }
+    }
+    route_api_v1_homebrew_id = endpoint '/api/v1/homebrew/[id]' {
+      description 'DELETE GET PUT
+DELETE: Delete a homebrew set for good; refused while warbands or other sets build on it.
+  Who: its maker; Owners.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict in use.
+GET: One homebrew set with its data (the rules format) and its check report, with an ETag of its version.
+  Who: its maker; anyone once it is shared; Owners.
+  In: path id.
+  Out: 200 Homebrew
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.
+PUT: Save the whole set with a version check; it is checked and re-indexed (a draft with problems saves with its report).
+  Who: its maker.
+  In: path id; { version, name?, data }
+  Out: 200 Homebrew
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict changed meanwhile.'
+      metadata {
+        generated 'true'
+        route '/api/v1/homebrew/[id]'
+        code ['app/src/routes/api/v1/homebrew/[id]/+server.ts']
+      }
+    }
+    route_api_v1_homebrew_id_export = endpoint '/api/v1/homebrew/[id]/export' {
+      description 'GET
+GET: The set as one JSON object of its rules folder\'s files (manifest.json, units.json, …), as a file to save.
+  Who: anyone who may see it.
+  In: path id.
+  Out: 200 application/json, with a file name.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/homebrew/[id]/export'
+        code ['app/src/routes/api/v1/homebrew/[id]/export/+server.ts']
+      }
+    }
+    route_api_v1_homebrew_id_share = endpoint '/api/v1/homebrew/[id]/share' {
+      description 'DELETE POST
+DELETE: Make the set private again; refused while other people\'s warbands or sets build on it.
+  Who: its maker.
+  In: path id.
+  Out: 200 Homebrew
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict in use by others.
+POST: Share the set with everyone on this install (a set on another homebrew set needs that one shared first).
+  Who: its maker.
+  In: path id.
+  Out: 200 Homebrew
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict its base is private.'
+      metadata {
+        generated 'true'
+        route '/api/v1/homebrew/[id]/share'
+        code ['app/src/routes/api/v1/homebrew/[id]/share/+server.ts']
+      }
+    }
+    route_api_v1_homebrew_import = endpoint '/api/v1/homebrew/import' {
+      description 'POST
+POST: Import an exported homebrew set as a new one of mine, under a namespace of its own; refused with its problems if it fails its checks.
+  Who: anyone signed in, on a base they can see.
+  In: { files: { \'manifest.json\': …, \'units.json\': … }, name? }
+  Out: 201 Homebrew
+  Errors: 400 invalid with the problems, 401 unauthenticated, 403 forbidden other site, 404 not_found base not loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/homebrew/import'
+        code ['app/src/routes/api/v1/homebrew/import/+server.ts']
       }
     }
     route_api_v1_house_rule_presets = endpoint '/api/v1/house-rule-presets' {
@@ -903,6 +1277,71 @@ GET: The OpenAPI 3.1 document for this API.
         code ['app/src/routes/api/v1/openapi.json/+server.ts']
       }
     }
+    route_api_v1_rules_diff = endpoint '/api/v1/rules/diff' {
+      description 'GET
+GET: What changed between two rules versions, by element id: added, removed, and changed with each changed field.
+  Who: anyone signed in.
+  In: query ?from=<folder>&to=<folder>
+  Out: 200 { from, to, added, removed, changed }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found a set not loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/rules/diff'
+        code ['app/src/routes/api/v1/rules/diff/+server.ts']
+      }
+    }
+    route_api_v1_rules_node = endpoint '/api/v1/rules/node' {
+      description 'GET
+GET: One element with its data, every link in and out, and its neighbourhood graph. The id travels as a query parameter, since ids hold `:`, `/` and `#`.
+  Who: anyone signed in.
+  In: query ?set=<folder>&id=<element id>&depth=<1..2, default 2>
+  Out: 200 { node, out: RulesLink[], in: RulesLink[], graph: { nodes, links } }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found set not loaded or no such element.'
+      metadata {
+        generated 'true'
+        route '/api/v1/rules/node'
+        code ['app/src/routes/api/v1/rules/node/+server.ts']
+      }
+    }
+    route_api_v1_rules_nodes = endpoint '/api/v1/rules/nodes' {
+      description 'GET
+GET: Elements of a set (with its base chain) whose name contains q, by name.
+  Who: anyone signed in.
+  In: query ?set=<folder>&q=<0..80>&type=<id type>&limit=<1..100, default 50>
+  Out: 200 { items: RulesElement[], next: null }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found set not loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/rules/nodes'
+        code ['app/src/routes/api/v1/rules/nodes/+server.ts']
+      }
+    }
+    route_api_v1_rules_sets = endpoint '/api/v1/rules/sets' {
+      description 'GET
+GET: Every rules folder, loaded or not, with its report (file, id, message) and its element counts per type.
+  Who: anyone signed in.
+  In: nothing.
+  Out: 200 { items: RulesSet[] }
+  Errors: 401 unauthenticated.'
+      metadata {
+        generated 'true'
+        route '/api/v1/rules/sets'
+        code ['app/src/routes/api/v1/rules/sets/+server.ts']
+      }
+    }
+    route_api_v1_rules_sets_reload = endpoint '/api/v1/rules/sets/reload' {
+      description 'POST
+POST: Read the rules folders again and replace the cache in one transaction; a folder that fails its check is not loaded.
+  Who: owners.
+  In: nothing.
+  Out: 200 { items: RulesSet[] } with each folder\'s report.
+  Errors: 401 unauthenticated, 403 forbidden not an owner or other site.'
+      metadata {
+        generated 'true'
+        route '/api/v1/rules/sets/reload'
+        code ['app/src/routes/api/v1/rules/sets/reload/+server.ts']
+      }
+    }
     route_api_v1_seat_invites_token = endpoint '/api/v1/seat-invites/[token]' {
       description 'GET
 GET: What a seat link offers: its state, the campaign, the seat and the expiry.
@@ -1015,6 +1454,256 @@ POST: Set a temporary password, returned once, and end the account\'s sessions.
         generated 'true'
         route '/api/v1/users/[id]/reset-password'
         code ['app/src/routes/api/v1/users/[id]/reset-password/+server.ts']
+      }
+    }
+    route_api_v1_warbands = endpoint '/api/v1/warbands' {
+      description 'GET POST
+GET: My warbands, by name, with rating, problems and seat.
+  Who: anyone signed in (their own).
+  In: nothing.
+  Out: 200 { items: WarbandCard[] }
+  Errors: 401 unauthenticated.
+POST: Create a warband (faction, variant, Patron, name, ducat limit); from a seat it takes the campaign\'s rules and seat.
+  Who: anyone signed in; with campaignId, a player seated in that campaign.
+  In: { name, factionId, variantId?, patronId?, ducatLimit?, rulesSet?, rulesExpansions?, campaignId? }
+  Out: 201 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found rules or seat, 409 conflict no rules loaded or campaign ended.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands'
+        code ['app/src/routes/api/v1/warbands/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id = endpoint '/api/v1/warbands/[id]' {
+      description 'DELETE GET PATCH
+DELETE: Delete a warband for good; it leaves its seat, its fighters and images go too.
+  Who: its owner.
+  In: path id.
+  Out: 204
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.
+GET: One warband with its fighters, costs, rating, problems and seat, with an ETag of its version.
+  Who: its owner; the CM and co-CMs of the campaign it sits in (read-only).
+  In: path id.
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found, 409 conflict its faction is not in its rules.
+PATCH: Change the warband\'s name, Patron, dedication, ducat limit, banks or notes, with a version check.
+  Who: its owner.
+  In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes? }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or the engine refuses it.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]'
+        code ['app/src/routes/api/v1/warbands/[id]/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_export = endpoint '/api/v1/warbands/[id]/export' {
+      description 'GET
+GET: The warband as Trench Companion text (its Full layout) or as our own JSON, as a file to save.
+  Who: its owner; the CM and co-CMs of the campaign it sits in.
+  In: path id; query ?format=text|json (default text).
+  Out: 200 text/plain or application/json, with a file name.
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/export'
+        code ['app/src/routes/api/v1/warbands/[id]/export/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fighters = endpoint '/api/v1/warbands/[id]/fighters' {
+      description 'POST
+POST: Recruit an entry with any upgrades and loadout (its armoury lines), paid from the banks and checked as one purchase; refused with the engine\'s reasons (unless the campaign allows beyond limits).
+  Who: its owner.
+  In: path id; { unitId, name?, upgrades?, kit? }
+  Out: 201 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fighters'
+        code ['app/src/routes/api/v1/warbands/[id]/fighters/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fighters_fid = endpoint '/api/v1/warbands/[id]/fighters/[fid]' {
+      description 'DELETE PATCH
+DELETE: Remove a fighter: its worth goes back to the banks, it leaves its fireteam, its image goes.
+  Who: the warband\'s owner.
+  In: path id, fid.
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.
+PATCH: Edit a fighter: name, group (Dead included), Experience, skills and injuries (ids or names), with its version.
+  Who: the warband\'s owner.
+  In: path id, fid; { version, name?, group?, xp?, skills?, injuries? }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fighters/[fid]'
+        code ['app/src/routes/api/v1/warbands/[id]/fighters/[fid]/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fighters_fid_image = endpoint '/api/v1/warbands/[id]/fighters/[fid]/image' {
+      description 'DELETE PUT
+DELETE: Remove the fighter\'s image; the slot is empty again.
+  Who: the warband\'s owner.
+  In: path id, fid.
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.
+PUT: Upload the fighter\'s image as the raw body, or as the field `image` of a multipart form; stored as sent.
+  Who: the warband\'s owner.
+  In: path id, fid; body: a PNG, JPEG or WebP file of 2 MB at most (checked by its signature).
+  Out: 200 Warband
+  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fighters/[fid]/image'
+        code ['app/src/routes/api/v1/warbands/[id]/fighters/[fid]/image/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fighters_fid_kit = endpoint '/api/v1/warbands/[id]/fighters/[fid]/kit' {
+      description 'DELETE GET POST
+DELETE: Sell one piece of the fighter\'s bought kit; its worth goes back to the banks.
+  Who: the warband\'s owner.
+  In: path id, fid; query ?line=<line id>
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons.
+GET: The armoury lines this fighter may look at, with price and whether it may take each now (and why not).
+  Who: the warband\'s owner; the CM and co-CMs of its campaign.
+  In: path id, fid.
+  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.
+POST: Buy kit for the fighter from an armoury line, paid from the banks; refused with the engine\'s reasons.
+  Who: the warband\'s owner.
+  In: path id, fid; { lineId }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fighters/[fid]/kit'
+        code ['app/src/routes/api/v1/warbands/[id]/fighters/[fid]/kit/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fighters_fid_upgrades = endpoint '/api/v1/warbands/[id]/fighters/[fid]/upgrades' {
+      description 'DELETE GET POST
+DELETE: Take an upgrade off the fighter; its worth goes back to the banks.
+  Who: the warband\'s owner.
+  In: path id, fid; query ?upgrade=<upgrade id>
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.
+GET: The upgrades this fighter\'s entry may take, with price, whether it has each, and whether it may take it now.
+  Who: the warband\'s owner; the CM and co-CMs of its campaign.
+  In: path id, fid.
+  Out: 200 { items: { upgradeId, name, cost, currency, has, ok, reasons }[] }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.
+POST: Give the fighter an upgrade, paid from the banks; refused with the engine\'s reasons.
+  Who: the warband\'s owner.
+  In: path id, fid; { upgradeId }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fighters/[fid]/upgrades'
+        code ['app/src/routes/api/v1/warbands/[id]/fighters/[fid]/upgrades/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_fireteams = endpoint '/api/v1/warbands/[id]/fireteams' {
+      description 'PUT
+PUT: Replace the fireteams: pairs of fighters on the table, as many as the faction allows.
+  Who: the warband\'s owner.
+  In: path id; { fireteams: [fighterId, fighterId][] }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/fireteams'
+        code ['app/src/routes/api/v1/warbands/[id]/fireteams/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_locations = endpoint '/api/v1/warbands/[id]/locations' {
+      description 'PUT
+PUT: Replace the locations the warband holds, each a name and a note.
+  Who: the warband\'s owner.
+  In: path id; { locations: { name, note? }[] }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/locations'
+        code ['app/src/routes/api/v1/warbands/[id]/locations/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_recruits = endpoint '/api/v1/warbands/[id]/recruits' {
+      description 'GET
+GET: Every entry the warband could recruit, with its price and whether it may now (and why not).
+  Who: its owner; the CM and co-CMs of the campaign it sits in.
+  In: path id.
+  Out: 200 { items: { unitId, name, category, cost, currency, ok, reasons }[] }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/recruits'
+        code ['app/src/routes/api/v1/warbands/[id]/recruits/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_stash = endpoint '/api/v1/warbands/[id]/stash' {
+      description 'DELETE GET POST
+DELETE: Sell one piece from the stash; its price goes back to the banks.
+  Who: the warband\'s owner.
+  In: path id; query ?line=<line id>
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not in the stash.
+GET: What may be bought into the stash: the warband\'s armoury, with price and whether it may now (and why not).
+  Who: the warband\'s owner; the CM and co-CMs of its campaign.
+  In: path id.
+  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found.
+POST: Buy kit into the stash, paid from the banks; refused with the engine\'s reasons.
+  Who: the warband\'s owner.
+  In: path id; { lineId }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/stash'
+        code ['app/src/routes/api/v1/warbands/[id]/stash/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_stash_give = endpoint '/api/v1/warbands/[id]/stash/give' {
+      description 'POST
+POST: Give a piece from the stash to a fighter (sold from the stash and bought for the fighter, with its checks).
+  Who: the warband\'s owner.
+  In: path id; { lineId, fighterId }
+  Out: 200 Warband
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/stash/give'
+        code ['app/src/routes/api/v1/warbands/[id]/stash/give/+server.ts']
+      }
+    }
+    route_api_v1_warbands_choices = endpoint '/api/v1/warbands/choices' {
+      description 'GET
+GET: What a new warband may be: the loaded rules, then each faction with its variants, starting Ducats and Patrons.
+  Who: anyone signed in.
+  In: query ?rules=<core or core+expansion> (default the newest core).
+  Out: 200 WarbandChoices
+  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules not loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/choices'
+        code ['app/src/routes/api/v1/warbands/choices/+server.ts']
+      }
+    }
+    route_api_v1_warbands_import = endpoint '/api/v1/warbands/import' {
+      description 'POST
+POST: Import a Trench Companion text export as a new warband; names that do not match are reported, not dropped.
+  Who: anyone signed in.
+  In: { text, name?, rulesSet?, rulesExpansions? }
+  Out: 201 { warband: Warband, unmatched: string[], ambiguous: string[] }
+  Errors: 400 invalid not a warband or no such faction, 401 unauthenticated, 403 forbidden other site, 404 not_found rules not loaded, 409 conflict no rules loaded.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/import'
+        code ['app/src/routes/api/v1/warbands/import/+server.ts']
       }
     }
   }
@@ -1165,6 +1854,10 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_app_campaigns_id -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
@@ -1181,7 +1874,15 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.joinRequestService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_campaigns_id_manage -[imports]-> fl.app.services.rulesService {
     metadata { generated 'true' }
   }
 
@@ -1218,6 +1919,50 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.areas.route_app_home -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_homebrew_id -[imports]-> fl.app.ui {
     metadata { generated 'true' }
   }
 
@@ -1297,6 +2042,18 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.areas.route_app_owner_rules -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_rules -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_owner_rules -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -1310,6 +2067,206 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.areas.route_app_owner_settings -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_battlekit -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_battlekit -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_battlekit -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_battlekit -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_e_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_e_id -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_e_id -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_e_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_e_id -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_s_section -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_s_section -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_s_section -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_s_section -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_search -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_search -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_search -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_search -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands_id -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands_id -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_rules_set_warbands_id -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.rulesLib {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.ui {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_id -[imports]-> fl.app.warbandEngine {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_new -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_new -[imports]-> fl.app.services.campaignService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_new -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_new -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_app_warbands_new -[imports]-> fl.app.ui {
     metadata { generated 'true' }
   }
 
@@ -1633,6 +2590,18 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine_warband -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine_warband -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_seats_mine_warband -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.api.route_api_v1_campaigns_id_stage -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -1654,6 +2623,78 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_campaigns_id_transfer -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_warbands -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_warbands -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_campaigns_id_warbands -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_export -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_export -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_export -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_share -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_share -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_id_share -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_import -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_import -[imports]-> fl.app.services.homebrewService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_homebrew_import -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 
@@ -1757,6 +2798,58 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.api.route_api_v1_rules_diff -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_diff -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_diff -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_node -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_node -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_node -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_nodes -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_nodes -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_nodes -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_sets -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_sets -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_sets_reload -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_rules_sets_reload -[imports]-> fl.app.services.rulesService {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.api.route_api_v1_seat_invites_token -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -1853,6 +2946,186 @@ GET: Readiness: the database answers and every migration is applied.
     metadata { generated 'true' }
   }
 
+  fl.app.web.api.route_api_v1_warbands -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_export -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_export -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_export -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_image -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_image -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_image -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_kit -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_kit -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_kit -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_upgrades -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_upgrades -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fighters_fid_upgrades -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fireteams -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fireteams -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_fireteams -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_locations -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_locations -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_locations -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_recruits -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_recruits -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_recruits -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash_give -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash_give -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_stash_give -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_choices -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_choices -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_choices -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_import -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_import -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_import -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
   fl.app.web.health.route_health_ready -[imports]-> fl.app.infra {
     metadata { generated 'true' }
   }
@@ -1862,6 +3135,14 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.publicPages.route_logout -[imports]-> fl.app.services.authService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_uploads_fighters_id -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.areas.route_uploads_fighters_id -[imports]-> fl.app.services.warbandService {
     metadata { generated 'true' }
   }
 }

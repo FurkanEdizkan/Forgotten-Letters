@@ -44,10 +44,11 @@
    "id": "fl.app.web.areas",
    "kind": "page",
    "title": "App shell, role areas and account",
-   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings.",
+   "description": "The shell: a top bar (Docs, user menu with User settings and Log out) and a sliding left panel with the areas the person can use and the help and legal links. Each role lands in its own area; the Owner changes text size, accent and port under /owner/settings. Every role has Warbands (list, new-warband wizard, builder); fighter images are served from /uploads/fighters/[id] to whoever may see the warband.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/**",
+    "app/src/routes/uploads/**",
     "app/src/routes/+layout*",
     "app/src/routes/+page*",
     "app/src/routes/+error.svelte"
@@ -154,7 +155,7 @@
    "id": "fl.app.web.areas.route_app_campaigns_id",
    "kind": "page",
    "title": "/campaigns/[id]",
-   "description": "actions: ask, leave, transfer, withdraw\naction:ask: Ask to join this listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { note? }.\n  Out: { op: 'ask', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:leave: Leave my seat in this campaign; the seat stays, empty.\n  Who: the seat holder, while the campaign is mustering.\n  In: form { } (the campaign from the path).\n  Out: { op: 'leave', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.\naction:transfer: Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.\n  Who: Owners, member or not (decision 7).\n  In: form { userId } (a co-CM, or the Owner's own id).\n  Out: { op: 'transfer', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.\naction:withdraw: Withdraw my open request to join this campaign.\n  Who: the person who asked.\n  In: form { }.\n  Out: { op: 'withdraw', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no open request.",
+   "description": "actions: ask, assignWarband, clearWarband, leave, transfer, withdraw\naction:ask: Ask to join this listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { note? }.\n  Out: { op: 'ask', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:assignWarband: Put one of my warbands in my seat here; recheck moves it to this campaign's rules first.\n  Who: the seat holder, until the campaign ends.\n  In: form { warbandId, recheck? }.\n  Out: { op: 'assignWarband', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not mine, 404 not_found no seat, 409 conflict in another campaign, other rules, refused or campaign ended.\naction:clearWarband: Take my warband out of my seat here; the seat stays mine.\n  Who: the seat holder, until the campaign ends.\n  In: form { }.\n  Out: { op: 'clearWarband', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:leave: Leave my seat in this campaign; the seat stays, empty.\n  Who: the seat holder, while the campaign is mustering.\n  In: form { } (the campaign from the path).\n  Out: { op: 'leave', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.\naction:transfer: Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.\n  Who: Owners, member or not (decision 7).\n  In: form { userId } (a co-CM, or the Owner's own id).\n  Out: { op: 'transfer', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.\naction:withdraw: Withdraw my open request to join this campaign.\n  Who: the person who asked.\n  In: form { }.\n  Out: { op: 'withdraw', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no open request.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/campaigns/[id]/+page.server.ts",
@@ -169,7 +170,7 @@
    "id": "fl.app.web.areas.route_app_campaigns_id_manage",
    "kind": "page",
    "title": "/campaigns/[id]/manage",
-   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: form { }.\n  Out: { op: 'revokeAll', withdrawn }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
+   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: form { }.\n  Out: { op: 'revokeAll', withdrawn }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), rulesSet, allowBeyondLimits, homebrewSets (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/campaigns/[id]/manage/+page.server.ts",
@@ -203,6 +204,36 @@
    "tags": [],
    "code": [
     "app/src/routes/(app)/home/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_homebrew",
+   "kind": "page",
+   "title": "/homebrew",
+   "description": "actions: create, import\naction:create: Make a homebrew set and open its editor.\n  Who: anyone signed in, on rules they can see.\n  In: form homebrewCreate { name, base, start (faction, variant, items or copy), of? }.\n  Out: redirect to /homebrew/<id>.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules not loaded.\naction:import: Import an exported homebrew file as a new set of mine and open it; refused with its problems if it fails its checks.\n  Who: anyone signed in, on a base they can see.\n  In: form { text } (the file's JSON).\n  Out: redirect to /homebrew/<id>.\n  Errors: 400 invalid not JSON or with problems, 401 unauthenticated, 404 not_found base not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/homebrew/+page.server.ts",
+    "app/src/routes/(app)/homebrew/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_homebrew_id",
+   "kind": "page",
+   "title": "/homebrew/[id]",
+   "description": "actions: remove, save, share\naction:remove: Delete the set for good and go back to the list.\n  Who: its maker; Owners.\n  In: form {}.\n  Out: redirect to /homebrew.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict in use.\naction:save: Save the whole set (its data as one JSON field), with a version check; it is checked and re-indexed.\n  Who: its maker.\n  In: form homebrewUpdate { version, name?, data (JSON) }.\n  Out: { op: 'save', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker, 404 not_found, 409 conflict changed meanwhile.\naction:share: Share the set with everyone here, or make it private again.\n  Who: its maker.\n  In: form { on: true|false }.\n  Out: { op: 'share', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker, 404 not_found, 409 conflict base private or in use by others.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/homebrew/[id]/+page.server.ts",
+    "app/src/routes/(app)/homebrew/[id]/+page.svelte"
    ],
    "tables": [],
    "services": [],
@@ -286,6 +317,21 @@
    "parent": "fl.app.web.areas"
   },
   {
+   "id": "fl.app.web.areas.route_app_owner_rules",
+   "kind": "page",
+   "title": "/owner/rules",
+   "description": "actions: reload\naction:reload: Read the rules folders again and replace the cache; a folder that fails its check is not loaded.\n  Who: owners.\n  In: form {} (nothing).\n  Out: { op: 'reload', ok, failed } the number of folders loaded and not loaded.\n  Errors: 401 unauthenticated, 403 forbidden not an owner.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/owner/rules/+page.server.ts",
+    "app/src/routes/(app)/owner/rules/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
    "id": "fl.app.web.areas.route_app_owner_settings",
    "kind": "page",
    "title": "/owner/settings",
@@ -294,6 +340,186 @@
    "code": [
     "app/src/routes/(app)/owner/settings/+page.server.ts",
     "app/src/routes/(app)/owner/settings/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules",
+   "kind": "page",
+   "title": "/rules",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/+page.server.ts",
+    "app/src/routes/(app)/rules/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set",
+   "kind": "page",
+   "title": "/rules/[set]",
+   "description": "layout",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/+layout.server.ts",
+    "app/src/routes/(app)/rules/[set]/+layout.svelte",
+    "app/src/routes/(app)/rules/[set]/+page.server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_battlekit",
+   "kind": "page",
+   "title": "/rules/[set]/battlekit",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/battlekit/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/battlekit/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_e_id",
+   "kind": "page",
+   "title": "/rules/[set]/e/[...id]",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/e/[...id]/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/e/[...id]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_s_section",
+   "kind": "page",
+   "title": "/rules/[set]/s/[section]",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/s/[section]/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/s/[section]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_search",
+   "kind": "page",
+   "title": "/rules/[set]/search",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/search/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/search/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_warbands",
+   "kind": "page",
+   "title": "/rules/[set]/warbands",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/warbands/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/warbands/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_rules_set_warbands_id",
+   "kind": "page",
+   "title": "/rules/[set]/warbands/[...id]",
+   "description": "",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/rules/[set]/warbands/[...id]/+page.server.ts",
+    "app/src/routes/(app)/rules/[set]/warbands/[...id]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_warbands",
+   "kind": "page",
+   "title": "/warbands",
+   "description": "actions: import\naction:import: Import a Trench Companion text export as a new warband; names that do not match are reported.\n  Who: anyone signed in.\n  In: form warbandImport { text, rules (core or core+expansion) }.\n  Out: { op: 'import', done: true, id, name, unmatched, ambiguous }.\n  Errors: 400 invalid not a warband, 401 unauthenticated, 404 not_found rules not loaded, 409 conflict no rules.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/warbands/+page.server.ts",
+    "app/src/routes/(app)/warbands/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_warbands_id",
+   "kind": "page",
+   "title": "/warbands/[id]",
+   "description": "actions: assign, buy, clearImage, editFighter, fireteams, image, locations, patch, recruit, remove, removeFighter, removeUpgrade, sell, stashBuy, stashGive, stashSell, unassign, upgrade\naction:assign: Put this warband in my seat of a campaign; recheck moves it to the campaign's rules first.\n  Who: the warband's owner, seated in that campaign.\n  In: form seatForm { campaignId, recheck? }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat, 409 conflict in another campaign, other rules or refused.\naction:buy: Buy kit for a fighter from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, lineId }.\n  Out: { op: 'buy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:clearImage: Remove a fighter's picture.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'clearImage', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:editFighter: Edit a fighter: name, group (Dead included), Experience, skills and injuries (one per line).\n  Who: the warband's owner.\n  In: form { fid, version, name, group, xp, skills, injuries }.\n  Out: { op: 'editFighter', done: true, id }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:fireteams: Save the fireteams (pairs of fighters).\n  Who: the warband's owner.\n  In: form { fireteams (JSON) }.\n  Out: { op: 'fireteams', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:image: Upload a fighter's picture (multipart field `image`): PNG, JPEG or WebP up to 2 MB, stored as sent.\n  Who: the warband's owner.\n  In: multipart form { fid, image }.\n  Out: { op: 'image', done: true, id: fid }.\n  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:locations: Save the locations (a name and a note each).\n  Who: the warband's owner.\n  In: form { locations (JSON) }.\n  Out: { op: 'locations', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:patch: Save the warband's details: name, Patron, ducat limit, banks and notes, with a version check.\n  Who: the warband's owner.\n  In: form warbandPatch { version, name, patronId, ducatLimit, stashDucats, unspentGlory, notes }.\n  Out: { op: 'patch', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile or refused.\naction:recruit: Recruit an entry from the Add fighter dialog, with the upgrades and loadout picked, paid from the banks.\n  Who: the warband's owner.\n  In: form { unitId, name?, up:<upgrade id> boxes, loadout (its lines, comma-separated) }.\n  Out: { op: 'recruit', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:remove: Delete the warband for good and go back to the list.\n  Who: the warband's owner.\n  In: form { }.\n  Out: redirect to /warbands.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeFighter: Remove a fighter; its worth goes back to the banks.\n  Who: the warband's owner.\n  In: form { fid }.\n  Out: { op: 'removeFighter', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:removeUpgrade: Take an upgrade off a fighter.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'removeUpgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:sell: Sell one piece of a fighter's bought kit.\n  Who: the warband's owner.\n  In: form { fid, lineId }.\n  Out: { op: 'sell', done: true, id: fid }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashBuy: Buy kit into the stash.\n  Who: the warband's owner.\n  In: form { lineId }.\n  Out: { op: 'stashBuy', done: true, id: lineId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashGive: Give a piece from the stash to a fighter.\n  Who: the warband's owner.\n  In: form { lineId, fighterId }.\n  Out: { op: 'stashGive', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.\naction:stashSell: Sell one piece from the stash.\n  Who: the warband's owner.\n  In: form { lineId }.\n  Out: { op: 'stashSell', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:unassign: Take this warband out of its campaign seat.\n  Who: the warband's owner (the seat holder).\n  In: form { campaignId }.\n  Out: { op: 'unassign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:upgrade: Give a fighter an upgrade from the Equip dialog.\n  Who: the warband's owner.\n  In: form { fid, upgradeId }.\n  Out: { op: 'upgrade', done: true, id: upgradeId }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/warbands/[id]/+page.server.ts",
+    "app/src/routes/(app)/warbands/[id]/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_app_warbands_new",
+   "kind": "page",
+   "title": "/warbands/new",
+   "description": "actions: create\naction:create: Create a warband from the wizard and open its builder; from a seat it takes the campaign's rules and the seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: form warbandCreate { rules, factionId, variantId?, patronId?, name, ducatLimit?, campaignId? }.\n  Out: redirect to /warbands/<id>.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules or seat, 409 conflict no rules or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/(app)/warbands/new/+page.server.ts",
+    "app/src/routes/(app)/warbands/new/+page.svelte"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.areas"
+  },
+  {
+   "id": "fl.app.web.areas.route_uploads_fighters_id",
+   "kind": "endpoint",
+   "title": "/uploads/fighters/[id]",
+   "description": "GET\nGET: A fighter's image, with its stored content type. The address carries the fighter's version (?v=), so a browser may keep it; it is private, never shared caches.\n  Who: the warband's owner; the CM and co-CMs of the campaign it sits in.\n  In: path id (the fighter).\n  Out: 200 image/png, image/jpeg or image/webp.\n  Errors: 401 unauthenticated, 404 not_found no image or not visible.",
+   "tags": [],
+   "code": [
+    "app/src/routes/uploads/fighters/[id]/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -728,6 +954,20 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_mine_warband",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/seats/mine/warband",
+   "description": "DELETE PUT\nDELETE: Take my warband out of my seat; the seat stays mine.\n  Who: a player seated in the campaign, until it ends.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found no seat, 409 conflict campaign ended.\nPUT: Put one of my warbands in my seat (replacing the one there); recheck moves it to the campaign's rules first.\n  Who: a player seated in the campaign, until it ends.\n  In: path id; { warbandId, recheck? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not my warband or other site, 404 not_found no seat or warband, 409 conflict in another campaign, other rules, refused with its reasons or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/seats/mine/warband/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_campaigns_id_stage",
    "kind": "endpoint",
    "title": "/api/v1/campaigns/[id]/stage",
@@ -749,6 +989,90 @@
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_campaigns_id_warbands",
+   "kind": "endpoint",
+   "title": "/api/v1/campaigns/[id]/warbands",
+   "description": "GET\nGET: Every seat's warband in the campaign: name, faction, rating, problems.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 200 { items: { seatId, seatName, warband: WarbandCard }[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/campaigns/[id]/warbands/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_homebrew",
+   "kind": "endpoint",
+   "title": "/api/v1/homebrew",
+   "description": "GET POST\nGET: My homebrew sets and the ones others shared, by name, each with whether it passes its checks.\n  Who: anyone signed in.\n  In: nothing.\n  Out: 200 { mine: HomebrewCard[], shared: HomebrewCard[] }\n  Errors: 401 unauthenticated.\nPOST: Make a homebrew set on a rules set: a blank faction, a blank variant of a faction, blank items, or a copy of a faction or variant.\n  Who: anyone signed in, on rules they can see.\n  In: { name, base, start: faction|variant|items|copy, of? (the faction or variant) }\n  Out: 201 Homebrew\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found base not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/homebrew/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_homebrew_id",
+   "kind": "endpoint",
+   "title": "/api/v1/homebrew/[id]",
+   "description": "DELETE GET PUT\nDELETE: Delete a homebrew set for good; refused while warbands or other sets build on it.\n  Who: its maker; Owners.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict in use.\nGET: One homebrew set with its data (the rules format) and its check report, with an ETag of its version.\n  Who: its maker; anyone once it is shared; Owners.\n  In: path id.\n  Out: 200 Homebrew\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPUT: Save the whole set with a version check; it is checked and re-indexed (a draft with problems saves with its report).\n  Who: its maker.\n  In: path id; { version, name?, data }\n  Out: 200 Homebrew\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict changed meanwhile.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/homebrew/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_homebrew_id_export",
+   "kind": "endpoint",
+   "title": "/api/v1/homebrew/[id]/export",
+   "description": "GET\nGET: The set as one JSON object of its rules folder's files (manifest.json, units.json, …), as a file to save.\n  Who: anyone who may see it.\n  In: path id.\n  Out: 200 application/json, with a file name.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/homebrew/[id]/export/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_homebrew_id_share",
+   "kind": "endpoint",
+   "title": "/api/v1/homebrew/[id]/share",
+   "description": "DELETE POST\nDELETE: Make the set private again; refused while other people's warbands or sets build on it.\n  Who: its maker.\n  In: path id.\n  Out: 200 Homebrew\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict in use by others.\nPOST: Share the set with everyone on this install (a set on another homebrew set needs that one shared first).\n  Who: its maker.\n  In: path id.\n  Out: 200 Homebrew\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not its maker or other site, 404 not_found, 409 conflict its base is private.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/homebrew/[id]/share/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_homebrew_import",
+   "kind": "endpoint",
+   "title": "/api/v1/homebrew/import",
+   "description": "POST\nPOST: Import an exported homebrew set as a new one of mine, under a namespace of its own; refused with its problems if it fails its checks.\n  Who: anyone signed in, on a base they can see.\n  In: { files: { 'manifest.json': …, 'units.json': … }, name? }\n  Out: 201 Homebrew\n  Errors: 400 invalid with the problems, 401 unauthenticated, 403 forbidden other site, 404 not_found base not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/homebrew/import/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -882,6 +1206,76 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_rules_diff",
+   "kind": "endpoint",
+   "title": "/api/v1/rules/diff",
+   "description": "GET\nGET: What changed between two rules versions, by element id: added, removed, and changed with each changed field.\n  Who: anyone signed in.\n  In: query ?from=<folder>&to=<folder>\n  Out: 200 { from, to, added, removed, changed }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found a set not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/rules/diff/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_rules_node",
+   "kind": "endpoint",
+   "title": "/api/v1/rules/node",
+   "description": "GET\nGET: One element with its data, every link in and out, and its neighbourhood graph. The id travels as a query parameter, since ids hold `:`, `/` and `#`.\n  Who: anyone signed in.\n  In: query ?set=<folder>&id=<element id>&depth=<1..2, default 2>\n  Out: 200 { node, out: RulesLink[], in: RulesLink[], graph: { nodes, links } }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found set not loaded or no such element.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/rules/node/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_rules_nodes",
+   "kind": "endpoint",
+   "title": "/api/v1/rules/nodes",
+   "description": "GET\nGET: Elements of a set (with its base chain) whose name contains q, by name.\n  Who: anyone signed in.\n  In: query ?set=<folder>&q=<0..80>&type=<id type>&limit=<1..100, default 50>\n  Out: 200 { items: RulesElement[], next: null }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found set not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/rules/nodes/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_rules_sets",
+   "kind": "endpoint",
+   "title": "/api/v1/rules/sets",
+   "description": "GET\nGET: Every rules folder, loaded or not, with its report (file, id, message) and its element counts per type.\n  Who: anyone signed in.\n  In: nothing.\n  Out: 200 { items: RulesSet[] }\n  Errors: 401 unauthenticated.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/rules/sets/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_rules_sets_reload",
+   "kind": "endpoint",
+   "title": "/api/v1/rules/sets/reload",
+   "description": "POST\nPOST: Read the rules folders again and replace the cache in one transaction; a folder that fails its check is not loaded.\n  Who: owners.\n  In: nothing.\n  Out: 200 { items: RulesSet[] } with each folder's report.\n  Errors: 401 unauthenticated, 403 forbidden not an owner or other site.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/rules/sets/reload/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_seat_invites_token",
    "kind": "endpoint",
    "title": "/api/v1/seat-invites/[token]",
@@ -987,6 +1381,216 @@
    "tags": [],
    "code": [
     "app/src/routes/api/v1/users/[id]/reset-password/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands",
+   "description": "GET POST\nGET: My warbands, by name, with rating, problems and seat.\n  Who: anyone signed in (their own).\n  In: nothing.\n  Out: 200 { items: WarbandCard[] }\n  Errors: 401 unauthenticated.\nPOST: Create a warband (faction, variant, Patron, name, ducat limit); from a seat it takes the campaign's rules and seat.\n  Who: anyone signed in; with campaignId, a player seated in that campaign.\n  In: { name, factionId, variantId?, patronId?, ducatLimit?, rulesSet?, rulesExpansions?, campaignId? }\n  Out: 201 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden other site, 404 not_found rules or seat, 409 conflict no rules loaded or campaign ended.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]",
+   "description": "DELETE GET PATCH\nDELETE: Delete a warband for good; it leaves its seat, its fighters and images go too.\n  Who: its owner.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.\nGET: One warband with its fighters, costs, rating, problems and seat, with an ETag of its version.\n  Who: its owner; the CM and co-CMs of the campaign it sits in (read-only).\n  In: path id.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found, 409 conflict its faction is not in its rules.\nPATCH: Change the warband's name, Patron, dedication, ducat limit, banks or notes, with a version check.\n  Who: its owner.\n  In: path id; { version, name?, patronId?, dedication?, ducatLimit?, stashDucats?, unspentGlory?, notes? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or the engine refuses it.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_export",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/export",
+   "description": "GET\nGET: The warband as Trench Companion text (its Full layout) or as our own JSON, as a file to save.\n  Who: its owner; the CM and co-CMs of the campaign it sits in.\n  In: path id; query ?format=text|json (default text).\n  Out: 200 text/plain or application/json, with a file name.\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/export/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters",
+   "description": "POST\nPOST: Recruit an entry with any upgrades and loadout (its armoury lines), paid from the banks and checked as one purchase; refused with the engine's reasons (unless the campaign allows beyond limits).\n  Who: its owner.\n  In: path id; { unitId, name?, upgrades?, kit? }\n  Out: 201 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters/[fid]",
+   "description": "DELETE PATCH\nDELETE: Remove a fighter: its worth goes back to the banks, it leaves its fireteam, its image goes.\n  Who: the warband's owner.\n  In: path id, fid.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.\nPATCH: Edit a fighter: name, group (Dead included), Experience, skills and injuries (ids or names), with its version.\n  Who: the warband's owner.\n  In: path id, fid; { version, name?, group?, xp?, skills?, injuries? }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict changed meanwhile or refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid_image",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters/[fid]/image",
+   "description": "DELETE PUT\nDELETE: Remove the fighter's image; the slot is empty again.\n  Who: the warband's owner.\n  In: path id, fid.\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.\nPUT: Upload the fighter's image as the raw body, or as the field `image` of a multipart form; stored as sent.\n  Who: the warband's owner.\n  In: path id, fid; body: a PNG, JPEG or WebP file of 2 MB at most (checked by its signature).\n  Out: 200 Warband\n  Errors: 400 invalid wrong type or too large, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/image/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid_kit",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters/[fid]/kit",
+   "description": "DELETE GET POST\nDELETE: Sell one piece of the fighter's bought kit; its worth goes back to the banks.\n  Who: the warband's owner.\n  In: path id, fid; query ?line=<line id>\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not carried, 409 conflict refused with its reasons.\nGET: The armoury lines this fighter may look at, with price and whether it may take each now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id, fid.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit for the fighter from an armoury line, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id, fid; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/kit/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fighters_fid_upgrades",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fighters/[fid]/upgrades",
+   "description": "DELETE GET POST\nDELETE: Take an upgrade off the fighter; its worth goes back to the banks.\n  Who: the warband's owner.\n  In: path id, fid; query ?upgrade=<upgrade id>\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.\nGET: The upgrades this fighter's entry may take, with price, whether it has each, and whether it may take it now.\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id, fid.\n  Out: 200 { items: { upgradeId, name, cost, currency, has, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Give the fighter an upgrade, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id, fid; { upgradeId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fighters/[fid]/upgrades/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_fireteams",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/fireteams",
+   "description": "PUT\nPUT: Replace the fireteams: pairs of fighters on the table, as many as the faction allows.\n  Who: the warband's owner.\n  In: path id; { fireteams: [fighterId, fighterId][] }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/fireteams/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_locations",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/locations",
+   "description": "PUT\nPUT: Replace the locations the warband holds, each a name and a note.\n  Who: the warband's owner.\n  In: path id; { locations: { name, note? }[] }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/locations/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_recruits",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/recruits",
+   "description": "GET\nGET: Every entry the warband could recruit, with its price and whether it may now (and why not).\n  Who: its owner; the CM and co-CMs of the campaign it sits in.\n  In: path id.\n  Out: 200 { items: { unitId, name, category, cost, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/recruits/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_stash",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/stash",
+   "description": "DELETE GET POST\nDELETE: Sell one piece from the stash; its price goes back to the banks.\n  Who: the warband's owner.\n  In: path id; query ?line=<line id>\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found not in the stash.\nGET: What may be bought into the stash: the warband's armoury, with price and whether it may now (and why not).\n  Who: the warband's owner; the CM and co-CMs of its campaign.\n  In: path id.\n  Out: 200 { items: { lineId, itemId, name, category, price, currency, ok, reasons }[] }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found.\nPOST: Buy kit into the stash, paid from the banks; refused with the engine's reasons.\n  Who: the warband's owner.\n  In: path id; { lineId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/stash/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_id_stash_give",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/[id]/stash/give",
+   "description": "POST\nPOST: Give a piece from the stash to a fighter (sold from the stash and bought for the fighter, with its checks).\n  Who: the warband's owner.\n  In: path id; { lineId, fighterId }\n  Out: 200 Warband\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the owner or other site, 404 not_found, 409 conflict refused with its reasons.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/[id]/stash/give/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_choices",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/choices",
+   "description": "GET\nGET: What a new warband may be: the loaded rules, then each faction with its variants, starting Ducats and Patrons.\n  Who: anyone signed in.\n  In: query ?rules=<core or core+expansion> (default the newest core).\n  Out: 200 WarbandChoices\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found rules not loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/choices/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_warbands_import",
+   "kind": "endpoint",
+   "title": "/api/v1/warbands/import",
+   "description": "POST\nPOST: Import a Trench Companion text export as a new warband; names that do not match are reported, not dropped.\n  Who: anyone signed in.\n  In: { text, name?, rulesSet?, rulesExpansions? }\n  Out: 201 { warband: Warband, unmatched: string[], ambiguous: string[] }\n  Errors: 400 invalid not a warband or no such faction, 401 unauthenticated, 403 forbidden other site, 404 not_found rules not loaded, 409 conflict no rules loaded.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/warbands/import/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1209,6 +1813,123 @@
    "parent": "fl.app.campaignTables"
   },
   {
+   "id": "fl.app.rulesTables",
+   "kind": "layer",
+   "title": "rules schema",
+   "description": "A cache of the loaded rules folders and homebrew sets: sets (with their check report), nodes (elements) and edges (links between them). Rebuilt from the folders at start and on Reload.",
+   "tags": [],
+   "code": [],
+   "tables": [
+    "sets",
+    "nodes",
+    "edges"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.rulesTables.table_sets",
+   "kind": "table",
+   "title": "sets",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.rulesTables"
+  },
+  {
+   "id": "fl.app.rulesTables.table_nodes",
+   "kind": "table",
+   "title": "nodes",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.rulesTables"
+  },
+  {
+   "id": "fl.app.rulesTables.table_edges",
+   "kind": "table",
+   "title": "edges",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.rulesTables"
+  },
+  {
+   "id": "fl.app.warbandTables",
+   "kind": "layer",
+   "title": "warband schema",
+   "description": "Players' warbands (the stash, fireteams and locations as typed JSONB on the warband) and their fighters.",
+   "tags": [],
+   "code": [],
+   "tables": [
+    "warbands",
+    "fighters"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.warbandTables.table_warbands",
+   "kind": "table",
+   "title": "warbands",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.warbandTables"
+  },
+  {
+   "id": "fl.app.warbandTables.table_fighters",
+   "kind": "table",
+   "title": "fighters",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.warbandTables"
+  },
+  {
+   "id": "fl.app.homebrewTables",
+   "kind": "layer",
+   "title": "homebrew schema",
+   "description": "Player-made rules sets in the rules folder format.",
+   "tags": [],
+   "code": [],
+   "tables": [
+    "homebrew_sets"
+   ],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.homebrewTables.table_homebrew_sets",
+   "kind": "table",
+   "title": "homebrew_sets",
+   "description": "",
+   "tags": [],
+   "code": [],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.homebrewTables"
+  },
+  {
    "id": "owner",
    "kind": "actor",
    "title": "Owner",
@@ -1356,6 +2077,38 @@
     "app/src/lib/api-types.ts",
     "app/src/lib/index.ts",
     "app/src/lib/*.spec.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.rulesLib",
+   "kind": "module",
+   "title": "Rules format and graph",
+   "description": "The rules folder format (one folder per version: core 1.0.1, core 1.0.2, Carcass Front; homebrew in the same shape), the checker that every id resolves, the edges between elements, the diff between versions.",
+   "tags": [
+    "pure"
+   ],
+   "code": [
+    "app/src/lib/rules/**"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app"
+  },
+  {
+   "id": "fl.app.warbandEngine",
+   "kind": "module",
+   "title": "Warband engine",
+   "description": "Warband building rules over a rules set: rating in ducats and Glory, recruit, equip, stash and upgrade checks, availability, hands, headgear, variant overlays, fireteams, patron skills, limits with per and when, prices; Trench Companion text export and import.",
+   "tags": [
+    "pure"
+   ],
+   "code": [
+    "app/src/lib/warbands/**"
    ],
    "tables": [],
    "services": [],
@@ -1557,6 +2310,54 @@
    "parent": "fl.app.services"
   },
   {
+   "id": "fl.app.services.rulesService",
+   "kind": "module",
+   "title": "Rules data",
+   "description": "Reads the mounted rules folders at start and on the Owner's Reload, checks each (a broken folder is not loaded and says why), caches nodes and edges, answers compendium searches, element pages with their links, and version diffs. Indexes homebrew sets beside the folders as hb:<id> (on every save and every load) and shows one only to its maker until shared.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/{rules,rules-load}{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.warbandService",
+   "kind": "module",
+   "title": "Warbands",
+   "description": "A player's warbands: create, recruit, equip, stash, fireteams, locations, dead fighters, fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player's seat (one campaign at a time).",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/{warbands,warband-roster,warband-stash,warband-seats,warband-state,fighter-images}{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
+   "id": "fl.app.services.homebrewService",
+   "kind": "module",
+   "title": "Homebrew",
+   "description": "Player-made factions, variants and items in the rules format: create blank or from a copy, edit, check, share with the install, export and import; indexed like a rules set so the compendium and builder use it; campaigns allow chosen homebrew.",
+   "tags": [
+    "server-only"
+   ],
+   "code": [
+    "app/src/lib/server/services/homebrew{,.spec,.db.spec}.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": false,
+   "parent": "fl.app.services"
+  },
+  {
    "id": "fl.app.services.backupService",
    "kind": "module",
    "title": "Backups",
@@ -1631,12 +2432,37 @@
   },
   {
    "source": "fl.app.web.areas",
+   "target": "fl.app.services.warbandService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.homebrewService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.services.rulesService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.rulesLib",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
    "target": "fl.app.services.auditService",
    "title": ""
   },
   {
    "source": "fl.app.web.areas",
    "target": "fl.app.services.backupService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.areas",
+   "target": "fl.app.warbandEngine",
    "title": ""
   },
   {
@@ -1716,7 +2542,22 @@
   },
   {
    "source": "fl.app.web.api",
+   "target": "fl.app.services.warbandService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.homebrewService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
    "target": "fl.app.services.inviteService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
+   "target": "fl.app.services.rulesService",
    "title": ""
   },
   {
@@ -1813,6 +2654,116 @@
    "source": "fl.app.services",
    "target": "fl.app.shared",
    "title": "roles, schemas"
+  },
+  {
+   "source": "fl.app.services.rulesService",
+   "target": "fl.app.rulesLib",
+   "title": "checks folders, derives edges"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.warbandEngine",
+   "title": "checks every change"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.services.rulesService",
+   "title": "the warband's rules set"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.services.campaignService",
+   "title": "seat assignment, allow beyond limits"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.services.auditService",
+   "title": "records created, imported, deleted, seat assignment"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.services.authService",
+   "title": "who is acting"
+  },
+  {
+   "source": "fl.app.services.peopleService",
+   "target": "fl.app.services.warbandService",
+   "title": "removes an anonymised account's warbands"
+  },
+  {
+   "source": "fl.app.services.campaignService",
+   "target": "fl.app.services.rulesService",
+   "title": "checks the campaign's rules version"
+  },
+  {
+   "source": "fl.app.services.rulesService",
+   "target": "fl.app.warbandEngine",
+   "title": "builds the set chain the engine reads"
+  },
+  {
+   "source": "fl.app.shared",
+   "target": "fl.app.warbandEngine",
+   "title": "fighter groups in the warband schemas"
+  },
+  {
+   "source": "fl.app.authTables",
+   "target": "fl.app.warbandEngine",
+   "title": "fighter groups behind the group enum"
+  },
+  {
+   "source": "fl.app.ui",
+   "target": "fl.app.warbandEngine",
+   "title": "fighter groups on the builder"
+  },
+  {
+   "source": "fl.app.services.homebrewService",
+   "target": "fl.app.rulesLib",
+   "title": "checks homebrew"
+  },
+  {
+   "source": "fl.app.services.homebrewService",
+   "target": "fl.app.services.rulesService",
+   "title": "indexes a homebrew set"
+  },
+  {
+   "source": "fl.app.services.homebrewService",
+   "target": "fl.app.services.auditService",
+   "title": "records made, imported, saved, shared, deleted"
+  },
+  {
+   "source": "fl.app.services.homebrewService",
+   "target": "fl.app.services.authService",
+   "title": "who is acting"
+  },
+  {
+   "source": "fl.app.services.peopleService",
+   "target": "fl.app.services.homebrewService",
+   "title": "removes an anonymised account's private homebrew"
+  },
+  {
+   "source": "fl.app.services.campaignService",
+   "target": "fl.app.rulesLib",
+   "title": "homebrew set ids in the allow-list"
+  },
+  {
+   "source": "fl.app.services.warbandService",
+   "target": "fl.app.rulesLib",
+   "title": "homebrew set ids in a warband's rules"
+  },
+  {
+   "source": "fl.app.warbandEngine",
+   "target": "fl.app.rulesLib",
+   "title": "reads rules sets"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.rulesLib",
+   "title": "compendium rendering, graph"
+  },
+  {
+   "source": "fl.app.web",
+   "target": "fl.app.warbandEngine",
+   "title": "live checks in the builder"
   },
   {
    "source": "fl.app.services.authService",
@@ -2018,6 +2969,46 @@
    "source": "fl.app.infra",
    "target": "fl.db",
    "title": "pool, migrations, dumps"
+  },
+  {
+   "source": "fl.app.repos",
+   "target": "fl.app.rulesTables",
+   "title": "SQL"
+  },
+  {
+   "source": "fl.app.rulesTables",
+   "target": "fl.db",
+   "title": "stored in"
+  },
+  {
+   "source": "fl.app.services.rulesService",
+   "target": "fl.app.services.auditService",
+   "title": "records reloads"
+  },
+  {
+   "source": "fl.app.services.rulesService",
+   "target": "fl.app.services.authService",
+   "title": "who is acting; only an owner reloads"
+  },
+  {
+   "source": "fl.app.shared",
+   "target": "fl.app.rulesLib",
+   "title": "id and type enums for the rules API schemas"
+  },
+  {
+   "source": "fl.app.authTables",
+   "target": "fl.app.rulesLib",
+   "title": "edge kinds behind the check constraint, the report type"
+  },
+  {
+   "source": "fl.app.infra",
+   "target": "fl.app.rulesLib",
+   "title": "the problem shape for unreadable files"
+  },
+  {
+   "source": "fl.app.ui",
+   "target": "fl.app.rulesLib",
+   "title": "rules text, keyword pop-ups, graph layout"
   }
  ],
  "views": [
@@ -2051,6 +3042,34 @@
      "from": "fl.app.services.campaignService",
      "to": "fl.app.services.auditService",
      "label": "record campaign.created"
+    }
+   ]
+  },
+  {
+   "id": "compendium",
+   "title": "Compendium",
+   "description": "**Anyone signed in reads the rules by version: sections like the Trench Companion compendium, a page per element with every link in and out, keyword pop-ups and a neighbourhood graph.**\n\n**Decisions**\n- Sections: Core Rules, Warbands, Comprehensive Rules, Battlekit (by category, search and filters), Campaigns,\n  Scenarios, Errata & FAQ (what changed between two versions, from comparing the folders).\n- The graph shows an element's neighbours to depth 2 (d3-force); clicking a node opens its page.\n- Homebrew sets appear like any other set, marked Homebrew, to those who can see them.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "open /rules, search, open an element"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.rulesService",
+     "label": "search, node with edges, diff"
+    },
+    {
+     "from": "fl.app.services.rulesService",
+     "to": "fl.app.repos",
+     "label": "nodes and edges by set"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.rulesLib",
+     "label": "render text links, lay out the graph"
     }
    ]
   },
@@ -2109,6 +3128,69 @@
      "from": "fl.app.services.setupService",
      "to": "fl.app.services.auditService",
      "label": "record the first owner"
+    }
+   ]
+  },
+  {
+   "id": "homebrew",
+   "title": "Homebrew factions",
+   "description": "**A player creates their own faction, variant or items with custom rules, in the rules folder format, and builds warbands with it.**\n\n**Decisions**\n- Start blank or from a copy of an official faction or variant. Tabs: faction rules, units, armoury, keywords,\n  sharing. The same checker as the rules folders runs live.\n- Private until the creator shares it with the install; a CM chooses which homebrew a campaign allows.\n- Stored in homebrew_sets (data in the rules format) and indexed into the rules cache as set hb:<id>, so the\n  compendium, graph and builder treat it like any other set. Exports and imports as a rules folder.\n- Saves send the whole set with its version; a draft with problems saves with its report, and the cache keeps\n  the last version that passed (last_good), so warbands built on it keep loading.\n- Ids live in the set's namespace (type:hb-<tag>/…); a copy clones what the faction or variant owns.\n- Decisions 61 to 63.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "new homebrew, edit units and armoury, share"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.homebrewService",
+     "label": "create / update / share"
+    },
+    {
+     "from": "fl.app.services.homebrewService",
+     "to": "fl.app.rulesLib",
+     "label": "check"
+    },
+    {
+     "from": "fl.app.services.homebrewService",
+     "to": "fl.app.repos",
+     "label": "save with a version check"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.homebrewTables",
+     "label": "homebrew_sets"
+    },
+    {
+     "from": "fl.app.services.homebrewService",
+     "to": "fl.app.services.rulesService",
+     "label": "index as set hb:<id>"
+    },
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "campaign settings: allow homebrew"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.campaignService",
+     "label": "update homebrewSets"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.services.rulesService",
+     "label": "check it builds on the campaign's rules"
+    },
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "new warband on homebrew, assign to seat"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.warbandService",
+     "label": "create / assign (only if allowed)"
     }
    ]
   },
@@ -2308,6 +3390,39 @@
    ]
   },
   {
+   "id": "rules_load",
+   "title": "Load the rules folders",
+   "description": "**At start, and when the Owner presses Reload, the app reads every rules version folder, checks it and caches its elements and links.**\n\n**Decisions**\n- One complete folder per version (core-1.0.1, core-1.0.2); an expansion (carcass-front-1.0) names its base.\n  A new version starts as a copy of the last folder, then is edited. The folder is git-ignored and mounted\n  read-only (RULES_DIR, default /data/rules): no book text ships with the app.\n- The checker refuses unknown keys and any id that does not resolve; a folder that fails is not loaded, and the\n  Owner sees the file and id at fault. Loaded folders are cached as rules.sets, nodes and edges.\n- Campaigns choose a core version (plus Carcass Front for that type); warbands keep theirs.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "Owner, Rules data: Reload"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.rulesService",
+     "label": "reload"
+    },
+    {
+     "from": "fl.app.services.rulesService",
+     "to": "fl.app.rulesLib",
+     "label": "parse, check, derive edges"
+    },
+    {
+     "from": "fl.app.services.rulesService",
+     "to": "fl.app.repos",
+     "label": "replace the cached sets, nodes and edges"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.rulesTables",
+     "label": "one transaction"
+    }
+   ]
+  },
+  {
    "id": "seat_join",
    "title": "Join by seat link",
    "description": "**The CM makes a lasting link for a seat and copies it from the seat's card; the person who opens it takes that seat, with a new account if needed.**\n\n**Decisions**\n- One link per seat, valid until someone takes the seat or the CM withdraws it (no expiry; links made before\n  1 Nov 2026 keep their 7 days). The token hash finds the link; the link itself is stored encrypted\n  (AES-256-GCM, key LINK_KEY or derived from the database password) so Copy link always gives the same one.\n  Making a new link revokes the seat's open one. Links made before encryption cannot be copied (\"old link\").\n- The first time the link page opens, opened_at is set and shown on the seat card.\n- Links work only while the campaign is mustering. While active, the CM adds people by name only.\n- Joining runs in one transaction with the link row locked: two people with the same link cannot both get the\n  seat. A seat still on its default name takes the player's display name.\n- A person holds at most one seat per campaign. Sign-up on the join page is rate limited.",
@@ -2476,6 +3591,64 @@
      "from": "fl.app.web.publicPages",
      "to": "user",
      "label": "cookie, redirect to the role area"
+    }
+   ]
+  },
+  {
+   "id": "warband_build",
+   "title": "Build a warband",
+   "description": "**A player builds a warband like the Trench Companion builder: faction, variant, patron and limit, then fighters and their kit, checked on every change; then assigns it to their campaign seat.**\n\n**Decisions**\n- The player owns the warband; it sits in at most one campaign at a time (seats.warband_id is unique).\n- Every change runs the warband engine; a refused change says why. A campaign whose CM allows going beyond\n  limits turns refusals into warnings for warbands in it.\n- Groups: Elites, Troops, Mercenaries, Special, Dead; stash, fireteams, locations. Each fighter has an image slot\n  (empty by default; PNG, JPEG or WebP up to 2 MB, checked by file signature, stored in the uploads volume).\n- Add fighter offers the entry's upgrades and loadouts; the engine checks them with the recruit, as one purchase.\n- A campaign keeps one rules version: the CM cannot change it while a seated warband uses other rules.\n- Export as Trench Companion text and JSON; import Trench Companion text.\n- The stash, fireteams and locations are typed JSONB on the warband (the engine's own shapes); fighters are\n  rows, in roster order (prices depend on it). Buying takes the worth it adds from the banks; selling gives it\n  back.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "new warband, add fighter, equip, upload image"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.warbandService",
+     "label": "create / recruit / equip / image"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.services.rulesService",
+     "label": "the warband's rules set"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.warbandEngine",
+     "label": "check the change"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.repos",
+     "label": "save with a version check"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.warbandTables",
+     "label": "warbands, fighters, stash"
+    },
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "assign to my seat"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.warbandService",
+     "label": "assignToSeat"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.services.campaignService",
+     "label": "my seat, allow beyond limits"
+    },
+    {
+     "from": "fl.app.services.warbandService",
+     "to": "fl.app.services.auditService",
+     "label": "record warband.assigned"
     }
    ]
   },

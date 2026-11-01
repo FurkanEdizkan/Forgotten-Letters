@@ -128,7 +128,7 @@ action:withdraw: Withdraw my open request to join this campaign.
       }
     }
     route_app_campaigns_id_manage = page '/campaigns/[id]/manage' {
-      description 'actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, settings, stage, transfer
+      description 'actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer
 action:addCoCm: Add a co-CM: an active Admin or Owner.
   Who: the CM.
   In: form { userId }.
@@ -159,12 +159,12 @@ action:free: Free a seat: its player leaves the campaign; the seat stays, empty.
   In: form { id, version }.
   Out: { op: \'free\', id, done: true }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.
-action:link: Make a one-time link for an empty seat, shown only now; it revokes the seat\'s open link.
+action:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat\'s old link.
   Who: the CM and co-CMs, while the campaign is mustering.
   In: form { id }.
   Out: { op: \'link\', id, link: { seatId, seatName, url, expiresAt } }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.
-action:links: Make links for every empty seat at once, each shown only now; their old links are revoked.
+action:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.
   Who: the CM and co-CMs, while the campaign is mustering.
   In: form { }.
   Out: { op: \'links\', links: { seatId, seatName, url, expiresAt }[] }.
@@ -194,6 +194,11 @@ action:revoke: Revoke a seat\'s open link; it stops working.
   In: form { id }.
   Out: { op: \'revoke\', id, done: true }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+action:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.
+  Who: the CM and co-CMs.
+  In: form { }.
+  Out: { op: \'revokeAll\', withdrawn }.
+  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
 action:settings: Save the campaign\'s settings and house rules, with a version check.
   Who: the CM and co-CMs, until the campaign ends.
   In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.
@@ -643,8 +648,13 @@ POST: Restore a deleted campaign within 30 days.
       }
     }
     route_api_v1_campaigns_id_seat_links = endpoint '/api/v1/campaigns/[id]/seat-links' {
-      description 'POST
-POST: Make a fresh one-time link for every empty seat, shown only now; their old links stop working.
+      description 'DELETE POST
+DELETE: Withdraw every open seat link of the campaign at once; they stop working.
+  Who: the CM and co-CMs.
+  In: path id.
+  Out: 200 { withdrawn: number }
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.
+POST: Make a fresh lasting link for every empty seat; their old links stop working.
   Who: the CM and co-CMs.
   In: path id.
   Out: 201 { links: SeatLink[] }
@@ -705,13 +715,18 @@ POST: Add a person by name to an empty seat; until the campaign ends.
       }
     }
     route_api_v1_campaigns_id_seats_seatId_invite = endpoint '/api/v1/campaigns/[id]/seats/[seatId]/invite' {
-      description 'DELETE POST
+      description 'DELETE GET POST
 DELETE: Withdraw the seat\'s open link.
   Who: the CM and co-CMs.
   In: path id, seatId.
   Out: 204
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found.
-POST: Make a one-time link for an empty seat (7 days), shown only now; the seat\'s open link stops working.
+GET: The seat\'s open link again, to copy; recorded in the audit log.
+  Who: the CM and co-CMs.
+  In: path id, seatId.
+  Out: 200 SeatLinkCopy
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat or no open link, 409 conflict link made before links could be copied.
+POST: Make a lasting link for an empty seat (valid until the seat is taken or the link withdrawn); the seat\'s old link stops working.
   Who: the CM and co-CMs.
   In: path id, seatId.
   Out: 201 SeatLink
@@ -759,6 +774,19 @@ POST: Hand the CM role to a co-CM; the old CM becomes a co-CM.
         generated 'true'
         route '/api/v1/campaigns/[id]/transfer'
         code ['app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts']
+      }
+    }
+    route_api_v1_house_rule_presets = endpoint '/api/v1/house-rule-presets' {
+      description 'GET
+GET: The house rule library: every preset with its kind, value fields and the roadmap step that uses it.
+  Who: any signed-in account.
+  In: nothing.
+  Out: 200 { items: HouseRulePreset[] }
+  Errors: 401 unauthenticated.'
+      metadata {
+        generated 'true'
+        route '/api/v1/house-rule-presets'
+        code ['app/src/routes/api/v1/house-rule-presets/+server.ts']
       }
     }
     route_api_v1_invites = endpoint '/api/v1/invites' {
@@ -1626,6 +1654,18 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_campaigns_id_transfer -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_house_rule_presets -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_house_rule_presets -[imports]-> fl.app.services.authService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_house_rule_presets -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 

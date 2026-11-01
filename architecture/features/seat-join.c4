@@ -3,11 +3,14 @@ views {
   dynamic view seat_join {
     title 'Join by seat link'
     description '''
-      **The CM makes a one-time link for a seat; the person who opens it takes that seat, with a new account if needed.**
+      **The CM makes a lasting link for a seat and copies it from the seat's card; the person who opens it takes that seat, with a new account if needed.**
 
       **Decisions**
-      - One link per seat, single use, 7 days; only its token hash is stored, so a link is shown once. Making a new
-        link revokes the seat's open one; "Make links for all empty seats" lists every link once.
+      - One link per seat, valid until someone takes the seat or the CM withdraws it (no expiry; links made before
+        1 Nov 2026 keep their 7 days). The token hash finds the link; the link itself is stored encrypted
+        (AES-256-GCM, key LINK_KEY or derived from the database password) so Copy link always gives the same one.
+        Making a new link revokes the seat's open one. Links made before encryption cannot be copied ("old link").
+      - The first time the link page opens, opened_at is set and shown on the seat card.
       - Links work only while the campaign is mustering. While active, the CM adds people by name only.
       - Joining runs in one transaction with the link row locked: two people with the same link cannot both get the
         seat. A seat still on its default name takes the player's display name.
@@ -15,9 +18,12 @@ views {
     '''
     admin -> fl.app.web.areas 'make link (one seat or all empty seats)'
     fl.app.web.areas -> fl.app.services.seatService 'makeLink'
-    fl.app.services.seatService -> fl.app.repos 'revoke open link, insert link hash'
+    fl.app.services.seatService -> fl.app.repos 'revoke open link, insert hash and encrypted link'
+    admin -> fl.app.web.areas 'seat card: copy link; withdraw one or all links'
+    fl.app.web.areas -> fl.app.services.seatService 'copyLink / revokeLink / revokeAllLinks'
+    fl.app.services.seatService -> fl.app.services.auditService 'record seat.link_copied'
     visitor -> fl.app.web.publicPages 'opens /join/<token>, signs in or creates an account'
-    fl.app.web.publicPages -> fl.app.services.seatService 'accept'
+    fl.app.web.publicPages -> fl.app.services.seatService 'preview (sets opened_at once), then accept'
     fl.app.services.seatService -> fl.app.services.authService 'rate limit, new account, session'
     fl.app.services.seatService -> fl.app.repos 'lock link, fill seat, mark used'
     fl.app.services.seatService -> fl.app.services.auditService 'record seat.joined'

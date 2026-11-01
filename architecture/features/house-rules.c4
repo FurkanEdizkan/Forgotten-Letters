@@ -1,0 +1,24 @@
+// Feature: house rules from the preset library. Code: lib/house-rule-presets, lib/schemas/campaigns, routes ((app)/campaigns/new; (app)/campaigns/[id]/manage; api/v1/house-rule-presets), services/campaigns.
+views {
+  dynamic view house_rules {
+    title 'House rules from the library'
+    description '''
+      **The CM drags preset rules (or writes their own) into the campaign's house rules and sets their values; players see them on the campaign page.**
+
+      **Decisions**
+      - Two kinds: passive ("In play", players apply them at the table) and configuration ("Setting", a game value
+        the app uses from step 3 on). Values are stored now; nothing applies them yet.
+      - The preset catalogue is pure code in our own words (no book text), each preset with typed value fields,
+        defaults, limits and conflicts. A preset is added at most once; up to 30 rules.
+      - House rules stay typed JSONB on the campaign; old rules became passive with no preset.
+      - Drag and drop is native HTML; an Add button does the same for click and keyboard. Dragging a rule's grip
+        back to the library removes it, as the × button does.
+    '''
+    admin -> fl.app.web.areas 'drag a preset or press Add, set values, save'
+    fl.app.web.areas -> fl.app.services.campaignService 'create / update with houseRules'
+    fl.app.services.campaignService -> fl.app.repos 'save house_rules (version check)'
+    fl.app.repos -> fl.app.campaignTables 'campaigns.house_rules'
+    fl.app.services.campaignService -> fl.app.services.auditService 'record campaign.updated'
+    user -> fl.app.web.areas 'campaign page lists the rules with their values'
+  }
+}

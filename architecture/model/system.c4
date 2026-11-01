@@ -87,9 +87,9 @@ model {
       shared = module 'Shared lib' {
         #pure
         technology 'roles · zod schemas · API types'
-        description 'Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.'
+        description 'Pure code used by pages, the API and services: role ranks and can(), input schemas, API types, the password strength rule, the house rule preset catalogue.'
         metadata {
-          code ['app/src/lib/roles.ts', 'app/src/lib/campaign-stage.ts', 'app/src/lib/campaign-rights.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
+          code ['app/src/lib/roles.ts', 'app/src/lib/campaign-stage.ts', 'app/src/lib/campaign-rights.ts', 'app/src/lib/password-strength.ts', 'app/src/lib/house-rule-presets.ts', 'app/src/lib/schemas/**', 'app/src/lib/api-types.ts', 'app/src/lib/index.ts', 'app/src/lib/*.spec.ts']
         }
       }
 
@@ -140,16 +140,16 @@ model {
         }
         campaignService = module 'Campaigns' {
           #server-only
-          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.'
+          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.'
           metadata {
             code 'app/src/lib/server/services/campaigns{,.spec,.db.spec}.ts'
           }
         }
         seatService = module 'Seats and seat links' {
           #server-only
-          description 'Seats (add, rename, free, remove when empty), one-time seat links (one per seat or all empty seats at once, shown once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.'
+          description 'Seats (add, rename, free, remove when empty), lasting seat links (one per seat, valid until the seat is taken or the link withdrawn, stored encrypted so they can be copied again; one or all empty seats at once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.'
           metadata {
-            code 'app/src/lib/server/services/seats{,.spec,.db.spec}.ts'
+            code 'app/src/lib/server/services/{seats,link-cipher}{,.spec,.db.spec}.ts'
           }
         }
         joinRequestService = module 'Join requests' {
@@ -260,6 +260,7 @@ model {
   fl.app.services.seatService -> fl.app.services.auditService 'records seats, links and joins'
   fl.app.services.seatService -> fl.app.services.authService 'creates the account and signs it in, join rate limit'
   fl.app.services.seatService -> fl.app.services.campaignService 'campaign rights and stage'
+  fl.app.services.campaignService -> fl.app.services.seatService 'opens stored seat links for the seat view (link-cipher)'
   fl.app.services.joinRequestService -> fl.app.services.auditService 'records requests'
   fl.app.services.joinRequestService -> fl.app.services.campaignService 'campaign rights and stage'
   fl.app.services.joinRequestService -> fl.app.services.seatService 'fills the chosen seat on approval'

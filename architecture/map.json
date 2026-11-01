@@ -169,7 +169,7 @@
    "id": "fl.app.web.areas.route_app_campaigns_id_manage",
    "kind": "page",
    "title": "/campaigns/[id]/manage",
-   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a one-time link for an empty seat, shown only now; it revokes the seat's open link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once, each shown only now; their old links are revoked.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
+   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: form { }.\n  Out: { op: 'revokeAll', withdrawn }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/campaigns/[id]/manage/+page.server.ts",
@@ -647,7 +647,7 @@
    "id": "fl.app.web.api.route_api_v1_campaigns_id_seat_links",
    "kind": "endpoint",
    "title": "/api/v1/campaigns/[id]/seat-links",
-   "description": "POST\nPOST: Make a fresh one-time link for every empty seat, shown only now; their old links stop working.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 201 { links: SeatLink[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict joining closed.",
+   "description": "DELETE POST\nDELETE: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 200 { withdrawn: number }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\nPOST: Make a fresh lasting link for every empty seat; their old links stop working.\n  Who: the CM and co-CMs.\n  In: path id.\n  Out: 201 { links: SeatLink[] }\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict joining closed.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/seat-links/+server.ts"
@@ -703,7 +703,7 @@
    "id": "fl.app.web.api.route_api_v1_campaigns_id_seats_seatId_invite",
    "kind": "endpoint",
    "title": "/api/v1/campaigns/[id]/seats/[seatId]/invite",
-   "description": "DELETE POST\nDELETE: Withdraw the seat's open link.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found.\nPOST: Make a one-time link for an empty seat (7 days), shown only now; the seat's open link stops working.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 201 SeatLink\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken or joining closed.",
+   "description": "DELETE GET POST\nDELETE: Withdraw the seat's open link.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found.\nGET: The seat's open link again, to copy; recorded in the audit log.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 200 SeatLinkCopy\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found no seat or no open link, 409 conflict link made before links could be copied.\nPOST: Make a lasting link for an empty seat (valid until the seat is taken or the link withdrawn); the seat's old link stops working.\n  Who: the CM and co-CMs.\n  In: path id, seatId.\n  Out: 201 SeatLink\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden or other site, 404 not_found, 409 conflict seat taken or joining closed.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/seats/[seatId]/invite/+server.ts"
@@ -749,6 +749,20 @@
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/transfer/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
+   "id": "fl.app.web.api.route_api_v1_house_rule_presets",
+   "kind": "endpoint",
+   "title": "/api/v1/house-rule-presets",
+   "description": "GET\nGET: The house rule library: every preset with its kind, value fields and the roadmap step that uses it.\n  Who: any signed-in account.\n  In: nothing.\n  Out: 200 { items: HouseRulePreset[] }\n  Errors: 401 unauthenticated.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/house-rule-presets/+server.ts"
    ],
    "tables": [],
    "services": [],
@@ -1328,7 +1342,7 @@
    "id": "fl.app.shared",
    "kind": "module",
    "title": "Shared lib",
-   "description": "Pure code used by pages, the API and services: role ranks and can(), input schemas, API types.",
+   "description": "Pure code used by pages, the API and services: role ranks and can(), input schemas, API types, the password strength rule, the house rule preset catalogue.",
    "tags": [
     "pure"
    ],
@@ -1336,6 +1350,8 @@
     "app/src/lib/roles.ts",
     "app/src/lib/campaign-stage.ts",
     "app/src/lib/campaign-rights.ts",
+    "app/src/lib/password-strength.ts",
+    "app/src/lib/house-rule-presets.ts",
     "app/src/lib/schemas/**",
     "app/src/lib/api-types.ts",
     "app/src/lib/index.ts",
@@ -1496,7 +1512,7 @@
    "id": "fl.app.services.campaignService",
    "kind": "module",
    "title": "Campaigns",
-   "description": "Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check, soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.",
+   "description": "Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.",
    "tags": [
     "server-only"
    ],
@@ -1512,12 +1528,12 @@
    "id": "fl.app.services.seatService",
    "kind": "module",
    "title": "Seats and seat links",
-   "description": "Seats (add, rename, free, remove when empty), one-time seat links (one per seat or all empty seats at once, shown once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.",
+   "description": "Seats (add, rename, free, remove when empty), lasting seat links (one per seat, valid until the seat is taken or the link withdrawn, stored encrypted so they can be copied again; one or all empty seats at once), adding a person by name, leaving, and joining by link under a row lock, with a new account when needed.",
    "tags": [
     "server-only"
    ],
    "code": [
-    "app/src/lib/server/services/seats{,.spec,.db.spec}.ts"
+    "app/src/lib/server/services/{seats,link-cipher}{,.spec,.db.spec}.ts"
    ],
    "tables": [],
    "services": [],
@@ -1889,6 +1905,11 @@
    "title": "campaign rights and stage"
   },
   {
+   "source": "fl.app.services.campaignService",
+   "target": "fl.app.services.seatService",
+   "title": "opens stored seat links for the seat view (link-cipher)"
+  },
+  {
    "source": "fl.app.services.joinRequestService",
    "target": "fl.app.services.auditService",
    "title": "records requests"
@@ -2092,6 +2113,44 @@
    ]
   },
   {
+   "id": "house_rules",
+   "title": "House rules from the library",
+   "description": "**The CM drags preset rules (or writes their own) into the campaign's house rules and sets their values; players see them on the campaign page.**\n\n**Decisions**\n- Two kinds: passive (\"In play\", players apply them at the table) and configuration (\"Setting\", a game value\n  the app uses from step 3 on). Values are stored now; nothing applies them yet.\n- The preset catalogue is pure code in our own words (no book text), each preset with typed value fields,\n  defaults, limits and conflicts. A preset is added at most once; up to 30 rules.\n- House rules stay typed JSONB on the campaign; old rules became passive with no preset.\n- Drag and drop is native HTML; an Add button does the same for click and keyboard. Dragging a rule's grip\n  back to the library removes it, as the × button does.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "drag a preset or press Add, set values, save"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.campaignService",
+     "label": "create / update with houseRules"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.repos",
+     "label": "save house_rules (version check)"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.campaignTables",
+     "label": "campaigns.house_rules"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.services.auditService",
+     "label": "record campaign.updated"
+    },
+    {
+     "from": "user",
+     "to": "fl.app.web.areas",
+     "label": "campaign page lists the rules with their values"
+    }
+   ]
+  },
+  {
    "id": "invite_and_join",
    "title": "Invite and join",
    "description": "**Nobody registers alone: an owner or admin sends a link that fixes the role.**\n\n**Decisions**\n- Owners invite admins and users; admins invite users; users cannot invite.\n- An invite is valid for 7 days and works once; only its token hash is stored. The inviter sees pending\n  invites and can revoke or re-send (a new link) them.\n- Accepting creates the account and signs it in, in one transaction with a row lock, so two people accepting\n  the same link at once make exactly one account.",
@@ -2251,7 +2310,7 @@
   {
    "id": "seat_join",
    "title": "Join by seat link",
-   "description": "**The CM makes a one-time link for a seat; the person who opens it takes that seat, with a new account if needed.**\n\n**Decisions**\n- One link per seat, single use, 7 days; only its token hash is stored, so a link is shown once. Making a new\n  link revokes the seat's open one; \"Make links for all empty seats\" lists every link once.\n- Links work only while the campaign is mustering. While active, the CM adds people by name only.\n- Joining runs in one transaction with the link row locked: two people with the same link cannot both get the\n  seat. A seat still on its default name takes the player's display name.\n- A person holds at most one seat per campaign. Sign-up on the join page is rate limited.",
+   "description": "**The CM makes a lasting link for a seat and copies it from the seat's card; the person who opens it takes that seat, with a new account if needed.**\n\n**Decisions**\n- One link per seat, valid until someone takes the seat or the CM withdraws it (no expiry; links made before\n  1 Nov 2026 keep their 7 days). The token hash finds the link; the link itself is stored encrypted\n  (AES-256-GCM, key LINK_KEY or derived from the database password) so Copy link always gives the same one.\n  Making a new link revokes the seat's open one. Links made before encryption cannot be copied (\"old link\").\n- The first time the link page opens, opened_at is set and shown on the seat card.\n- Links work only while the campaign is mustering. While active, the CM adds people by name only.\n- Joining runs in one transaction with the link row locked: two people with the same link cannot both get the\n  seat. A seat still on its default name takes the player's display name.\n- A person holds at most one seat per campaign. Sign-up on the join page is rate limited.",
    "dynamic": true,
    "steps": [
     {
@@ -2267,7 +2326,22 @@
     {
      "from": "fl.app.services.seatService",
      "to": "fl.app.repos",
-     "label": "revoke open link, insert link hash"
+     "label": "revoke open link, insert hash and encrypted link"
+    },
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "seat card: copy link; withdraw one or all links"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.seatService",
+     "label": "copyLink / revokeLink / revokeAllLinks"
+    },
+    {
+     "from": "fl.app.services.seatService",
+     "to": "fl.app.services.auditService",
+     "label": "record seat.link_copied"
     },
     {
      "from": "visitor",
@@ -2277,7 +2351,7 @@
     {
      "from": "fl.app.web.publicPages",
      "to": "fl.app.services.seatService",
-     "label": "accept"
+     "label": "preview (sets opened_at once), then accept"
     },
     {
      "from": "fl.app.services.seatService",

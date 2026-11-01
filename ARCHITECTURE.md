@@ -1,6 +1,6 @@
 # Forgotten Letters: Architecture
 
-Status: confirmed choices, ready for step 1 · Last updated: 2026-10-21
+Status: confirmed choices, ready for step 1 · Last updated: 2026-11-01
 
 This document explains how the system is built and why. The detailed, always-current picture is the **atlas
 model** in `architecture/` (LikeC4): every container, module, page, API endpoint, table, live event and workflow,
@@ -190,7 +190,7 @@ wrapper (§15) for `+server.ts`, and the form helper for form actions.
 | Naming | `snake_case` in SQL, `camelCase` in TypeScript, mapped by Drizzle's `casing` option. |
 | Constraints in the database | Foreign keys, uniques, `not null`, check constraints or Postgres enums for allowed values and ranges. A `psql` edit cannot store a role of 7 or negative points. |
 | Paging | Key paging only: `?after=<id>&limit=<n>`, `n` from 1 to 100, default 50. Other sort orders use a compound cursor (value and id). Never `OFFSET`. |
-| Deleting | Soft delete only for campaigns and warbands (`deleted_at timestamptz`, partial unique indexes so names stay usable). Restorable from the admin area for 30 days, then purged by a job. Everything else is a hard delete. Accounts are disabled, never deleted. |
+| Deleting | Soft delete only for campaigns ~~and warbands~~ (`deleted_at timestamptz`, partial unique indexes so names stay usable). Restorable from the admin area for 30 days, then purged by a job. Everything else is a hard delete, warbands included (amended by decision 60, 2026-11-01: the player deletes their own warband for good after a confirm in place). Accounts are disabled, never deleted; anonymising one removes its warbands. |
 | Audit log | `auth.audit_log`, append-only. Row per important action: actor, action, target type and id, before/after summary `jsonb`, request id, time. Written by services in the same transaction as the change. Owners browse it with filters. |
 | JSONB | Only for typed, zod-validated props (for example map object props per kind). Never for data that needs joins or constraints. |
 
@@ -220,11 +220,22 @@ is written in the migration file header. Release notes flag migrations that take
 
 **Rules editions.** Rules data is game content, so it never ships in migrations.
 
-- `rules.editions` lists editions. Units, items, keywords and limits reference `edition_id`.
-- Campaigns pin an edition; warbands store the edition they were built for. Each campaign shows its edition.
-- Owners upload a rule pack (or point at a local file). The pack is versioned JSON validated by zod. The importer
+*Superseded by decision 55 (2026-11-01); the original plan is kept struck through below.*
+
+- ~~`rules.editions` lists editions. Units, items, keywords and limits reference `edition_id`.~~
+- ~~Campaigns pin an edition; warbands store the edition they were built for. Each campaign shows its edition.~~
+- ~~Owners upload a rule pack (or point at a local file). The pack is versioned JSON validated by zod. The importer
   validates the **whole** pack first and reports every problem with its path in the file. Only a valid pack is
-  imported, upserted into the chosen edition in one transaction. The result is written to the audit log.
+  imported, upserted into the chosen edition in one transaction. The result is written to the audit log.~~
+
+As built (decision 55): the group's rules folders sit in `./rules` next to `compose.yaml`, mounted read-only at
+`RULES_DIR` (`/data/rules`), one folder per version (`core-1.0.2/`, `carcass-front-1.0/`) in the format of
+`app/src/lib/rules/pack.ts`. At start and on the Owner's Reload every folder is read and checked whole (bases before
+the sets built on them); a folder that fails is not loaded and keeps its report (file, id, message) for Owner, Rules
+data. The loaded sets are cached in `rules.sets`, `rules.nodes` (elements) and `rules.edges` (links), replaced in one
+transaction under an advisory lock and audited on Reload. Campaigns pin a core version (`rules_set`) and expansions
+(`rules_expansions`; Carcass Front campaigns always play the Carcass Front folder); warbands store the rules they are
+built for. The warband engine reads a version as its chain of sets rebuilt from the cache.
 
 ## 9. Authentication and authorisation
 
@@ -355,7 +366,7 @@ end and counts. A failed run is logged and tried again on the next tick.
 | Job | Interval |
 |---|---|
 | Remove expired sessions, invites and setup tokens | Hourly |
-| Purge soft-deleted campaigns and warbands older than 30 days | Daily |
+| Purge soft-deleted campaigns ~~and warbands~~ (decision 60) older than 30 days | Daily |
 | Daily backup and pruning to 14 days | Daily |
 | Prune old `map_events` outside the replay window (step 5) | Hourly |
 | Update check (only when online) | Daily |
@@ -366,12 +377,18 @@ and backups.
 
 ## 13. File storage
 
-- Uploads (map images, faction art) go to the `uploads` volume at `/data/uploads`, named by a uuid.
-- A table stores owner, kind, size, content type, SHA-256 hash and dimensions.
-- The app serves files itself, checking the caller's rights first. No public static folder for uploads.
-- Upload routes stream the body with their own size limit, so a large file never fills memory. Type is checked from
-  the file content, not the name. Pixel size is capped.
-- sharp converts images to WebP and makes thumbnails.
+*Amended by decision 58 (2026-11-01) for fighter images; struck-through lines are the earlier plan.*
+
+- Uploads go to the `uploads` volume at `UPLOADS_DIR` (`/data/uploads`). Fighter images live at
+  `fighters/<warband id>/<fighter id>`, written beside the old file and renamed over it once the row is saved.
+- ~~A table stores owner, kind, size, content type, SHA-256 hash and dimensions.~~ No metadata table: the fighter row
+  keeps the content type (`warband.fighters.image`), and the warband says who may see it.
+- The app serves files itself, checking the caller's rights first (`/uploads/fighters/[id]`: the owner, and the CM and
+  co-CMs of the campaign the warband sits in). No public static folder for uploads.
+- Upload routes read the body with their own size limit (2 MB for a fighter image), so a large file never fills
+  memory. Type is checked from the file's first bytes (PNG, JPEG, WebP), not the name or declared type.
+- ~~sharp converts images to WebP and makes thumbnails.~~ Images are stored exactly as uploaded: no re-encoding, no
+  thumbnails, no new dependency. Map images (step 2.5) may revisit this.
 
 ## 14. Live map (step 5)
 
@@ -461,7 +478,8 @@ over the canvas with scene-to-screen coordinates, so every action is reachable b
 | 500 | `internal`. |
 | 503 | Starting, shutting down or the request deadline passed (code `unavailable`, with `Retry-After`). |
 
-- **Limits:** `BODY_SIZE_LIMIT` caps bodies at 1 MB; upload routes stream with their own limit. Queries time out
+- **Limits:** `BODY_SIZE_LIMIT` caps bodies at ~~1 MB~~ 3 MB (decision 59), room for a 2 MB fighter image in a
+  multipart form; upload routes read with their own limit. Queries time out
   after 5 s (`statement_timeout`); a request deadline aborts long handlers with 503.
 - **OpenAPI:** each endpoint exports its schemas; a script uses zod-openapi 6 to build OpenAPI 3.1, served at
   `/api/v1/openapi.json`, with a Scalar reference page for admins. Generated in CI and checked into the atlas output.
@@ -560,7 +578,9 @@ server is online. Release notes per version flag long migrations and breaking ch
 | `POSTGRES_PASSWORD` / `POSTGRES_PASSWORD_FILE` | required | Database password, shared by `db` and `app`. |
 | `DOMAIN` | empty | Domain for Caddy (profile `https`). |
 | `LOG_LEVEL` | `info` | pino level. |
-| `BODY_SIZE_LIMIT` | `1M` | adapter-node body cap. |
+| `BODY_SIZE_LIMIT` | `3M` (was `1M`; decision 59) | adapter-node body cap; set in the image. |
+| `RULES_DIR` | `/data/rules` | The rules folders; Docker mounts `./rules` there read-only. |
+| `UPLOADS_DIR` | `/data/uploads` | Uploaded files (fighter images); the uploads volume. |
 | `SHUTDOWN_TIMEOUT` | `20` | Seconds to finish open requests on SIGTERM. |
 | `BACKUP_DIR` | named volume | Where backups go. |
 | `ADDRESS_HEADER`, `XFF_DEPTH` | unset; `X-Forwarded-For` and `1` with the https profile | Trust forwarded client addresses only from Caddy. |
@@ -677,7 +697,7 @@ compose.dev.yaml           db only, for development
 | 18 | REST JSON under `/api/v1`, OpenAPI from zod (zod-openapi 6) | One documented contract; pages and API share services | 2026-10-21 |
 | 19 | pino JSON logs to stdout; errors in a capped table; no metrics or external tracker | Enough for one group; no outbound calls | 2026-10-21 |
 | 20 | Background jobs in process with `pg_try_advisory_lock` | No queue service; safe if a second process ever exists | 2026-10-21 |
-| 21 | Uploads on a named volume, metadata in Postgres, sharp for images | No object store service | 2026-10-21 |
+| 21 | **Amended by 58 (2026-11-01).** Uploads on a named volume, ~~metadata in Postgres, sharp for images~~ | No object store service | 2026-10-21 |
 | 22 | Live map over SSE + POST/PATCH, in-memory event bus, `map_events` replay | Mostly one-way traffic; plain HTTP; no custom WebSocket server | 2026-10-21 |
 | 23 | PixiJS 8 + pixi-viewport with Svelte HTML overlays | Smooth pan and zoom with many sprites; accessible panels | 2026-10-21 |
 | 24 | Own components on Bits UI primitives, plain CSS tokens | Accessible behaviour without a foreign look | 2026-10-21 |
@@ -712,5 +732,15 @@ compose.dev.yaml           db only, for development
 | 52 | Amends 44: house rules gain `kind` (passive or configuration), `preset` and typed `values`, checked by zod against a pure preset catalogue (`#lib/house-rule-presets`, our own wording, 18 presets); still JSONB on the campaign; old rules migrated to passive with no preset | The library gives groups common variants in one drag; settings are stored now so step 3 can apply them without asking again | 2026-11-01 |
 | 53 | The seat link key is `LINK_KEY` when set, else HKDF-SHA256 from the database password; nothing new to configure; `pg_dump` backups never hold the key; a key change turns links into old links | Encryption that protects backup copies without adding a required setting | 2026-11-01 |
 | 54 | The user guide lives in a committed `guide/` folder built with Zensical (0.0.74, run with `uvx`, no app dependency); README keeps install basics and points to it | `docs/` is git-ignored for the books; operators get one place for port, HTTPS, settings and backups | 2026-11-01 |
+| 55 | Supersedes the edition tables and pack upload of §8: the group's rules folders are mounted read-only (`./rules` at `RULES_DIR`), one folder per version in the `pack.ts` format, each checked whole at start and on the Owner's Reload; a failing folder is not loaded and keeps its report; loaded sets are cached in `rules.sets`, `rules.nodes`, `rules.edges` in one transaction. Options weighed: upload through the UI, import into edition tables, read files on every request | Book content never enters the image or the repository; a group edits files it already has; one cache serves the compendium, graph and engine | 2026-11-01 |
+| 56 | A player owns warbands; a warband sits in at most one campaign at a time (`campaign.seats.warband_id`, unique, cleared when the seat empties). Limits are enforced: every change runs the warband engine and is refused with its reasons (409 `conflict`, one reason per field), unless the campaign's CM allows warbands beyond their limits (`campaigns.allow_beyond_limits`), which turns refusals into warnings. A change with no check of its own may leave the list unfinished but never newly breaks a maximum (`canChange`). A campaign keeps one rules version: assigning a warband built for other rules asks to re-check it, and the CM cannot change the version while a seated warband uses other rules | Players keep their lists between campaigns; the CM decides how strict a campaign is; nobody plays a list nobody checked | 2026-11-01 |
+| 57 | A warband's stash, fireteams and locations are typed JSONB on `warband.warbands`; fighters are rows in roster order (`sort`, since prices depend on it). Kit, fighter and stash, is stored as the armoury line ids it was bought from (`line:…`), never item ids. Buying takes the worth it adds to the rating from the banks; selling or removing gives back what it took (a discounted or free first copy refunds what it cost); moving a fighter to Dead is no refund | The engine's own shapes, with no join to keep in step; a line carries its price and stipulations, so a list prices the same after a reload | 2026-11-01 |
+| 58 | Amends 21 and §13: fighter images are stored as uploaded (PNG, JPEG or WebP, 2 MB at most, checked by the file's first bytes) under `UPLOADS_DIR/fighters/<warband>/<fighter>`, with no metadata table (the content type is on the fighter row) and no sharp re-encoding; served by `/uploads/fighters/[id]` to the owner and the campaign's CM and co-CMs; removed with the fighter, the warband or the account | No new dependency or table for one picture per fighter; the signature check keeps other files out | 2026-11-01 |
+| 59 | `BODY_SIZE_LIMIT` raised from 1M to 3M (image and e2e server); the image upload checks its own 2 MB | adapter-node refuses a body over the limit before any handler runs, so a 2 MB picture in a multipart form never arrived | 2026-11-01 |
+| 60 | Amends §7: warbands are hard-deleted by their owner (confirm in place), not soft-deleted; anonymising an account removes its warbands and their images | A warband is the player's own data, not the group's history; the campaign keeps its own records | 2026-11-01 |
+| 61 | **Amended by 64 (2026-11-01).** Homebrew is stored whole in `homebrew.homebrew_sets.data` (JSONB, one RulesSet in the `pack.ts` format, manifest kind `homebrew`, base = `base_set`, a folder or another homebrew set) and indexed into the rules cache as set `hb:<uuid>`: every save checks the whole set with the folder checker (`readSet`/`checkSet` over the base chain's ids, plus the namespace rule) and replaces its cache row (and those of homebrew built on it) under the cache lock; a set that fails is saved with its report and not indexed. A Reload reads the homebrew rows inside its locked transaction and checks them with the folders, so they stay indexed. Saves send the whole set with its version (no per-part patches); the manifest is always the service's. Export and import are one JSON object of the folder's files; an import gets a new namespace and is refused with its problems if it fails. Options weighed: per-part patch endpoints, homebrew tables per element type, a separate index | One format, one checker and one cache for official and homebrew rules, so the compendium, graph and warband engine need no homebrew code; the editor runs the same pure checker live | 2026-11-01 |
+| 62 | Homebrew is private to its maker until shared with the whole install (Owners see all); the rules service hides an `hb:` set (or a chain holding one) from anyone else as `not_found`, but the engine's set (`rulesSetOf`) asks no one, so a warband on a set that was later unshared still loads. Sharing a set built on a private homebrew set is refused; unsharing and deleting are refused while other people's warbands (or sets built on it) use it. A campaign allows chosen sets in `campaign.campaigns.homebrew_sets` (uuid[], through the campaign PATCH `homebrewSets`, CM/co-CM `edit` right): newly ticked sets must be visible to the person and pass their checks, every allowed set must build only on the campaign's versions, and a set a seated warband uses cannot be un-ticked. Allowing a set also allows the homebrew it builds on. A warband on homebrew takes a seat only where its homebrew is allowed; its homebrew stays in `rules_expansions` (`hb:<uuid>`) and is ignored when comparing a warband's rules with the campaign's. Anonymising an account deletes its private homebrew nobody builds on; shared sets stay, made by "Former member" | The maker controls who sees their work; the CM decides how open a campaign is; nobody loses a list because someone else changed a setting | 2026-11-01 |
+| 63 | Homebrew ids are namespaced: the manifest id is `hb-<tag>` (eight random hex digits, not the uuidv7's time-ordered start) and every own element id is `type:hb-<tag>/…`, enforced by the checker. A copy of a faction or variant clones what it owns (units, armoury lines, upgrades) by moving each id into the namespace and remapping every reference in one walk (strings, `[[id]]` links, record keys), keeping official items, keywords and Patrons as references; `copied_from` records the source. Ids are fixed at creation and survive renames | A shared set can never replace an official element or clash with another set; warbands keep pointing at the same ids after edits | 2026-11-01 |
+| 64 | Amends 61: a homebrew draft that fails its checks no longer takes the set out of the cache. Each row keeps its current draft's `report` and a `last_good` snapshot (data, version, `checked_at`) of the last version that passed; when the draft fails, the cache is indexed from `last_good` (on save and on every Reload), so warbands built on a shared set keep loading and checking against that version. A draft that passes becomes the new `last_good` and is re-indexed. The API answers `ok`/`problems` for the draft and `published` (`{ version, checkedAt }` or null) for what players see; the editor and the compendium say "Draft has problems; players see the version from <date>" with the draft's report. Writing the check back does not bump the set's version. Options weighed: refuse invalid saves while others use the set, or leave dependent warbands broken until the maker fixes the draft | A maker's work in progress never breaks another player's warband, and the maker can still save drafts | 2026-11-01 |
 
 New decisions are added here with their date; a reversed decision is struck through, not deleted.

@@ -9,6 +9,7 @@ colors:
   panel-hover: "#33302b"
   rule: "#33302a"
   rule-strong: "#565249"
+  scrim: "rgb(0 0 0 / 0.55)"
   bone: "#ece5d3"
   bone-dim: "#b0a791"
   bone-faint: "#857b6c"
@@ -131,6 +132,7 @@ named surface.
 | `panel-hover` | #33302b | Hover and pressed state of table rows, list items, clickable cards. | A small lift only; no flash. |
 | `rule` | #33302a | Hairlines between rows and list items, panel borders. | Opaque (bone at about 14% over `night`) so it renders the same everywhere and in exports. Decorative: 1.4:1 on `night`. |
 | `rule-strong` | #565249 | Borders that must be seen: field outlines, ghost buttons, chip borders on hover, dividers that open a list. | Bone at about 30% over `night`. 2.4:1 on `night`, 2.1:1 on `panel`: below the 3:1 control target, see "Known misses". |
+| `scrim` | rgb(0 0 0 / 0.55) | Behind a modal dialog (the builder's Add fighter, Equip, Stash and Export dialogs): dims the page under it. | Only under dialogs, never on the page itself; the dialog keeps the overlay shadow. |
 
 ### Text
 
@@ -191,6 +193,19 @@ the resource's name or mark.
   or both.
 - **Ember means live.** If something is not on the map or not a live event, it is not ember.
 - **No raw colours** in components. If a colour is missing, add a token here first.
+
+### Rules graph (compendium)
+
+The compendium's neighbourhood graph colours nodes by element type with its own tokens, so the reserved meanings
+above (kit violet, resources, roles) stay unique. The legend always names each type; colour is never the only signal.
+
+| Type | Token | Value |
+| --- | --- | --- |
+| Faction / variant | `graph-faction` / `graph-variant` | #d8392e / #d98c80 |
+| Unit / item / armoury line | `graph-unit` / `graph-item` / `graph-line` | #ece5d3 / #6aa2d6 / #857b6c |
+| Keyword / upgrade | `graph-keyword` / `graph-upgrade` | #b583d4 / #e0a23a |
+| Patron / skill | `graph-patron` / `graph-skill` | #d4a537 / #c98b5a |
+| Table / scenario / page / location | `graph-table` / `graph-scenario` / `graph-page` / `graph-location` | #55aab4 / #8fb04a / #b0a791 / #7fa37a |
 
 ### Known misses and how to use them
 
@@ -450,6 +465,18 @@ button per area.
 - Plain wording: "No warbands yet. Create one to join this campaign."
 - A link to the relevant help page under the button.
 - No illustration or flavour text.
+
+### Editors with live checks (homebrew)
+
+- The work area takes the page's width; a Checks panel sits in a right column (20rem), sticky under the top bar,
+  as a card with the blood top edge.
+- Each problem is a row with a `--danger` left rule: the entry's name (or file) as a small dim line, then the
+  message. No problems reads "No problems." in `--ok`; advice that does not block is a `--warn` line.
+- The panel ends with how the saved version stands; a saved draft with problems while players keep an older version
+  reads "Draft has problems; players see the version from <date>" in `--warn` (the compendium shows the same line as
+  a warn callout). "Unsaved changes" sits beside Save in `--warn` at label size.
+- Chips for chosen entries (keywords, kit) are flat inset rectangles with a remove cross; the picker beside them is
+  the shared Select look with an Add button.
 
 ### Iconography
 

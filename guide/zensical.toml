@@ -1,0 +1,18 @@
+# The Forgotten Letters guide, built with Zensical (https://zensical.org).
+# Preview: cd guide && uvx zensical@0.0.74 serve    Build: uvx zensical@0.0.74 build (writes guide/site/)
+[project]
+site_name = "Forgotten Letters"
+site_description = "Install and run Forgotten Letters, a self-hosted Trench Crusade campaign companion."
+docs_dir = "docs"
+site_dir = "site"
+nav = [
+  { "Home" = "index.md" },
+  { "Install" = "install.md" },
+  { "Port and address" = "port-and-address.md" },
+  { "HTTPS" = "https.md" },
+  { "Settings" = "settings.md" },
+  { "Backups and updates" = "backups-and-updates.md" },
+]
+
+[project.theme]
+language = "en"

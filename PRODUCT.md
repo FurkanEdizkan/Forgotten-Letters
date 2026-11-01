@@ -194,7 +194,7 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | F11 | A locked-out Owner is recovered with a documented `docker compose exec` command. |
 | F12 | Usernames are 3 to 32 characters: letters, digits, dot, dash and underscore. They are unique ignoring case and are used only to sign in. |
 | F13 | Every account has a display name: free text, changeable, shown wherever the person appears. |
-| F14 | Passwords are 10 to 128 characters, any characters allowed, no composition rules. A short list of common passwords is refused. |
+| F14 | Passwords are 10 to 128 characters, any characters allowed, no composition rules. A meter under every new-password field rates them Too common, Weak, Fair, Strong or Very strong while they are typed, and says why one is refused; only Strong or better is accepted, by the same rule on the server. Sign-in never checks strength. (Changed 2026-10-31: was length and a common-password list only.) |
 | F15 | Everyone can change their display name and password and sign out of every device. |
 | F16 | With "Remember me" a session lasts 30 days and each use extends it. Without it, the session ends when the browser closes. |
 | F17 | The app records sign-ins, invites, role changes, disables and password resets in an audit log (who, what, when). The Owner can view it. |
@@ -209,7 +209,7 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | S1 | While no Owner exists, every page opens the welcome page, and the server log says "Setup is open at <address>". There is no token: on a shared network, whoever opens a fresh copy first becomes its Owner (accepted, as in Jellyfin). Once an Owner exists, setup never shows again unless the copy is reinstalled. |
 | S2 | The welcome page shows the emblem on the left; on the right the app name and Setup, a docs icon, a "Support us" header with Patreon, tip and Bitcoin links, and the legal links. |
 | S3 | The setup wizard has four steps: Owner (username, display name, password), Look (text size 90 to 130 % with a live preview, one of five accents), Server (the port), Done. Each step checks its fields before moving on; Finish creates the Owner, saves the settings and signs the Owner in, all at once. |
-| S4 | The Owner can change text size, accent and port later under `/owner/settings`. The text size and accent apply to every page for everyone. |
+| S4 | The Owner can change text size, accent and port later under `/owner/settings`. The text size and accent apply to every page for everyone. Picking an accent previews it on the whole app at once; Save keeps it, leaving unsaved puts the saved one back. In Docker the port shows read-only; how to change it lives in the README (later the docs site). |
 | S5 | Outside Docker, a port change moves the app to the new port and takes the browser there; the old port closes once the browser has arrived. In Docker the port is read-only and the page shows the `.env` line to change, because Compose sets the published port. |
 | S6 | After setup, the sign-in page uses the same split as the welcome page. |
 | S7 | Signed in, every page has a top bar (menu toggle, Docs, the user menu with User settings and Log out) and a left panel with the person's areas and, at its foot, FAQ, Licence, Contact, Support us, Privacy, Terms and the unofficial notice. Each help and legal link opens a placeholder page until its text is written. |
@@ -225,13 +225,13 @@ Review page: https://claude.ai/artifact/T5uVRgUbKHhQFRGrMetUVi (approved 2026-10
 | C2 | Owners and Admins create a campaign in a wizard: Basics (name, type, description), Schedule (games per player, start and end, listed or private), Seats (2 to 30), House rules, Map (placeholder until step 2.5), Review. The creator becomes its CM. Names are unique among campaigns that are not deleted, ignoring case. |
 | C3 | Two types, Carcass Front and generic; the type is fixed after creation. |
 | C4 | Seats are "Seat 1" … "Seat N"; a seat still on its default name takes the player's display name. Seats can be added (up to 30), renamed, freed and, when empty, removed. A person holds at most one seat per campaign. |
-| C5 | Each seat has its own one-time link, valid for 7 days. It is shown once; making a new one revokes the old. "Make links for all empty seats" lists every link once. Opening a link shows the campaign and seat; the visitor signs in or creates an account and takes the seat. Two people with one link cannot both get the seat. |
+| C5 | Each seat has its own link, valid until someone takes the seat or the CM withdraws it (no expiry). The seats show as cards; a card's details offer Copy link, which copies the link without showing it (only its last four characters). "Make links for empty seats" makes one for every empty seat; "Withdraw all links" (confirm in place) stops every open link at once. Making a new link revokes the old. Links made before 1 Nov 2026 cannot be copied ("old link") and keep their 7 days. Opening a link shows the campaign and seat (the card notes when it was first opened); the visitor signs in or creates an account and takes the seat. Two people with one link cannot both get the seat. (Changed 2026-11-01: was one-time, 7 days, shown once.) |
 | C6 | The CM adds an existing account to an empty seat by name (display name and username only are shown). |
 | C7 | Anyone signed in can ask to join a listed campaign while it is mustering, with an optional note; one open request per person. The CM or a co-CM approves it into an empty seat or declines it. |
 | C8 | Stages: mustering → active → ended; active can go back to mustering; ended is read-only. Links, requests and leaving work only while mustering; adding by name works until the campaign ends. Every move is audited. |
 | C9 | The CM adds co-CMs (Admins or Owners), removes them and hands the CM role to a co-CM; an Owner may hand over the CM role of any campaign. |
-| C10 | House rules are the CM's own words: up to 30 rules, each a name, an explanation and an on/off switch. No book text ships with the app. |
-| C11 | The CM deletes a campaign; the CM or an Owner restores it within 30 days, after which a daily job removes it for good. Expired seat links are cleaned up daily. |
+| C10 | House rules: up to 30, each with an on/off switch and a note. They come from a library of presets in our own words (drag one in, or press Add) or the CM writes their own. Two kinds: *In play* rules players apply at the table, and *Settings* that change a game value (for example trench depth 2″), each with typed values; settings are stored now and applied from step 3. A preset is added once; some presets are offered only for Carcass Front. No book text ships with the app. (Changed 2026-11-01: was the CM's own words only.) |
+| C11 | The CM deletes a campaign; the CM or an Owner restores it within 30 days, after which a daily job removes it for good. Expired and withdrawn seat links are cleaned up daily. |
 | C12 | Settings are saved with a version check; someone saving over a newer change gets a message to reload. |
 | C13 | Members see the campaign page (rules, seats, who runs it); players may leave their seat while mustering. Your campaigns appear in the side panel (up to 8, then "All campaigns") and on `/home`. |
 | C14 | The seat link page and the invite page use the first-run split with glass buttons; the creation wizard inside the app uses flat, square controls. |
@@ -354,7 +354,7 @@ Closed: "Which step follows step 1?" Campaigns and seats (step 2), then rules da
 - Accounts use username and password, invite links only (7 days, single use, revocable); no email or OAuth.
 - Recovery: the Owner resets to a temporary password; a CLI command recovers a locked-out Owner.
 - No permanent account delete; disable keeps history; the Owner can anonymise to "Former member".
-- Passwords 10 to 128 characters with a common-password block list; usernames 3 to 32 characters, unique ignoring case.
+- Passwords 10 to 128 characters, rated Strong or better (common passwords refused); usernames 3 to 32 characters, unique ignoring case.
 - Sessions last 30 days sliding with "Remember me", browser session without.
 - Sign-in limited to 5 tries a minute per username and per IP, in memory.
 - Account actions go to an audit log the Owner can view.

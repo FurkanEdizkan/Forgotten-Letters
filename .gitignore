@@ -20,3 +20,6 @@ node_modules/
 # Atlas cache (facts, to-do), rebuilt on demand; personal Codex settings
 architecture/.atlas/
 .codex/
+
+# The built guide (guide/site/), rebuilt by zensical build
+/guide/site/

@@ -398,9 +398,14 @@ button per area.
 - **Filter box:** a field above the table, "Filter rows", that narrows rows as you type. Shows "No rows match" when
   empty.
 - **Totals row:** a footer row with sums, title style, over a 2 px `rule-strong` rule, figures in `bone`.
-- **Seat table:** Seat, Player, Joined, Actions. A filled seat offers "Free seat" (confirm in place); an open seat
-  offers "Make link" and Remove. A new link shows once in the secret box in its row. Adding a person by name is one
-  control above the table, not a menu in each row.
+- **Seat cards:** one card per seat (number, name or player, state chip: Taken, Link ready, Old link, No link) in an
+  auto-fill grid, with the picked seat's panel beside them (sticky, `panel-raised`). The panel renames in place and
+  shows the player or the link (made, opened); Copy link shows only `/join/••••abcd`, never the full link; Free seat
+  and Remove seat confirm in place. Adding a person by name is one control above the cards. (Replaced the seat
+  table, 1 Nov 2026.)
+- **House rule library:** two columns: preset cards (grip, name, kind chip *In play* in `bone-dim` or *Setting* in
+  `blood-pale`/`blood-bright`, summary, Add button) and the campaign's rules (switch, remove, value fields, note).
+  Native drag and drop plus an Add button for click and keyboard; the drop zone is a dashed `rule-strong` box. A rule's grip drags it back to the library to remove it (the library edges in `danger` with "Drop here to remove"); the × button does the same.
 
 ### Keyword chips
 

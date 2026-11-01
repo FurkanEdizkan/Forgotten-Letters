@@ -16,32 +16,8 @@ image; it works with no internet connection.
    follow the four steps (owner account, look, server, done). The log also says where: `docker compose logs app |
    grep "Setup is open"`. Whoever opens a fresh install first becomes its owner, so set it up right away.
 
-**Port.** With Docker the port is `APP_PORT` in `.env` (then `docker compose up -d`); the settings page shows it but
-cannot change it. Run without Docker (`node app/server` after `npm --prefix app run build`), the owner can change
-the port under Owner, Settings: the app opens the new port, sends the browser there and closes the old one.
-
-**HTTPS** (a server on the internet): point your domain's DNS at the server, open ports 80 and 443, set
-`DOMAIN=letters.example.org`, `ORIGIN=https://letters.example.org`, `ADDRESS_HEADER=X-Forwarded-For`,
-`XFF_DEPTH=1` and `APP_PORT=127.0.0.1:3000` (so nobody reaches the app around Caddy) in `.env`, then `docker compose --profile https up -d` (or set `COMPOSE_PROFILES=https`). Caddy gets
-the certificate.
-
-**Backups.** The app writes a compressed `pg_dump` before every migration and once a day into the `backups` volume
-(kept 14 days, `BACKUP_KEEP_DAYS`). Owners download and restore them in the owner area. To copy them out, or restore
-by hand:
-
-```sh
-docker compose cp app:/data/backups ./backups                      # copy every dump to the host
-docker compose exec app sh -c 'ls /data/backups'                   # list them
-docker compose exec app sh -c 'PGPASSWORD=$POSTGRES_PASSWORD pg_restore --clean --if-exists --no-owner \
-  --single-transaction -h db -U letters -d letters /data/backups/<file>.dump'
-```
-
-**Updates.** `docker compose pull && docker compose up -d`. The app backs up the database, applies migrations and
-starts; `/health/ready` answers 200 once it is done.
-
-**Locked out?** `docker compose exec app node scripts/owner-recovery.js <username>` gives that owner a temporary
-password (changed at the next sign-in) and ends their sessions. Without a username it lists the owners, or says
-that setup is open when there is none.
+**More:** the port and address, HTTPS, every setting, backups, updates and getting back in are in the guide
+(`guide/`, built with [Zensical](https://zensical.org): `cd guide && uvx zensical@0.0.74 serve`).
 
 **Development:** `docker compose -f compose.dev.yaml up -d` (database only), then `npm --prefix app run dev`. See
 `AGENTS.md` for the other commands.
@@ -63,6 +39,7 @@ that setup is open when there is none.
 | `assets/fx/` | The effect sprite sheets rendered from them (`.webp` + frame `.json`). |
 | `assets/map/` | The campaign map extracted from the book (local only, never committed). |
 | `docs/` | The books (`Trench Crusade/`, `Factions/`) and the rule packs read from them (`packs/`), local only; design specs in `superpowers/`. |
+| `guide/` | The user guide (Zensical): install, port, HTTPS, settings, backups. |
 | `tools/atlas/` | The architecture atlas (LikeC4 model, map and checks). |
 | `tools/blender-mcp/` | The Blender MCP bridge (see `.mcp.json`). |
 

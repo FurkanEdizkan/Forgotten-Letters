@@ -4,11 +4,15 @@
  * Prints counts per type and each problem with its file and id; exits 1 on any error.
  *
  *     node --experimental-strip-types scripts/rules-check.ts ../rules/core-1.0.2 [more folders]
+ *
+ * `--allow-replace` lets an expansion replace base elements by id, as the app's loader does (src/lib/rules/merge.ts).
+ * Book folders are checked without it, so a duplicate there is still an error.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { FILES, manifest, page, id as idSchema, typeOf } from '../src/lib/rules/pack.ts';
 
+const ALLOW_REPLACE = process.argv.includes('--allow-replace');
 /** Owners the contract names without an element of their own (pack.ts, `unit.owner`). */
 const RESERVED = new Set(['faction:mercenaries']);
 const ID =
@@ -97,7 +101,7 @@ function load(dir: string, seen = new Set<string>()): Loaded {
 		else {
 			set.base = load(bdir, new Set([...seen, dir]));
 			for (const i of set.ids.keys())
-				if (resolves(set.base, i))
+				if (resolves(set.base, i) && !ALLOW_REPLACE)
 					errors.push(`${set.ids.get(i)}: ${i}: also defined in the base ${man.data.base}`);
 		}
 	}
@@ -162,7 +166,7 @@ function check(dir: string): number {
 	return errors.length;
 }
 
-const dirs = process.argv.slice(2);
+const dirs = process.argv.slice(2).filter((a) => a !== '--allow-replace');
 if (!dirs.length) {
 	console.log('usage: node --experimental-strip-types scripts/rules-check.ts <rules folder> [...]');
 	process.exit(2);

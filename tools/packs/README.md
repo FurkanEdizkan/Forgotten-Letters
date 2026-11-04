@@ -30,6 +30,17 @@ Then check every folder against the contract (from `app/`, Node 24):
 node --experimental-strip-types scripts/rules-check.ts ../rules/core-1.0.2 ../rules/carcass-front-1.0 ../rules/core-1.0.1
 ```
 
+## Trench Companion Preview
+
+`rules/tc-preview/` (an expansion on `carcass-front-1.0`) is not built here: `app/scripts/tc-preview.ts` lays
+Trench Companion's own Official → Preview changes over our books' data. Its inputs are `docs/tc/*.json`
+(git-ignored, saved from Trench Companion), its log `rules/_build-log-tc-preview.txt`.
+
+```sh
+npx tsx scripts/tc-preview.ts                                                   # from app/
+node --experimental-strip-types scripts/rules-check.ts --allow-replace ../rules/tc-preview
+```
+
 ## Files
 
 | File | Does |

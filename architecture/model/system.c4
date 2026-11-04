@@ -179,14 +179,14 @@ model {
         }
         rulesService = module 'Rules data' {
           #server-only
-          description 'Reads the mounted rules folders at start and on the Owner\'s Reload, checks each (a broken folder is not loaded and says why), caches nodes and edges, answers compendium searches, element pages with their links, and version diffs. Indexes homebrew sets beside the folders as hb:<id> (on every save and every load) and shows one only to its maker until shared.'
+          description 'Reads the mounted rules folders at start and on the Owner\'s Reload, checks each (a broken folder is not loaded and says why), caches nodes and edges, answers compendium searches, element pages with their links, and version diffs; labels a rules choice ("1.0.2 (Preview)"; a manifest may mark a set as a preview). Indexes homebrew sets beside the folders as hb:<id> (on every save and every load) and shows one only to its maker until shared.'
           metadata {
             code 'app/src/lib/server/services/{rules,rules-load}{,.spec,.db.spec}.ts'
           }
         }
         warbandService = module 'Warbands' {
           #server-only
-          description 'A player\'s warbands: create, copy, recruit, equip, the Arsenal (move, sell, refund, copy items), fireteams, locations, fighter campaign data (status, experience, scars, advancements, injuries, promotion), warband campaign data (games played, victory points, failed promotions, ignore limits), fighter images, export and import; every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player\'s seat (one campaign at a time).'
+          description 'A player\'s warbands: create, copy, recruit, equip, the Arsenal (move, sell, refund, copy items), fireteams, locations, fighter campaign data (status, experience, scars, advancements, injuries, promotion), warband campaign data (games played, victory points, failed promotions, ignore limits), fighter images, export and import, switching its rules version outside a campaign (with a label for each rules choice); every change runs the warband engine and is refused with its reason unless the campaign allows going beyond limits; assigning a warband to the player\'s seat (one campaign at a time).'
           metadata {
             code 'app/src/lib/server/services/{warbands,warband-*,fighter-images}{,.spec,.db.spec}.ts'
           }

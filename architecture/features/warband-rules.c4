@@ -1,0 +1,28 @@
+// Feature: a warband's rules version, shown and switched (2026-11-03). Code: routes ((app)/warbands, (app)/warbands/[id]
+// form action rules, api/v1/warbands/[id]/rules), services/warbands (setRules), services/rules (rulesLabel),
+// services/warband-choices (rulesChoices), services/rules-load (manifest preview), lib/ui/rules/RulesTag.
+views {
+  dynamic view warband_rules {
+    title 'Warband rules version'
+    description '''
+      **Every warband shows the rules it is built for ("1.0.1", "1.0.2 (Carcass Front)", "1.0.2 (Preview)"), and its
+      owner picks them when creating it and may switch them later.**
+
+      **Decisions** (asked in chat and approved 3 Nov 2026)
+      - The label is the core version, then the chosen expansions' names in brackets; a set marked `preview` in its
+        manifest (not an official release) gets the preview tag.
+      - Creation offers every loaded core and every expansion whose chain reaches one (an expansion on an expansion too).
+      - The owner may switch any time outside a campaign; fighters and kit stay, and what the new rules lack shows as
+        problems (not refused). In a campaign seat the campaign's rules apply, so it is locked.
+    '''
+    user -> fl.app.web.areas 'owner: Warband panel → Change rules'
+    fl.app.web.areas -> fl.app.services.warbandService 'setRules (PUT /api/v1/warbands/[id]/rules)'
+    fl.app.services.warbandService -> fl.app.services.rulesService 'load the chain; the faction must be in it'
+    fl.app.services.warbandService -> fl.app.repos 'update rules_set, rules_expansions (version check)'
+    fl.app.repos -> fl.app.warbandTables 'warbands'
+    fl.app.services.warbandService -> fl.app.services.auditService 'record warband.rules'
+    user -> fl.app.web.areas 'any page with warbands'
+    fl.app.web.areas -> fl.app.services.warbandService 'warband views with their rules label'
+    fl.app.services.warbandService -> fl.app.services.rulesService 'rulesLabel: version, expansion names, preview'
+  }
+}

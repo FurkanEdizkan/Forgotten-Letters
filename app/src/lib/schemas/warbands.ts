@@ -49,6 +49,16 @@ const rulesFields = {
 	rulesExpansions: z.array(setId).max(5).optional()
 };
 
+/** Switch a warband's rules: the form's one `rules` select ("core+expansion"), with the version check. */
+export const warbandRules = withRules(
+	z.object({
+		version: z.coerce.number().int().min(1),
+		rulesSet: setId,
+		rulesExpansions: z.array(setId).max(5).default([])
+	})
+);
+export type WarbandRules = z.infer<typeof warbandRules>;
+
 export const warbandCreate = withRules(
 	z.object({
 		name: warbandName,

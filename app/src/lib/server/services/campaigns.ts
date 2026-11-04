@@ -22,7 +22,7 @@ import { record, type Ctx, type SessionUser } from './audit';
 import { openLink } from './link-cipher';
 import { requireUser } from './auth';
 import { hbSetId, isHomebrewSet } from '#lib/rules/homebrew';
-import { checkHomebrewPick, checkRulesPick, homebrewClosure, mayUse } from './rules';
+import { checkHomebrewPick, checkRulesPick, homebrewClosure, labeller, mayUse } from './rules';
 
 const DAY = 24 * 60 * 60 * 1000;
 /** A deleted campaign can be restored for this long; then the daily purge removes it. */
@@ -75,6 +75,7 @@ async function full(tx: Tx, id: string, userId: string): Promise<ApiCampaign> {
 		houseRules: r.c.houseRules,
 		rulesSet: r.c.rulesSet,
 		rulesExpansions: r.c.rulesExpansions,
+		rules: (await labeller())(r.c.rulesSet, r.c.rulesExpansions),
 		allowBeyondLimits: r.c.allowBeyondLimits,
 		homebrewSets: r.c.homebrewSets,
 		members: await campaignsRepo.listMembers(tx, id),

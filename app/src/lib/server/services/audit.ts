@@ -70,6 +70,7 @@ export type AuditAction =
 	| 'warband.created'
 	| 'warband.imported'
 	| 'warband.deleted'
+	| 'warband.rules'
 	| 'warband.assigned'
 	| 'warband.unassigned'
 	| 'homebrew.created'

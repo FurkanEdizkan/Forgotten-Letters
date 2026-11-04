@@ -24,6 +24,7 @@
 	import RosterList from '#lib/ui/warbands/RosterList.svelte';
 	import StashPanel from '#lib/ui/warbands/StashPanel.svelte';
 	import WarbandPanel from '#lib/ui/warbands/WarbandPanel.svelte';
+	import RulesTag from '#lib/ui/rules/RulesTag.svelte';
 	import WarbandSummary from '#lib/ui/warbands/WarbandSummary.svelte';
 	import RulesPeek from '#lib/ui/rules/RulesPeek.svelte';
 	import type { PageProps } from './$types';
@@ -74,10 +75,8 @@
 <header class="head">
 	<h1>{wb.name}</h1>
 	<p class="dim">
-		{[wb.variantName ?? wb.dedicationName, wb.factionName].filter(Boolean).join(' · ')} · {w.rulesOf(
-			wb.rulesSet,
-			wb.rulesExpansions
-		)}
+		{[wb.variantName ?? wb.dedicationName, wb.factionName].filter(Boolean).join(' · ')}
+		<RulesTag rules={wb.rules} />
 	</p>
 </header>
 
@@ -108,7 +107,13 @@
 		{:else if data.sel === 'campaign'}
 			<CampaignPanel warband={wb} patrons={data.patrons} seats={data.seats} {form} />
 		{:else}
-			<WarbandPanel warband={wb} {beyond} {form} />
+			<WarbandPanel
+				warband={wb}
+				{beyond}
+				{form}
+				rulesChoices={data.rulesChoices}
+				rulesValue={data.rulesValue}
+			/>
 		{/if}
 	</div>
 </div>

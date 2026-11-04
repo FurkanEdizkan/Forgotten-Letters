@@ -44,6 +44,8 @@ export const ruleSetOut = z
 		kind: z.enum(['core', 'expansion', 'homebrew']).nullable(),
 		version: z.string().nullable(),
 		base: z.string().nullable(),
+		/** Not an official release (its manifest says `preview`). */
+		preview: z.boolean(),
 		checksum: z.string(),
 		ok: z.boolean(),
 		loadedAt: z.iso.datetime(),

@@ -8,7 +8,8 @@ import * as roster from '#lib/server/services/warband-roster';
 import * as holdings from '#lib/server/services/warband-stash';
 import * as warbands from '#lib/server/services/warbands';
 import * as items from '#lib/server/services/warband-items';
-import { copyInput, lineInput, moveInput, warbandPatch } from '#lib/schemas/warbands';
+import { copyInput, lineInput, moveInput, warbandPatch, warbandRules } from '#lib/schemas/warbands';
+import { rulesChoices } from '#lib/server/services/warband-choices';
 import type { Item, Table, Unit } from '#lib/rules/pack';
 import { requireSignedIn } from '../../guard';
 import {
@@ -39,16 +40,19 @@ export const load: PageServerLoad = async (event) => {
 	const equip = warband.canEdit ? q.get('equip') : null;
 	const fighter = warband.fighters.find((x) => x.id === equip) ?? null;
 	const chosen = warband.fighters.find((x) => x.id === q.get('sel')) ?? null;
-	const [index, els, recruits, armoury, upgrades, stashLines, exported, mine] = await Promise.all([
-		orPageError(event, rules.index(ctx, set)),
-		orPageError(event, rules.elements(ctx, set, ['unit', 'item', 'table'])),
-		warband.canEdit && q.has('add') ? roster.recruits(ctx, id) : null,
-		fighter ? roster.armoury(ctx, id, fighter.id) : null,
-		chosen ? roster.upgradesFor(ctx, id, chosen.id) : null,
-		warband.canEdit && q.has('stash') ? holdings.stashLines(ctx, id) : null,
-		q.has('export') ? warbands.exportOf(ctx, id, 'text') : null,
-		warband.canEdit ? campaigns.list(ctx, { scope: 'mine', limit: 100 }) : null
-	]);
+	const [index, els, recruits, armoury, upgrades, stashLines, exported, mine, choices] =
+		await Promise.all([
+			orPageError(event, rules.index(ctx, set)),
+			orPageError(event, rules.elements(ctx, set, ['unit', 'item', 'table'])),
+			warband.canEdit && q.has('add') ? roster.recruits(ctx, id) : null,
+			fighter ? roster.armoury(ctx, id, fighter.id) : null,
+			chosen ? roster.upgradesFor(ctx, id, chosen.id) : null,
+			warband.canEdit && q.has('stash') ? holdings.stashLines(ctx, id) : null,
+			q.has('export') ? warbands.exportOf(ctx, id, 'text') : null,
+			warband.canEdit ? campaigns.list(ctx, { scope: 'mine', limit: 100 }) : null,
+			// The rules it may switch to: its owner's, outside a campaign.
+			warband.canEdit && !warband.seat ? rulesChoices(ctx) : null
+		]);
 	// Only the units and items this page shows: the fighters' and the open dialog's.
 	const unitIds = new Set(warband.fighters.map((x) => x.unitId));
 	const itemIds = new Set([
@@ -89,6 +93,8 @@ export const load: PageServerLoad = async (event) => {
 		upgrades,
 		stashLines,
 		exportText: exported?.body ?? null,
+		rulesChoices: choices ?? [],
+		rulesValue: [warband.rulesSet, ...warband.rulesExpansions].join('+'),
 		seats: (mine?.items ?? [])
 			.filter((c) => c.mySeat && c.stage !== 'ended')
 			.map((c) => ({ value: c.id, label: c.name }))
@@ -120,6 +126,19 @@ export const actions = {
 		formAction(event, warbandPatch, async (input, ctx) => {
 			await warbands.patch(ctx, event.params.id, input);
 			return done('patch');
+		}),
+	/**
+	 * Switch the warband's rules; fighters and kit stay, what the new rules lack shows as problems.
+	 * Who: the warband's owner, while it sits in no campaign seat.
+	 * In: form warbandRules { version, rules: "<core>+<expansion>…" }.
+	 * Out: { op: 'rules', done: true }.
+	 * Errors: 400 invalid the faction or variant is not in those rules, 401 unauthenticated, 403 forbidden,
+	 * 404 not_found, 409 conflict seated in a campaign or changed meanwhile.
+	 */
+	rules: (event) =>
+		formAction(event, warbandRules, async (input, ctx) => {
+			await warbands.setRules(ctx, event.params.id, input);
+			return done('rules');
 		}),
 	/**
 	 * Delete the warband for good and go back to the list.

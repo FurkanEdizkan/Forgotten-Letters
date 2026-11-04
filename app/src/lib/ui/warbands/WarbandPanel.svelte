@@ -18,9 +18,19 @@
 	import FireteamsPanel from './FireteamsPanel.svelte';
 	import LocationsPanel from './LocationsPanel.svelte';
 	import ProblemList from './ProblemList.svelte';
+	import RulesTag from '#lib/ui/rules/RulesTag.svelte';
+	import Select from '#lib/ui/Select.svelte';
 
-	type Props = { warband: ApiWarband; beyond: boolean; form: FormResult };
-	let { warband: wb, beyond, form }: Props = $props();
+	type Props = {
+		warband: ApiWarband;
+		beyond: boolean;
+		form: FormResult;
+		/** The rules its owner may switch to (none in a campaign seat), and the current choice. */
+		rulesChoices?: { value: string; label: string }[];
+		rulesValue?: string;
+	};
+	let { warband: wb, beyond, form, rulesChoices = [], rulesValue = '' }: Props = $props();
+	const switched = $derived(resultOf(form, 'rules'));
 	const b = m.warbands.builder;
 	const view = rulesView();
 	const patch = $derived(resultOf(form, 'patch'));
@@ -42,7 +52,7 @@
 			{#if wb.dedicationName}<dt>{b.dedication}</dt>
 				<dd>{wb.dedicationName}</dd>{/if}
 			<dt>{b.rules}</dt>
-			<dd class="data">{m.warbands.rulesOf(wb.rulesSet, wb.rulesExpansions)}</dd>
+			<dd><RulesTag rules={wb.rules} /></dd>
 			<dt>{b.patron}</dt>
 			<dd>{wb.patronName ?? b.noPatron}</dd>
 			<dt>{b.rating}</dt>
@@ -85,6 +95,29 @@
 			{#if patch.error && !Object.keys(patch.fields).length}<Message kind="danger"
 					>{patch.error}</Message
 				>{/if}
+		{/if}
+
+		{#if wb.canEdit && wb.seat}
+			<p class="dim" data-rules-locked>{b.rulesLocked(wb.seat.campaignName)}</p>
+		{:else if wb.canEdit && rulesChoices.length > 1}
+			{#key wb.version}
+				<form
+					class="row end"
+					method="POST"
+					action="?/rules"
+					data-form="rules"
+					use:enhance={() =>
+						({ update }) =>
+							update({ reset: false })}
+				>
+					<input type="hidden" name="op" value="rules" />
+					<input type="hidden" name="version" value={wb.version} />
+					<Select label={b.changeRules} name="rules" options={rulesChoices} value={rulesValue} />
+					<ConfirmButton label={b.switchRules} confirm={b.switchConfirm} />
+				</form>
+			{/key}
+			<p class="dim hint">{b.switchHint}</p>
+			{#if switched.error}<Message kind="danger">{switched.error}</Message>{/if}
 		{/if}
 
 		<ProblemList issues={wb.issues} {beyond} />
@@ -149,6 +182,11 @@
 	}
 	.facts a {
 		color: var(--bone);
+	}
+	.hint,
+	[data-rules-locked] {
+		margin: calc(-1 * var(--space-2)) 0 0;
+		font-size: var(--size-label);
 	}
 	.row {
 		display: flex;

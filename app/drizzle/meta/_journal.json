@@ -71,6 +71,13 @@
       "when": 1793573444121,
       "tag": "0009_card_frames",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793701540525,
+      "tag": "0010_rules_preview",
+      "breakpoints": true
     }
   ]
 }

@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 10, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 11, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 10, applied: 10 });
+		expect(await migrationState()).toEqual({ total: 11, applied: 11 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 10, applied: 10 });
+		expect(await migrationState()).toEqual({ total: 11, applied: 11 });
 		expect(backups).toBe(0);
 
 		const tables =
@@ -196,5 +196,15 @@ describe('migrations', () => {
 		).rejects.toThrow(/card_frames_target_unique/);
 		await sql`delete from auth.users where id = ${u!.id}`;
 		expect(await sql`select updated_by from warband.card_frames`).toEqual([{ updated_by: null }]);
+	});
+	it('upgrading from revision 3: loaded rules sets are not previews', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(10) });
+		const sql = sqlClient();
+		await sql`insert into rules.sets (id, name, kind, version, checksum, ok) values ('core-1.0.2', 'Trench Crusade', 'core', '1.0.2', 'x', true)`;
+		await runMigrations();
+		expect(await sql`select id, preview from rules.sets`).toEqual([
+			{ id: 'core-1.0.2', preview: false }
+		]);
 	});
 });

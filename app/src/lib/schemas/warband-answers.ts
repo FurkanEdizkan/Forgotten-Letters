@@ -110,6 +110,8 @@ export const warbandCard = z
 		name: z.string(),
 		rulesSet: z.string(),
 		rulesExpansions: z.array(z.string()),
+		/** The rules as players read them: "1.0.1", "1.0.2 (Preview)"; `preview` when not an official release. */
+		rules: z.object({ text: z.string(), preview: z.boolean() }),
 		factionId: z.string(),
 		factionName: z.string(),
 		variantName: z.string().nullable(),

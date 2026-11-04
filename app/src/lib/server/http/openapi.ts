@@ -667,6 +667,16 @@ function warbandEndpoints(): Endpoint[] {
 				body: w.warbandPatch
 			}
 		),
+		one(
+			'put',
+			'/warbands/{id}/rules',
+			'Switch the rules (version, expansions); not in a campaign seat.',
+			{
+				params: id,
+				body: w.warbandRules,
+				errors: [...WRITE, 'unauthenticated', 'not_found']
+			}
+		),
 		one('post', '/warbands/{id}/copy', 'Copy a warband (fighters, Arsenal; no seat, no images).', {
 			params: id,
 			body: w.copyInput,

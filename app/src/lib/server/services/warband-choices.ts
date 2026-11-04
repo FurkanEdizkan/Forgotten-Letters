@@ -4,6 +4,7 @@
  * Sins), starting banks and the Patrons each may serve.
  */
 import { isHomebrewSet } from '#lib/rules/homebrew';
+import { rulesLabel } from '#lib/rules/label';
 import { mergeSets, resolveFaction } from '#lib/warbands';
 import type { ApiChoices } from '#lib/schemas/warbands';
 import { AppError } from '../errors';
@@ -13,22 +14,40 @@ import * as rules from './rules';
 
 // ---------------------------------------------------------------- rules choices
 
-/** Loaded rules to build for: each core version (newest first) and each expansion on its base. */
+/**
+ * Loaded rules to build for: each core version (newest first), then each expansion whose chain reaches one (an
+ * expansion on an expansion too: Preview on Carcass Front), labelled as players read them ("Trench Crusade 1.0.2
+ * (Preview)").
+ */
 async function rulesOptions() {
 	const sets = (await rules.listSets()).filter((s) => s.ok);
+	const byId = new Map(sets.map((s) => [s.id, s]));
+	const coreOf = (id: string | null) => {
+		const seen = new Set<string>();
+		let s = id ? byId.get(id) : undefined;
+		while (s && s.kind !== 'core' && s.base && !seen.has(s.id)) {
+			seen.add(s.id);
+			s = byId.get(s.base);
+		}
+		return s?.kind === 'core' ? s : undefined;
+	};
 	const byVersion = (a: { version: string | null }, b: { version: string | null }) =>
 		(b.version ?? '').localeCompare(a.version ?? '', 'en', { numeric: true });
+	const label = (core: { id: string; name: string }, exp: string[] = []) =>
+		`${core.name} ${rulesLabel(byId, core.id, exp).text}`;
 	const cores = sets.filter((s) => s.kind === 'core').sort(byVersion);
-	const out = cores.map((c) => ({ value: c.id, label: `${c.name} ${c.version ?? ''}`.trim() }));
+	const out = cores.map((c) => ({ value: c.id, label: label(c) }));
 	for (const e of sets.filter((s) => s.kind === 'expansion').sort(byVersion)) {
-		const core = cores.find((c) => c.id === e.base);
-		if (core)
-			out.push({
-				value: `${core.id}+${e.id}`,
-				label: `${e.name} ${e.version ?? ''} on ${core.name} ${core.version ?? ''}`.trim()
-			});
+		const core = coreOf(e.base);
+		if (core) out.push({ value: `${core.id}+${e.id}`, label: label(core, [e.id]) });
 	}
 	return out;
+}
+
+/** Every rules choice a warband of this person's may be built for or switched to: the loaded rules, then homebrew. */
+export async function rulesChoices(ctx: Ctx) {
+	requireUser(ctx);
+	return [...(await rulesOptions()), ...(await homebrewOptions(ctx))];
 }
 
 /**

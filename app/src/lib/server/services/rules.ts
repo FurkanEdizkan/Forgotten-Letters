@@ -9,6 +9,7 @@
  * again on every load, so a Reload keeps them. Only their owner sees one until it is shared (Owners see all); the
  * engine's sets (`rulesSetOf`) ask no one, so a warband built on a set that was later unshared still loads.
  */
+import { rulesLabel, type RulesLabel } from '#lib/rules/label';
 import { hbSetId, isHomebrewSet, uuidOfSet } from '#lib/rules/homebrew';
 import type { Element } from '#lib/rules/elements';
 import { diff as diffElements } from '#lib/rules/diff';
@@ -48,6 +49,7 @@ export async function listSets(homebrew = false): Promise<RuleSetOut[]> {
 			kind: r.kind as RuleSetOut['kind'],
 			version: r.version,
 			base: r.base,
+			preview: r.preview,
 			checksum: r.checksum,
 			ok: r.ok,
 			loadedAt: r.loadedAt.toISOString(),
@@ -343,6 +345,15 @@ async function buildChain(core: string, expansions: string[]): Promise<SetWithBa
 		out = set;
 	}
 	return out!;
+}
+
+/**
+ * Label rules choices as players read them ("1.0.2 (Preview)"): one read of the loaded sets, then a function for
+ * each choice (lib/rules/label).
+ */
+export async function labeller(): Promise<(core: string, expansions: string[]) => RulesLabel> {
+	const sets = new Map((await repo.listSets(db())).map((r) => [r.id, r]));
+	return (core, expansions) => rulesLabel(sets, core, expansions);
 }
 
 /** The chain of a loaded set, core first (a homebrew set's rules for a new warband). */

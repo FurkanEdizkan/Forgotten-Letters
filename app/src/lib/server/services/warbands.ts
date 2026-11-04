@@ -20,7 +20,8 @@ import type {
 	ApiWarbandCard,
 	WarbandCreate,
 	WarbandImport,
-	WarbandPatch
+	WarbandPatch,
+	WarbandRules
 } from '#lib/schemas/warbands';
 import { AppError } from '../errors';
 import { db, type Tx } from '../db';
@@ -38,6 +39,7 @@ import {
 	optionsFor,
 	reloadView,
 	resolveFor,
+	see,
 	stale,
 	stateOf,
 	viewOf
@@ -54,9 +56,10 @@ export async function listMine(ctx: Ctx): Promise<ApiWarbandCard[]> {
 	const me = requireUser(ctx);
 	const rows = await repo.listByOwner(db(), me.id);
 	const ids = rows.map((w) => w.id);
-	const [fighters, seats] = await Promise.all([
+	const [fighters, seats, label] = await Promise.all([
 		repo.fightersOf(db(), ids),
-		repo.seatsOf(db(), ids)
+		repo.seatsOf(db(), ids),
+		rules.labeller()
 	]);
 	return Promise.all(
 		rows.map(async (w) => {
@@ -68,9 +71,9 @@ export async function listMine(ctx: Ctx): Promise<ApiWarbandCard[]> {
 					fighters.filter((x) => x.warbandId === w.id),
 					set
 				);
-				return cardOf(w, { f, state, opts: optionsFor(seat, w) }, seat);
+				return cardOf(w, { f, state, opts: optionsFor(seat, w) }, seat, label);
 			} catch {
-				return cardOf(w, null, seat);
+				return cardOf(w, null, seat, label);
 			}
 		})
 	);
@@ -261,6 +264,48 @@ export async function patch(ctx: Ctx, id: string, input: WarbandPatch): Promise<
 				dedicationVariant(l.f.faction, l.w.dedication ?? undefined);
 		if (!overlayChanged) allowChange(l, stateOf({ ...l.w, ...fields }, l.rows, l.set));
 		if (!(await repo.update(tx, id, fields, input.version))) throw stale();
+		return reloadView(tx, ctx, id);
+	});
+}
+
+/**
+ * Switch a warband's rules (2026-11-03): its owner, outside a campaign (in a seat the campaign's rules apply). The
+ * faction and its variant or dedication must be in the new rules; fighters and kit stay, and whatever the new rules
+ * lack shows as problems rather than being refused, so switching back undoes it.
+ */
+export async function setRules(ctx: Ctx, id: string, input: WarbandRules): Promise<ApiWarband> {
+	return db().transaction(async (tx) => {
+		const { w, seat, canEdit } = await see(tx, ctx, id, { lock: true, edit: true });
+		if (!canEdit) throw new AppError('forbidden', 'Only its owner can change a warband.');
+		if (w.version !== input.version) throw stale();
+		if (seat)
+			throw new AppError('conflict', 'In a campaign the campaign’s rules apply.', {
+				rulesSet: 'In a campaign the campaign’s rules apply.'
+			});
+		await rules.mayUse(ctx, input.rulesExpansions.filter(isHomebrewSet));
+		const set = await rules.rulesSetOf(input.rulesSet, input.rulesExpansions);
+		try {
+			resolveFaction(set, w.factionId, w.variantId ?? undefined, w.dedication ?? undefined);
+		} catch {
+			throw invalid(
+				'rulesSet',
+				'These rules have no ' +
+					(w.variantId ? 'such variant' : 'such faction') +
+					' for this warband.'
+			);
+		}
+		const fields = { rulesSet: input.rulesSet, rulesExpansions: input.rulesExpansions };
+		if (!(await repo.update(tx, id, fields, input.version))) throw stale();
+		await record(
+			tx,
+			ctx,
+			'warband.rules',
+			{ type: 'warband', id },
+			{
+				from: [w.rulesSet, ...w.rulesExpansions].join('+'),
+				to: [input.rulesSet, ...input.rulesExpansions].join('+')
+			}
+		);
 		return reloadView(tx, ctx, id);
 	});
 }

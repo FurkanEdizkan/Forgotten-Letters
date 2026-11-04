@@ -70,9 +70,7 @@
 			.filter((x) => x.id !== data.myWarband?.id)
 			.map((x) => ({
 				value: x.id,
-				label: x.otherRules
-					? `${x.name} (${wc.otherRules(m.warbands.rulesOf(x.rulesSet, x.rulesExpansions))})`
-					: x.name
+				label: x.otherRules ? `${x.name} (${wc.otherRules(x.rules.text)})` : x.name
 			}))
 	);
 </script>
@@ -217,7 +215,7 @@
 					</div>
 				{/if}
 				<p class="dim small">
-					{wc.rules(m.warbands.rulesOf(camp.rulesSet, camp.rulesExpansions))}
+					{wc.rules(camp.rules.text)}
 				</p>
 			</section>
 		{/if}

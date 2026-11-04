@@ -1,0 +1,1 @@
+ALTER TABLE "rules"."sets" ADD COLUMN "preview" boolean DEFAULT false NOT NULL;

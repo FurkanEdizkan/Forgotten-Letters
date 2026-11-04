@@ -12,7 +12,7 @@ import * as repo from '../repos/warbands';
 import * as seatsRepo from '../repos/seats';
 import { record, type Ctx } from './audit';
 import { access, ended, need } from './campaigns';
-import { homebrewClosure, listSets } from './rules';
+import { homebrewClosure, labeller, listSets } from './rules';
 import {
 	cardOf,
 	load,
@@ -130,10 +130,15 @@ export async function ofCampaign(ctx: Ctx, campaignId: string) {
 	const a = await access(db(), ctx, campaignId);
 	need(a, 'manage');
 	const seated = await repo.ofCampaign(db(), campaignId);
+	const label = await labeller();
 	return Promise.all(
 		seated.map(async (s) => {
 			const l = await load(db(), ctx, s.warbandId!).catch(() => null);
-			return { seatId: s.seatId, seatName: s.seatName, warband: l ? cardOf(l.w, l, l.seat) : null };
+			return {
+				seatId: s.seatId,
+				seatName: s.seatName,
+				warband: l ? cardOf(l.w, l, l.seat, label) : null
+			};
 		})
 	).then((xs) => xs.filter((x): x is typeof x & { warband: ApiWarbandCard } => !!x.warband));
 }

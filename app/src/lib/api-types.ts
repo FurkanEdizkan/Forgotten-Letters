@@ -190,6 +190,8 @@ export const campaignOut = z
 		/** The core rules version and the expansions on it (Carcass Front campaigns: the Carcass Front folder). */
 		rulesSet: z.string(),
 		rulesExpansions: z.array(z.string()),
+		/** The rules as players read them: "1.0.1", "1.0.2 (Preview)"; `preview` when not an official release. */
+		rules: z.object({ text: z.string(), preview: z.boolean() }),
 		/** Warbands in this campaign may go beyond their limits (refusals become warnings). */
 		allowBeyondLimits: z.boolean(),
 		/** The homebrew sets warbands here may be built on. */

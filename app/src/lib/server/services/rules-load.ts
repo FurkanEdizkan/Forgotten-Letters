@@ -83,6 +83,7 @@ function build(folders: Folder[], seed = new Map<string, Set<string> | null>()):
 				kind: m?.kind ?? null,
 				version: m?.version ?? null,
 				base: m?.base ?? null,
+				preview: m?.preview ?? false,
 				checksum: f.checksum,
 				report: problems,
 				ok

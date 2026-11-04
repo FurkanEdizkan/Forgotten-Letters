@@ -1,0 +1,9 @@
+{
+	"id": "mire-preview-1.0",
+	"name": "Preview",
+	"kind": "expansion",
+	"version": "1.0",
+	"base": "mire-front-1.0",
+	"notes": "An invented preview on an expansion, for the tests: the Warden costs 65.",
+	"preview": true
+}

@@ -56,7 +56,7 @@ test('rules data: the Owner sees the loaded folders and the broken one with its 
 	await expect(broken).toContainText('item:rusty-blade');
 	await expect(broken).toContainText('kw:nowhere does not resolve');
 	await page.getByRole('button', { name: 'Reload' }).click();
-	await expect(page.getByText('Reloaded: 3 loaded, 1 not loaded.')).toBeVisible();
+	await expect(page.getByText('Reloaded: 4 loaded, 1 not loaded.')).toBeVisible();
 	await page.context().close();
 });
 

@@ -8,6 +8,7 @@
 	import type { Snippet } from 'svelte';
 	import { m } from '#lib/messages';
 	import type { ApiWarbandCard } from '#lib/schemas/warbands';
+	import RulesTag from '#lib/ui/rules/RulesTag.svelte';
 
 	type Props = { card: ApiWarbandCard; href?: string; actions?: Snippet; menu?: Snippet };
 	let { card, href, actions, menu }: Props = $props();
@@ -22,6 +23,7 @@
 	{#if menu}<div class="menu">{@render menu()}</div>{/if}
 	<p class="dim">
 		{sub ?? card.factionName}{sub ? ` · ${card.factionName}` : ''}
+		<RulesTag rules={card.rules} />
 	</p>
 	<p class="data">
 		<strong>{w.rating(card.rating.ducats, card.rating.glory)}</strong>

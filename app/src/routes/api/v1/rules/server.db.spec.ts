@@ -48,7 +48,7 @@ describe('GET /rules/sets and POST /rules/sets/reload', () => {
 		const admin = await person('admin');
 		const res = await call(reload.POST, { method: 'POST', user: owner.actor });
 		expect(res.status).toBe(200);
-		expect(ruleSetList.parse(res.body).items).toHaveLength(4);
+		expect(ruleSetList.parse(res.body).items).toHaveLength(5);
 		expectError(await call(reload.POST, { method: 'POST', user: admin.actor }), 403, 'forbidden');
 		expectError(await call(reload.POST, { method: 'POST' }), 401, 'unauthenticated');
 	});

@@ -231,7 +231,9 @@ export const manifest = z
 		/** Expansions and homebrew name the folder (or set) they build on. */
 		base: z.string().optional(),
 		released: z.iso.date().optional(),
-		notes: text.optional()
+		notes: text.optional(),
+		/** Not an official release (Trench Companion's Preview): warbands built on it say so. */
+		preview: z.boolean().optional()
 	})
 	.strict()
 	.refine((m) => m.kind === 'core' || !!m.base, 'An expansion or homebrew names its base.');

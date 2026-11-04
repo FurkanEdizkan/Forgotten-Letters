@@ -29,6 +29,7 @@ import * as give from './[id]/stash/give/+server';
 import * as fireteams from './[id]/fireteams/+server';
 import * as locations from './[id]/locations/+server';
 import * as copyWarband from './[id]/copy/+server';
+import * as switchRules from './[id]/rules/+server';
 import * as move from './[id]/kit/move/+server';
 import * as copyFighter from './[id]/fighters/[fid]/copy/+server';
 import * as seat from '../campaigns/[id]/seats/mine/warband/+server';
@@ -105,6 +106,50 @@ async function put(
 	const res = await h(event);
 	return { status: res.status, body: await res.json() };
 }
+
+describe('PUT /warbands/{id}/rules', () => {
+	it('switches the rules for its owner; refuses bad rules, others, stale versions', async () => {
+		const { me, stranger, id, version } = await world();
+		const ok = await call(at(switchRules.PUT, { id }), {
+			method: 'PUT',
+			user: me.actor,
+			body: { version, rules: 'core-1.0.2+mire-preview-1.0' }
+		});
+		expect(ok.status).toBe(200);
+		expect(warbandOut.parse(ok.body)).toMatchObject({
+			rulesSet: 'core-1.0.2',
+			rulesExpansions: ['mire-preview-1.0'],
+			rules: { text: '1.0.2 (Preview)', preview: true }
+		});
+		expectError(
+			await call(at(switchRules.PUT, { id }), {
+				method: 'PUT',
+				user: me.actor,
+				body: { version: ok.body.version, rules: 'Not A Set' }
+			}),
+			400,
+			'invalid'
+		);
+		expectError(
+			await call(at(switchRules.PUT, { id }), {
+				method: 'PUT',
+				user: stranger.actor,
+				body: { version: ok.body.version, rules: 'core-1.0.1' }
+			}),
+			404,
+			'not_found'
+		);
+		expectError(
+			await call(at(switchRules.PUT, { id }), {
+				method: 'PUT',
+				user: me.actor,
+				body: { version, rules: 'core-1.0.1' }
+			}),
+			409,
+			'conflict'
+		);
+	});
+});
 
 describe('warbands', () => {
 	it('GET, POST /warbands and GET /warbands/choices', async () => {

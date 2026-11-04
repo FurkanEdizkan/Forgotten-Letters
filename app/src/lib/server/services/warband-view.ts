@@ -3,6 +3,7 @@
  * kit (price and sell value), keywords and where they come from, campaign data (status, Experience marks, Battle
  * Scars, promotion), the Arsenal, the next game's Threshold and field strength, and the problems the engine finds.
  */
+import { labeller } from './rules';
 import {
 	buildModel,
 	campaign,
@@ -38,7 +39,8 @@ const seatOut = (s: repo.SeatOf | null) =>
 export function cardOf(
 	w: repo.WarbandRow,
 	l: Pick<Loaded, 'f' | 'state' | 'opts'> | null,
-	seat: repo.SeatOf | null
+	seat: repo.SeatOf | null,
+	label: (core: string, expansions: string[]) => ApiWarbandCard['rules']
 ): ApiWarbandCard {
 	const r = l ? rating(l.state, l.f, l.opts) : { ducats: 0, glory: 0 };
 	return {
@@ -46,6 +48,7 @@ export function cardOf(
 		name: w.name,
 		rulesSet: w.rulesSet,
 		rulesExpansions: w.rulesExpansions,
+		rules: label(w.rulesSet, w.rulesExpansions),
 		factionId: w.factionId,
 		factionName: l?.f.faction.name ?? w.factionId,
 		variantName: l?.f.dedication ? null : (l?.f.variant?.name ?? null),
@@ -159,7 +162,7 @@ export async function viewOf(tx: Tx, l: Loaded): Promise<ApiWarband> {
 			l.opts
 		).get(r.id) ?? { ducats: 0, glory: 0 };
 	const marks = campaign.advancementMarks(l.f);
-	const card = cardOf(l.w, l, l.seat);
+	const card = cardOf(l.w, l, l.seat, await labeller());
 	const next = campaign.nextGame(l.f, l.w.gamesPlayed);
 	return {
 		...card,

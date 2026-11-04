@@ -85,10 +85,12 @@ describe('create and read', () => {
 		const p = await player();
 		const c = await warbands.choices(p.ctx());
 		expect(c.picked).toBe('core-1.0.2');
-		expect(c.rules.map((r) => r.value)).toEqual([
-			'core-1.0.2',
-			'core-1.0.1',
-			'core-1.0.2+mire-front-1.0'
+		// An expansion on an expansion (the preview on Mire Front) is offered on its core, labelled as players read it.
+		expect(c.rules).toEqual([
+			{ value: 'core-1.0.2', label: 'Core Rules 1.0.2' },
+			{ value: 'core-1.0.1', label: 'Core Rules 1.0.1' },
+			{ value: 'core-1.0.2+mire-front-1.0', label: 'Core Rules 1.0.2 (Mire Front)' },
+			{ value: 'core-1.0.2+mire-preview-1.0', label: 'Core Rules 1.0.2 (Preview)' }
 		]);
 		expect(c.factions).toMatchObject([
 			{
@@ -342,6 +344,74 @@ describe('export and import', () => {
 		await expect(
 			warbands.importText(p.ctx(), { text: '## X ##\nFaction: Nobody' })
 		).rejects.toMatchObject({ code: 'invalid', fields: { text: expect.any(String) } });
+	});
+});
+
+describe('switching the rules', () => {
+	it('its owner switches; fighters stay; the label follows; what the new rules lack is a problem', async () => {
+		const p = await player();
+		let w = await p.make();
+		expect(w.rules).toEqual({ text: '1.0.2', preview: false });
+		w = await roster.recruit(p.ctx(), w.id, { unitId: WARDEN });
+		w = await roster.recruit(p.ctx(), w.id, { unitId: TORCH, kit: ['line:lantern-guild/pike'] });
+		expect(w.rating.ducats).toBe(
+			60 + 30 + w.fighters[1]!.kit.find((k) => k.name === 'Long Pike')!.price.ducats
+		);
+
+		// The invented preview (on Mire Front, on 1.0.2) prices the Warden at 65.
+		let v = await warbands.setRules(p.ctx(), w.id, {
+			version: w.version,
+			rulesSet: 'core-1.0.2',
+			rulesExpansions: ['mire-preview-1.0']
+		});
+		expect(v.rules).toEqual({ text: '1.0.2 (Preview)', preview: true });
+		expect(v.fighters.find((x) => x.unitId === WARDEN)!.cost.ducats).toBe(65);
+		expect((await warbands.listMine(p.ctx()))[0]!.rules.text).toBe('1.0.2 (Preview)');
+
+		// 1.0.1 has no Long Pike: the fighters stay and it shows as a problem; switching back clears it.
+		v = await warbands.setRules(p.ctx(), w.id, {
+			version: v.version,
+			rulesSet: 'core-1.0.1',
+			rulesExpansions: []
+		});
+		expect(v.rules).toEqual({ text: '1.0.1', preview: false });
+		expect(v.fighters).toHaveLength(2);
+		expect(v.issues.some((i) => i.severity === 'error')).toBe(true);
+		v = await warbands.setRules(p.ctx(), w.id, {
+			version: v.version,
+			rulesSet: 'core-1.0.2',
+			rulesExpansions: []
+		});
+		expect(v.issues.filter((i) => i.severity === 'error')).toEqual([]);
+		const [a] =
+			await sql()`select action from auth.audit_log where action = 'warband.rules' limit 1`;
+		expect(a).toEqual({ action: 'warband.rules' });
+	});
+	it('is refused for someone else, on a stale version, in a campaign seat, or for rules without the faction', async () => {
+		const p = await player();
+		const other = await person('user');
+		const w = await p.make();
+		const to = { version: w.version, rulesSet: 'core-1.0.1', rulesExpansions: [] };
+		await expect(warbands.setRules(other.ctx(), w.id, to)).rejects.toMatchObject({
+			code: 'not_found'
+		});
+		await expect(
+			warbands.setRules(p.ctx(), w.id, { ...to, version: w.version + 1 })
+		).rejects.toMatchObject({
+			code: 'conflict'
+		});
+		await expect(
+			warbands.setRules(p.ctx(), w.id, { ...to, rulesSet: 'broken-0.1' })
+		).rejects.toMatchObject({ code: expect.stringMatching(/not_found|invalid/) });
+		const { campaign } = await seated(p);
+		await warbands.assignToSeat(p.ctx(), campaign.id, { warbandId: w.id });
+		const now = await warbands.get(p.ctx(), w.id);
+		await expect(
+			warbands.setRules(p.ctx(), w.id, { ...to, version: now.version })
+		).rejects.toMatchObject({
+			code: 'conflict',
+			message: expect.stringContaining('campaign')
+		});
 	});
 });
 

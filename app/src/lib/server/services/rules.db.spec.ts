@@ -34,7 +34,8 @@ describe('loading the rules folders', () => {
 			['broken-0.1', false],
 			['core-1.0.1', true],
 			['core-1.0.2', true],
-			['mire-front-1.0', true]
+			['mire-front-1.0', true],
+			['mire-preview-1.0', true]
 		]);
 		const broken = sets[0]!;
 		expect(broken).toMatchObject({ name: 'Broken Rules', kind: 'core', counts: {} });
@@ -64,7 +65,7 @@ describe('loading the rules folders', () => {
 		await rules.loadAll(null, RULES_FIXTURE);
 		await rules.loadAll(null, RULES_FIXTURE);
 		const [n] = await sql()`select count(*)::int as n from rules.sets`;
-		expect(n!.n).toBe(4);
+		expect(n!.n).toBe(5);
 		expect(await rules.loadAll(null, join(tmpdir(), 'fl-no-such-rules'))).toEqual([]);
 	});
 	it('fails an expansion whose base failed or is missing, a folder named unlike its manifest, and bad JSON', async () => {
@@ -96,7 +97,7 @@ describe('loading the rules folders', () => {
 	it('reloads for an Owner (audited) and refuses anyone else', async () => {
 		const owner = await person('owner');
 		const admin = await person('admin');
-		expect((await rules.reload(owner.ctx())).map((s) => s.id)).toHaveLength(4);
+		expect((await rules.reload(owner.ctx())).map((s) => s.id)).toHaveLength(5);
 		const [row] =
 			await sql()`select action, actor_id from auth.audit_log where action = 'rules.reloaded'`;
 		expect(row).toEqual({ action: 'rules.reloaded', actor_id: owner.row.id });

@@ -360,6 +360,8 @@ export const ruleSets = rulesSchema.table(
 		kind: text(),
 		version: text(),
 		base: text(),
+		/** The manifest marks it as a preview, not an official release (Trench Companion's Preview). */
+		preview: boolean().notNull().default(false),
 		checksum: text().notNull(),
 		report: jsonb().$type<Problem[]>().notNull().default([]),
 		ok: boolean().notNull(),

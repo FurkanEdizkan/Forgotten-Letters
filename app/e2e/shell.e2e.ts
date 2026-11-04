@@ -43,6 +43,31 @@ test.beforeAll(async ({ browser }) => {
 	await page.context().close();
 });
 
+test('shell: the Owner and Campaigns groups fold, stay folded after a reload, and unfold', async ({
+	browser
+}) => {
+	const page = await visitor(browser, { width: 1920, height: 1080 });
+	await signIn(page);
+	const panel = page.locator('#fl-panel');
+	const owner = panel.getByRole('button', { name: 'Owner' });
+	await expect(owner).toHaveAttribute('aria-expanded', 'true');
+	await expect(panel.getByRole('link', { name: 'People' })).toBeVisible();
+
+	await owner.click();
+	await expect(panel.getByRole('link', { name: 'People' })).toBeHidden();
+	await expect(panel.getByRole('link', { name: 'Warbands' })).toBeVisible();
+	await page.reload();
+	await expect(owner).toHaveAttribute('aria-expanded', 'false');
+	await expect(panel.getByRole('link', { name: 'People' })).toBeHidden();
+
+	// The keyboard unfolds it too: the header is a button.
+	await owner.focus();
+	await page.keyboard.press('Enter');
+	await expect(panel.getByRole('link', { name: 'People' })).toBeVisible();
+	await page.reload();
+	await expect(panel.getByRole('link', { name: 'People' })).toBeVisible();
+});
+
 test('shell: the panel starts closed on a laptop, opens, remembers, and Esc closes the menu before it', async ({
 	browser
 }) => {

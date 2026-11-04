@@ -5,8 +5,10 @@
   in 220 ms (off under reduced motion). `state` is 'auto' until the browser has run: then CSS opens it on a
   full-HD window, so the first paint already matches the width.
   Closed, it is `visibility: hidden`, which also takes its links out of the tab order.
+  The Owner and Campaigns groups fold under their header buttons; each browser remembers which are folded.
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { m } from '#lib/messages';
 	import {
@@ -26,9 +28,32 @@
 		animate: boolean;
 		areas: { path: string; label: string }[];
 	};
-	let { id, state, animate, areas }: Props = $props();
+	let { id, state: panelState, animate, areas }: Props = $props();
 
 	const path = $derived(page.url.pathname);
+
+	// Which groups are open: open by default, then as this browser last left them (a convenience, so storage
+	// that is blocked or empty just means open).
+	const KEY = 'fl-panel-groups';
+	let groups = $state({ owner: true, campaigns: true });
+	let loaded = $state(false);
+	onMount(() => {
+		try {
+			Object.assign(groups, JSON.parse(localStorage.getItem(KEY) ?? '{}'));
+		} catch {
+			/* storage unavailable: keep them open */
+		}
+		loaded = true;
+	});
+	$effect(() => {
+		const json = JSON.stringify(groups);
+		if (!loaded) return;
+		try {
+			localStorage.setItem(KEY, json);
+		} catch {
+			/* not remembered this time */
+		}
+	});
 	// The (app) layout loads them; pages outside it (help) have none, and the group still leads to the list.
 	const camps = $derived(
 		campaignLinks((page.data.campaigns as { id: string; name: string }[] | undefined) ?? [])
@@ -39,13 +64,20 @@
 		(link === '/owner' ? path === link : isUnder(path, link)) ? 'page' : undefined;
 </script>
 
-<div {id} class="side" class:animate data-state={state}>
+<div {id} class="side" class:animate data-state={panelState}>
 	<nav class="areas" aria-label={m.shell.areas}>
 		{#each areas as area (area.path)}
 			{#if area.path === '/owner'}
 				<!-- The owner area is a group of sections; its first section (People) is the area's own page. -->
-				<span class="area group" id="{id}-owner">{area.label}</span>
-				<ul aria-labelledby="{id}-owner">
+				<button
+					type="button"
+					class="area group"
+					id="{id}-owner"
+					aria-expanded={groups.owner}
+					aria-controls="{id}-owner-list"
+					onclick={() => (groups.owner = !groups.owner)}>{area.label}</button
+				>
+				<ul id="{id}-owner-list" aria-labelledby="{id}-owner" hidden={!groups.owner}>
 					{#each OWNER_SECTIONS as s (s.path)}
 						<li><a href={s.path} aria-current={currentSection(s.path)}>{s.label}</a></li>
 					{/each}
@@ -63,8 +95,15 @@
 		<a class="area" href={RULES_LINK.path} aria-current={current(RULES_LINK.path)}
 			>{RULES_LINK.label}</a
 		>
-		<span class="area group" id="{id}-campaigns">{m.campaigns.sidePanel}</span>
-		<ul aria-labelledby="{id}-campaigns">
+		<button
+			type="button"
+			class="area group"
+			id="{id}-campaigns"
+			aria-expanded={groups.campaigns}
+			aria-controls="{id}-campaigns-list"
+			onclick={() => (groups.campaigns = !groups.campaigns)}>{m.campaigns.sidePanel}</button
+		>
+		<ul id="{id}-campaigns-list" aria-labelledby="{id}-campaigns" hidden={!groups.campaigns}>
 			{#each camps.links as c (c.path)}
 				<li><a href={c.path} aria-current={current(c.path)}>{c.label}</a></li>
 			{/each}
@@ -172,8 +211,33 @@
 	}
 	.group {
 		display: block;
+		width: 100%;
 		padding: var(--space-2) var(--space-3) var(--space-1);
+		background: none;
+		border: 0;
 		color: var(--bone-dim);
+		font-family: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+	/* ▸ folded, ▾ open, like the app's other folding parts. */
+	.group::before {
+		content: '▸';
+		display: inline-block;
+		width: 1.1em;
+		color: var(--bone-faint);
+	}
+	.group[aria-expanded='true']::before {
+		content: '▾';
+	}
+	.group:hover {
+		color: var(--bone);
+	}
+	.group:focus-visible {
+		outline-offset: -2px;
+	}
+	ul[hidden] {
+		display: none;
 	}
 	.legal {
 		display: flex;

@@ -505,7 +505,7 @@ action:remove: Delete one of my warbands from the list, for good.
       }
     }
     route_app_warbands_id = page '/warbands/[id]' {
-      description 'actions: assign, buy, clearImage, copy, copyFighter, editFighter, fireteams, image, leave, locations, move, patch, recruit, remove, removeFighter, removeUpgrade, stashBuy, unassign, upgrade
+      description 'actions: assign, buy, clearImage, copy, copyFighter, editFighter, fireteams, image, leave, locations, move, patch, recruit, remove, removeFighter, removeUpgrade, rules, stashBuy, unassign, upgrade
 action:assign: Put this warband in my seat of a campaign; recheck moves it to the campaign\'s rules first.
   Who: the warband\'s owner, seated in that campaign.
   In: form seatForm { campaignId, recheck? }.
@@ -586,6 +586,11 @@ action:removeUpgrade: Take an upgrade off a fighter.
   In: form { fid, upgradeId }.
   Out: { op: \'removeUpgrade\', done: true, id: upgradeId }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict refused with its reasons.
+action:rules: Switch the warband\'s rules; fighters and kit stay, what the new rules lack shows as problems.
+  Who: the warband\'s owner, while it sits in no campaign seat.
+  In: form warbandRules { version, rules: "<core>+<expansion>…" }.
+  Out: { op: \'rules\', done: true }.
+  Errors: 400 invalid the faction or variant is not in those rules, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seated in a campaign or changed meanwhile.
 action:stashBuy: Buy kit into the stash.
   Who: the warband\'s owner.
   In: form { lineId }.
@@ -1765,6 +1770,19 @@ GET: Every entry the warband could recruit, with its price and whether it may no
         generated 'true'
         route '/api/v1/warbands/[id]/recruits'
         code ['app/src/routes/api/v1/warbands/[id]/recruits/+server.ts']
+      }
+    }
+    route_api_v1_warbands_id_rules = endpoint '/api/v1/warbands/[id]/rules' {
+      description 'PUT
+PUT: Switch a warband\'s rules (core version and expansions). Fighters and kit stay; what the new rules lack shows as problems. Not while it sits in a campaign seat: the campaign\'s rules apply there.
+  Who: the warband\'s owner.
+  In: path id; { version, rules: "<core>+<expansion>…" } or { version, rulesSet, rulesExpansions? }
+  Out: 200 Warband
+  Errors: 400 invalid the faction or variant is not in those rules, 401 unauthenticated, 403 forbidden not the owner, 404 not_found the warband or a rules set, 409 conflict seated in a campaign or changed meanwhile.'
+      metadata {
+        generated 'true'
+        route '/api/v1/warbands/[id]/rules'
+        code ['app/src/routes/api/v1/warbands/[id]/rules/+server.ts']
       }
     }
     route_api_v1_warbands_id_stash = endpoint '/api/v1/warbands/[id]/stash' {
@@ -3294,6 +3312,18 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_warbands_id_recruits -[imports]-> fl.app.shared {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_rules -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_rules -[imports]-> fl.app.services.warbandService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_warbands_id_rules -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 

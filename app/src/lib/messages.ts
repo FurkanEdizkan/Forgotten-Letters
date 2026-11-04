@@ -1033,6 +1033,17 @@ export const m = {
 				app: 'Forgotten Letters'
 			}
 		},
+		/** A stat something changes (bought armour, a skill, an injury): green when better, red when worse. */
+		statChange: {
+			was: (v: string) => `was ${v}`,
+			better: 'better',
+			worse: 'worse',
+			sources: (printed: string | null, from: { name: string; delta: number }[]) =>
+				[
+					`Printed ${printed ?? '—'}`,
+					...from.map((x) => `${x.name} ${x.delta > 0 ? '+' : ''}${x.delta}`)
+				].join(' · ')
+		},
 		builder: {
 			readOnly: (owner: string) =>
 				`${owner}’s warband. You see it as its campaign’s master; only they can change it.`,

@@ -4,7 +4,6 @@
  * Scars, promotion), the Arsenal, the next game's Threshold and field strength, and the problems the engine finds.
  */
 import {
-	armourOf,
 	buildModel,
 	campaign,
 	fighterCosts,
@@ -14,8 +13,10 @@ import {
 	priceOf,
 	rating,
 	refName,
+	statLine,
 	type Price
 } from '#lib/warbands';
+import { STATS } from '#lib/warbands/progression';
 import type { ApiFighter, ApiWarband, ApiWarbandCard } from '#lib/schemas/warbands';
 import type { Tx } from '../db';
 import * as repo from '../repos/warbands';
@@ -90,6 +91,7 @@ function fighterOut(l: Loaded, r: repo.FighterRow, cost: Price, marks: number[])
 	const unit = f.idx.units.get(r.unitId);
 	const x = l.state.fighters.find((y) => y.id === r.id) ?? toFighter(r);
 	const model = unit ? buildModel(l.state, f, { ...x, status: 'active' }) : null;
+	const line = model ? statLine(model, f) : null;
 	const item = (itemId: string, lineId: string | null, fixed: boolean) => {
 		const zero = { ducats: 0, glory: 0 };
 		return {
@@ -127,13 +129,20 @@ function fighterOut(l: Loaded, r: repo.FighterRow, cost: Price, marks: number[])
 		promotion: campaign.promotion(l.state, f, x),
 		image: r.image ? `/uploads/fighters/${r.id}?v=${r.version}` : null,
 		stats: {
-			movement: unit?.stats.movement ?? null,
-			ranged: unit?.stats.ranged ?? null,
-			melee: unit?.stats.melee ?? null,
-			// An entry with no Armour shows a dash, not a computed 0.
-			armour: unit?.stats.armour == null ? null : model ? armourOf(model, f) : unit.stats.armour,
+			movement: line?.movement.value ?? unit?.stats.movement ?? null,
+			ranged: line?.ranged.value ?? unit?.stats.ranged ?? null,
+			melee: line?.melee.value ?? unit?.stats.melee ?? null,
+			armour: line?.armour.value ?? unit?.stats.armour ?? null,
 			base: unit?.stats.base ?? null
 		},
+		statChanges: line
+			? STATS.filter((k) => line[k].from.length).map((k) => ({
+					stat: k,
+					printed: line[k].printed,
+					delta: line[k].delta,
+					from: line[k].from
+				}))
+			: [],
 		version: r.version
 	};
 }

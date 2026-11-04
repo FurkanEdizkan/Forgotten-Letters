@@ -12,6 +12,13 @@ export type Row = Table['rows'][number];
 export const STATS = ['movement', 'ranged', 'melee', 'armour'] as const;
 export type Stat = (typeof STATS)[number];
 
+/**
+ * Is a change good for the fighter: more Movement, Ranged and Melee are; Armour is a modifier on the Injury Rolls it
+ * suffers, so lower is. Null for no change.
+ */
+export const statTone = (stat: Stat, delta: number): 'better' | 'worse' | null =>
+	!delta ? null : (stat === 'armour' ? -delta : delta) > 0 ? 'better' : 'worse';
+
 /** Every result a table's dice can give, in order (a D66 as tens and units: 11…16, 21…66). */
 export function faces(dice = 'D6'): number[] {
 	const d = dice.toUpperCase();
@@ -100,6 +107,23 @@ const list = (v: unknown) =>
 const kwId = (k: string) =>
 	k.startsWith('kw:') ? k : `kw:${k.toLowerCase().trim().replace(/\s+/g, '-')}`;
 
+/** What one skill or injury does: its row, its effects, and its stat changes. */
+export function effectOf(ref: string, tables: Table[]) {
+	const hit = rowOf(ref, tables);
+	if (!hit) return null;
+	// "(healed)": a Promotion gave back the Experience; only the Battle Scar remains.
+	const all = hit.row.effects ?? {};
+	const effects = /\(healed\)\s*$/i.test(ref) ? { scar: all.scar } : all;
+	const s = get(effects, 'stats');
+	const stats = Object.fromEntries(
+		STATS.map((k) => [
+			k,
+			s && typeof s === 'object' ? Number((s as Record<string, unknown>)[k] ?? 0) || 0 : 0
+		])
+	) as Record<Stat, number>;
+	return { row: hit.row, effects, stats };
+}
+
 /** What a model's skills and injuries do: summed stat changes, keywords gained and lost, limits, and flags. */
 export function effectsOf(refs: string[], tables: Table[]) {
 	const stats: Record<Stat, number> = { movement: 0, ranged: 0, melee: 0, armour: 0 };
@@ -110,17 +134,13 @@ export function effectsOf(refs: string[], tables: Table[]) {
 	let noExperience = false;
 	let scars = 0;
 	for (const ref of refs) {
-		const hit = rowOf(ref, tables);
+		const hit = effectOf(ref, tables);
 		if (!hit) {
 			unmatched.push(ref);
 			continue;
 		}
-		// "(healed)": a Promotion gave back the Experience; only the Battle Scar remains.
-		const all = hit.row.effects ?? {};
-		const e = /\(healed\)\s*$/i.test(ref) ? { scar: all.scar } : all;
-		const s = get(e, 'stats');
-		if (s && typeof s === 'object')
-			for (const k of STATS) stats[k] += Number((s as Record<string, unknown>)[k] ?? 0) || 0;
+		const e = hit.effects;
+		for (const k of STATS) stats[k] += hit.stats[k];
 		for (const k of list(get(e, 'keywords'))) keywords.add(kwId(k));
 		for (const k of list(get(e, 'removeKeywords'))) removed.add(kwId(k));
 		const l = get(e, 'limits');

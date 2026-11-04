@@ -80,7 +80,10 @@ export const fighterOut = z
 		promotion: z.string().nullable(),
 		/** The image's address, or null for the empty slot. */
 		image: z.string().nullable(),
-		/** The profile the card and play mode show; armour counts bought armour and shields (revision 3, D7). */
+		/**
+		 * The profile the panel, card and play mode show, with what changes it applied: bought armour and shields, and
+		 * skills and injuries whose table row changes a stat.
+		 */
 		stats: z.object({
 			movement: z.string().nullable(),
 			ranged: z.string().nullable(),
@@ -88,6 +91,15 @@ export const fighterOut = z
 			armour: z.string().nullable(),
 			base: z.string().nullable()
 		}),
+		/** Each stat something changes: its printed value, the net change (0 when not summable), and the sources. */
+		statChanges: z.array(
+			z.object({
+				stat: z.enum(['movement', 'ranged', 'melee', 'armour']),
+				printed: z.string().nullable(),
+				delta: z.number().int(),
+				from: z.array(z.object({ name: z.string(), delta: z.number().int() }))
+			})
+		),
 		version: z.number().int()
 	})
 	.meta({ id: 'Fighter' });

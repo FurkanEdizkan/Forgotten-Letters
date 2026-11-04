@@ -47,7 +47,7 @@ describe('loading the rules folders', () => {
 		]);
 		expect(sets[2]!.counts).toMatchObject({
 			item: 7,
-			kw: 5,
+			kw: 6,
 			faction: 2,
 			unit: 4,
 			skill: 1,

@@ -1,5 +1,12 @@
 [
 	{
+		"id": "kw:injury-modifier",
+		"name": "Injury Modifier",
+		"kind": "effect",
+		"param": "X",
+		"text": "Add X to Injury Rolls against this model."
+	},
+	{
 		"id": "kw:steady",
 		"name": "Steady",
 		"kind": "tag",

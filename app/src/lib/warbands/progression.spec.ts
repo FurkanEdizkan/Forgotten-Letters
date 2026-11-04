@@ -1,5 +1,5 @@
 /**
- * Tables, skills, promotions, keywords and armour.
+ * Tables, skills, promotions, keywords, and the stats with what changes them.
  * Reused from archive/carcass-front-v1:app/src/lib/progression.spec.ts and keywords.spec.ts, rewritten to ids and the rules folder format.
  */
 import { describe, expect, it } from 'vitest';
@@ -14,10 +14,11 @@ import {
 	rollPromotions,
 	rowFor,
 	rowOf,
-	skillFrom
+	skillFrom,
+	statTone
 } from './progression.ts';
 import { keywordLabel, explain } from './keywords.ts';
-import { armourOf, buildModel } from './model.ts';
+import { buildModel, statLine } from './model.ts';
 import { resolveFaction } from './resolve.ts';
 import { core, U } from './fixtures/core.ts';
 import { fighter, wb } from './fixtures/build.ts';
@@ -124,7 +125,7 @@ describe('promotions', () => {
 	});
 });
 
-describe('keywords and armour', () => {
+describe('keywords', () => {
 	it('a keyword with its value, and NEGATE X explains X', () => {
 		expect(keywordLabel(core, { kw: 'kw:negate', value: 'kw:fear' })).toBe('NEGATE FEAR');
 		expect(keywordLabel(core, { kw: 'kw:blast', value: 3 })).toBe('BLAST 3"');
@@ -133,19 +134,82 @@ describe('keywords and armour', () => {
 		);
 		expect(explain(core, { kw: 'kw:nothing' })).toBeNull();
 	});
-	it('the Armour characteristic counts bought armour, not fixed kit', () => {
-		const f = resolveFaction(core, 'faction:order');
-		const t = fighter(U('trooper'), { kit: ['line:order/plate'] });
-		expect(armourOf(buildModel(wb([t]), f, t)!, f)).toBe('-2');
-		const h = fighter(U('hellknight'));
-		expect(armourOf(buildModel(wb([h]), f, h)!, f)).toBe('-1');
-	});
-	it('a profile with two Armour values keeps them as printed, bought armour or not', () => {
-		const f = resolveFaction(core, 'faction:order');
+});
+
+describe('stats with what changes them', () => {
+	// The invented Trooper with a full profile, and a shield that also lowers injuries.
+	const setUp = () => {
+		const f = resolveFaction(
+			{
+				...core,
+				tables: [...core.tables, skills, trauma],
+				items: core.items.map((i) =>
+					i.id === 'item:shield' ? { ...i, keywords: [{ kw: 'kw:injury-modifier', value: -1 }] } : i
+				)
+			},
+			'faction:order'
+		);
 		const unit = f.idx.units.get(U('trooper'))!;
-		const twin = { ...unit, stats: { ...unit.stats, armour: '-1/-2' } };
-		f.idx.units.set(U('trooper'), twin);
-		const t = fighter(U('trooper'), { kit: ['line:order/plate'] });
-		expect(armourOf(buildModel(wb([t]), f, t)!, f)).toBe('-1/-2');
+		f.idx.units.set(U('trooper'), {
+			...unit,
+			stats: { ...unit.stats, movement: '6"/Infantry', ranged: '-1 DICE', melee: '+1 DICE' }
+		});
+		return f;
+	};
+	const lineOf = (f: ReturnType<typeof setUp>, x: ReturnType<typeof fighter>) =>
+		statLine(buildModel(wb([x]), f, x)!, f);
+
+	it('bought armour and shields add their injury modifiers; fixed kit is already printed', () => {
+		const f = setUp();
+		const a = lineOf(f, fighter(U('trooper'), { kit: ['line:order/plate'] })).armour;
+		expect(a).toEqual({
+			printed: '0',
+			value: '-2',
+			delta: -2,
+			from: [{ name: 'Plate', delta: -2 }]
+		});
+		expect(statTone('armour', a.delta)).toBe('better');
+		const both = lineOf(
+			f,
+			fighter(U('trooper'), { kit: ['line:order/plate', 'line:order/shield'] })
+		);
+		expect(both.armour.value).toBe('-3');
+		expect(both.armour.from.map((s) => s.name)).toEqual(['Plate', 'Wall Shield']);
+		const h = lineOf(f, fighter(U('hellknight'))).armour;
+		expect(h).toEqual({ printed: '-1', value: '-1', delta: 0, from: [] });
+	});
+
+	it('skills and injuries whose row changes a stat; a healed injury no longer does', () => {
+		const f = setUp();
+		const fleet = lineOf(f, fighter(U('trooper'), { skills: ['Fleet'], injuries: ['Lame'] }));
+		// +1 and -1 Movement: printed again, no colour, both named.
+		expect(fleet.movement).toMatchObject({ value: '6"/Infantry', delta: 0 });
+		expect(fleet.movement.from).toEqual([
+			{ name: 'Fleet', delta: 1 },
+			{ name: 'Lame', delta: -1 }
+		]);
+		expect(statTone('movement', fleet.movement.delta)).toBeNull();
+		const lame = lineOf(f, fighter(U('trooper'), { injuries: ['Lame'] })).movement;
+		expect(lame).toMatchObject({ value: '5"/Infantry', delta: -1 });
+		expect(statTone('movement', lame.delta)).toBe('worse');
+		expect(lineOf(f, fighter(U('trooper'), { injuries: ['Lame (healed)'] })).movement.from).toEqual(
+			[]
+		);
+	});
+
+	it('a profile with two Armour values keeps them as printed, sources still named', () => {
+		const f = setUp();
+		const unit = f.idx.units.get(U('trooper'))!;
+		f.idx.units.set(U('trooper'), { ...unit, stats: { ...unit.stats, armour: '-1/-2' } });
+		const a = lineOf(f, fighter(U('trooper'), { kit: ['line:order/plate'] })).armour;
+		expect(a).toMatchObject({ printed: '-1/-2', value: '-1/-2', delta: 0 });
+		expect(a.from).toHaveLength(1);
+	});
+
+	it('better and worse: more Movement, Ranged and Melee; lower Armour', () => {
+		expect(statTone('ranged', 1)).toBe('better');
+		expect(statTone('melee', -1)).toBe('worse');
+		expect(statTone('armour', 1)).toBe('worse');
+		expect(statTone('armour', 0)).toBeNull();
 	});
 });

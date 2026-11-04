@@ -278,6 +278,24 @@ describe('the roster', () => {
 	});
 });
 
+describe('stats with what changes them', () => {
+	it('bought armour lowers Armour and is named; an unchanged fighter lists nothing', async () => {
+		const p = await player();
+		const w = await p.make();
+		await roster.recruit(p.ctx(), w.id, {
+			unitId: WARDEN,
+			kit: ['line:lantern-guild/quilted-coat']
+		});
+		const v = await roster.recruit(p.ctx(), w.id, { unitId: TORCH });
+		const [warden, torch] = v.fighters;
+		expect(warden!.stats).toMatchObject({ armour: '-1', movement: '6"' });
+		expect(warden!.statChanges).toEqual([
+			{ stat: 'armour', printed: '0', delta: -1, from: [{ name: 'Quilted Coat', delta: -1 }] }
+		]);
+		expect(torch!.statChanges).toEqual([]);
+	});
+});
+
 describe('export and import', () => {
 	it('writes the Trench Companion layout and reads it back', async () => {
 		const p = await player();

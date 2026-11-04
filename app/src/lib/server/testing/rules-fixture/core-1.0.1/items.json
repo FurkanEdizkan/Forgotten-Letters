@@ -37,7 +37,12 @@
 		"name": "Quilted Coat",
 		"category": "armour",
 		"type": "Armour",
-		"keywords": []
+		"keywords": [
+			{
+				"kw": "kw:injury-modifier",
+				"value": -1
+			}
+		]
 	},
 	{
 		"id": "item:pavise",

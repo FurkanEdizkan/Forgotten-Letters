@@ -3,6 +3,7 @@
   again when any of them changes. The canvas is the card that is saved; its text is also given to screen readers.
 -->
 <script lang="ts">
+	import { m } from '#lib/messages';
 	import { drawCard, fontsReady, loadImage } from './draw';
 	import { CARD_HEIGHT, CARD_WIDTH, type CardData } from './layout';
 
@@ -45,7 +46,11 @@
 <div class="sr">
 	<p>{card.name}</p>
 	<p>{card.subtitle}</p>
-	<p>{card.stats.map((s) => `${s.label} ${s.value}`).join(', ')}</p>
+	<p>
+		{card.stats
+			.map((s) => `${s.label} ${s.value}${s.was ? ` (${m.warbands.statChange.was(s.was)})` : ''}`)
+			.join(', ')}
+	</p>
 	{#each card.rows as r (r.label)}<p>{r.label}: {r.value}</p>{/each}
 </div>
 

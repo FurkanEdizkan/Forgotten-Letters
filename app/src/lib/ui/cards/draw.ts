@@ -25,7 +25,10 @@ const C = {
 	dim: '#b0a791',
 	faint: '#857b6c',
 	gold: '#c9a24a',
-	edge: '#0a0907'
+	edge: '#0a0907',
+	// Muted green and red that read on the dark stat boxes: a changed stat, better or worse.
+	better: '#9cbf5a',
+	worse: '#e06a5a'
 };
 // The family names of lib/ui/tokens.css, bundled with @fontsource.
 const DISPLAY = "'Pirata One', serif";
@@ -135,7 +138,7 @@ function body(ctx: CanvasRenderingContext2D, d: CardData, size: number, draw: bo
 				return ctx.measureText(s.value).width <= bw - 10;
 			});
 			ctx.font = `700 ${vs}px ${BODY}`;
-			ctx.fillStyle = C.bone;
+			ctx.fillStyle = s.tone ? C[s.tone] : C.bone;
 			ctx.fillText(s.value, bx + bw / 2, y + 54);
 			ctx.textAlign = 'left';
 		});

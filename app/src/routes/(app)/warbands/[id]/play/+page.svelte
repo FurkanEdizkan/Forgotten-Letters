@@ -10,6 +10,7 @@
 	import Button from '#lib/ui/Button.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import KeywordChip from '#lib/ui/rules/KeywordChip.svelte';
+	import StatBox from '#lib/ui/warbands/StatBox.svelte';
 	import { isActive } from '#lib/warbands/types';
 	import type { PageProps } from './$types';
 
@@ -63,14 +64,14 @@
 				{#if x.status !== 'active'}<span class="st">{b.statuses[x.status]}</span>{/if}
 			</header>
 			{#if unit}
-				<!-- The fighter's own profile: armour with bought armour and shields, as on its card (revision 3, D7). -->
+				<!-- The fighter's own profile with what changes it, as on its card: green better, red worse. -->
 				<div class="stats">
-					{#each STATS as s (s)}<div>
-							<span>{m.rules.stats[s]}</span><b class="data">{x.stats[s] ?? '—'}</b>
-						</div>{/each}
-					{#if x.stats.base}<div>
-							<span>{m.rules.stats.base}</span><b class="data">{x.stats.base}</b>
-						</div>{/if}
+					{#each STATS as s (s)}<StatBox
+							label={m.rules.stats[s]}
+							value={x.stats[s]}
+							change={x.statChanges.find((c) => c.stat === s)}
+						/>{/each}
+					{#if x.stats.base}<StatBox label={m.rules.stats.base} value={x.stats.base} />{/if}
 				</div>
 			{/if}
 			{#if x.keywords.length}
@@ -188,20 +189,6 @@
 	.stats {
 		display: flex;
 		gap: var(--space-2);
-	}
-	.stats div {
-		display: grid;
-		text-align: center;
-	}
-	.stats span {
-		color: var(--bone-faint);
-		font-size: var(--size-label);
-	}
-	.stats b {
-		min-width: 3.4rem;
-		padding: 2px var(--space-2);
-		background: var(--inset);
-		border: var(--border-hairline) solid var(--rule);
 	}
 	.chips {
 		display: flex;

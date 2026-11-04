@@ -5,6 +5,7 @@
  */
 import { CARD_HEIGHT, CARD_WIDTH } from '#lib/schemas/card-frames';
 import type { ApiFighter, ApiWarband } from '#lib/schemas/warbands';
+import { statTone } from '#lib/warbands/progression';
 
 export { CARD_HEIGHT, CARD_WIDTH };
 
@@ -23,7 +24,8 @@ export interface CardData {
 	name: string;
 	initials: string;
 	subtitle: string;
-	stats: { label: string; value: string }[];
+	/** `tone` colours a changed value (green better, red worse); `was` is the printed value it changed from. */
+	stats: { label: string; value: string; tone: 'better' | 'worse' | null; was: string | null }[];
 	rows: { label: string; value: string }[];
 	footer: string;
 }
@@ -86,10 +88,15 @@ export function cardData(w: ApiWarband, x: ApiFighter, t: CardLabels): CardData 
 		name,
 		initials: initialsOf(name),
 		subtitle: join([x.unitName, w.name, who, faction]),
-		stats: (['movement', 'ranged', 'melee', 'armour', 'base'] as const).map((k) => ({
-			label: t.stats[k],
-			value: s[k] ?? '—'
-		})),
+		stats: (['movement', 'ranged', 'melee', 'armour', 'base'] as const).map((k) => {
+			const c = k === 'base' ? undefined : x.statChanges.find((y) => y.stat === k);
+			return {
+				label: t.stats[k],
+				value: s[k] ?? '—',
+				tone: c ? statTone(c.stat, c.delta) : null,
+				was: c?.delta ? c.printed : null
+			};
+		}),
 		rows,
 		footer: join([w.seat?.campaignName ?? '', t.app])
 	};

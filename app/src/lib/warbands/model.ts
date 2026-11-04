@@ -8,7 +8,7 @@
  */
 import { limit as limitSchema } from '../rules/pack.ts';
 import type { ArmouryLine, Item, Limit, Stipulations, Unit, Upgrade } from '../rules/pack.ts';
-import { effectsOf } from './progression.ts';
+import { STATS, applyStat, effectOf, effectsOf, type Stat } from './progression.ts';
 import { isEl, type Resolved } from './resolve.ts';
 import { isActive, letters, switchesOf } from './types.ts';
 import type { Fighter, Options, WarbandState } from './types.ts';
@@ -193,23 +193,51 @@ export const negates = (m: Model, f: Resolved, kw: string) =>
 		(r) => r.kw === f.kw.negate && (r.value === kw || letters(String(r.value)) === letters(kw))
 	);
 
+export type StatLine = {
+	printed: string | null;
+	value: string | null;
+	delta: number;
+	/** What changes it, each with its own change. */
+	from: { name: string; delta: number }[];
+};
+
 /**
- * The Armour characteristic with the model's bought armour and shield: each brings its INJURY MODIFIER keyword's
- * value (fixed kit is already in the printed profile).
+ * Each characteristic with what changes it: bought armour and shields bring their INJURY MODIFIER (fixed kit is
+ * already in the printed profile), and skills and injuries whose table row changes a stat. A profile printing two
+ * values (one with and one without something) cannot be summed: it stays as printed, its sources still named.
  */
-export function armourOf(m: Model, f: Resolved): string {
-	// A profile printing two values (one with and one without something) cannot be summed: it shows as printed.
-	const printed = m.unit.stats.armour?.trim();
-	if (printed && !/^[+-]?\d+$/.test(printed)) return printed;
-	let v = Number.parseInt(printed ?? '0') || 0;
+export function statLine(m: Model, f: Resolved): Record<Stat, StatLine> {
+	const from = Object.fromEntries(STATS.map((k) => [k, [] as StatLine['from']])) as Record<
+		Stat,
+		StatLine['from']
+	>;
 	for (const c of m.items) {
 		if (c.fixed || (c.item.category !== 'armour' && c.item.category !== 'shield')) continue;
+		let n = 0;
 		for (const r of c.item.keywords) {
 			const k = f.idx.keywords.get(r.kw);
 			if (!k || !/injury\s*modifier/i.test(k.name)) continue;
-			const n = Number.parseInt(String(r.value ?? k.name.match(/[+-]\d+/)?.[0] ?? ''));
-			if (Number.isFinite(n)) v += n;
+			const v = Number.parseInt(String(r.value ?? k.name.match(/[+-]\d+/)?.[0] ?? ''));
+			if (Number.isFinite(v)) n += v;
 		}
+		if (n) from.armour.push({ name: c.item.name, delta: n });
 	}
-	return v > 0 ? `+${v}` : String(v);
+	for (const ref of m.skills) {
+		const e = effectOf(ref, f.set.tables);
+		if (e)
+			for (const k of STATS) if (e.stats[k]) from[k].push({ name: e.row.name, delta: e.stats[k] });
+	}
+	return Object.fromEntries(
+		STATS.map((k) => {
+			const printed = m.unit.stats[k]?.trim() || null;
+			const sum = from[k].reduce((s, x) => s + x.delta, 0);
+			// Only a single leading number is summed ('6"/Infantry', '+1 DICE', '-1'), not '-1/-2'.
+			const one = !!printed && /^[+-]?\d+\D*$/.test(printed);
+			const delta = one ? sum : 0;
+			return [
+				k,
+				{ printed, value: one ? applyStat(printed, delta)! : printed, delta, from: from[k] }
+			];
+		})
+	) as Record<Stat, StatLine>;
 }

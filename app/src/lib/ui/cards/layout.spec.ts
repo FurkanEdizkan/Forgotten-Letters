@@ -23,6 +23,7 @@ const fighter = (over: Partial<ApiFighter> = {}) =>
 		injuries: [],
 		keywords: [{ kw: 'kw:elite', name: 'Elite', derived: true }],
 		stats: { movement: '6"', ranged: '+1 DICE', melee: '+2 DICE', armour: '-1', base: '32mm' },
+		statChanges: [],
 		...over
 	}) as unknown as ApiFighter;
 
@@ -101,5 +102,28 @@ describe('text fitting', () => {
 	});
 	it('takes initials from the first two words', () => {
 		expect(initialsOf('lantern  warden of ash')).toBe('LW');
+	});
+});
+
+describe('stat changes on the card', () => {
+	it('colours a changed stat: Armour going down is better, Movement going down is worse', () => {
+		const d = cardData(
+			warband(),
+			fighter({
+				stats: { movement: '4"', ranged: '+1 DICE', melee: '+2 DICE', armour: '-3', base: '32mm' },
+				statChanges: [
+					{ stat: 'armour', printed: '-1', delta: -2, from: [{ name: 'Plate', delta: -2 }] },
+					{ stat: 'movement', printed: '6"', delta: -2, from: [{ name: 'Leg Wound', delta: -2 }] }
+				]
+			}),
+			t
+		);
+		expect(d.stats.map((s) => [s.value, s.tone, s.was])).toEqual([
+			['4"', 'worse', '6"'],
+			['+1 DICE', null, null],
+			['+2 DICE', null, null],
+			['-3', 'better', '-1'],
+			['32mm', null, null]
+		]);
 	});
 });

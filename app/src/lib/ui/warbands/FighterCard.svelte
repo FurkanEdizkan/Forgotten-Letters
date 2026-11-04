@@ -18,6 +18,7 @@
 	import FighterCampaign, { type PickTable } from './FighterCampaign.svelte';
 	import FighterKit from './FighterKit.svelte';
 	import FighterPicture from './FighterPicture.svelte';
+	import StatBox from './StatBox.svelte';
 
 	type Props = {
 		fighter: ApiFighter;
@@ -80,9 +81,11 @@
 				</dl>
 				{#if unit}
 					<div class="stats">
-						{#each STATS as s (s)}<div>
-								<span>{m.rules.stats[s]}</span><b class="data">{x.stats[s] ?? '—'}</b>
-							</div>{/each}
+						{#each STATS as s (s)}<StatBox
+								label={m.rules.stats[s]}
+								value={x.stats[s]}
+								change={x.statChanges.find((c) => c.stat === s)}
+							/>{/each}
 					</div>
 				{/if}
 				{#if x.keywords.length}
@@ -224,22 +227,6 @@
 	.stats {
 		display: flex;
 		gap: var(--space-2);
-	}
-	.stats div {
-		display: grid;
-		gap: 2px;
-		text-align: center;
-	}
-	.stats span {
-		color: var(--bone-faint);
-		font-size: var(--size-label);
-	}
-	.stats b {
-		min-width: 3.4rem;
-		padding: 2px var(--space-2);
-		background: var(--inset);
-		border: var(--border-hairline) solid var(--rule);
-		font-weight: 600;
 	}
 	.chips {
 		display: flex;

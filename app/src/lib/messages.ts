@@ -771,6 +771,13 @@ export const m = {
 	},
 
 	rules: {
+		/** The rules card over the builder and play mode. */
+		peek: {
+			close: 'Close',
+			loading: 'Loading…',
+			failed: 'This could not be loaded. The docs page may still have it.',
+			readInDocs: 'Read in the docs ↗'
+		},
 		keywordFrom: (from: string) => `From ${from}`,
 		title: 'Rules',
 		sidePanel: 'Rules',

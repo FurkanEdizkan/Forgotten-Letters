@@ -8,6 +8,7 @@
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { Unit } from '#lib/rules/pack';
 	import type { ApiFighter, ApiUpgrade } from '#lib/schemas/warbands';
@@ -71,7 +72,7 @@
 			<div class="facts">
 				<dl class="meta">
 					<dt>{b.entry}</dt>
-					<dd><a href={elementHref(view.set, x.unitId)}>{x.unitName}</a></dd>
+					<dd><a href={elementHref(view.set, x.unitId)} use:peek={x.unitId}>{x.unitName}</a></dd>
 					{#if unit}
 						<dt>{b.baseCost}</dt>
 						<dd class="data">{m.warbands.price(unit.cost, unit.currency)}</dd>

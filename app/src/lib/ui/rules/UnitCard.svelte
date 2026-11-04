@@ -1,14 +1,18 @@
-<!-- A unit as a card: name, category, cost and availability, stat boxes, keyword chips, abilities, fixed kit and upgrades. -->
+<!--
+  A unit as a card: name, category, cost and availability, stat boxes, keyword chips, abilities, fixed kit and
+  upgrades. `compact` (the rules card over the builder) drops the name's link.
+-->
 <script lang="ts">
 	import type { Unit } from '#lib/rules/pack';
+	import { peek } from './peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import { m } from '#lib/messages';
 	import KeywordChip from './KeywordChip.svelte';
 	import RuleText from './RuleText.svelte';
 	import { rulesView } from './context';
 
-	type Props = { unit: Unit };
-	let { unit }: Props = $props();
+	type Props = { unit: Unit; compact?: boolean };
+	let { unit, compact = false }: Props = $props();
 	const view = rulesView();
 	const STATS = ['movement', 'ranged', 'melee', 'armour', 'base'] as const;
 	const name = (id: string) => view.names[id]?.name ?? id;
@@ -16,7 +20,11 @@
 
 <article class="card" data-unit={unit.id}>
 	<header>
-		<h3><a href={elementHref(view.set, unit.id)}>{unit.name}</a></h3>
+		<h3>
+			{#if compact}{unit.name}{:else}<a href={elementHref(view.set, unit.id)} use:peek={unit.id}
+					>{unit.name}</a
+				>{/if}
+		</h3>
 		<span class="data">{m.rules.price(unit.cost, unit.currency)}</span>
 	</header>
 	<p class="dim">
@@ -44,16 +52,18 @@
 	{#if unit.kit.fixed?.length}
 		<p>
 			<span class="label">{m.rules.kit}</span>
-			{#each unit.kit.fixed as id, i (id)}{i ? ', ' : ' '}<a href={elementHref(view.set, id)}
-					>{name(id)}</a
+			{#each unit.kit.fixed as id, i (id)}{i ? ', ' : ' '}<a
+					href={elementHref(view.set, id)}
+					use:peek={id}>{name(id)}</a
 				>{/each}
 		</p>
 	{/if}
 	{#if unit.upgrades?.length}
 		<p>
 			<span class="label">{m.rules.upgrades}</span>
-			{#each unit.upgrades as id, i (id)}{i ? ', ' : ' '}<a href={elementHref(view.set, id)}
-					>{name(id)}</a
+			{#each unit.upgrades as id, i (id)}{i ? ', ' : ' '}<a
+					href={elementHref(view.set, id)}
+					use:peek={id}>{name(id)}</a
 				>{/each}
 		</p>
 	{/if}

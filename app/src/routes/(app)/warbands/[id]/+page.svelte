@@ -25,6 +25,7 @@
 	import StashPanel from '#lib/ui/warbands/StashPanel.svelte';
 	import WarbandPanel from '#lib/ui/warbands/WarbandPanel.svelte';
 	import WarbandSummary from '#lib/ui/warbands/WarbandSummary.svelte';
+	import RulesPeek from '#lib/ui/rules/RulesPeek.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -64,6 +65,9 @@
 			reset: false
 		});
 </script>
+
+<!-- Rules cards over the page: links to items, units and keywords open here instead of the docs. -->
+<RulesPeek />
 
 <svelte:head><title>{wb.name} · {w.title} · {m.app.name}</title></svelte:head>
 

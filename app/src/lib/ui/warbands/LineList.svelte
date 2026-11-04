@@ -7,6 +7,7 @@
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { Item } from '#lib/rules/pack';
 	import type { ApiArmouryLine } from '#lib/schemas/warbands';
@@ -42,7 +43,7 @@
 				{@const r = resultOf(form, op, l.lineId)}
 				<li class:off={!l.ok} data-line={l.lineId}>
 					<div class="what">
-						<a href={elementHref(view.set, l.itemId)}>{l.name}</a>
+						<a href={elementHref(view.set, l.itemId)} use:peek={l.itemId}>{l.name}</a>
 						{#each items[l.itemId]?.keywords ?? [] as k, i (`${i}:${k.kw}`)}<KeywordChip
 								id={k.kw}
 								value={k.value}

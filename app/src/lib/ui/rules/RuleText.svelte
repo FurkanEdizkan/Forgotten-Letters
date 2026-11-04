@@ -3,6 +3,7 @@
   become keyword chips with their pop-up. Built from the parsed tree (lib/rules/text), never as HTML.
 -->
 <script lang="ts">
+	import { peek } from './peek.svelte';
 	import { blocks, elementHref, type Inline } from '#lib/rules/text';
 	import { typeOf } from '#lib/rules/pack';
 	import KeywordChip from './KeywordChip.svelte';
@@ -19,7 +20,8 @@
 )}{#each list as r, i (i)}{#if r.t === 'text'}{r.text}{:else if typeOf(r.id) === 'kw'}<KeywordChip
 				id={r.id}
 				label={r.label}
-			/>{:else}<a href={elementHref(view.set, r.id)}>{r.label ?? view.names[r.id]?.name ?? r.id}</a
+			/>{:else}<a href={elementHref(view.set, r.id)} use:peek={r.id}
+				>{r.label ?? view.names[r.id]?.name ?? r.id}</a
 			>{/if}{/each}{/snippet}
 
 <div class="text">

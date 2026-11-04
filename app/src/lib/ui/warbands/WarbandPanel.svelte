@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { ApiWarband } from '#lib/schemas/warbands';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
@@ -33,7 +34,9 @@
 	<div class="pnb">
 		<dl class="facts">
 			<dt>{b.faction}</dt>
-			<dd><a href={elementHref(view.set, wb.factionId)}>{wb.factionName}</a></dd>
+			<dd>
+				<a href={elementHref(view.set, wb.factionId)} use:peek={wb.factionId}>{wb.factionName}</a>
+			</dd>
 			{#if wb.variantName}<dt>{b.variant}</dt>
 				<dd>{wb.variantName}</dd>{/if}
 			{#if wb.dedicationName}<dt>{b.dedication}</dt>

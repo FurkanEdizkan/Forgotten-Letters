@@ -1,4 +1,7 @@
-<!-- A Battlekit item: name, range, type and category, its keyword chips, its text and the armouries that sell it. -->
+<!--
+  A Battlekit item: name, range, type and category, its keyword chips, its text and the armouries that sell it.
+  `compact` (the rules card over the builder) drops the name's link and the armouries.
+-->
 <script lang="ts">
 	import type { Item } from '#lib/rules/pack';
 	import type { Ref } from '#lib/rules/views';
@@ -8,13 +11,15 @@
 	import RuleText from './RuleText.svelte';
 	import { rulesView } from './context';
 
-	type Props = { item: Item; takenBy: Ref[] };
-	let { item, takenBy }: Props = $props();
+	type Props = { item: Item; takenBy: Ref[]; compact?: boolean };
+	let { item, takenBy, compact = false }: Props = $props();
 	const view = rulesView();
 </script>
 
 <article class="card" data-item={item.id}>
-	<h3><a href={elementHref(view.set, item.id)}>{item.name}</a></h3>
+	<h3>
+		{#if compact}{item.name}{:else}<a href={elementHref(view.set, item.id)}>{item.name}</a>{/if}
+	</h3>
 	<dl class="meta">
 		{#if item.range}<div>
 				<dt>{m.rules.range}</dt>
@@ -35,16 +40,18 @@
 		</div>
 	{/if}
 	{#if item.text}<RuleText body={item.text} />{/if}
-	<p class="taken">
-		<span class="label">{m.rules.takenBy}</span>
-		{#if takenBy.length}
-			{#each takenBy as t, i (`${i}:${t.id}`)}{i ? ', ' : ' '}<a href={elementHref(view.set, t.id)}
-					>{t.name}</a
-				>{/each}
-		{:else}
-			<span class="dim">{m.rules.nobody}</span>
-		{/if}
-	</p>
+	{#if !compact}
+		<p class="taken">
+			<span class="label">{m.rules.takenBy}</span>
+			{#if takenBy.length}
+				{#each takenBy as t, i (`${i}:${t.id}`)}{i ? ', ' : ' '}<a
+						href={elementHref(view.set, t.id)}>{t.name}</a
+					>{/each}
+			{:else}
+				<span class="dim">{m.rules.nobody}</span>
+			{/if}
+		</p>
+	{/if}
 </article>
 
 <style>

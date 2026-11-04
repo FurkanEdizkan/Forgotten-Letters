@@ -8,6 +8,7 @@
 	import { enhance } from '#lib/ui/enhance';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { ApiWarband } from '#lib/schemas/warbands';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
@@ -103,7 +104,7 @@
 			</div>
 			{#each g.list as s, i (`${i}:${s.lineId}`)}
 				<div class="it" data-stash={s.lineId}>
-					<a href={elementHref(view.set, s.itemId)}>{s.name}</a>
+					<a href={elementHref(view.set, s.itemId)} use:peek={s.itemId}>{s.name}</a>
 					<span class="c data">{m.warbands.money(s.price.ducats, s.price.glory)}</span>
 					{#if wb.canEdit}
 						<ItemMenu

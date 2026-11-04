@@ -11,6 +11,7 @@
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import KeywordChip from '#lib/ui/rules/KeywordChip.svelte';
 	import StatBox from '#lib/ui/warbands/StatBox.svelte';
+	import RulesPeek from '#lib/ui/rules/RulesPeek.svelte';
 	import { isActive } from '#lib/warbands/types';
 	import type { PageProps } from './$types';
 
@@ -33,6 +34,9 @@
 	const on = $derived(wb.fighters.filter((x) => isActive(x)));
 	const weapon = (c: string) => c === 'ranged' || c === 'melee' || c === 'grenade';
 </script>
+
+<!-- Rules cards over the page: links to items, units and keywords open here instead of the docs. -->
+<RulesPeek />
 
 <svelte:head><title>{wb.name} · {p.title} · {m.app.name}</title></svelte:head>
 

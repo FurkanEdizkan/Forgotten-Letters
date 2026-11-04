@@ -3,12 +3,14 @@
   the design's six), the name in Title Case and its value. It links to the keyword's page; hovering or focusing it
   shows the keyword's text in a pop-up, and Escape closes it. Links inside that text read as their names. A keyword
   a model has from something else (kit, a grant, a fireteam) is `from` that source: its edge is dashed and the pop-up
-  says where it comes from.
+  says where it comes from. Where a page shows rules cards (the builder, play mode), the card replaces the pop-up and a
+  click opens it instead of the keyword's page.
 -->
 <script lang="ts">
 	import { m } from '#lib/messages';
 	import { elementHref, inline } from '#lib/rules/text';
 	import { rulesView } from './context';
+	import { peek, peekState } from './peek.svelte';
 
 	type Props = { id: string; value?: string | number; label?: string | null; from?: string };
 	let { id, value, label = null, from }: Props = $props();
@@ -43,7 +45,7 @@
 <span
 	class="kw"
 	role="presentation"
-	onmouseenter={() => (open = true)}
+	onmouseenter={() => (open = !peekState.host)}
 	onmouseleave={() => (open = false)}
 >
 	<a
@@ -51,7 +53,8 @@
 		class:from={!!from}
 		href={elementHref(view.set, id)}
 		aria-describedby={text || from ? `${uid}-pop` : undefined}
-		onfocus={() => (open = true)}
+		use:peek={id}
+		onfocus={() => (open = !peekState.host)}
 		onblur={() => (open = false)}>{shown !== undefined ? `${bare} ${shown}` : name}</a
 	>
 	{#if text || from}

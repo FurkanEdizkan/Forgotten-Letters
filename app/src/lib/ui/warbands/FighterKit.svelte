@@ -7,6 +7,7 @@
 	import { enhance } from '#lib/ui/enhance';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { Unit } from '#lib/rules/pack';
 	import type { ApiFighter, ApiUpgrade } from '#lib/schemas/warbands';
@@ -96,7 +97,7 @@
 	</div>
 	{#each list as k, i (`${i}:${k.lineId ?? k.itemId}`)}
 		<div class="it" data-kit={k.lineId ?? k.itemId}>
-			<a href={elementHref(view.set, k.itemId)}>{k.name}</a>
+			<a href={elementHref(view.set, k.itemId)} use:peek={k.itemId}>{k.name}</a>
 			{#if k.fixed}<span class="dim">{b.fixed}</span>{/if}
 			<span class="c data">{k.fixed ? '' : m.warbands.money(k.price.ducats, k.price.glory)}</span>
 			{#if canEdit && k.lineId && !k.fixed}

@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
+	import { peek } from '#lib/ui/rules/peek.svelte';
 	import { elementHref } from '#lib/rules/text';
 	import type { ApiRecruit } from '#lib/schemas/warbands';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
@@ -39,7 +40,7 @@
 		{#each units as u (u.unitId)}
 			<li class:off={!u.ok} data-unit={u.unitId}>
 				<div>
-					<a href={elementHref(view.set, u.unitId)}>{u.name}</a>
+					<a href={elementHref(view.set, u.unitId)} use:peek={u.unitId}>{u.name}</a>
 					<span class="dim small"
 						>{b.groups[u.category]} · {u.max != null
 							? b.usedOf(u.taken, u.max)

@@ -125,6 +125,9 @@ function find<T extends { name: string }>(list: T[], ...names: string[]): T | un
 			if (s > score) [best, score] = [x, s];
 		}
 	if (score >= 0.85) return best;
+	// Singular and plural are the same entry ("Janissary" / "Janissaries").
+	const plural = list.find((x) => names.some((n) => sameWords(x.name, n)));
+	if (plural) return plural;
 	// TC sometimes adds a word ("Yüzbaşı" → "Yüzbaşı Captain"): one name that starts the other.
 	return list.find(
 		(x) =>
@@ -135,6 +138,15 @@ function find<T extends { name: string }>(list: T[], ...names: string[]): T | un
 /** A name for comparing: transliterated, ACTION and brackets dropped, letters and digits only. */
 function key(s: string) {
 	return slug(stripAction(s)).replace(/-/g, '');
+}
+/** The same name but for a plural word ("Blessings of the Serpent Moon" / "Blessing of …"). */
+function sameWords(a: string, b: string) {
+	const one = (s: string) =>
+		slug(stripAction(s))
+			.split('-')
+			.map((w) => w.replace(/ies$/, 'y').replace(/(?<!s)s$/, ''))
+			.join('');
+	return one(a) === one(b);
 }
 const ownerPath = (owner: string) => owner.replace(/^(faction|variant):/, '');
 
@@ -440,29 +452,53 @@ const TAGS = new Set(['kw_elite', 'kw_mercenary']);
 const fmtDice = (n: number) => `${n >= 0 ? '+' : ''}${n} DICE`;
 const isElite = (kws: string[]) => kws.includes('kw_elite');
 
+/** A Preview variant model's base model (`md_desecratedsaint_lust` → `md_desecratedsaint`). */
+const PMV = byId(PRE.modelvariantdata);
+const baseModel = (modelId: string): string | undefined => PMV.get(modelId)?.base_id;
 /** Every unit of ours that is this TC model, in any group that offers it. */
 function unitsOfModel(modelId: string): Set<string> {
 	const ids = new Set<string>();
 	const names = [P.model(modelId)?.name, D.model(modelId)?.name].filter(Boolean) as string[];
+	// A variant model new in Preview ("Desecrated Saint of Lust") is our variant's copy of the base entry.
+	const bm = baseModel(modelId);
+	const baseName = bm ? (P.model(bm)?.name ?? D.model(bm)?.name) : undefined;
 	for (const r of [...P.modelRels, ...D.modelRels]) {
 		if (r.model_id !== modelId) continue;
 		for (const tc of r.faction_id as string[]) {
 			const g = groups.get(tc);
 			if (!g || g.created) continue;
 			const f = resolved(g);
-			const u = find([...f.units, ...f.mercenaries], ...names);
+			const all = [...f.units, ...f.mercenaries];
+			// By the base's name only onto the variant's own copy: never a faction entry or a shared Mercenary.
+			const viaBase = baseName ? find(all, baseName) : undefined;
+			const u =
+				find(all, ...names) ?? (viaBase && viaBase.owner === g.variant ? viaBase : undefined);
 			if (u) ids.add(u.id);
 		}
 	}
 	return ids;
 }
 for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
-	const a = D.model(id);
+	// A variant model new in Preview is compared with its base model as Official had it.
+	const bm = baseModel(id);
+	const a = D.model(id) ?? (bm ? D.model(bm) : null);
 	const b = P.model(id);
 	if (!a || !b) continue;
 	const statDelta = (['movement', 'ranged', 'melee', 'armour'] as const).filter(
 		(s) => (a.stats[s] ?? 0) !== (b.stats[s] ?? 0)
 	);
+	const flies = (a.stats.movetype ?? 0) !== (b.stats.movetype ?? 0);
+	// Fixed kit: TC's mandatory equipment for the model, Official (or its base's) against Preview.
+	const kitOf = (V: ReturnType<typeof view>, mid: string) =>
+		new Set(
+			V.kitRels
+				.filter((r) => (r.model_id as string[]).includes(mid))
+				.flatMap((r) => (r.mandatory_equipment ?? []) as string[])
+		);
+	const kitA = kitOf(D, D.model(id) ? id : (bm ?? id));
+	const kitB = kitOf(P, id);
+	const addKit = [...kitB].filter((e) => !kitA.has(e));
+	const delKit = [...kitA].filter((e) => !kitB.has(e));
 	const baseChanged = (a.stats.base?.[0] ?? null) !== (b.stats.base?.[0] ?? null);
 	const addK = b.kws.filter((k) => !a.kws.includes(k) && !TAGS.has(k));
 	const delK = a.kws.filter((k) => !b.kws.includes(k) && !TAGS.has(k));
@@ -475,6 +511,9 @@ for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
 	);
 	if (
 		!statDelta.length &&
+		!flies &&
+		!addKit.length &&
+		!delKit.length &&
 		!baseChanged &&
 		!addK.length &&
 		!delK.length &&
@@ -484,6 +523,9 @@ for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
 	)
 		continue;
 	const targets = unitsOfModel(id);
+	// A model new in Preview differs from its base only where its variant does: never change a shared entry for it.
+	if (!D.model(id))
+		for (const uid of targets) if (!unitOf(uid)?.owner.startsWith('variant:')) targets.delete(uid);
 	if (!targets.size) {
 		note(`model change skipped (no unit of ours): ${b.name}`);
 		continue;
@@ -508,7 +550,23 @@ for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
 					u.stats[s] = fmtDice(Number.parseInt(u.stats[s] ?? '0'));
 			}
 		}
+		if (flies && u.stats.movement)
+			u.stats.movement = u.stats.movement.replace(
+				/\/\w+$/,
+				b.stats.movetype === 1 ? '/Flying' : '/Infantry'
+			);
 		if (baseChanged && b.stats.base?.[0]) u.stats.base = `${b.stats.base[0]}mm`;
+		if (addKit.length || delKit.length) {
+			const drop = new Set(delKit.map(ourItem).filter(Boolean));
+			const fixed = (u.kit.fixed ?? []).filter((x) => !drop.has(x));
+			for (const e of addKit) {
+				const it = ourItem(e);
+				if (!it) note(`${uid}: fixed kit to add not found: ${P.eq.get(e)?.name ?? e}`);
+				else if (!fixed.includes(it)) fixed.push(it);
+			}
+			if (fixed.length) u.kit = { ...u.kit, fixed };
+			else delete u.kit.fixed;
+		}
 		for (const k of addK) {
 			const kid = ourKw(k);
 			if (kid && !u.keywords.some((x) => x.kw === kid)) u.keywords.push({ kw: kid });
@@ -520,7 +578,7 @@ for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
 		for (const x of delA) {
 			const nm = (D.ab.get(x) ?? P.ab.get(x))?.name ?? x;
 			const before = u.abilities.length;
-			u.abilities = u.abilities.filter((ab) => !same(ab.name, nm));
+			u.abilities = u.abilities.filter((ab) => !sameWords(ab.name, nm));
 			if (u.abilities.length === before) note(`${uid}: ability to remove not found: ${nm}`);
 		}
 		for (const x of renamed) {
@@ -539,7 +597,7 @@ for (const id of new Set([...P.modelRels.map((r) => r.model_id as string)])) {
 				u.abilities.push({ name: nm, text: abilityText(x, nm) });
 		}
 		note(
-			`unit profile: ${uid} (${[...statDelta, baseChanged && 'base', addK.length && 'keywords+', delK.length && 'keywords-', addA.length && 'abilities+', delA.length && 'abilities-'].filter(Boolean).join(', ')})`
+			`unit profile: ${uid} (${[...statDelta, flies && 'movetype', (addKit.length || delKit.length) && 'fixed kit', baseChanged && 'base', addK.length && 'keywords+', delK.length && 'keywords-', addA.length && 'abilities+', delA.length && 'abilities-'].filter(Boolean).join(', ')})`
 		);
 	}
 }
@@ -591,8 +649,9 @@ function newUnit(modelId: string, g: Group, o: Offer): Unit {
 		currency: o.currency,
 		stats: {
 			movement: `${b.stats.movement ?? 6}"/${b.stats.movetype === 1 ? 'Flying' : 'Infantry'}`,
-			ranged: fmtDice(b.stats.ranged ?? 0),
-			melee: fmtDice(b.stats.melee ?? 0),
+			// No value in TC (a dog's Ranged) prints as a dash, as the books do.
+			ranged: b.stats.ranged == null ? '-' : fmtDice(b.stats.ranged),
+			melee: b.stats.melee == null ? '-' : fmtDice(b.stats.melee),
 			armour: String((b.stats.armour ?? 0) + kitArmour),
 			...(b.stats.base?.[0] ? { base: `${b.stats.base[0]}mm` } : {})
 		},
@@ -633,9 +692,21 @@ function variantCopy(u: Unit, variant: string, o: Offer): Unit {
 }
 // Factions first: a variant then only differs where it really does.
 const order = [...groups.values()].sort((a, b) => Number(!!a.variant) - Number(!!b.variant));
+/**
+ * What Official offered a group: its own rows; for a book variant Official TC lacks (the Sins were a warband option
+ * there, on the faction's roster), the faction's rows. Null for a variant made here.
+ */
+function official<T>(of: (V: ReturnType<typeof view>, tc: string) => Map<string, T>, g: Group) {
+	if (g.created) return null;
+	if (g.variant && !D.fv.has(g.tc)) {
+		const tc = Object.keys(OURFAC).find((k) => OURFAC[k] === g.faction);
+		return tc ? of(D, tc) : null;
+	}
+	return of(D, g.tc);
+}
 for (const g of order) {
 	const pre = offers(P, g.tc);
-	const def = g.created ? null : offers(D, g.tc);
+	const def = official(offers, g);
 	const f = resolved(g);
 	const ours = [...f.units, ...f.mercenaries];
 	for (const [mid, o] of pre) {
@@ -720,23 +791,32 @@ const lineOffers = (V: ReturnType<typeof view>, tcGroup: string) => {
 		string,
 		{ cost: number; currency: 'ducats' | 'glory'; limit?: number; rel: Tc }
 	>();
+	// A row only some models may buy from (Red Brigade's dogs' grenades) is not imported: the open row wins.
+	const restricted = (r: Tc) => !!r.contextdata?.faction_eq_restriction;
 	for (const r of V.eqRels)
-		if ((r.faction_id as string[]).includes(tcGroup))
-			m.set(`${r.equipment_id}|${r.costtype}`, {
+		if ((r.faction_id as string[]).includes(tcGroup)) {
+			const k = `${r.equipment_id}|${r.costtype}`;
+			const had = m.get(k);
+			if (had && restricted(r) && !restricted(had.rel)) continue;
+			m.set(k, {
 				cost: r.cost,
 				currency: r.costtype === 1 ? 'glory' : 'ducats',
 				...(r.limit > 0 ? { limit: r.limit } : {}),
 				rel: r
 			});
+		}
 	return m;
 };
+/** `<faction>|<equipment>|<costtype>` the faction no longer sells: a variant that still does needs its own line. */
+const withdrawnFromFaction = new Set<string>();
 for (const g of order) {
 	const pre = lineOffers(P, g.tc);
-	const def = g.created ? null : lineOffers(D, g.tc);
+	const def = official(lineOffers, g);
 	const owner = g.variant ?? g.faction;
 	for (const [k, o] of pre) {
 		const was = def?.get(k);
-		if (was && was.cost === o.cost && was.limit === o.limit) continue;
+		const lost = !!g.variant && withdrawnFromFaction.has(`${g.faction}|${k}`);
+		if (was && was.cost === o.cost && was.limit === o.limit && !lost) continue;
 		const eqId = k.split('|')[0]!;
 		const f = resolved(g);
 		const e = P.eq.get(eqId);
@@ -746,19 +826,32 @@ for (const g of order) {
 			continue;
 		}
 		const names = [e.name, D.eq.get(eqId)?.name].filter(Boolean) as string[];
-		const hit = f.lines.find(
-			(l) =>
-				l.currency === o.currency &&
-				names.some((n) => {
-					const it = itemById(l.item);
-					return !!it && (same(it.name, n) || sim(it.name, n) >= 0.85);
-				})
-		);
+		const itemIs = (l: ArmouryLine, fuzzy: boolean) =>
+			l.currency === o.currency &&
+			names.some((n) => {
+				const it = itemById(l.item);
+				if (!it) return false;
+				if (same(it.name, n)) return true;
+				// Spelling only: one name inside the other is another item (Machine Gun / Submachine Gun).
+				const [a, b] = [key(it.name), key(n)];
+				return fuzzy && !a.includes(b) && !b.includes(a) && sim(it.name, n) >= 0.85;
+			});
+		const hit = f.lines.find((l) => itemIs(l, false)) ?? f.lines.find((l) => itemIs(l, true));
 		if (hit) {
 			if (hit.cost === o.cost && hit.limit === o.limit) continue;
 			let target: ArmouryLine;
-			if (!g.variant || hit.owner === g.variant || !hit.owner.startsWith('faction:'))
-				target = touchLine(hit.id);
+			if (!/^(faction|variant):/.test(hit.owner)) {
+				// A shared table's line (Exploration, a Glory table): the group gets its own line, the table stays.
+				const id = `line:${ownerPath(owner)}:${hit.item.replace(/^item:/, '')}${o.currency === 'glory' ? '-glory' : ''}`;
+				target = out.lines.get(id) ?? { ...clone(hit), id, owner };
+				// Bought from the armoury, not found exploring.
+				if (target.stipulations?.explorationOnly) {
+					target.stipulations = { ...target.stipulations };
+					delete target.stipulations.explorationOnly;
+					if (!Object.keys(target.stipulations).length) delete target.stipulations;
+				}
+				out.lines.set(id, target);
+			} else if (!g.variant || hit.owner === g.variant) target = touchLine(hit.id);
 			else {
 				const id = `line:${ownerPath(g.variant)}:${hit.item.replace(/^item:/, '')}`;
 				target = out.lines.get(id) ?? { ...clone(hit), id, owner: g.variant };
@@ -797,6 +890,31 @@ for (const g of order) {
 			);
 		}
 	}
+	// Sold in Official, not in Preview (only where the group has Official rows of its own): withdrawn.
+	if (def && !g.created && !(g.variant && !D.fv.has(g.tc)))
+		for (const [k, o] of def) {
+			if (pre.has(k)) continue;
+			const e = D.eq.get(k.split('|')[0]!);
+			const f = resolved(g);
+			const line =
+				e &&
+				f.lines.find(
+					(l) =>
+						l.currency === o.currency &&
+						/^(faction|variant):/.test(l.owner) &&
+						same(itemById(l.item)?.name ?? '', e.name)
+				);
+			if (!line) continue;
+			if (g.variant) {
+				const v = touchVariant(g.variant);
+				v.excludes = [...new Set([...(v.excludes ?? []), line.id])];
+			} else {
+				const fa = touchFaction(g.faction);
+				fa.excluded = [...new Set([...(fa.excluded ?? []), line.id])];
+				withdrawnFromFaction.add(`${g.faction}|${k}`);
+			}
+			note(`line withdrawn: ${line.id} from ${owner}`);
+		}
 	// A variant we made: drop the faction's lines it does not list.
 	if (g.created && g.variant) {
 		const f = resolved({ ...g, variant: undefined, created: false });
@@ -847,12 +965,17 @@ for (const r of P.upRels) {
 				continue;
 			}
 			const id = `upgrade:${ownerPath(u.owner)}/${slug(up.name)}`;
+			// An upgrade without `for` is open to every unit in the engine (checks.ts upgradeFor): name its units.
+			const made = out.upgrades.get(id);
+			if (made && !base.upgrades.some((x) => x.id === id))
+				made.for = [...new Set([...(made.for ?? []), uid])];
 			if (!out.upgrades.has(id) && !base.upgrades.some((x) => x.id === id)) {
 				const t = textOfId.get(up.id);
 				out.upgrades.set(id, {
 					id,
 					owner: u.owner,
 					name: up.name,
+					for: [uid],
 					cost: r.cost,
 					currency,
 					...(r.warband_limit > 0 ? { max: r.warband_limit } : {}),

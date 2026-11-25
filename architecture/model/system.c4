@@ -2,7 +2,7 @@
 // Layers point one way: web (routes) -> services -> repos -> tables; infra and the shared lib are used by all.
 model {
   owner = actor 'Owner' {
-    description 'Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.'
+    description 'Runs the copy for the group; there is exactly one: invites admins and users, changes roles between Admin and User, hands ownership on, disables accounts, resets passwords, keeps backups, and may delete any campaign or hand over its CM role.'
   }
   admin = actor 'Admin (Campaign Master)' {
     description 'Runs campaigns; invites players. Can also play.'
@@ -137,7 +137,7 @@ model {
         }
         peopleService = module 'People' {
           #server-only
-          description 'Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.'
+          description 'Lists accounts by role, changes roles between Admin and User (never the Owner), hands ownership on (one Owner, transfer only, with the password), disables, resets and anonymises accounts, display names.'
           metadata {
             code 'app/src/lib/server/services/people{,.spec,.db.spec}.ts'
           }
@@ -151,14 +151,14 @@ model {
         }
         auditService = module 'Audit log' {
           #server-only
-          description 'Records sign-ins, invites, role changes, disables and resets; the owner reads it.'
+          description 'Records sign-ins, invites, role changes, ownership transfers, disables and resets; the Owner reads it.'
           metadata {
             code 'app/src/lib/server/services/audit{,.spec,.db.spec}.ts'
           }
         }
         campaignService = module 'Campaigns' {
           #server-only
-          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.'
+          description 'Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete (the CM or the Owner) and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or the Owner, who may also take it). The Owner can read any campaign and open its Manage page (Settings, read-only); seeing gives no other rights.'
           metadata {
             code 'app/src/lib/server/services/campaigns{,.spec,.db.spec}.ts'
           }

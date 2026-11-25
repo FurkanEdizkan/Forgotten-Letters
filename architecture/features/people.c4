@@ -1,22 +1,54 @@
-// Feature: managing people. Code: routes/(app)/owner, api/v1/users, services/people.
+// Feature: managing people and handing ownership on. Code: routes ((app)/owner; api/v1/users; api/v1/owner/transfer), services/people.
 views {
   dynamic view managing_people {
     title 'Managing people'
     description '''
-      **The owner keeps the group's accounts in order without email.**
+      **The Owner keeps the group's accounts in order without email.**
 
       **Decisions**
-      - Owners see every account; admins see the users they invited.
-      - Changing a role or disabling an account never removes the last owner.
+      - The Owner sees every account; admins see the users they invited.
+      - A copy has exactly one Owner (decision 80): a partial unique index on auth.users refuses a second one. The
+        role list offers only Admin and User ("Campaign Master" and "Player"); the Owner's row has no role list, no
+        Disable and no Anonymise, and changing, disabling or anonymising the Owner is refused (409). Ownership moves
+        only by Transfer ownership (owner_transfer).
       - Disabling ends every session at once; history stays.
       - A password reset sets a readable temporary password that must be changed at the next sign-in.
       - A disabled account can be anonymised: its display name becomes "Former member".
       - Every change is written to the audit log in the same transaction.
     '''
-    owner -> fl.app.web.areas 'change role, disable, reset, anonymise'
+    owner -> fl.app.web.areas 'change role (Admin or User), disable, reset, anonymise'
     fl.app.web.areas -> fl.app.services.peopleService 'apply'
-    fl.app.services.peopleService -> fl.app.repos 'update user (version checked)'
+    fl.app.services.peopleService -> fl.app.repos 'update user (version checked); never the Owner'
     fl.app.services.peopleService -> fl.app.services.authService 'end sessions'
     fl.app.services.peopleService -> fl.app.services.auditService 'record change'
+  }
+
+  dynamic view owner_transfer {
+    title 'Transfer ownership'
+    description '''
+      **The Owner hands the copy to another person; there is only ever one Owner, and the old one becomes an Admin.**
+
+      **Decisions**
+      - Owner → People has a Transfer ownership panel, for the Owner only: pick an active account other than
+        yours, type your password, then confirm in place; the confirm names both people ("<name> becomes the
+        Owner. You become a Campaign Master."). POST /api/v1/owner/transfer takes the same { to, password, version }.
+      - The password is checked like changing your own (verifyPassword); a wrong one is a field error on password
+        and counts towards the sign-in limit (signInLimiter), which answers 429 when it is reached.
+      - The target must be another account, active (not disabled, not anonymised), at the row version the form
+        showed; otherwise 409. A non-Owner gets 403, an unknown account 404.
+      - One transaction locks both rows, makes the Owner an Admin first and then the target the Owner, so
+        users_one_owner holds at every moment; it records owner.transferred { from, to }.
+      - Nobody is signed out: the role is read on every request. The old Owner lands on /admin with a note naming
+        the new Owner. The new Owner can hand it on; the recovery script stays the way back in.
+      - Upgrading a copy with several Owners keeps the oldest active one and makes the others Admins, audited as
+        role.changed with reason single_owner (migration 0012).
+    '''
+    owner -> fl.app.web.areas 'Owner → People: Transfer ownership (new Owner, password, confirm in place)'
+    fl.app.web.areas -> fl.app.services.peopleService 'transferOwnership { to, password, version }'
+    fl.app.services.peopleService -> fl.app.services.authService 'sign-in limiter, verify the password'
+    fl.app.services.peopleService -> fl.app.repos 'lock both rows; the Owner to admin, then the target to owner'
+    fl.app.repos -> fl.app.authTables 'users_one_owner: never two Owners'
+    fl.app.services.peopleService -> fl.app.services.auditService 'record owner.transferred'
+    fl.app.web.areas -> owner '303 to /admin with the note'
   }
 }

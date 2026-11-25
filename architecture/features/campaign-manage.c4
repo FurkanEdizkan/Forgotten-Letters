@@ -1,0 +1,29 @@
+// Feature: managing a campaign's ownership from Settings. Code: routes ((app)/campaigns/[id]/manage; api/v1/campaigns/[id]; api/v1/campaigns/[id]/transfer), lib/campaign-rights, services/campaigns.
+views {
+  dynamic view campaign_manage {
+    title 'Manage a campaign: Settings and Campaign ownership'
+    description '''
+      **The CM, or the site Owner, hands the CM role on or deletes the campaign from the bottom of Manage → Settings.**
+
+      **Decisions**
+      - Manage has four tabs: Seats, Requests, Co-CMs and Settings. There is no Danger tab (decision 81).
+      - Settings ends with a "Campaign ownership" section (Transfer CM and Delete campaign, both confirmed in place),
+        shown to this campaign's CM and the site Owner only (the manage_ownership right); co-CMs never see it. It
+        shows on ended campaigns too.
+      - Transfer CM offers the co-CMs, plus "Me" for a site Owner who is not the CM; the old CM becomes a co-CM.
+        It posts to the existing ?/transfer action. The Co-CMs tab keeps the list, removing and adding co-CMs, but
+        no longer hands the role over, and the campaign page has no "Hand over" section.
+      - The site Owner may delete any campaign (delete right) and open Manage of a campaign they do not run: they
+        see the Settings tab only, read-only, with the ownership section active. A site Owner who is a co-CM gets
+        the co-CM page plus the section.
+      - The services stay the authority (campaigns.transfer needs transfer, campaigns.remove needs delete); the page
+        only hides what someone cannot do.
+    '''
+    admin -> fl.app.web.areas 'Manage → Settings → Campaign ownership: Transfer CM or Delete campaign'
+    owner -> fl.app.web.areas 'Manage of a campaign they do not run: Settings only, read-only, the same section'
+    fl.app.web.areas -> fl.app.services.campaignService 'transfer (?/transfer) or remove (?/remove)'
+    fl.app.services.campaignService -> fl.app.repos 'lock; need transfer or delete; old CM to co-CM, or deleted_at'
+    fl.app.repos -> fl.app.campaignTables 'members, campaigns'
+    fl.app.services.campaignService -> fl.app.services.auditService 'record campaign.cm_transferred or campaign.deleted'
+  }
+}

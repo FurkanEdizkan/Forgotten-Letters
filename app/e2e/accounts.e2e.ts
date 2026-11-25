@@ -190,10 +190,20 @@ test('invites: one link accepted twice at once makes one account', async ({ brow
 	await b.goto(link);
 	await fillAccount(a, 'twin-a', 'Twin A', PLAYER_PASSWORD);
 	await fillAccount(b, 'twin-b', 'Twin B', PLAYER_PASSWORD);
+	// Forms update in place and the winner is sent on from the browser, so wait for each page's own outcome
+	// (its new home, or a refusal on the invite page) instead of the network going quiet.
+	const outcome = (p: Page) =>
+		Promise.race([
+			p.waitForURL('/home').then(() => 'joined'),
+			p
+				.getByRole('alert')
+				.first()
+				.waitFor()
+				.then(() => 'refused')
+		]);
 	await Promise.all([a.click('button[type=submit]'), b.click('button[type=submit]')]);
-	await Promise.all([a.waitForLoadState('networkidle'), b.waitForLoadState('networkidle')]);
-	const landed = [a, b].filter((p) => new URL(p.url()).pathname === '/home');
-	expect(landed).toHaveLength(1);
+	const results = await Promise.all([outcome(a), outcome(b)]);
+	expect(results.sort()).toEqual(['joined', 'refused']);
 
 	await owner.goto('/owner');
 	await expect(owner.locator('tr', { hasText: /twin-[ab]/ })).toHaveCount(1);

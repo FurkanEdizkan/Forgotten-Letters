@@ -433,6 +433,11 @@ describe('seats', () => {
 		await expect(warbands.ofCampaign(p.ctx(), campaign.id)).rejects.toMatchObject({
 			code: 'forbidden'
 		});
+		// The site Owner may open Manage (Settings only) of a campaign they do not run, but reads no warbands.
+		const owner = await person('owner');
+		await expect(warbands.ofCampaign(owner.ctx(), campaign.id)).rejects.toMatchObject({
+			code: 'forbidden'
+		});
 		const [audit] =
 			await sql()`select action from auth.audit_log where action = 'warband.assigned'`;
 		expect(audit).toBeTruthy();

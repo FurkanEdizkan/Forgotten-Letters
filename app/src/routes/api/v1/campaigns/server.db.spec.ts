@@ -106,6 +106,22 @@ describe('GET, PATCH, DELETE /campaigns/:id and restore', () => {
 		const back = await call(at(restore.POST, { id }), { method: 'POST', user: cm.actor });
 		expect(back).toMatchObject({ status: 200, body: { id, deletedAt: null } });
 	});
+	it('the site Owner deletes a campaign they do not run: 204 (decision 81); a co-CM gets 403', async () => {
+		const { cm, id } = await world();
+		const owner = await person('owner');
+		const co = await person('admin');
+		await addCoCm(cm.ctx(), id, co.row.id);
+		expectError(
+			await call(at(one.DELETE, { id }), { method: 'DELETE', user: co.actor }),
+			403,
+			'forbidden'
+		);
+		expect(
+			(await call(at(one.DELETE, { id }), { method: 'DELETE', user: owner.actor })).status
+		).toBe(204);
+		const gone = await call(at(one.GET, { id }), { user: cm.actor });
+		expect(gone.body.campaign.deletedAt).toEqual(expect.any(String));
+	});
 	it('400, 404 and 403 as they should', async () => {
 		const { cm, user, campaign, id } = await world();
 		expectError(await call(at(one.GET, { id: 'nope' }), { user: cm.actor }), 400, 'invalid');
@@ -639,7 +655,8 @@ describe('the OpenAPI document', () => {
 			'/campaigns/{id}/requests/{rid}/approve',
 			'/seat-invites/{token}/accept',
 			'/campaigns/{id}/seat-links',
-			'/house-rule-presets'
+			'/house-rule-presets',
+			'/owner/transfer'
 		])
 			expect(paths).toContain(p);
 	});

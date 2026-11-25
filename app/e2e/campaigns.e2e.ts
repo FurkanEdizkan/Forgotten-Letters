@@ -1,10 +1,11 @@
 /**
  * Step 2 campaign flows end to end, each with its happy path and main error path: the creation wizard, filling a
- * seat by name, asking to join and approving, stage moves, delete and restore. Runs after the step 1 files on the
+ * seat by name, asking to join and approving, stage moves, delete and restore, and Campaign ownership in Settings
+ * (decision 81). Runs after the step 1 files on the
  * same database, so the owner may exist already; alone, it creates the owner through the setup API. The Admin who
  * runs the campaigns and the Users who join are made through the invite API, which the invite page posts to.
  */
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -140,13 +141,25 @@ test('seats: the CM fills a seat by name; somebody not found gets the no-match n
 	).toContainText('Scout Hendrik');
 });
 
+/**
+ * Drag with both ends on screen first. Otherwise Playwright scrolls to the target after the mouse is down, and the
+ * browser drags whatever is under the pointer then (Settings grew with Campaign ownership, so this happens at 768 px).
+ */
+async function drag(page: Page, from: Locator, to: Locator) {
+	const [a, b] = [await from.boundingBox(), await to.boundingBox()];
+	await page.evaluate((y) => window.scrollBy(0, y - 120), Math.min(a!.y, b!.y));
+	await from.dragTo(to);
+}
+
 test('house rules: the CM drags a preset in, sets a value and players see it; a value out of range is refused', async () => {
 	await admin.goto(`/campaigns/${campaignId}/manage?tab=settings`);
 	const library = admin.getByRole('region', { name: 'Rule library' });
 	const mine = admin.getByRole('region', { name: "This campaign's house rules" });
-	await library
-		.getByRole('group', { name: 'Trench depth' })
-		.dragTo(mine.getByText('Drop a rule here'));
+	await drag(
+		admin,
+		library.getByRole('group', { name: 'Trench depth' }),
+		mine.getByText('Drop a rule here')
+	);
 	const depth = mine.getByLabel('Depth (″)');
 	await expect(depth).toHaveValue('3');
 	await depth.fill('9');
@@ -160,9 +173,13 @@ test('house rules: the CM drags a preset in, sets a value and players see it; a 
 		'Added'
 	);
 	// Dragging a rule back to the library removes it; pressing Add puts it back.
-	await mine
-		.getByRole('button', { name: 'Drag Attacker before repeat back to the library to remove it' })
-		.dragTo(library.getByRole('group', { name: 'Starting glory' }));
+	await drag(
+		admin,
+		mine.getByRole('button', {
+			name: 'Drag Attacker before repeat back to the library to remove it'
+		}),
+		library.getByRole('group', { name: 'Starting glory' })
+	);
 	await expect(library.getByRole('button', { name: 'Add Attacker before repeat' })).toBeVisible();
 	await library.getByRole('button', { name: 'Add Attacker before repeat' }).click();
 	await admin.getByRole('button', { name: 'Save settings' }).click();
@@ -254,11 +271,14 @@ async function restore(page: Page, name: string) {
 	return (await answer).json();
 }
 
-test('delete and restore: the CM deletes and restores; a name taken meanwhile blocks the restore', async () => {
+test('delete and restore: the CM deletes from Settings and restores; a name taken meanwhile blocks the restore', async () => {
 	await admin.goto(`/campaigns/${campaignId}/manage`);
-	await admin.getByRole('tab', { name: 'Danger' }).click();
-	await admin.getByRole('button', { name: 'Delete campaign' }).click();
-	await admin.getByRole('button', { name: 'Delete for good?' }).click();
+	// There is no Danger tab: Delete campaign sits at the bottom of Settings, under Campaign ownership.
+	await expect(admin.getByRole('tab')).toHaveText([/^Seats/, /^Requests/, /^Co-CMs/, 'Settings']);
+	await admin.getByRole('tab', { name: 'Settings' }).click();
+	const own = admin.getByRole('region', { name: 'Campaign ownership' });
+	await own.getByRole('button', { name: 'Delete campaign' }).click();
+	await own.getByRole('button', { name: 'Delete for good?' }).click();
 	await admin.waitForURL('/campaigns?view=deleted');
 	await expect(admin.locator('article', { hasText: NAME })).toContainText(/deleted /);
 	expect((await restore(admin, NAME)).type).toBe('success');
@@ -295,4 +315,67 @@ test('delete and restore: the Deleted view says "Campaign restored."', async () 
 test('requests: a private campaign opened by a User who is not in it answers 404', async () => {
 	const page = await pilgrim.goto(`/campaigns/${hiddenId}`);
 	expect(page?.status()).toBe(404);
+});
+
+test('ownership: a co-CM has no ownership section; a removed co-CM is refused; the site Owner takes the CM role from Settings', async ({
+	browser
+}) => {
+	const owner = await visitor(browser);
+	expect((await owner.context().request.post('/api/v1/auth/login', { data: OWNER })).status()).toBe(
+		200
+	);
+	const me = (await (await owner.context().request.get('/api/v1/me')).json()).user;
+	const co = await account(browser, owner, 'admin', 'tobias', 'Brother Tobias');
+	const coId = (await (await co.context().request.get('/api/v1/me')).json()).user.id;
+	const api = admin.context().request;
+	const made = await api.post('/api/v1/campaigns', {
+		data: { name: 'Owner Hill', kind: 'generic', visibility: 'private', seats: 2 }
+	});
+	expect(made.status()).toBe(201);
+	const id = (await made.json()).campaign.id;
+	expect(
+		(await api.post(`/api/v1/campaigns/${id}/co-cms`, { data: { userId: coId } })).status()
+	).toBe(200);
+
+	// A co-CM's Settings end at Save settings: no Campaign ownership.
+	await co.goto(`/campaigns/${id}/manage?tab=settings`);
+	await expect(co.getByRole('button', { name: 'Save settings' })).toBeVisible();
+	await expect(co.getByRole('region', { name: 'Campaign ownership' })).toHaveCount(0);
+
+	// Error path: the CM picks the co-CM, who is removed meanwhile; the reason shows in the section.
+	await admin.goto(`/campaigns/${id}/manage?tab=settings`);
+	const own = admin.getByRole('region', { name: 'Campaign ownership' });
+	await expect(own.getByLabel('New CM')).toHaveValue(coId);
+	expect((await api.delete(`/api/v1/campaigns/${id}/co-cms/${coId}`)).status()).toBe(200);
+	await own.getByRole('button', { name: 'Transfer CM' }).click();
+	await own.getByRole('button', { name: 'Transfer for good?' }).click();
+	await expect(
+		own.getByText('Hand the CM role to a co-CM. Add them as a co-CM first.')
+	).toBeVisible();
+	// Reloaded, the section says there is nobody to hand over to.
+	await admin.reload();
+	await expect(own.getByText('No co-CMs yet. Add one on the Co-CMs tab first.')).toBeVisible();
+	await expect(own.getByRole('button', { name: 'Transfer CM' })).toBeDisabled();
+
+	// The site Owner, who does not run it, opens Manage: Settings only, read-only; they take the CM role.
+	await owner.goto(`/campaigns/${id}`);
+	await expect(owner.getByText('Hand over the CM role')).toHaveCount(0);
+	await owner.getByRole('link', { name: 'Manage' }).click();
+	await owner.waitForURL(`/campaigns/${id}/manage`);
+	await expect(owner.getByRole('tab')).toHaveText(['Settings']);
+	await expect(owner.getByText(/so its settings are read-only/)).toBeVisible();
+	await expect(owner.getByRole('button', { name: 'Save settings' })).toHaveCount(0);
+	await expect(owner.getByLabel('Name', { exact: true })).toBeDisabled();
+	const mine = owner.getByRole('region', { name: 'Campaign ownership' });
+	await expect(mine.getByLabel('New CM')).toHaveValue(me.id);
+	await expect(mine.getByLabel('New CM').locator('option')).toHaveText([`Me (${me.displayName})`]);
+	await mine.getByRole('button', { name: 'Transfer CM' }).click();
+	await mine.getByRole('button', { name: 'Transfer for good?' }).click();
+	await expect(owner.getByText('The CM role was handed over.')).toBeVisible();
+	// Now the CM, the Owner gets the whole page; the old CM is a co-CM without the section.
+	await expect(owner.getByRole('tab')).toHaveText([/^Seats/, /^Requests/, /^Co-CMs/, 'Settings']);
+	const after = await (await owner.context().request.get(`/api/v1/campaigns/${id}`)).json();
+	expect(after.myRole).toBe('cm');
+	await admin.goto(`/campaigns/${id}/manage?tab=settings`);
+	await expect(admin.getByRole('region', { name: 'Campaign ownership' })).toHaveCount(0);
 });

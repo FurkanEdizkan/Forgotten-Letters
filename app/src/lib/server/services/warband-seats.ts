@@ -11,7 +11,7 @@ import { db, type Tx } from '../db';
 import * as repo from '../repos/warbands';
 import * as seatsRepo from '../repos/seats';
 import { record, type Ctx } from './audit';
-import { access, ended, need } from './campaigns';
+import { access, ended } from './campaigns';
 import { homebrewClosure, labeller, listSets } from './rules';
 import {
 	cardOf,
@@ -125,10 +125,13 @@ export async function clearSeat(ctx: Ctx, campaignId: string): Promise<void> {
 	});
 }
 
-/** Every seat's warband in a campaign, for its CM and co-CMs. */
+/**
+ * Every seat's warband in a campaign, for its CM and co-CMs only. The site Owner may open Manage of any campaign
+ * (Settings only, decision 81), but that gives them no view of its warbands.
+ */
 export async function ofCampaign(ctx: Ctx, campaignId: string) {
 	const a = await access(db(), ctx, campaignId);
-	need(a, 'manage');
+	if (!a.role) throw new AppError('forbidden', 'Only the Campaign Master or a co-CM can do that.');
 	const seated = await repo.ofCampaign(db(), campaignId);
 	const label = await labeller();
 	return Promise.all(

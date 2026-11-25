@@ -32,10 +32,10 @@ export const PATCH = api(async (event, ctx) =>
 
 /**
  * Delete a campaign (soft): hidden at once, restorable for 30 days.
- * Who: the CM.
+ * Who: the CM, or the site Owner (decision 81).
  * In: path id.
  * Out: 204
- * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found.
+ * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or the Owner, or other site, 404 not_found.
  */
 export const DELETE = api(async (event, ctx) => {
 	await campaigns.remove(ctx, parse(idParam, event.params).id);

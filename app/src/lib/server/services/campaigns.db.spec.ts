@@ -191,7 +191,7 @@ describe('stages', () => {
 });
 
 describe('delete, restore and purge', () => {
-	it('only the CM deletes; the CM or an Owner restores within 30 days', async () => {
+	it('the CM deletes, a co-CM may not; the CM or the Owner restores within 30 days', async () => {
 		const cm = await person('admin');
 		const co = await person('admin');
 		const owner = await person('owner');
@@ -203,6 +203,31 @@ describe('delete, restore and purge', () => {
 		await remove(cm.ctx(), campaign.id);
 		await sql()`update campaign.campaigns set deleted_at = now() - interval '31 days'`;
 		await expect(restore(cm.ctx(), campaign.id)).rejects.toMatchObject({ code: 'not_found' });
+	});
+	it('the site Owner deletes a campaign they do not run (decision 81); other Admins may not', async () => {
+		const cm = await person('admin');
+		const owner = await person('owner');
+		const admin = await person('admin');
+		const { campaign } = await newCampaign(cm, { visibility: 'private' });
+		await expect(remove(admin.ctx(), campaign.id)).rejects.toMatchObject({ code: 'not_found' });
+		await remove(owner.ctx(), campaign.id);
+		const [entry] = await sql()`select actor_id, detail from auth.audit_log
+			where action = 'campaign.deleted' order by id desc limit 1`;
+		expect(entry).toMatchObject({ actor_id: owner.row.id, detail: { name: campaign.name } });
+		await expect(get(cm.ctx(), campaign.id)).resolves.toMatchObject({
+			deletedAt: expect.any(String)
+		});
+		await expect(restore(owner.ctx(), campaign.id)).resolves.toMatchObject({ deletedAt: null });
+	});
+	it('the site Owner who is a co-CM may delete; a plain co-CM is refused', async () => {
+		const cm = await person('admin');
+		const owner = await person('owner');
+		const co = await person('admin');
+		const { campaign } = await newCampaign(cm);
+		await addCoCm(cm.ctx(), campaign.id, co.row.id);
+		await addCoCm(cm.ctx(), campaign.id, owner.row.id);
+		await expect(remove(co.ctx(), campaign.id)).rejects.toMatchObject({ code: 'forbidden' });
+		await expect(remove(owner.ctx(), campaign.id)).resolves.toBeUndefined();
 	});
 	it('the purge job removes campaigns deleted over 30 days ago, with their seats', async () => {
 		const cm = await person('admin');

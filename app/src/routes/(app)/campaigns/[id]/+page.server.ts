@@ -4,8 +4,7 @@ import * as campaigns from '#lib/server/services/campaigns';
 import * as seats from '#lib/server/services/seats';
 import * as joinRequests from '#lib/server/services/join-requests';
 import * as warbands from '#lib/server/services/warbands';
-import { canInCampaign } from '#lib/campaign-rights';
-import { personInput, requestInput } from '#lib/schemas/campaigns';
+import { requestInput } from '#lib/schemas/campaigns';
 import type { ApiCampaign, ApiSeat } from '#lib/api-types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -14,8 +13,8 @@ export const load: PageServerLoad = async (event) => {
 	// The campaign first: a campaign you may not see answers 404 before anything else is asked.
 	const campaign: ApiCampaign = await orPageError(event, campaigns.get(ctx, event.params.id));
 	const member = !!campaign.myRole || campaign.mySeat;
-	const runs =
-		!!event.locals.user && canInCampaign(campaign.myRole, event.locals.user.role, 'manage');
+	// Seat warbands are for the CM and co-CMs; the site Owner may open Manage but reads no warbands (decision 81).
+	const runs = !!campaign.myRole;
 	const [seatList, mine, seated] = await Promise.all([
 		member ? seats.list(ctx, event.params.id) : ([] as ApiSeat[]),
 		campaign.mySeat ? warbands.listMine(ctx) : null,
@@ -110,18 +109,5 @@ export const actions = {
 		formAction(event, opOnly, async (_input, ctx) => {
 			await joinRequests.withdraw(ctx, event.params.id);
 			return { op: 'withdraw', done: true };
-		}),
-	/**
-	 * Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.
-	 * Who: Owners, member or not (decision 7).
-	 * In: form { userId } (a co-CM, or the Owner's own id).
-	 * Out: { op: 'transfer', done: true }.
-	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the
-	 * CM.
-	 */
-	transfer: (event) =>
-		formAction(event, personInput, async ({ userId }, ctx) => {
-			await campaigns.transfer(ctx, event.params.id, userId);
-			return { op: 'transfer', done: true };
 		})
 } satisfies Actions;

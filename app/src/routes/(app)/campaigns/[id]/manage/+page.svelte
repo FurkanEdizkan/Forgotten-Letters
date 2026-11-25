@@ -1,8 +1,10 @@
 <!--
   /campaigns/[id]/manage: the CM's console. The title row carries the stage moves (Start, Back to mustering, End,
-  confirm in place); the tabs hold Seats, Requests, Co-CMs, Settings and, for the CM only, Danger. Co-CMs see the
-  same page without the co-CM actions and Danger. Every form posts to its own action with an op, so its message
-  lands next to it. The tab comes from ?tab= (searches return to their tab) and stays across form posts.
+  confirm in place); the tabs hold Seats, Requests, Co-CMs and Settings. Settings ends with Campaign ownership
+  (Transfer CM, Delete campaign) for the CM and the site Owner (decision 81). Co-CMs see the same page without the
+  co-CM actions and that section. The site Owner on a campaign they do not run sees the Settings tab only,
+  read-only, with the section. Every form posts to its own action with an op, so its message lands next to it. The
+  tab comes from ?tab= (searches return to their tab) and stays across form posts.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
@@ -27,25 +29,28 @@
 
 	const camp = $derived(data.campaign);
 	const can = (a: CampaignAction) => canInCampaign(camp.myRole, data.me.role, a);
-	const tabs = $derived([
-		{ id: 'seats', label: mg.seats.tab, count: data.seats.length },
-		{ id: 'requests', label: mg.requests.tab, count: data.requests.length },
-		{
-			id: 'cocms',
-			label: mg.cocms.tab,
-			count: camp.members.filter((x) => x.role === 'co_cm').length
-		},
-		{ id: 'settings', label: mg.settings.tab },
-		...(can('delete') ? [{ id: 'danger', label: mg.danger.tab }] : [])
-	]);
+	// The CM and co-CMs run the campaign; the site Owner who does not gets Settings only (decision 81).
+	const tabs = $derived(
+		camp.myRole
+			? [
+					{ id: 'seats', label: mg.seats.tab, count: data.seats.length },
+					{ id: 'requests', label: mg.requests.tab, count: data.requests.length },
+					{
+						id: 'cocms',
+						label: mg.cocms.tab,
+						count: camp.members.filter((x) => x.role === 'co_cm').length
+					},
+					{ id: 'settings', label: mg.settings.tab }
+				]
+			: [{ id: 'settings', label: mg.settings.tab }]
+	);
 	// The first tab comes from the address; afterwards it is the person's choice.
 	const startTab = () => data.tab;
 	let tab = $state(startTab());
 	$effect(() => {
-		if (!tabs.some((t) => t.id === tab)) tab = 'seats';
+		if (!tabs.some((t) => t.id === tab)) tab = tabs[0]!.id;
 	});
 	const stage = $derived(resultOf(form, 'stage'));
-	const removed = $derived(resultOf(form, 'remove'));
 </script>
 
 <svelte:head><title>{camp.name} · {m.app.name}</title></svelte:head>
@@ -96,24 +101,21 @@
 			<CoCmsTab
 				members={camp.members}
 				canManage={can('co_cms')}
-				canTransfer={can('transfer')}
 				readOnly={camp.stage === 'ended'}
 				cmFind={data.cmFind}
 				candidates={data.coCmCandidates}
 				{form}
 			/>
 		{:else if id === 'settings'}
-			<SettingsTab campaign={camp} cores={data.cores} homebrew={data.homebrewChoices} {form} />
-		{:else if id === 'danger'}
-			<section class="danger">
-				<h3>{mg.danger.heading}</h3>
-				<p class="dim">{mg.danger.text}</p>
-				{#if removed.error}<Message kind="danger">{removed.error}</Message>{/if}
-				<form method="POST" action="?/remove" use:enhance>
-					<input type="hidden" name="op" value="remove" />
-					<ConfirmButton label={mg.danger.delete} confirm={mg.danger.confirm} />
-				</form>
-			</section>
+			<SettingsTab
+				campaign={camp}
+				cores={data.cores}
+				homebrew={data.homebrewChoices}
+				readOnly={!can('edit')}
+				ownership={can('manage_ownership')}
+				me={data.me}
+				{form}
+			/>
 		{/if}
 	{/snippet}
 </Tabs>
@@ -133,12 +135,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-3);
-	}
-	.danger {
-		display: grid;
-		gap: var(--space-3);
-		justify-items: start;
-		max-width: 44rem;
 	}
 	.small {
 		font-size: var(--size-label);

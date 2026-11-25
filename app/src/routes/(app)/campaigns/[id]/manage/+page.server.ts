@@ -39,6 +39,9 @@ export const load: PageServerLoad = async (event) => {
 		error(403, m.errors.forbidden, { requestId: event.locals.requestId });
 	const can = (a: Parameters<typeof canInCampaign>[2]) =>
 		canInCampaign(campaign.myRole, me.role, a);
+	// The site Owner may open Manage of a campaign they do not run (decision 81): Settings only, read-only, with the
+	// Campaign ownership section. They get no seats, requests or candidates.
+	const runs = !!campaign.myRole;
 	// "Fill a seat by name" and "Add a co-CM" search through the page's own query, so they work without scripts.
 	const find = query(event.url, 'find');
 	const cmFind = query(event.url, 'cmfind');
@@ -50,7 +53,7 @@ export const load: PageServerLoad = async (event) => {
 		Awaited<ReturnType<typeof rules.sets>>,
 		Awaited<ReturnType<typeof homebrew.allowable>>
 	] = await Promise.all([
-		seats.list(ctx, id),
+		runs ? seats.list(ctx, id) : [],
 		can('requests') ? joinRequests.listOpen(ctx, id) : [],
 		find && can('seats') ? seats.candidates(ctx, id, find) : [],
 		cmFind && can('co_cms') ? campaigns.coCmCandidates(ctx, id, cmFind) : [],
@@ -75,7 +78,7 @@ export const load: PageServerLoad = async (event) => {
 		cores,
 		homebrewChoices,
 		created: event.url.searchParams.has('created'),
-		tab: event.url.searchParams.get('tab') ?? 'seats'
+		tab: runs ? (event.url.searchParams.get('tab') ?? 'seats') : 'settings'
 	};
 };
 
@@ -274,11 +277,12 @@ export const actions = {
 			return { op: 'removeCoCm', id, done: true };
 		}),
 	/**
-	 * Hand the CM role to a co-CM; the old CM becomes a co-CM.
-	 * Who: the CM, or an Owner.
-	 * In: form { id (the co-CM's user id) }.
+	 * Hand the CM role to a co-CM (or, for the site Owner, take it); the old CM becomes a co-CM.
+	 * Who: the CM, or the site Owner (from Settings → Campaign ownership).
+	 * In: form { id (a co-CM's user id, or the site Owner's own) }.
 	 * Out: { op: 'transfer', id, done: true }.
-	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.
+	 * Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the
+	 * CM.
 	 */
 	transfer: (event) =>
 		formAction(event, row, async ({ id }, ctx) => {
@@ -286,8 +290,8 @@ export const actions = {
 			return { op: 'transfer', id, done: true };
 		}),
 	/**
-	 * Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.
-	 * Who: the CM.
+	 * Delete the campaign for everyone; the CM or the Owner can restore it within 30 days.
+	 * Who: the CM, or the site Owner (from Settings → Campaign ownership).
 	 * In: form { }.
 	 * Out: 303 to /campaigns?view=deleted.
 	 * Errors: 401 unauthenticated, 403 forbidden, 404 not_found.

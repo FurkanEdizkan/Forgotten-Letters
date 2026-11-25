@@ -2,8 +2,9 @@
   /campaigns/[id]: what every member sees: the facts, who runs it, the house rules and the seats. A player may
   leave their seat while the campaign is mustering (confirm in place). A listed campaign shows the same page to
   people who are not in it, without the seat names, plus "Ask to join". The CM and co-CMs get "Manage" and every
-  seat's warband (read-only links); a seated player assigns one of their warbands to their seat, or builds one for
-  it.
+  seat's warband (read-only links); the site Owner gets "Manage" too (its Settings tab, where Campaign ownership
+  hands the CM role over: decision 81). A seated player assigns one of their warbands to their seat, or builds one
+  for it.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
@@ -47,20 +48,6 @@
 	const ask = $derived(resultOf(form, 'ask'));
 	const withdraw = $derived(resultOf(form, 'withdraw'));
 	const requested = $derived(!withdraw.done && (camp.myOpenRequest || !!ask.done));
-	const handOver = $derived(resultOf(form, 'transfer'));
-	// Owners hand the CM role over on any campaign (decision 7): to a co-CM, or to themselves.
-	const handOverTo = $derived(
-		data.me.role === 'owner'
-			? [
-					...(camp.myRole === 'cm'
-						? []
-						: [{ value: data.me.id, label: p.takeIt(data.me.displayName) }]),
-					...camp.members
-						.filter((x) => x.role === 'co_cm' && x.userId !== data.me.id)
-						.map((x) => ({ value: x.userId, label: x.displayName }))
-				]
-			: []
-	);
 	let asking = $state(false);
 	const wc = m.warbands.campaign;
 	const assigned = $derived(resultOf(form, 'assignWarband'));
@@ -129,22 +116,6 @@
 			</form>
 		{:else}
 			<div><Button kind="primary" onclick={() => (asking = true)}>{c.ask}</Button></div>
-		{/if}
-	</section>
-{/if}
-
-{#if handOverTo.length || handOver.done}
-	<section class="handover">
-		<h3>{p.handOver}</h3>
-		<p class="dim">{p.handOverHint}</p>
-		{#if handOver.error}<Message kind="danger">{handOver.error}</Message>{/if}
-		{#if handOver.done}<Message>{p.handedOver}</Message>{/if}
-		{#if handOverTo.length}
-			<form class="row" method="POST" action="?/transfer" use:enhance>
-				<input type="hidden" name="op" value="transfer" />
-				<Select label={p.newCm} name="userId" options={handOverTo} />
-				<ConfirmButton label={p.handOverButton} confirm={p.handOverConfirm} />
-			</form>
 		{/if}
 	</section>
 {/if}
@@ -280,12 +251,8 @@
 		font-size: var(--size-label);
 		line-height: 1.6;
 	}
-	.join,
-	.handover {
+	.join {
 		max-width: 36rem;
-	}
-	.handover .row {
-		align-items: end;
 	}
 	.cols {
 		display: grid;

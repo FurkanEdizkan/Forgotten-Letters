@@ -2,13 +2,16 @@
   The Settings tab: name, visibility, schedule, description, the rules version (a Carcass Front campaign keeps its
   expansion on top), whether warbands may go beyond their limits, which homebrew sets warbands may be built on (the
   ones the CM can see, and any already allowed), and house rules, saved together with the campaign's
-  version. Someone saving over a newer change gets the reload message (409). Read-only once the campaign ends.
+  version. Someone saving over a newer change gets the reload message (409). Read-only once the campaign ends, and
+  for the site Owner who does not run it. For the CM and the site Owner it ends with Campaign ownership (decision
+  81), outside the settings form.
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
 	import { m } from '#lib/messages';
 	import { VISIBILITIES, type HouseRule } from '#lib/schemas/campaigns';
 	import type { ApiCampaign } from '#lib/api-types';
+	import type { Role } from '#lib/roles';
 	import { resultOf, type FormResult } from '#lib/ui/form-result';
 	import Button from '#lib/ui/Button.svelte';
 	import Field from '#lib/ui/Field.svelte';
@@ -18,14 +21,20 @@
 	import RadioCards from '#lib/ui/RadioCards.svelte';
 	import Select from '#lib/ui/Select.svelte';
 	import TextArea from '#lib/ui/TextArea.svelte';
+	import OwnershipSection from './OwnershipSection.svelte';
 
 	type Props = {
 		campaign: ApiCampaign;
 		cores: { value: string; label: string }[];
 		homebrew: { id: string; name: string; baseName: string; ownerName: string }[];
+		/** Not the CM or a co-CM (the site Owner): the settings show, but cannot be saved. */
+		readOnly: boolean;
+		/** The CM or the site Owner: show Campaign ownership. */
+		ownership: boolean;
+		me: { id: string; displayName: string; role: Role };
 		form: FormResult;
 	};
-	let { campaign, cores, homebrew, form }: Props = $props();
+	let { campaign, cores, homebrew, readOnly, ownership, me, form }: Props = $props();
 	const hb = m.homebrew.campaign;
 	const w = m.campaigns.wizard;
 	const st = m.campaigns.manage.settings;
@@ -45,7 +54,9 @@
 	let v = $state(start());
 
 	const result = $derived(resultOf(form, 'settings'));
+	const transferred = $derived(resultOf(form, 'transfer'));
 	const ended = $derived(campaign.stage === 'ended');
+	const locked = $derived(ended || readOnly);
 	const options = VISIBILITIES.map((x) => ({
 		value: x,
 		label: m.campaigns.visibility[x],
@@ -62,8 +73,9 @@
 >
 	<input type="hidden" name="op" value="settings" />
 	<input type="hidden" name="version" value={campaign.version} />
+	{#if readOnly}<p class="dim">{st.ownerReadOnly}</p>{/if}
 	{#if ended}<p class="dim">{st.ended}</p>{/if}
-	<fieldset disabled={ended}>
+	<fieldset disabled={locked}>
 		<Field
 			label={w.basics.name}
 			name="name"
@@ -77,7 +89,7 @@
 			name="visibility"
 			{options}
 			bind:value={v.visibility}
-			disabled={ended}
+			disabled={locked}
 		/>
 		<div class="row3">
 			<Field
@@ -149,7 +161,7 @@
 				bind:rules={v.rules}
 				kind={campaign.kind}
 				errors={result.fields}
-				disabled={ended}
+				disabled={locked}
 			/>
 		</div>
 	</fieldset>
@@ -157,13 +169,17 @@
 		<Message kind="warn">{result.error}</Message>
 	{/if}
 	{#if result.done}<Message>{st.saved}</Message>{/if}
-	{#if !ended}
+	{#if !locked}
 		<div class="row">
 			<Button kind="primary" type="submit">{st.save}</Button>
 			<span class="dim small">{st.kindFixed}</span>
 		</div>
 	{/if}
 </form>
+
+<!-- After a hand-over the old CM is a co-CM and the section goes, so the note stays outside it. -->
+{#if transferred.done}<Message>{m.campaigns.manage.ownership.transferred}</Message>{/if}
+{#if ownership}<OwnershipSection {campaign} {me} {form} />{/if}
 
 <style>
 	form,

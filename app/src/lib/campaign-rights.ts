@@ -1,6 +1,7 @@
 /**
- * Who may do what inside a campaign (review page decisions 1, 4 and 7). Pure: services enforce it, pages use it to
- * hide what someone cannot do. Rights (CM, co-CM) are kept apart from places (seats): a player is anyone in a seat.
+ * Who may do what inside a campaign (review page decisions 1, 4 and 7; decision 81 in ARCHITECTURE.md). Pure:
+ * services enforce it, pages use it to hide what someone cannot do. Rights (CM, co-CM) are kept apart from places
+ * (seats): a player is anyone in a seat.
  */
 import type { Role } from './roles';
 
@@ -17,7 +18,8 @@ export type CampaignAction =
 	| 'restore'
 	| 'see_deleted'
 	| 'co_cms' // add and remove co-CMs
-	| 'transfer'; // hand the CM role to a co-CM
+	| 'transfer' // hand the CM role to a co-CM
+	| 'manage_ownership'; // see the "Campaign ownership" section of Settings (Transfer CM, Delete campaign)
 
 // One person stays answerable for the campaign's existence and its team.
 const CM_ONLY: ReadonlySet<CampaignAction> = new Set([
@@ -25,10 +27,19 @@ const CM_ONLY: ReadonlySet<CampaignAction> = new Set([
 	'restore',
 	'see_deleted',
 	'co_cms',
-	'transfer'
+	'transfer',
+	'manage_ownership'
 ]);
-// An Owner can undo a mistaken delete and unstick a campaign whose CM is gone.
-const OWNER_TOO: ReadonlySet<CampaignAction> = new Set(['restore', 'see_deleted', 'transfer']);
+// The site Owner can undo a mistaken delete, unstick a campaign whose CM is gone and delete one nobody runs. They
+// may open Manage, where the page shows them only Settings, read-only, with the ownership section (decision 81).
+const OWNER_TOO: ReadonlySet<CampaignAction> = new Set([
+	'restore',
+	'see_deleted',
+	'transfer',
+	'delete',
+	'manage',
+	'manage_ownership'
+]);
 
 export function canInCampaign(
 	role: CampaignRole | null,

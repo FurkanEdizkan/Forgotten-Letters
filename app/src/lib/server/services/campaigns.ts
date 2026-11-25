@@ -124,8 +124,8 @@ export interface Access {
 
 /**
  * Load a campaign for the caller (locked with `lock`, for changes). Someone with no rights, no seat and no way to see
- * it gets `not_found`, so private campaigns do not leak; Owners see every campaign, so they can hand over the CM
- * role of any of them (decision 7). Deleted ones are visible only with `deleted` to their CM and to Owners, within
+ * it gets `not_found`, so private campaigns do not leak; the Owner sees every campaign, so they can hand over the
+ * CM role of any of them or delete it (decisions 7 and 81). Deleted ones are visible only with `deleted` to their CM and to Owners, within
  * the restore window. Seeing is not acting: rights are still checked with `need`.
  */
 export async function access(
@@ -150,16 +150,25 @@ export async function access(
 	return { c, role, seated, me };
 }
 
-const CM_ONLY: CampaignAction[] = ['delete', 'restore', 'see_deleted', 'co_cms', 'transfer'];
+// Who to name when a right is refused (the rules themselves are in lib/campaign-rights.ts).
+const CM_OR_OWNER: CampaignAction[] = [
+	'delete',
+	'restore',
+	'see_deleted',
+	'transfer',
+	'manage_ownership'
+];
 
 /** Refuse unless the caller has this right in the campaign. */
 export function need(a: Access, action: CampaignAction) {
 	if (!canInCampaign(a.role, a.me.role, action))
 		throw new AppError(
 			'forbidden',
-			CM_ONLY.includes(action)
-				? 'Only the Campaign Master can do that.'
-				: 'Only the Campaign Master or a co-CM can do that.'
+			CM_OR_OWNER.includes(action)
+				? 'Only the Campaign Master or the Owner can do that.'
+				: action === 'co_cms'
+					? 'Only the Campaign Master can do that.'
+					: 'Only the Campaign Master or a co-CM can do that.'
 		);
 }
 
@@ -313,7 +322,7 @@ export async function update(ctx: Ctx, id: string, input: CampaignPatch): Promis
 	});
 }
 
-/** Soft delete: hidden at once, restorable for 30 days, then purged. */
+/** Soft delete: hidden at once, restorable for 30 days, then purged. The CM or the site Owner (decision 81). */
 export async function remove(ctx: Ctx, id: string): Promise<void> {
 	await db().transaction(async (tx) => {
 		const a = await access(tx, ctx, id, { lock: true });

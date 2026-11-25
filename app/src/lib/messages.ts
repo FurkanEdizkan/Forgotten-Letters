@@ -346,15 +346,7 @@ export const m = {
 			leaveConfirm: 'Leave for good?',
 			leaveHint: 'You can leave while the campaign is mustering.',
 			manage: 'Manage',
-			requestSentNote: 'Your request is with the CM.',
-			handOver: 'Hand over the CM role',
-			handOverHint:
-				"As an Owner you can give this campaign's CM role to a co-CM, or take it yourself. The CM now becomes a co-CM.",
-			newCm: 'New CM',
-			takeIt: (name: string) => `${name} (take the CM role yourself)`,
-			handOverButton: 'Hand over',
-			handOverConfirm: 'Hand over for good?',
-			handedOver: 'The CM role was handed over.'
+			requestSentNote: 'Your request is with the CM.'
 		},
 
 		manage: {
@@ -441,8 +433,6 @@ export const m = {
 				actions: 'Actions',
 				remove: 'Remove co-CM',
 				removeConfirm: 'Remove for good?',
-				transfer: 'Hand over the CM role',
-				transferConfirm: 'Hand over for good?',
 				add: 'Add a co-CM (Admins and Owners)',
 				addPlaceholder: 'Type a display name or username',
 				find: 'Find',
@@ -457,6 +447,8 @@ export const m = {
 				saved: 'Settings saved.',
 				kindFixed: 'The type cannot change after creation.',
 				ended: 'The campaign has ended; its settings are read-only.',
+				ownerReadOnly:
+					'You are not the CM or a co-CM of this campaign, so its settings are read-only. As the Owner you can transfer the CM role or delete the campaign below.',
 				rules: 'Rules',
 				rulesSet: 'Rules version',
 				rulesHint: 'Warbands built for another version are re-checked when they are assigned.',
@@ -465,12 +457,24 @@ export const m = {
 				beyondHint:
 					'Refused changes become warnings for warbands in this campaign (house rules, a narrative campaign).'
 			},
-			danger: {
-				tab: 'Danger',
-				heading: 'Delete this campaign',
-				text: 'It disappears for everyone. You or an Owner can restore it from Campaigns → Deleted for 30 days; then it is removed for good.',
+			ownership: {
+				heading: 'Campaign ownership',
+				hint: "Only this campaign's CM and the Owner of this copy see this section.",
+				transferHeading: 'Transfer CM',
+				transferHint: 'Hand the campaign to a co-CM. You become a co-CM.',
+				transferHintOwner:
+					'Take the campaign yourself, or hand it to a co-CM. The CM becomes a co-CM.',
+				newCm: 'New CM',
+				me: (name: string) => `Me (${name})`,
+				transfer: 'Transfer CM',
+				transferConfirm: 'Transfer for good?',
+				noCoCms: 'No co-CMs yet. Add one on the Co-CMs tab first.',
+				transferred: 'The CM role was handed over.',
+				deleteHeading: 'Delete campaign',
+				deleteText:
+					'Players lose access at once; the CM or the Owner can restore it within 30 days.',
 				delete: 'Delete campaign',
-				confirm: 'Delete for good?'
+				deleteConfirm: 'Delete for good?'
 			}
 		}
 	},

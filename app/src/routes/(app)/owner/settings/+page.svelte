@@ -1,6 +1,6 @@
 <!--
-  The Owner's copy-wide settings: text size, accent and port, with the same slider, swatches, preview and field as
-  the setup wizard.
+  The Owner's copy-wide settings: text size and accent, with the same slider, swatches and preview as the setup
+  wizard. The Address card is read-only: the port is picked when the app starts (PORTS, or ./start.sh with Docker).
 -->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
@@ -10,10 +10,10 @@
 	import Button from '#lib/ui/Button.svelte';
 	import Card from '#lib/ui/Card.svelte';
 	import Message from '#lib/ui/Message.svelte';
+	import Lock from '@lucide/svelte/icons/lock';
 	import Slider from '#lib/ui/Slider.svelte';
 	import SwatchGroup from '#lib/ui/SwatchGroup.svelte';
 	import TextPreview from '#lib/ui/TextPreview.svelte';
-	import WizardField from '#lib/ui/WizardField.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -39,16 +39,6 @@
 
 	const failed = $derived(form && !('done' in form) ? form : null);
 	const fields = $derived((failed?.fields ?? {}) as Record<string, string | undefined>);
-	const moveTo = $derived(form && 'done' in form ? form.moveTo : null);
-
-	// Kit cannot navigate to another origin, so after a port change the browser is sent to the new address once the
-	// message has been seen. The old port closes a little later, so this page keeps working until then.
-	$effect(() => {
-		if (!moveTo) return;
-		const target = new URL(location.pathname, moveTo).href;
-		const timer = setTimeout(() => location.assign(target), 2500);
-		return () => clearTimeout(timer);
-	});
 </script>
 
 <svelte:head><title>{m.settings.heading} · {m.app.name}</title></svelte:head>
@@ -64,9 +54,7 @@
 			({ update }) =>
 				update({ reset: false })}
 	>
-		{#if moveTo}
-			<Message>{m.settings.moving(moveTo)}</Message>
-		{:else if form && 'done' in form}
+		{#if form && 'done' in form}
 			<Message>{m.settings.saved}</Message>
 		{/if}
 		{#if failed}<Message kind="danger">{failed.message}</Message>{/if}
@@ -106,30 +94,20 @@
 			</Card>
 
 			<Card title={m.settings.addressHeading}>
+				{#if data.settings.portNote}
+					<Message kind="warn">{data.settings.portNote}</Message>
+				{/if}
 				<p>
 					<span class="dim">{m.settings.address}</span><br /><code>{data.settings.address}</code>
 				</p>
-				{#if data.settings.portLocked}
-					<div class="control">
-						<span class="label">{m.settings.port}</span>
-						<p class="data">{data.settings.port}</p>
-						<p class="dim">{m.settings.portLocked}</p>
-						{#if fields.port}<p class="error">{fields.port}</p>{/if}
-					</div>
-				{:else}
-					<!-- No min/max: the server's message says why a port is refused; the browser's would not. -->
-					<WizardField
-						label={m.settings.port}
-						name="port"
-						type="number"
-						inputmode="numeric"
-						required
-						mono
-						value={String(data.settings.port)}
-						hint={m.settings.portHint}
-						error={fields.port}
-					/>
-				{/if}
+				<div class="port">
+					<span class="label">{m.settings.port}</span>
+					<span class="data">{data.settings.port}</span>
+					<span class="lock"
+						><Lock size={13} strokeWidth={1.6} aria-hidden={true} />{m.settings.readOnly}</span
+					>
+				</div>
+				<p class="hint">{data.inDocker ? m.settings.portDocker : m.settings.portPicked}</p>
 			</Card>
 		</div>
 
@@ -149,22 +127,23 @@
 		gap: var(--space-4);
 		align-items: start;
 	}
-	.control {
-		display: grid;
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		border: 0;
-		min-width: 0;
+	.port {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+	.lock {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: 0.1em 0.6em;
+		border: var(--border-hairline) solid var(--rule-strong);
+		border-radius: 1em;
+		color: var(--bone-dim);
+		font-size: var(--size-label);
 	}
 	.hint {
 		color: var(--bone-faint);
 		font-size: var(--size-label);
-	}
-	.error {
-		color: var(--bone);
-		font-size: var(--size-label);
-		border-left: var(--border-status-edge) solid var(--danger);
-		padding-left: var(--space-2);
 	}
 </style>

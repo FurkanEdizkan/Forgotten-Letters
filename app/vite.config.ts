@@ -41,7 +41,12 @@ export default defineConfig({
 				test: {
 					name: 'unit',
 					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}'],
+					// server/: the custom server's port pick; scripts/: the host start script (start.sh).
+					include: [
+						'src/**/*.{test,spec}.{js,ts}',
+						'server/**/*.{test,spec}.{js,ts}',
+						'scripts/**/*.{test,spec}.{js,ts}'
+					],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'src/**/*.db.{test,spec}.{js,ts}']
 				}
 			},

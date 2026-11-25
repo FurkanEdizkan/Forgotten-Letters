@@ -132,16 +132,16 @@ export const settingsOut = z
 	.object({
 		textScale: z.number().int(),
 		accent: z.enum(ACCENTS),
+		/** The port of `address`, picked when the app starts; read-only. */
 		port: z.number().int(),
-		portLocked: z.boolean(),
-		address: z.string()
+		address: z.string(),
+		/** After a port fallback outside Docker: which port was in use and which one links use now. */
+		portNote: z.string().nullable()
 	})
 	.meta({ id: 'Settings' });
 
-/** After a port change: the address to open; the old port closes a little later. */
-export const moveOut = z.object({ moveTo: z.string() });
 export const setupState = z.object({ open: z.boolean() });
-export const setupDone = z.object({ user: userOut, moveTo: z.string().nullable() });
+export const setupDone = z.object({ user: userOut });
 
 // ---------------------------------------------------------------- campaigns (step 2)
 

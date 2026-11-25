@@ -48,7 +48,7 @@ test.beforeAll(async ({ browser }) => {
 	const owner = await visitor(browser);
 	const api = owner.context().request;
 	const made = await api.post('/api/v1/setup', {
-		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood', port: 4173 }
+		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood' }
 	});
 	// 201: made now; 409: an earlier file made it first.
 	expect([201, 409]).toContain(made.status());

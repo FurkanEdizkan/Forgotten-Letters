@@ -1,24 +1,18 @@
 /**
- * The copy-wide settings: text size, accent and port, one row in app.settings. Every page reads the look through the
- * root layout, so the row is cached in the process and refreshed after each change (this process is the only
- * writer). A port change asks the custom server to move (infra/listener) inside the transaction: if the new port
- * cannot be opened, nothing is saved.
+ * The copy-wide settings: text size and accent, one row in app.settings. Every page reads the look through the root
+ * layout, so the row is cached in the process and refreshed after each change (this process is the only writer).
+ * The port is not a setting: it is picked when the app starts (PORTS, or ./start.sh with Docker), so it is shown
+ * read-only with the address people open.
  */
 import { AppError } from '../errors';
 import { db, type Tx } from '../db';
 import { config } from '../infra/config';
-import {
-	currentPort,
-	listenOnStoredPort,
-	movePort,
-	PORT_LOCKED_MESSAGE,
-	portLocked
-} from '../infra/listener';
+import { currentPort, inDocker, portNote } from '../infra/listener';
 import * as settingsRepo from '../repos/settings';
 import type { SettingsRow } from '../repos/settings';
 import { record, type Ctx } from './audit';
 import { requireUser } from './auth';
-import type { Accent, Settings, SettingsPatch } from '#lib/schemas/settings';
+import { PORT, type Accent, type Settings, type SettingsPatch } from '#lib/schemas/settings';
 
 let cached: SettingsRow | null = null;
 
@@ -42,34 +36,34 @@ function hostnameOf(host: string | null | undefined): string | null {
 }
 
 /**
- * The address people open. ORIGIN wins when it is set (it is the address the group chose, for example behind
- * Caddy). Otherwise the host the browser used, on the port the app listens on now; without the custom server (vite
- * dev) the Host header as it came.
+ * The address people open. ORIGIN wins when it is set (it is the address the group chose, for example behind Caddy,
+ * or the one ./start.sh wrote). Otherwise the host the browser used, as it came, so in Docker the published port
+ * shows, never the container's. Without either (start-up logs), localhost on the port the app listens on.
  */
-function addressOf(r: SettingsRow, host: string | null | undefined, port = currentPort()): string {
+function addressOf(host: string | null | undefined): string {
 	const origin = config().ORIGIN;
 	if (origin) return origin.replace(/\/$/, '');
-	const name = hostnameOf(host);
-	if (port === null && host && name) return `http://${host}`;
-	return `http://${name ?? 'localhost'}:${port ?? r.port}`;
+	if (host && hostnameOf(host)) return `http://${host}`;
+	return `http://localhost:${currentPort() ?? PORT.default}`;
 }
 
-/** The address after a move to `port`: the current address with the new port. */
-function addressOnPort(r: SettingsRow, host: string | null | undefined, port: number): string {
-	const url = new URL(addressOf(r, host));
-	url.port = String(port);
-	return url.origin;
+/** The port of an address: its explicit port, else the scheme's default. */
+function portOf(address: string): number {
+	const u = new URL(address);
+	return u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
 }
 
-// Before setup the stored port has never been chosen, so the port shown (and offered in the wizard) is the one the
-// app listens on now.
-const toSettings = (r: SettingsRow, host?: string | null): Settings => ({
-	textScale: r.textScale,
-	accent: r.accent as Accent,
-	port: r.setupCompletedAt ? r.port : (currentPort() ?? r.port),
-	portLocked: portLocked(),
-	address: addressOf(r, host)
-});
+// The Port row and the address always agree: the port shown is the address's own.
+const toSettings = (r: SettingsRow, host?: string | null): Settings => {
+	const address = addressOf(host);
+	return {
+		textScale: r.textScale,
+		accent: r.accent as Accent,
+		port: portOf(address),
+		address,
+		portNote: portNote()
+	};
+};
 
 /** The settings as every page and GET /api/v1/settings see them. `host` is the request's Host header, if known. */
 export async function getSettings(host?: string | null): Promise<Settings> {
@@ -82,60 +76,27 @@ export async function getAppearance(): Promise<{ textScale: number; accent: Acce
 	return { textScale: r.textScale, accent: r.accent as Accent };
 }
 
-/**
- * At start, after migrations: once setup is done, listen on the stored port (the PORT the server started with is only
- * the first-run default). Before setup the app stays where it started.
- */
-export async function listenOnSavedPort(): Promise<void> {
-	const r = await row();
-	if (r.setupCompletedAt) await listenOnStoredPort(r.port);
-}
+/** True in the Docker image: the Owner's settings page then says the port comes from ./start.sh or APP_PORT. */
+export const runsInDocker = (): boolean => inDocker();
 
-/**
- * Inside a settings transaction: if `port` differs from where the app listens, move the listener and return the
- * new address. Locked ports refuse a change with the reason and the .env line to edit instead.
- */
-export async function movePortInTx(
-	r: SettingsRow,
-	port: number,
-	host: string | null | undefined
-): Promise<string | null> {
-	const now = currentPort() ?? r.port;
-	if (port === now) return null;
-	if (portLocked())
-		throw new AppError('conflict', PORT_LOCKED_MESSAGE, { port: PORT_LOCKED_MESSAGE });
-	try {
-		await movePort(port);
-	} catch (e) {
-		if (e instanceof AppError) throw new AppError(e.code, e.message, { port: e.message });
-		throw e;
-	}
-	return addressOnPort(r, host, port);
-}
-
-/**
- * Change some settings. Owner only. A port change moves the listener first and answers with the new address in
- * `moveTo` (the old port closes a little later); without a port change `moveTo` is null.
- */
-export async function updateSettings(
-	patch: SettingsPatch,
-	ctx: Ctx
-): Promise<{ settings: Settings; moveTo: string | null }> {
+/** Change the text size and/or the accent. Owner only. Only what changed is audited. */
+export async function updateSettings(patch: SettingsPatch, ctx: Ctx): Promise<Settings> {
 	const me = requireUser(ctx);
 	if (me.role !== 'owner')
 		throw new AppError('forbidden', 'Only an owner can change the settings.');
-	const moveTo = await db().transaction(async (tx: Tx) => {
+	// Only the look: a port from an older client never reaches the row (the route's schema refuses it already).
+	const look: { textScale?: number; accent?: Accent } = {};
+	if (patch.textScale !== undefined) look.textScale = patch.textScale;
+	if (patch.accent !== undefined) look.accent = patch.accent;
+	await db().transaction(async (tx: Tx) => {
 		const before = await settingsRepo.lockForUpdate(tx);
-		const after = await settingsRepo.update(tx, patch, me.id);
+		const after = await settingsRepo.update(tx, look, me.id);
 		const changed: Record<string, { from: unknown; to: unknown }> = {};
-		for (const k of ['textScale', 'accent', 'port'] as const)
-			if (patch[k] !== undefined && before[k] !== after[k])
-				changed[k] = { from: before[k], to: after[k] };
+		for (const k of ['textScale', 'accent'] as const)
+			if (k in look && before[k] !== after[k]) changed[k] = { from: before[k], to: after[k] };
 		if (Object.keys(changed).length)
 			await record(tx, ctx, 'settings.changed', { type: 'settings', id: '1' }, changed);
-		// Last, so a port that cannot be opened rolls the whole change back.
-		return patch.port === undefined ? null : movePortInTx(before, patch.port, ctx.host);
 	});
 	forgetCachedSettings();
-	return { settings: await getSettings(ctx.host), moveTo };
+	return getSettings(ctx.host);
 }

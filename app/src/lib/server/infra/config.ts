@@ -36,8 +36,8 @@ const schema = z.object({
 		.enum(['true', 'false'])
 		.default('true')
 		.transform((v) => v === 'true'),
-	/** The port is owned by someone else (Docker Compose publishes it): the UI shows it but cannot change it. */
-	PORT_LOCKED: z
+	/** Set by the Docker image: the host's start script (or APP_PORT in .env) picks the published port. */
+	APP_IN_DOCKER: z
 		.enum(['true', 'false', '1', '0'])
 		.default('false')
 		.transform((v) => v === 'true' || v === '1')
@@ -79,4 +79,9 @@ let current: Config | null = null;
 /** The app's settings, read on first use. */
 export function config(): Config {
 	return (current ??= readConfig());
+}
+
+/** Read the settings again on next use (tests that change the environment). */
+export function forgetConfig() {
+	current = null;
 }

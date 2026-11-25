@@ -10,7 +10,11 @@ export const ACCENTS = ['blood', 'brass', 'verdigris', 'bruise', 'ash'] as const
 export type Accent = (typeof ACCENTS)[number];
 
 export const TEXT_SCALE = { min: 90, max: 130, step: 5, default: 100 } as const;
-export const PORT = { min: 1024, max: 65535, default: 3000 } as const;
+/** The first port tried when PORTS is unset (app/server/ports.js), shown when no other port is known. */
+export const PORT = { default: 3000 } as const;
+
+/** Why a port in a settings change is refused. */
+export const NO_PORT = 'The port is picked when the app starts. Set PORTS in .env instead.';
 
 export const textScale = z.coerce
 	.number()
@@ -21,34 +25,34 @@ export const textScale = z.coerce
 
 export const accent = z.enum(ACCENTS, 'Pick one of the colours.');
 
-// Ports under 1024 need admin rights on most systems, so they are refused with that reason.
-export const port = z.coerce
-	.number('Enter a number.')
-	.int('Enter a whole number.')
-	.min(PORT.min, `Port ${PORT.min - 1} and below need admin rights. Pick ${PORT.min} or higher.`)
-	.max(PORT.max, `Ports stop at ${PORT.max}.`);
-
 export const appearanceInput = z.object({ textScale, accent });
 
-/** Everything the wizard sends on Finish: the Owner account, then the look, then the port. */
-export const setupInput = newAccountInput.extend({ textScale, accent, port });
+/** Everything the wizard sends on Finish: the Owner account, then the look. */
+export const setupInput = newAccountInput.extend({ textScale, accent });
 
-/** An Owner's change on /owner/settings or PATCH /api/v1/settings; at least one field. */
+/**
+ * An Owner's change on /owner/settings or PATCH /api/v1/settings; at least one field. Strict: the port is picked
+ * when the app starts, so a `port` field is refused with that reason, and any other unknown field too.
+ */
 export const settingsPatch = z
-	.object({ textScale, accent, port })
-	.partial()
+	.strictObject({
+		textScale: textScale.optional(),
+		accent: accent.optional(),
+		port: z.never(NO_PORT).optional()
+	})
 	.refine((v) => Object.keys(v).length > 0, 'Change at least one setting.');
 
 export type SetupInput = z.infer<typeof setupInput>;
-export type SettingsPatch = z.infer<typeof settingsPatch>;
+export type SettingsPatch = Omit<z.infer<typeof settingsPatch>, 'port'>;
 
 /** What every page and GET /api/v1/settings sees. */
 export type Settings = {
 	textScale: number;
 	accent: Accent;
+	/** The port of `address`, picked when the app starts; read-only. */
 	port: number;
-	/** True in Docker and in development: the port cannot be changed from the UI. */
-	portLocked: boolean;
 	/** The address people open, for example http://192.168.1.20:3000. */
 	address: string;
+	/** After a port fallback outside Docker, the note for the Owner; else null. */
+	portNote: string | null;
 };

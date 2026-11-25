@@ -16,7 +16,7 @@ describe('readConfig', () => {
 			BACKUP_KEEP_DAYS: 14,
 			RETENTION_DAYS: 180,
 			RUN_STARTUP: true,
-			PORT_LOCKED: false,
+			APP_IN_DOCKER: false,
 			databaseUrl: 'postgres://u:p@h:5432/d'
 		});
 		expect(Object.isFrozen(c)).toBe(true);
@@ -56,16 +56,16 @@ describe('readConfig', () => {
 	it('reads RUN_STARTUP false', () => {
 		expect(readConfig({ POSTGRES_PASSWORD: 'x', RUN_STARTUP: 'false' }).RUN_STARTUP).toBe(false);
 	});
-	it('reads PORT_LOCKED as true/false or 1/0', () => {
-		const locked = (v: string) =>
-			readConfig({ POSTGRES_PASSWORD: 'x', PORT_LOCKED: v }).PORT_LOCKED;
-		expect([locked('true'), locked('1'), locked('false'), locked('0')]).toEqual([
+	it('reads APP_IN_DOCKER as true/false or 1/0', () => {
+		const docker = (v: string) =>
+			readConfig({ POSTGRES_PASSWORD: 'x', APP_IN_DOCKER: v }).APP_IN_DOCKER;
+		expect([docker('true'), docker('1'), docker('false'), docker('0')]).toEqual([
 			true,
 			true,
 			false,
 			false
 		]);
-		expect(() => locked('yes')).toThrow(/PORT_LOCKED/);
+		expect(() => docker('yes')).toThrow(/APP_IN_DOCKER/);
 	});
 	it('stops without a database setting', () => {
 		expect(() => readConfig({})).toThrow(/DATABASE_URL, or POSTGRES_PASSWORD/);

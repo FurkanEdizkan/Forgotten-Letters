@@ -11,12 +11,10 @@ const input = {
 	password: 'a long owner password',
 	displayName: 'First Owner',
 	textScale: 110,
-	accent: 'brass' as const,
-	port: 3000
+	accent: 'brass' as const
 };
 
 afterEach(() => {
-	globalThis.__forgottenLettersListener = undefined;
 	vi.restoreAllMocks();
 });
 
@@ -61,22 +59,28 @@ describe('logSetupOpen', () => {
 describe('completeSetup', () => {
 	it('creates the owner, saves the look, marks setup done, signs in for 30 days and audits it', async () => {
 		const c = ctx();
-		const { session, user, moveTo } = await completeSetup(input, c);
+		const out = await completeSetup(input, c);
+		const { session, user } = out;
+		expect(Object.keys(out).sort()).toEqual(['session', 'user']);
 		expect(user).toMatchObject({
 			username: 'first.owner',
 			displayName: 'First Owner',
 			role: 'owner'
 		});
-		expect(moveTo).toBeNull();
 		expect(session.maxAge).toBe(30 * 24 * 60 * 60);
 		expect((await resolveSession(session.token))!.user.id).toBe(user.id);
-		expect(await getSettings()).toMatchObject({ textScale: 110, accent: 'brass', port: 3000 });
+		expect(await getSettings()).toMatchObject({ textScale: 110, accent: 'brass' });
 		const [row] = await sql()`select setup_completed_at, updated_by from app.settings`;
 		expect(row!.setup_completed_at).not.toBeNull();
 		expect(row!.updated_by).toBe(user.id);
 		const [audit] =
-			await sql()`select action, actor_id, request_id from auth.audit_log where action = 'setup.owner_created'`;
-		expect(audit).toMatchObject({ actor_id: user.id, request_id: c.requestId });
+			await sql()`select action, actor_id, request_id, detail from auth.audit_log where action = 'setup.owner_created'`;
+		expect(audit).toMatchObject({
+			actor_id: user.id,
+			request_id: c.requestId,
+			detail: { textScale: 110, accent: 'brass' }
+		});
+		expect(audit!.detail).not.toHaveProperty('port');
 	});
 	it('works only once', async () => {
 		await completeSetup(input, ctx());
@@ -126,37 +130,12 @@ describe('completeSetup', () => {
 		expect(sixth).toMatchObject({ code: 'rate_limited' });
 		expect(sixth.retryAfter).toBeGreaterThan(0);
 	});
-	it('with a locked port, ignores the chosen port', async () => {
-		const { moveTo } = await completeSetup({ ...input, port: 4400 }, ctx());
-		expect(moveTo).toBeNull();
-		expect((await getSettings()).port).toBe(3000);
-	});
-	it('with the custom server, moves to the chosen port and answers with the new address', async () => {
-		const server = {
-			port: 3000,
-			async move(to: number) {
-				server.port = to;
-			}
-		};
-		globalThis.__forgottenLettersListener = server;
-		const { moveTo } = await completeSetup(
-			{ ...input, port: 4500 },
-			{ ...ctx(), host: '10.1.2.3:3000' }
-		);
-		expect(server.port).toBe(4500);
-		expect(moveTo).toBe('http://10.1.2.3:4500');
-		expect((await getSettings()).port).toBe(4500);
-	});
-	it('a taken port rolls the whole setup back, with the reason on the port field', async () => {
-		globalThis.__forgottenLettersListener = {
-			port: 3000,
-			move: () => Promise.reject(Object.assign(new Error('taken'), { code: 'EADDRINUSE' }))
-		};
-		await expect(completeSetup({ ...input, port: 4600 }, ctx())).rejects.toMatchObject({
-			code: 'conflict',
-			fields: { port: 'Port 4600 is in use by another program.' }
+	it('ignores a port sent by an old client: the port is picked when the app starts', async () => {
+		await expect(completeSetup({ ...input, port: 4400 } as never, ctx())).resolves.toMatchObject({
+			user: { role: 'owner' }
 		});
-		expect((await sql()`select count(*)::int as n from auth.users`)[0]!.n).toBe(0);
-		expect(await isSetupOpen()).toBe(true);
+		const cols =
+			await sql()`select column_name from information_schema.columns where table_schema = 'app' and table_name = 'settings' and column_name = 'port'`;
+		expect(cols).toEqual([]);
 	});
 });

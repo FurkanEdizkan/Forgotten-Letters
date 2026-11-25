@@ -47,7 +47,7 @@ async function newInvite(page: Page, role: 'admin' | 'user', note: string) {
 let owner: Page;
 let adminInvite = '';
 
-// First start runs through the real wizard: welcome, Setup, the four steps, Finish. The API's own error paths are
+// First start runs through the real wizard: welcome, Setup, the three steps, Finish. The API's own error paths are
 // checked beside it, since the wizard posts to the same service.
 test('first start: welcome and the setup wizard make the owner, then setup is refused', async ({
 	browser
@@ -65,8 +65,7 @@ test('first start: welcome and the setup wizard make the owner, then setup is re
 			displayName: 'X',
 			password: 'short',
 			textScale: 100,
-			accent: 'blood',
-			port: 4173
+			accent: 'blood'
 		}
 	});
 	expect(weak.status()).toBe(400);
@@ -97,9 +96,12 @@ test('first start: welcome and the setup wizard make the owner, then setup is re
 	await slider.fill('110');
 	await page.getByRole('button', { name: 'Next' }).click();
 
-	// Step 3: the e2e server runs `node server`, so the port is editable; keep the one the tests use.
-	await expect(page.locator('input[name=port]')).toHaveValue('4173');
-	await page.getByRole('button', { name: 'Next' }).click();
+	// Step 3, Done: three steps only (no port step); the summary shows the address people will use (ORIGIN here).
+	await expect(
+		page.getByRole('list', { name: 'Setup progress' }).getByRole('listitem')
+	).toHaveCount(3);
+	await expect(page.locator('input[name=port]')).toHaveCount(0);
+	await expect(page.locator('.summary')).toContainText('http://localhost:4173');
 	await page.getByRole('button', { name: 'Finish' }).click();
 	await expect(page).toHaveURL(/\/owner$/);
 	await expect(page.locator('html')).toHaveAttribute('data-accent', 'verdigris');
@@ -113,8 +115,7 @@ test('first start: welcome and the setup wizard make the owner, then setup is re
 			displayName: 'Second',
 			password: OWNER.password,
 			textScale: 100,
-			accent: 'blood',
-			port: 4173
+			accent: 'blood'
 		}
 	});
 	expect(again.status()).toBe(409);

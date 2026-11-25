@@ -18,11 +18,22 @@ describe('GET /api/v1/settings', () => {
 			body: {
 				textScale: 100,
 				accent: 'blood',
-				port: 3000,
-				portLocked: true,
-				address: 'http://192.168.1.20:5173'
+				port: 5173,
+				address: 'http://192.168.1.20:5173',
+				portNote: null
 			}
 		});
+	});
+	it('after a fallback, gives the note and no portLocked', async () => {
+		globalThis.__forgottenLettersListener = { port: 3001, wanted: 3000, tried: [3000] };
+		const { actor } = await person('owner');
+		const res = await call(GET, { user: actor, host: '192.168.1.20:3001' });
+		expect(res.body).toMatchObject({
+			port: 3001,
+			address: 'http://192.168.1.20:3001',
+			portNote: 'Port 3000 was in use, so the app uses 3001. Links now point to 3001.'
+		});
+		expect(res.body).not.toHaveProperty('portLocked');
 	});
 	it('asks to sign in first', async () => {
 		const res = await call(GET);
@@ -41,30 +52,9 @@ describe('PATCH /api/v1/settings', () => {
 		});
 		expect(res).toMatchObject({ status: 200, body: { textScale: 125, accent: 'bruise' } });
 	});
-	it('answers 202 with the new address when the port moves', async () => {
-		const server = {
-			port: 3000,
-			async move(to: number) {
-				server.port = to;
-			}
-		};
-		globalThis.__forgottenLettersListener = server;
-		const { actor } = await person('owner');
-		const res = await call(PATCH, {
-			method: 'PATCH',
-			user: actor,
-			host: '192.168.1.20:3000',
-			body: { port: 4700 }
-		});
-		expect(res).toEqual({
-			status: 202,
-			body: { moveTo: 'http://192.168.1.20:4700' },
-			cookies: expect.anything()
-		});
-	});
 	it('refuses bad or empty input (400)', async () => {
 		const { actor } = await person('owner');
-		for (const body of [{ textScale: 101 }, { accent: 'pink' }, { port: 99999 }, {}]) {
+		for (const body of [{ textScale: 101 }, { accent: 'pink' }, {}]) {
 			const res = await call(PATCH, { method: 'PATCH', user: actor, body });
 			expect(res.status).toBe(400);
 			expect(res.body.error.code).toBe('invalid');
@@ -76,10 +66,20 @@ describe('PATCH /api/v1/settings', () => {
 		expect(res.status).toBe(403);
 		expect(res.body.error).toMatchObject({ code: 'forbidden', requestId: expect.any(String) });
 	});
-	it('refuses a port change while the port is locked (409)', async () => {
+	it('refuses a port field (400), with the reason on the field; nothing is saved', async () => {
 		const { actor } = await person('owner');
-		const res = await call(PATCH, { method: 'PATCH', user: actor, body: { port: 4800 } });
-		expect(res.status).toBe(409);
-		expect(res.body.error.message).toContain('APP_PORT');
+		const res = await call(PATCH, {
+			method: 'PATCH',
+			user: actor,
+			body: { accent: 'brass', port: 3001 }
+		});
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatchObject({
+			code: 'invalid',
+			requestId: expect.any(String),
+			fields: { port: 'The port is picked when the app starts. Set PORTS in .env instead.' }
+		});
+		const after = await call(GET, { user: actor });
+		expect(after.body.accent).toBe('blood');
 	});
 });

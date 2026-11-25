@@ -9,3 +9,5 @@ playwright-report
 .vscode
 Dockerfile
 .dockerignore
+server/*.spec.ts
+scripts/*.spec.ts

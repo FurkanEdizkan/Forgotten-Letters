@@ -24,7 +24,7 @@ import {
 	uniqueIndex,
 	uuid
 } from 'drizzle-orm/pg-core';
-import { ACCENTS, PORT, TEXT_SCALE } from '../../schemas/settings';
+import { ACCENTS, TEXT_SCALE } from '../../schemas/settings';
 import type { HouseRule } from '../../schemas/campaigns';
 import type { Problem } from '../../rules/check';
 import { EDGE_KINDS } from '../../rules/pack';
@@ -144,7 +144,6 @@ export const settings = appSchema.table(
 		id: smallint().primaryKey().default(1),
 		textScale: smallint().notNull().default(TEXT_SCALE.default),
 		accent: text().notNull().default('blood'),
-		port: integer().notNull().default(PORT.default),
 		setupCompletedAt: timestamp({ withTimezone: true }),
 		updatedAt: updatedAt(),
 		updatedBy: uuid().references(() => users.id, { onDelete: 'set null' })
@@ -155,11 +154,7 @@ export const settings = appSchema.table(
 			'settings_text_scale_range',
 			sql`${t.textScale} between ${sql.raw(String(TEXT_SCALE.min))} and ${sql.raw(String(TEXT_SCALE.max))} and ${t.textScale} % ${sql.raw(String(TEXT_SCALE.step))} = 0`
 		),
-		check('settings_accent_preset', sql`${t.accent} in (${accentList})`),
-		check(
-			'settings_port_range',
-			sql`${t.port} between ${sql.raw(String(PORT.min))} and ${sql.raw(String(PORT.max))}`
-		)
+		check('settings_accent_preset', sql`${t.accent} in (${accentList})`)
 	]
 );
 

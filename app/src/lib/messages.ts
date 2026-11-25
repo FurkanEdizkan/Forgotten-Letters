@@ -100,7 +100,7 @@ export const m = {
 		title: 'Setup',
 		progress: 'Setup progress',
 		stepDone: 'done',
-		steps: ['Owner', 'Look', 'Server', 'Done'],
+		steps: ['Owner', 'Look', 'Done'],
 		back: 'Back',
 		next: 'Next',
 		finish: 'Finish',
@@ -135,19 +135,6 @@ export const m = {
 				'The Iron Choir held the ridge through the night. At dawn the Campaign Master records the result, and each warband sees its new standing on the map.',
 			sampleChip: 'Victory',
 			sampleButton: 'Record result'
-		},
-		server: {
-			title: 'Where it listens',
-			description: 'The port is the number at the end of the address people open.',
-			direct: 'Runs directly',
-			docker: 'Runs in Docker',
-			port: 'Port',
-			portHint: '1024 to 65535.',
-			address: 'Address after Finish',
-			addressHint: 'Share this with your players.',
-			moveNote:
-				'When you press Finish the app opens the new port, takes you there, then closes the old one.',
-			lockedTag: 'Set by Docker'
 		},
 		done: {
 			title: 'Ready',
@@ -619,10 +606,10 @@ export const m = {
 		addressHeading: 'Address',
 		address: 'People open this copy at',
 		port: 'Port',
-		portHint: '1024 to 65535. The app moves to the new port right away.',
-		portLocked: 'Set outside the app, in the server settings.',
-		saved: 'Settings saved.',
-		moving: (to: string) => `The app now listens at ${to}. Taking you there…`
+		readOnly: 'read-only',
+		portPicked: 'Picked when the app starts. Read-only here.',
+		portDocker: 'Set by ./start.sh or APP_PORT in .env.',
+		saved: 'Settings saved.'
 	},
 
 	people: {

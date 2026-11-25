@@ -21,7 +21,7 @@ export async function lockForUpdate(tx: Tx): Promise<SettingsRow> {
 	return r;
 }
 
-export type SettingsPatchRow = Partial<Pick<SettingsRow, 'textScale' | 'accent' | 'port'>>;
+export type SettingsPatchRow = Partial<Pick<SettingsRow, 'textScale' | 'accent'>>;
 
 /** Change some settings; `userId` is who changed them. Returns the new row. */
 export async function update(

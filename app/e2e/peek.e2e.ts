@@ -19,7 +19,7 @@ test.beforeAll(async ({ browser }) => {
 	const octx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-For': '10.0.11.1' } });
 	const api = octx.request;
 	const made = await api.post('/api/v1/setup', {
-		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood', port: 4173 }
+		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood' }
 	});
 	expect([201, 409]).toContain(made.status());
 	expect((await api.post('/api/v1/auth/login', { data: OWNER })).status()).toBe(200);

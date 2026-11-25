@@ -38,7 +38,7 @@ test.beforeAll(async ({ browser }) => {
 	owner = await visitor(browser);
 	const api = owner.context().request;
 	const made = await api.post('/api/v1/setup', {
-		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood', port: 4173 }
+		data: { ...OWNER, displayName: 'Brother Anselm', textScale: 100, accent: 'blood' }
 	});
 	expect([201, 409]).toContain(made.status());
 	expect((await api.post('/api/v1/auth/login', { data: OWNER })).status()).toBe(200);

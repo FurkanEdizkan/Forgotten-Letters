@@ -1,18 +1,18 @@
 /**
  * First-run setup, Jellyfin style: while no owner exists, setup is open to whoever opens the app (accepted risk on
  * a shared network; see the first_start view). The wizard sends everything at once; one transaction creates the
- * owner, saves the look and port, marks setup done and signs the owner in. A second attempt is refused.
+ * owner, saves the look, marks setup done and signs the owner in. A second attempt is refused. The port is not
+ * chosen here: it is picked when the app starts.
  */
 import { AppError } from '../errors';
 import { db } from '../db';
-import { portLocked } from '../infra/listener';
 import { logger } from '../infra/logger';
 import * as settingsRepo from '../repos/settings';
 import * as usersRepo from '../repos/users';
 import { record, type Ctx, type SessionUser } from './audit';
 import { checkPassword, createSession, limitJoin, toSessionUser, type NewSession } from './auth';
 import { hashPassword, tokenHash } from './passwords';
-import { forgetCachedSettings, getSettings, movePortInTx } from './settings';
+import { forgetCachedSettings, getSettings } from './settings';
 import type { SetupInput } from '#lib/schemas/settings';
 
 const RECHECK_MS = 2000;
@@ -53,22 +53,19 @@ export async function logSetupOpen(): Promise<string | null> {
 }
 
 /**
- * Finish the wizard: create the first owner, save text size, accent and port, mark setup done and sign the owner in
- * (remembered). When the chosen port differs from the current one and is not locked, the listener moves before the
- * commit (a port that cannot be opened rolls everything back, with the reason on the port field) and `moveTo` is the
- * new address; otherwise null. With a locked port (Docker, dev) the chosen port is not saved.
+ * Finish the wizard: create the first owner, save text size and accent, mark setup done and sign the owner in
+ * (remembered). Anyone may call it while no owner exists; a second attempt is refused.
  */
 export async function completeSetup(
 	input: SetupInput,
 	ctx: Ctx
-): Promise<{ session: NewSession; user: SessionUser; moveTo: string | null }> {
+): Promise<{ session: NewSession; user: SessionUser }> {
 	limitJoin(ctx);
 	checkPassword(input.password);
 	const passwordHash = await hashPassword(input.password);
-	const locked = portLocked();
 	const out = await db().transaction(async (tx) => {
 		// The row lock makes parallel submits wait here; the one that comes second then sees the owner.
-		const before = await settingsRepo.lockForUpdate(tx);
+		await settingsRepo.lockForUpdate(tx);
 		if (await usersRepo.anyOwner(tx))
 			throw new AppError('conflict', 'Setup is already done. Sign in instead.');
 		const user = await usersRepo.insert(tx, {
@@ -82,22 +79,12 @@ export async function completeSetup(
 				username: 'That username is taken.'
 			});
 		const look = { textScale: input.textScale, accent: input.accent };
-		await settingsRepo.update(tx, locked ? look : { ...look, port: input.port }, user.id);
+		await settingsRepo.update(tx, look, user.id);
 		await settingsRepo.markSetupDone(tx);
 		const session = await createSession(tx, user.id, true, ctx);
 		const actor = toSessionUser(user, tokenHash(session.token));
-		await record(
-			tx,
-			{ ...ctx, actor },
-			'setup.owner_created',
-			{ type: 'user', id: user.id },
-			{
-				...look,
-				port: locked ? before.port : input.port
-			}
-		);
-		const moveTo = locked ? null : await movePortInTx(before, input.port, ctx.host);
-		return { session, user: actor, moveTo };
+		await record(tx, { ...ctx, actor }, 'setup.owner_created', { type: 'user', id: user.id }, look);
+		return { session, user: actor };
 	});
 	closed = true;
 	open = false;

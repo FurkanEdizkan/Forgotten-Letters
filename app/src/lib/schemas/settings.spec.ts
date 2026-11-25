@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accent, ACCENTS, port, settingsPatch, setupInput, textScale } from './settings';
+import { accent, ACCENTS, settingsPatch, setupInput, textScale } from './settings';
 
 const msg = (r: { success: boolean; error?: { issues: { message: string }[] } }) =>
 	r.error?.issues[0]?.message;
@@ -23,20 +23,8 @@ describe('accent', () => {
 	});
 });
 
-describe('port', () => {
-	it('accepts 1024 to 65535', () => {
-		for (const ok of [1024, 3000, '8080', 65535]) expect(port.safeParse(ok).success).toBe(true);
-	});
-	it('explains why low ports are refused', () => {
-		expect(msg(port.safeParse(80))).toBe(
-			'Port 1023 and below need admin rights. Pick 1024 or higher.'
-		);
-		expect(msg(port.safeParse(70000))).toBe('Ports stop at 65535.');
-	});
-});
-
 describe('setupInput', () => {
-	it('takes the Owner account plus look and port', () => {
+	it('takes the Owner account plus the look; a port sent by an old client is dropped', () => {
 		const r = setupInput.safeParse({
 			username: 'Mira',
 			displayName: 'Mira',
@@ -50,8 +38,7 @@ describe('setupInput', () => {
 			displayName: 'Mira',
 			password: 'a long password',
 			textScale: 110,
-			accent: 'brass',
-			port: 3000
+			accent: 'brass'
 		});
 	});
 });
@@ -60,5 +47,16 @@ describe('settingsPatch', () => {
 	it('needs at least one setting', () => {
 		expect(msg(settingsPatch.safeParse({}))).toBe('Change at least one setting.');
 		expect(settingsPatch.safeParse({ accent: 'ash' }).success).toBe(true);
+	});
+	it('refuses a port, which is picked when the app starts', () => {
+		const r = settingsPatch.safeParse({ accent: 'ash', port: 3001 });
+		expect(r.success).toBe(false);
+		expect(r.error?.issues[0]).toMatchObject({
+			path: ['port'],
+			message: 'The port is picked when the app starts. Set PORTS in .env instead.'
+		});
+	});
+	it('refuses any other unknown field', () => {
+		expect(settingsPatch.safeParse({ accent: 'ash', colour: 'red' }).success).toBe(false);
 	});
 });

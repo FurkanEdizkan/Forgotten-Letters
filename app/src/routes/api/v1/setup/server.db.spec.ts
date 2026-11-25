@@ -11,8 +11,7 @@ const input = {
 	password: 'a long owner password',
 	displayName: 'First Owner',
 	textScale: 105,
-	accent: 'ash',
-	port: 3000
+	accent: 'ash'
 };
 
 describe('GET /api/v1/setup', () => {
@@ -32,8 +31,7 @@ describe('POST /api/v1/setup', () => {
 				displayName: 'First Owner',
 				role: 'owner',
 				mustChangePassword: false
-			},
-			moveTo: null
+			}
 		});
 		expect(res.cookies.get(SESSION_COOKIE)).toEqual(expect.any(String));
 		expect(await call(GET)).toMatchObject({ body: { open: false } });
@@ -41,7 +39,7 @@ describe('POST /api/v1/setup', () => {
 	it('refuses bad input with the field reasons', async () => {
 		const res = await call(POST, {
 			method: 'POST',
-			body: { ...input, textScale: 133, accent: 'pink', port: 80 }
+			body: { ...input, textScale: 133, accent: 'pink' }
 		});
 		expect(res.status).toBe(400);
 		expect(res.body.error).toMatchObject({
@@ -49,8 +47,7 @@ describe('POST /api/v1/setup', () => {
 			requestId: expect.any(String),
 			fields: {
 				textScale: expect.any(String),
-				accent: expect.any(String),
-				port: expect.any(String)
+				accent: expect.any(String)
 			}
 		});
 	});

@@ -33,8 +33,7 @@ test.beforeAll(async ({ browser }) => {
 			displayName: 'Brother Anselm',
 			password: OWNER.password,
 			textScale: 100,
-			accent: 'blood',
-			port: 4173
+			accent: 'blood'
 		}
 	});
 	// 201: made now; 409: an earlier file made it first.

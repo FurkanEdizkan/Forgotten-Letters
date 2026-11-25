@@ -62,8 +62,6 @@ export interface Endpoint {
 	upload?: boolean;
 	/** Success status and its body schema (none for 204). */
 	ok: { status: 200 | 201 | 204; schema?: z.ZodType; cookie?: boolean };
-	/** Another success answer, for example 202 when a port change moves the app. */
-	alsoOk?: { status: 202; schema: z.ZodType; description: string };
 	errors: ErrorCode[];
 }
 
@@ -225,7 +223,7 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'post',
 		path: '/setup',
-		summary: 'Finish first-run setup: create the owner, save the look and port, sign in.',
+		summary: 'Finish first-run setup: create the owner, save the look, sign in.',
 		auth: false,
 		body: setupInput,
 		ok: { status: 201, schema: t.setupDone, cookie: true },
@@ -234,7 +232,7 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'get',
 		path: '/settings',
-		summary: 'The copy-wide settings: text size, accent, port and address.',
+		summary: 'The copy-wide settings: text size, accent; the address and port (read-only).',
 		auth: true,
 		ok: { status: 200, schema: t.settingsOut },
 		errors: ['unauthenticated']
@@ -242,16 +240,11 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'patch',
 		path: '/settings',
-		summary: 'Change text size, accent or port (owners).',
+		summary: 'Change text size or accent (owners); a port field is refused.',
 		auth: true,
 		body: settingsPatch,
 		ok: { status: 200, schema: t.settingsOut },
-		alsoOk: {
-			status: 202,
-			schema: t.moveOut,
-			description: 'The port changed: open `moveTo`; the old port closes shortly.'
-		},
-		errors: [...WRITE, 'unauthenticated', 'conflict']
+		errors: [...WRITE, 'unauthenticated']
 	},
 	{
 		method: 'get',
@@ -922,7 +915,7 @@ const MESSAGES: Record<ErrorCode, string> = {
 	forbidden: 'Signed in but not allowed, or a cross-site request.',
 	not_found: 'No such resource.',
 	conflict:
-		'Stale version, a used or expired invite, the last owner, setup not done or already done, a port that is locked or in use, a taken name or seat, a stage move not allowed, joining closed, a warband change the rules refuse (the reasons are in the message and `fields`), homebrew a campaign does not allow, or a homebrew set others still use.',
+		'Stale version, a used or expired invite, the last owner, setup not done or already done, a taken name or seat, a stage move not allowed, joining closed, a warband change the rules refuse (the reasons are in the message and `fields`), homebrew a campaign does not allow, or a homebrew set others still use.',
 	rate_limited: 'Too many tries; see Retry-After.',
 	internal: 'Unexpected error; quote the request id.',
 	unavailable: 'Starting or shutting down; see Retry-After.'
@@ -940,11 +933,6 @@ function operation(e: Endpoint): ZodOpenApiOperationObject {
 			...(e.ok.schema ? { content: { 'application/json': { schema: e.ok.schema } } } : {})
 		}
 	};
-	if (e.alsoOk)
-		responses[e.alsoOk.status] = {
-			description: e.alsoOk.description,
-			content: { 'application/json': { schema: e.alsoOk.schema } }
-		};
 	// Every endpoint can also answer internal (500) and unavailable (503).
 	const byStatus = new Map<number, ErrorCode[]>();
 	for (const c of [...e.errors, 'internal', 'unavailable'] as ErrorCode[])

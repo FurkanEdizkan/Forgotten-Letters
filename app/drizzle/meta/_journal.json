@@ -78,6 +78,13 @@
       "when": 1793701540525,
       "tag": "0010_rules_preview",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795604908393,
+      "tag": "0011_drop_settings_port",
+      "breakpoints": true
     }
   ]
 }

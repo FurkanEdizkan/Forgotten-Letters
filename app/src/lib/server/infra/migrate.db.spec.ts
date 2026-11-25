@@ -23,26 +23,26 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 11, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 12, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 11, applied: 11 });
+		expect(await migrationState()).toEqual({ total: 12, applied: 12 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 11, applied: 11 });
+		expect(await migrationState()).toEqual({ total: 12, applied: 12 });
 		expect(backups).toBe(0);
 
 		const tables =
 			await sqlClient()`select table_name from information_schema.tables where table_schema = 'auth' order by table_name`;
 		expect(tables.map((t) => t.table_name)).toEqual(['audit_log', 'invites', 'sessions', 'users']);
 		const settings =
-			await sqlClient()`select id, text_scale, accent, port, setup_completed_at from app.settings`;
+			await sqlClient()`select id, text_scale, accent, setup_completed_at from app.settings`;
 		expect(settings).toEqual([
-			{ id: 1, text_scale: 100, accent: 'blood', port: 3000, setup_completed_at: null }
+			{ id: 1, text_scale: 100, accent: 'blood', setup_completed_at: null }
 		]);
 	});
 	it('two starts at once both finish without error', async () => {
@@ -56,8 +56,8 @@ describe('migrations', () => {
 		await sql`insert into auth.users (username, display_name, password_hash, role) values ('old.owner', 'Old Owner', 'x', 'owner')`;
 		await sql`insert into auth.setup_tokens (token_hash, expires_at) values ('h', now())`;
 		await runMigrations();
-		const [row] = await sql`select setup_completed_at is not null as done, port from app.settings`;
-		expect(row).toEqual({ done: true, port: 3000 });
+		const [row] = await sql`select setup_completed_at is not null as done from app.settings`;
+		expect(row).toEqual({ done: true });
 		const [old] = await sql`select to_regclass('auth.setup_tokens') is null as gone`;
 		expect(old!.gone).toBe(true);
 	});
@@ -206,5 +206,21 @@ describe('migrations', () => {
 		expect(await sql`select id, preview from rules.sets`).toEqual([
 			{ id: 'core-1.0.2', preview: false }
 		]);
+	});
+	it('upgrading from before the port fallback: the saved port goes; the look and the setup date stay', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(11) });
+		const sql = sqlClient();
+		await sql`update app.settings set text_scale = 115, accent = 'ash', port = 4100, setup_completed_at = now()`;
+		await runMigrations();
+		const [row] =
+			await sql`select text_scale, accent, setup_completed_at is not null as done from app.settings`;
+		expect(row).toEqual({ text_scale: 115, accent: 'ash', done: true });
+		const cols =
+			await sql`select column_name from information_schema.columns where table_schema = 'app' and table_name = 'settings' and column_name = 'port'`;
+		expect(cols).toEqual([]);
+		const checks =
+			await sql`select conname from pg_constraint where conname = 'settings_port_range'`;
+		expect(checks).toEqual([]);
 	});
 });

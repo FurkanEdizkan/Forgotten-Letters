@@ -1,8 +1,9 @@
 <!--
-  /setup: the first-run wizard, Owner → Look → Server → Done, in one form. Each step checks its fields in the browser
+  /setup: the first-run wizard, Owner → Look → Done, in one form. Each step checks its fields in the browser
   with the shared zod rules before moving on (wizard.ts); Finish posts every field to ?/finish, which checks them
   again. A server error on a field sends the wizard back to that field's step. The steps need scripts; without them a
-  note says so.
+  note says so. There is no port step: the port is picked when the app starts (PORTS, or ./start.sh with Docker),
+  and Done shows the address people will use.
 -->
 <script lang="ts">
 	import PasswordMeter from '#lib/ui/PasswordMeter.svelte';
@@ -21,14 +22,7 @@
 	import TextPreview from '#lib/ui/TextPreview.svelte';
 	import Callout from '#lib/ui/Callout.svelte';
 	import GlassButton from '#lib/ui/GlassButton.svelte';
-	import ServerStep from './ServerStep.svelte';
-	import {
-		addressWithPort,
-		checkStep,
-		firstBadStep,
-		stepForFields,
-		type FieldErrors
-	} from './wizard';
+	import { checkStep, firstBadStep, stepForFields, type FieldErrors } from './wizard';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -41,8 +35,7 @@
 		username: String(form?.values?.username ?? ''),
 		displayName: String(form?.values?.displayName ?? ''),
 		textScale: data.textScale,
-		accent: data.accent as Accent,
-		port: String(data.port)
+		accent: data.accent as Accent
 	});
 	const initial = start();
 	let username = $state(initial.username);
@@ -51,7 +44,6 @@
 	let repeat = $state('');
 	let textScale = $state(initial.textScale);
 	let accent = $state<Accent>(initial.accent);
-	let port = $state(initial.port);
 
 	let step = $state(0);
 	let busy = $state(false);
@@ -68,8 +60,7 @@
 	}));
 	const ticks = [90, 100, 110, 120, 130];
 
-	const values = () => ({ username, displayName, password, repeat, textScale, accent, port });
-	const address = $derived(addressWithPort(data.address, port, data.portLocked));
+	const values = () => ({ username, displayName, password, repeat, textScale, accent });
 
 	const focusFirstError = (i: number) =>
 		sections[i]?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
@@ -86,7 +77,7 @@
 
 	/** Next: stay and point at the first error, or move on. */
 	async function next() {
-		errors = checkStep(step, values(), data.portLocked);
+		errors = checkStep(step, values());
 		if (Object.keys(errors).length) {
 			await tick();
 			focusFirstError(step);
@@ -104,7 +95,7 @@
 			return;
 		}
 		// Re-check every step; a problem sends the wizard back to it.
-		const bad = firstBadStep(values(), data.portLocked, LAST);
+		const bad = firstBadStep(values(), LAST);
 		if (bad) {
 			cancel();
 			errors = bad.errors;
@@ -114,14 +105,6 @@
 		busy = true;
 		return async ({ result, update }) => {
 			busy = false;
-			// A port move answers with the new address: another origin, so the browser goes there itself.
-			if (result.type === 'redirect') {
-				const to = new URL(result.location, location.href);
-				if (to.origin !== location.origin) {
-					location.assign(to.href);
-					return;
-				}
-			}
 			if (result.type === 'failure') {
 				const fields = (result.data?.fields ?? {}) as FieldErrors;
 				errors = fields;
@@ -245,25 +228,10 @@
 				</div>
 			</section>
 
-			<!-- 3 · Server -->
+			<!-- 3 · Done: the address is ORIGIN when set, otherwise the address this browser used. -->
 			<section hidden={step !== 2} bind:this={sections[2]} aria-labelledby="t2">
 				<header>
-					<h1 class="wtitle" id="t2" tabindex="-1" bind:this={titles[2]}>{w.server.title}</h1>
-					<p class="wdesc">{w.server.description}</p>
-				</header>
-				<ServerStep
-					portLocked={data.portLocked}
-					lockedPort={data.port}
-					bind:port
-					{address}
-					error={errors.port}
-				/>
-			</section>
-
-			<!-- 4 · Done -->
-			<section hidden={step !== 3} bind:this={sections[3]} aria-labelledby="t3">
-				<header>
-					<h1 class="wtitle" id="t3" tabindex="-1" bind:this={titles[3]}>{w.done.title}</h1>
+					<h1 class="wtitle" id="t2" tabindex="-1" bind:this={titles[2]}>{w.done.title}</h1>
 					<p class="wdesc">{w.done.description}</p>
 				</header>
 				<dl class="summary">
@@ -275,7 +243,7 @@
 						{w.done.textSize(textScale)}
 					</dd>
 					<dt>{w.done.address}</dt>
-					<dd class="mono">{address}</dd>
+					<dd class="mono">{data.address}</dd>
 				</dl>
 				{#if message}<Callout kind="danger">{message}</Callout>{/if}
 			</section>

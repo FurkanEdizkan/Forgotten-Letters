@@ -23,10 +23,11 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ARG APP_VERSION=dev
-# PORT_LOCKED: Compose publishes the port (APP_PORT in .env), so the app shows it but never moves it.
+# PORTS=3000: inside the container 3000 is always free; the host's start script (start.sh, start.ps1) or APP_PORT in
+# .env picks the published port. APP_IN_DOCKER: the Owner's settings page then says where the port comes from.
 ENV NODE_ENV=production \
-	PORT=3000 \
-	PORT_LOCKED=1 \
+	PORTS=3000 \
+	APP_IN_DOCKER=1 \
 	APP_VERSION=$APP_VERSION \
 	MIGRATIONS_DIR=/app/drizzle \
 	BACKUP_DIR=/data/backups \

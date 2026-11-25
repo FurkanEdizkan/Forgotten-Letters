@@ -1,10 +1,10 @@
 /**
- * The app as the e2e tests see it: the production build behind the custom server (`node server`, so the port can
- * move as on a real install outside Docker) on its own throwaway PostgreSQL 18 (Testcontainers), never development
- * data. Setup is open at start; the tests create the owner. The client address comes from X-Forwarded-For (as behind
- * Caddy), so each test can act from its own address and the per-address limits stay per test. The database address
- * goes to `e2e/.state/db-url` so a test can set up what the interface cannot, such as an expired seat link. The rules
- * folders are the invented test set (two core versions, an expansion, a broken folder).
+ * The app as the e2e tests see it: the production build behind the custom server (`node server`, which picks the
+ * port from PORTS as on a real install outside Docker) on its own throwaway PostgreSQL 18 (Testcontainers), never
+ * development data. Setup is open at start; the tests create the owner. The client address comes from
+ * X-Forwarded-For (as behind Caddy), so each test can act from its own address and the per-address limits stay per
+ * test. The database address goes to `e2e/.state/db-url` so a test can set up what the interface cannot, such as an
+ * expired seat link. The rules folders are the invented test set (two core versions, an expansion, a broken folder).
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -24,7 +24,7 @@ const app = spawn('node', ['server'], {
 	env: {
 		...process.env,
 		NODE_ENV: 'production',
-		PORT: String(PORT),
+		PORTS: String(PORT),
 		ORIGIN: `http://localhost:${PORT}`,
 		DATABASE_URL: db.getConnectionUri(),
 		BACKUP_DIR: mkdtempSync(join(tmpdir(), 'fl-e2e-backups-')),

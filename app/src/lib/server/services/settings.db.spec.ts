@@ -1,47 +1,68 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { forgetConfig } from '../infra/config';
 import { ctx, person, sql, useTestDatabase } from '../testing/db';
-import { getAppearance, getSettings, updateSettings } from './settings';
+import { getAppearance, getSettings, runsInDocker, updateSettings } from './settings';
 
 useTestDatabase();
 
-/** A fake custom server on `port`; `fail` makes the next move reject with that errno code. */
-function fakeServer(port: number) {
-	const s = {
-		port,
-		fail: null as string | null,
-		async move(to: number) {
-			if (s.fail) throw Object.assign(new Error('listen failed'), { code: s.fail });
-			s.port = to;
-		}
-	};
-	globalThis.__forgottenLettersListener = s;
-	return s;
-}
+/** What the custom server leaves on globalThis once it listens. */
+const listening = (port: number, wanted = port) => {
+	globalThis.__forgottenLettersListener = { port, wanted, tried: port === wanted ? [] : [wanted] };
+};
 
 afterEach(() => {
 	globalThis.__forgottenLettersListener = undefined;
+	vi.unstubAllEnvs();
+	forgetConfig();
 });
 
-const withHost = (c: ReturnType<typeof ctx>, host: string) => ({ ...c, host });
-
 describe('getSettings', () => {
-	it('gives the defaults, locked without the custom server, at the address the browser used', async () => {
+	it('gives the defaults at the address the browser used, with its port', async () => {
 		expect(await getSettings('192.168.1.20:5173')).toEqual({
 			textScale: 100,
 			accent: 'blood',
-			port: 3000,
-			portLocked: true,
-			address: 'http://192.168.1.20:5173'
+			port: 5173,
+			address: 'http://192.168.1.20:5173',
+			portNote: null
 		});
 		expect(await getAppearance()).toEqual({ textScale: 100, accent: 'blood' });
 	});
-	it('with the custom server: unlocked, the address uses the port it listens on', async () => {
-		fakeServer(3100);
-		expect(await getSettings('192.168.1.20:3100')).toMatchObject({
-			portLocked: false,
-			address: 'http://192.168.1.20:3100'
+	it('without a Host header, the port the custom server listens on (or 3000)', async () => {
+		expect(await getSettings()).toMatchObject({ address: 'http://localhost:3000', port: 3000 });
+		listening(3100);
+		expect(await getSettings()).toMatchObject({ address: 'http://localhost:3100', port: 3100 });
+	});
+	it('after a fallback, adds the note; the port is the one of the shown address', async () => {
+		listening(3001, 3000);
+		expect(await getSettings('192.168.1.20:3001')).toEqual({
+			textScale: 100,
+			accent: 'blood',
+			port: 3001,
+			address: 'http://192.168.1.20:3001',
+			portNote: 'Port 3000 was in use, so the app uses 3001. Links now point to 3001.'
 		});
-		expect((await getSettings()).address).toBe('http://localhost:3100');
+	});
+	it('ORIGIN wins over the Host header, and its port is shown (443 for https without one)', async () => {
+		vi.stubEnv('ORIGIN', 'http://192.168.1.20:3002/');
+		forgetConfig();
+		listening(3000); // inside Docker: the container port is never shown
+		expect(await getSettings('127.0.0.1:3000')).toMatchObject({
+			address: 'http://192.168.1.20:3002',
+			port: 3002
+		});
+		vi.stubEnv('ORIGIN', 'https://letters.example.org');
+		forgetConfig();
+		expect(await getSettings('127.0.0.1:3000')).toMatchObject({
+			address: 'https://letters.example.org',
+			port: 443
+		});
+	});
+	it('in Docker, never a fallback note', async () => {
+		vi.stubEnv('APP_IN_DOCKER', '1');
+		forgetConfig();
+		listening(3001, 3000);
+		expect((await getSettings('192.168.1.20:3001')).portNote).toBeNull();
+		expect(runsInDocker()).toBe(true);
 	});
 });
 
@@ -49,12 +70,8 @@ describe('updateSettings', () => {
 	it('lets an owner change the look, audits only what changed, and every page sees it', async () => {
 		const o = await person('owner');
 		await getAppearance(); // fill the cache first: the change must replace it
-		const { settings, moveTo } = await updateSettings(
-			{ textScale: 115, accent: 'verdigris' },
-			o.ctx()
-		);
+		const settings = await updateSettings({ textScale: 115, accent: 'verdigris' }, o.ctx());
 		expect(settings).toMatchObject({ textScale: 115, accent: 'verdigris' });
-		expect(moveTo).toBeNull();
 		expect(await getAppearance()).toEqual({ textScale: 115, accent: 'verdigris' });
 		const [row] = await sql()`select updated_by from app.settings`;
 		expect(row!.updated_by).toBe(o.row.id);
@@ -84,41 +101,12 @@ describe('updateSettings', () => {
 		});
 		expect((await getAppearance()).accent).toBe('blood');
 	});
-	it('refuses a port change while the port is locked, and saves nothing of that change', async () => {
+	it('takes no port: the audit never holds one', async () => {
 		const o = await person('owner');
-		await expect(updateSettings({ accent: 'ash', port: 4100 }, o.ctx())).rejects.toMatchObject({
-			code: 'conflict',
-			message: expect.stringContaining('APP_PORT in .env'),
-			fields: { port: expect.any(String) }
-		});
-		expect(await getSettings()).toMatchObject({ accent: 'blood', port: 3000 });
-		// Sending the port it already has is no change, so it is fine even when locked.
-		await expect(updateSettings({ port: 3000 }, o.ctx())).resolves.toMatchObject({
-			moveTo: null
-		});
-	});
-	it('moves the listener and answers with the new address', async () => {
-		const o = await person('owner');
-		const server = fakeServer(3000);
-		const { settings, moveTo } = await updateSettings(
-			{ port: 4200 },
-			withHost(o.ctx(), '192.168.1.20:3000')
-		);
-		expect(server.port).toBe(4200);
-		expect(moveTo).toBe('http://192.168.1.20:4200');
-		expect(settings).toMatchObject({ port: 4200, address: 'http://192.168.1.20:4200' });
-	});
-	it('keeps everything when the new port is taken', async () => {
-		const o = await person('owner');
-		const server = fakeServer(3000);
-		server.fail = 'EADDRINUSE';
-		await expect(updateSettings({ textScale: 120, port: 4300 }, o.ctx())).rejects.toMatchObject({
-			code: 'conflict',
-			message: 'Port 4300 is in use by another program.',
-			fields: { port: 'Port 4300 is in use by another program.' }
-		});
-		expect(await getSettings()).toMatchObject({ textScale: 100, port: 3000 });
-		expect((await sql()`select count(*)::int as n from auth.audit_log`)[0]!.n).toBe(0);
+		await updateSettings({ accent: 'ash', port: 4100 } as never, o.ctx());
+		const [audit] =
+			await sql()`select detail from auth.audit_log where action = 'settings.changed'`;
+		expect(audit!.detail).toEqual({ accent: { from: 'blood', to: 'ash' } });
 	});
 });
 
@@ -136,14 +124,12 @@ describe('app.settings in the database', () => {
 			[() => sql()`update app.settings set text_scale = 85`, 'settings_text_scale_range'],
 			[() => sql()`update app.settings set text_scale = 135`, 'settings_text_scale_range'],
 			[() => sql()`update app.settings set text_scale = 102`, 'settings_text_scale_range'],
-			[() => sql()`update app.settings set accent = 'pink'`, 'settings_accent_preset'],
-			[() => sql()`update app.settings set port = 80`, 'settings_port_range'],
-			[() => sql()`update app.settings set port = 70000`, 'settings_port_range']
+			[() => sql()`update app.settings set accent = 'pink'`, 'settings_accent_preset']
 		] as const;
 		for (const [query, constraint] of bad)
 			await expect(query()).rejects.toMatchObject({ constraint_name: constraint });
-		await sql()`update app.settings set text_scale = 130, accent = 'ash', port = 65535`;
-		await sql()`update app.settings set text_scale = 90, port = 1024`;
+		await sql()`update app.settings set text_scale = 130, accent = 'ash'`;
+		await sql()`update app.settings set text_scale = 90`;
 	});
 	it('moves updated_at on every update and forgets who changed it when they go', async () => {
 		const o = await person('owner');

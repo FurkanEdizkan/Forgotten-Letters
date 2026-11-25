@@ -34,8 +34,7 @@ test.beforeAll(async ({ browser }) => {
 			displayName: 'Brother Anselm',
 			password: OWNER.password,
 			textScale: 100,
-			accent: 'blood',
-			port: 4173
+			accent: 'blood'
 		}
 	});
 	// 201: made now; 409: accounts.e2e.ts made it first.
@@ -144,7 +143,7 @@ test('help pages: open signed out and signed in; an unknown page is a 404', asyn
 	await page.context().close();
 });
 
-test('owner settings: a new accent applies to every page; a low port is refused with the reason', async ({
+test('owner settings: a new accent applies to every page; the port is read-only and a port change is refused', async ({
 	browser
 }) => {
 	const page = await visitor(browser);
@@ -163,14 +162,23 @@ test('owner settings: a new accent applies to every page; a low port is refused 
 	await page.goto('/home');
 	await expect(html).toHaveAttribute('data-accent', 'brass');
 
+	// The Address card is read-only: the address and its port, no port field, no fallback note (4173 was free).
 	await page.goto('/owner/settings');
-	await page.fill('input[name=port]', '80');
-	await page.getByRole('button', { name: 'Save' }).click();
-	await expect(page.getByText(/Port 1023 and below need admin rights/)).toBeVisible();
-	await expect(page.locator('input[name=port]')).toHaveAttribute('aria-invalid', 'true');
+	await expect(page.locator('input[name=port]')).toHaveCount(0);
+	await expect(page.getByText('http://localhost:4173')).toBeVisible();
+	await expect(page.getByText('Picked when the app starts. Read-only here.')).toBeVisible();
+	await expect(page.getByText(/was in use, so the app uses/)).toHaveCount(0);
+
+	// Error path: the API refuses a port change, with the reason on the field.
+	const refused = await page.context().request.patch('/api/v1/settings', {
+		data: { port: 3001 }
+	});
+	expect(refused.status()).toBe(400);
+	expect((await refused.json()).error.fields.port).toBe(
+		'The port is picked when the app starts. Set PORTS in .env instead.'
+	);
 
 	// Put the look back for later runs on the same database.
-	await page.fill('input[name=port]', '4173');
 	await page.getByRole('radio', { name: beforeLabel }).click();
 	await page.getByRole('button', { name: 'Save' }).click();
 	await expect(html).toHaveAttribute('data-accent', before);

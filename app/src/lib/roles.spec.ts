@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areasFor, can, homeFor, invitableBy } from './roles';
+import { areasFor, ASSIGNABLE_ROLES, can, homeFor, invitableBy } from './roles';
 
 describe('can', () => {
 	it('ranks owner above admin above user', () => {
@@ -23,6 +23,12 @@ describe('invitableBy', () => {
 		expect(invitableBy('owner')).toEqual(['admin', 'user']);
 		expect(invitableBy('admin')).toEqual(['user']);
 		expect(invitableBy('user')).toEqual([]);
+	});
+});
+
+describe('ASSIGNABLE_ROLES', () => {
+	it('offers Admin and User only: the one Owner moves by transfer (decision 80)', () => {
+		expect(ASSIGNABLE_ROLES).toEqual(['admin', 'user']);
 	});
 });
 

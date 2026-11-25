@@ -641,7 +641,22 @@ export const m = {
 		enabledDone: 'Account enabled.',
 		anonymisedDone: 'Account anonymised.',
 		empty: 'No accounts yet.',
-		yourself: 'This is you'
+		yourself: 'This is you',
+		ownerLock: 'Owner (transfer only)',
+		transfer: {
+			heading: 'Transfer ownership',
+			intro: (role: string) =>
+				`Make another person the Owner of this copy. There is only ever one Owner: you become a ${role} (the Admin role), and only the new Owner can hand it on.`,
+			newOwner: 'New Owner',
+			placeholder: 'Type a display name or username',
+			find: 'Find',
+			hint: 'Active accounts other than yours are offered. Disabled and anonymised accounts never become the Owner.',
+			people: 'People who match',
+			noMatch: 'Nobody matches. Only active accounts other than yours are shown.',
+			password: 'Your password',
+			button: 'Transfer ownership',
+			confirm: (name: string, role: string) => `${name} becomes the Owner. You become a ${role}.`
+		}
 	},
 
 	invites: {
@@ -672,6 +687,8 @@ export const m = {
 		invitedHeading: 'People you invited',
 		invitedEmpty: 'Nobody has joined from your invites yet.',
 		ownerSees: 'As an owner you see every person in the owner area.',
+		handedOver: (name: string, role: string) =>
+			`You handed ownership to ${name}. You are now a ${role}.`,
 		toPeople: 'Open People'
 	},
 
@@ -698,6 +715,7 @@ export const m = {
 			'invite.revoked': 'Revoked an invite',
 			'invite.accepted': 'Joined by invite',
 			'role.changed': 'Changed a role',
+			'owner.transferred': 'Handed ownership on',
 			'account.disabled': 'Disabled an account',
 			'account.enabled': 'Enabled an account',
 			'account.anonymised': 'Anonymised an account',

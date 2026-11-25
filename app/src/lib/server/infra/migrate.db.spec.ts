@@ -23,17 +23,17 @@ function olderRelease(n: number) {
 
 describe('migrations', () => {
 	it('apply to an empty database, and applying again is a no-op', async () => {
-		expect(await migrationState()).toEqual({ total: 12, applied: 0 });
+		expect(await migrationState()).toEqual({ total: 13, applied: 0 });
 		expect(migrated()).toBe(false);
 
 		let backups = 0;
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 12, applied: 12 });
+		expect(await migrationState()).toEqual({ total: 13, applied: 13 });
 		expect(migrated()).toBe(true);
 		expect(backups).toBe(0); // nothing to back up in an empty database
 
 		await runMigrations(async () => backups++);
-		expect(await migrationState()).toEqual({ total: 12, applied: 12 });
+		expect(await migrationState()).toEqual({ total: 13, applied: 13 });
 		expect(backups).toBe(0);
 
 		const tables =
@@ -222,5 +222,67 @@ describe('migrations', () => {
 		const checks =
 			await sql`select conname from pg_constraint where conname = 'settings_port_range'`;
 		expect(checks).toEqual([]);
+	});
+	it('upgrading to one Owner: the oldest active Owner stays, the others become Admins, audited; no second Owner after', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(12) });
+		const sql = sqlClient();
+		// Three Owners; the oldest is disabled, so the oldest active one (the second) stays Owner.
+		await sql`insert into auth.users (username, display_name, password_hash, role, created_at, disabled_at) values
+			('old.off', 'Off', 'x', 'owner', now() - interval '3 days', now()),
+			('old.keep', 'Keep', 'x', 'owner', now() - interval '2 days', null),
+			('old.late', 'Late', 'x', 'owner', now() - interval '1 day', null),
+			('old.cm', 'CM', 'x', 'admin', now() - interval '1 day', null)`;
+		await runMigrations();
+		const users =
+			await sql`select username, role, version from auth.users order by created_at, username`;
+		expect(users.map((u) => ({ ...u }))).toEqual([
+			{ username: 'old.off', role: 'admin', version: 2 },
+			{ username: 'old.keep', role: 'owner', version: 1 },
+			{ username: 'old.cm', role: 'admin', version: 1 },
+			{ username: 'old.late', role: 'admin', version: 2 }
+		]);
+		const audit = await sql`select a.actor_id, a.action, a.target_type, u.username, a.detail
+			from auth.audit_log a join auth.users u on u.id::text = a.target_id order by u.username`;
+		expect(audit.map((a) => ({ ...a }))).toEqual(
+			['old.late', 'old.off'].map((username) => ({
+				actor_id: null,
+				action: 'role.changed',
+				target_type: 'user',
+				username,
+				detail: { from: 'owner', to: 'admin', reason: 'single_owner' }
+			}))
+		);
+		await expect(
+			sql`update auth.users set role = 'owner' where username = 'old.cm'`
+		).rejects.toThrow(/users_one_owner/);
+	});
+	it('upgrading with no active Owner keeps the oldest one that is not anonymised', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(12) });
+		const sql = sqlClient();
+		await sql`insert into auth.users (username, display_name, password_hash, role, created_at, disabled_at, anonymised_at) values
+			('gone.owner', 'Former member', 'x', 'owner', now() - interval '3 days', now(), now()),
+			('off.first', 'First', 'x', 'owner', now() - interval '2 days', now(), null),
+			('off.second', 'Second', 'x', 'owner', now() - interval '1 day', now(), null)`;
+		await runMigrations();
+		const owners = await sql`select username from auth.users where role = 'owner'`;
+		expect(owners.map((o) => o.username)).toEqual(['off.first']);
+	});
+	it('upgrading a copy with one Owner changes nobody', async () => {
+		pointAppAt(await createDatabase());
+		await drizzleMigrate(db(), { migrationsFolder: olderRelease(12) });
+		const sql = sqlClient();
+		await sql`insert into auth.users (username, display_name, password_hash, role) values ('only.owner', 'Only', 'x', 'owner'), ('a.player', 'P', 'x', 'user')`;
+		await runMigrations();
+		expect(
+			(await sql`select username, role, version from auth.users order by username`).map((u) => ({
+				...u
+			}))
+		).toEqual([
+			{ username: 'a.player', role: 'user', version: 1 },
+			{ username: 'only.owner', role: 'owner', version: 1 }
+		]);
+		expect(await sql`select 1 from auth.audit_log`).toEqual([]);
 	});
 });

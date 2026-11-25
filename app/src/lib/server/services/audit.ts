@@ -39,6 +39,7 @@ export type AuditAction =
 	| 'invite.revoked'
 	| 'invite.accepted'
 	| 'role.changed'
+	| 'owner.transferred'
 	| 'account.disabled'
 	| 'account.enabled'
 	| 'account.anonymised'

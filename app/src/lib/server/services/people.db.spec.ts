@@ -1,42 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../db';
 import * as usersRepo from '../repos/users';
-import { ctx, newCampaign, person, sql, useTestDatabase } from '../testing/db';
-import { resolveSession, signIn } from './auth';
+import { ctx, newCampaign, PASSWORD, person, sql, useTestDatabase } from '../testing/db';
+import { resolveSession, signIn, signInLimiter } from './auth';
 import { addCoCm, moveStage, remove } from './campaigns';
-import { anonymise, changeRole, list, resetPassword, setDisabled } from './people';
+import {
+	anonymise,
+	changeRole,
+	list,
+	ownerCandidates,
+	resetPassword,
+	setDisabled,
+	transferOwnership
+} from './people';
 
 useTestDatabase();
-
-/**
- * Run two changes so they overlap for certain: `first` starts and is held at its write to `heldId` (another
- * transaction has that row locked) while `second` runs to the end; then `first` is let go. Errors are expected.
- */
-async function interleaved(
-	heldId: string,
-	first: () => Promise<unknown>,
-	second: () => Promise<unknown>
-) {
-	let release!: () => void;
-	let locked!: () => void;
-	const held = new Promise<void>((r) => (release = r));
-	const isLocked = new Promise<void>((r) => (locked = r));
-	const holder = sql().begin(async (t) => {
-		await t`select 1 from auth.users where id = ${heldId} for no key update`;
-		locked();
-		await held;
-	});
-	await isLocked;
-	// Both changes start while a row is held, so neither can finish before the other has read the owners; then the
-	// row is released and both run to the end. A correct service lets exactly one of them through.
-	const one = first().catch((e) => e);
-	await new Promise((r) => setTimeout(r, 300));
-	const two = second().catch((e) => e);
-	await new Promise((r) => setTimeout(r, 300));
-	release();
-	await holder;
-	return Promise.all([one, two]);
-}
 
 const reload = async (id: string) => (await usersRepo.findById(db(), id))!;
 
@@ -73,7 +51,7 @@ describe('list (F7)', () => {
 	});
 });
 
-describe('changeRole (F8)', () => {
+describe('changeRole (F8, decision 80)', () => {
 	it('changes a role, bumps the version and audits it', async () => {
 		const owner = await person('owner');
 		const user = await person('user');
@@ -83,34 +61,28 @@ describe('changeRole (F8)', () => {
 			await sql()`select actor_id, detail from auth.audit_log where action = 'role.changed'`;
 		expect(a).toMatchObject({ actor_id: owner.row.id, detail: { from: 'user', to: 'admin' } });
 	});
-	it('never demotes the last active owner', async () => {
+	it('never makes anyone the Owner: the role is Admin or User', async () => {
+		const owner = await person('owner');
+		const admin = await person('admin');
+		await expect(
+			// The schemas refuse "owner" first (400); the service refuses it too.
+			changeRole(owner.ctx(), admin.row.id, 'owner' as never, admin.row.version)
+		).rejects.toMatchObject({ code: 'invalid', fields: { role: expect.any(String) } });
+		expect((await reload(admin.row.id)).role).toBe('admin');
+	});
+	it('never changes the Owner: ownership moves only by transfer', async () => {
 		const owner = await person('owner');
 		await expect(
 			changeRole(owner.ctx(), owner.row.id, 'admin', owner.row.version)
-		).rejects.toMatchObject({ code: 'conflict' });
+		).rejects.toMatchObject({ code: 'conflict', message: 'Ownership moves only by transfer.' });
 		expect((await reload(owner.row.id)).role).toBe('owner');
-	});
-	it('demotes an owner while another active owner remains', async () => {
-		const a = await person('owner');
-		const b = await person('owner');
-		await expect(changeRole(a.ctx(), b.row.id, 'user', b.row.version)).resolves.toMatchObject({
-			role: 'user'
-		});
-	});
-	it('a disabled second owner does not count', async () => {
-		const a = await person('owner');
-		const b = await person('owner');
-		await usersRepo.update(db(), b.row.id, { disabledAt: new Date() });
-		await expect(changeRole(a.ctx(), a.row.id, 'admin', a.row.version)).rejects.toMatchObject({
-			code: 'conflict'
-		});
 	});
 	it('a stale version is a conflict', async () => {
 		const owner = await person('owner');
 		const user = await person('user');
 		await changeRole(owner.ctx(), user.row.id, 'admin', user.row.version);
 		await expect(
-			changeRole(owner.ctx(), user.row.id, 'owner', user.row.version)
+			changeRole(owner.ctx(), user.row.id, 'user', user.row.version)
 		).rejects.toMatchObject({
 			code: 'conflict',
 			message: expect.stringContaining('changed this account')
@@ -129,16 +101,6 @@ describe('changeRole (F8)', () => {
 			changeRole(owner.ctx(), '01900000-0000-7000-8000-000000000000', 'admin', 1)
 		).rejects.toMatchObject({ code: 'not_found' });
 	});
-	it('two owners demoting each other at once still leave one owner', async () => {
-		const a = await person('owner');
-		const b = await person('owner');
-		await interleaved(
-			b.row.id,
-			() => changeRole(a.ctx(), b.row.id, 'user', b.row.version),
-			() => changeRole(b.ctx(), a.row.id, 'user', a.row.version)
-		);
-		expect(await usersRepo.activeOwnerCount(db())).toBe(1);
-	});
 });
 
 describe('setDisabled (F9)', () => {
@@ -153,27 +115,22 @@ describe('setDisabled (F9)', () => {
 				.n
 		).toBe(0);
 		await expect(
-			signIn(
-				{ username: user.row.username, password: 'correct horse battery', remember: false },
-				ctx()
-			)
+			signIn({ username: user.row.username, password: PASSWORD, remember: false }, ctx())
 		).rejects.toMatchObject({ code: 'unauthenticated' });
 		await setDisabled(owner.ctx(), user.row.id, false, p.version);
 		await expect(
-			signIn(
-				{ username: user.row.username, password: 'correct horse battery', remember: false },
-				ctx()
-			)
+			signIn({ username: user.row.username, password: PASSWORD, remember: false }, ctx())
 		).resolves.toBeTruthy();
 		expect(
 			await sql()`select action from auth.audit_log where action like 'account.%' order by id`
 		).toEqual([{ action: 'account.disabled' }, { action: 'account.enabled' }]);
 	});
-	it('an owner cannot disable their own account', async () => {
+	it('the Owner is never disabled: transfer ownership first', async () => {
 		const owner = await person('owner');
 		await expect(
 			setDisabled(owner.ctx(), owner.row.id, true, owner.row.version)
-		).rejects.toMatchObject({ code: 'conflict' });
+		).rejects.toMatchObject({ code: 'conflict', message: 'Transfer ownership first.' });
+		expect((await reload(owner.row.id)).disabledAt).toBeNull();
 	});
 	it('a stale version is a conflict', async () => {
 		const owner = await person('owner');
@@ -182,15 +139,138 @@ describe('setDisabled (F9)', () => {
 			setDisabled(owner.ctx(), user.row.id, true, user.row.version + 5)
 		).rejects.toMatchObject({ code: 'conflict' });
 	});
-	it('two owners disabling each other at once still leave one active owner', async () => {
-		const a = await person('owner');
-		const b = await person('owner');
-		await interleaved(
-			b.row.id,
-			() => setDisabled(a.ctx(), b.row.id, true, b.row.version),
-			() => setDisabled(b.ctx(), a.row.id, true, a.row.version)
+});
+
+describe('transferOwnership (decision 80)', () => {
+	const hand = (
+		from: { ctx: () => ReturnType<typeof ctx> },
+		to: { row: { id: string; version: number } },
+		password = PASSWORD
+	) => transferOwnership(from.ctx(), { to: to.row.id, password, version: to.row.version });
+
+	it('swaps the roles in one go, bumps both versions and audits it; nobody is signed out', async () => {
+		const owner = await person('owner');
+		const admin = await person('admin');
+		const out = await hand(owner, admin);
+		expect(out.from).toMatchObject({
+			id: owner.row.id,
+			role: 'admin',
+			version: owner.row.version + 1
+		});
+		expect(out.to).toMatchObject({
+			id: admin.row.id,
+			role: 'owner',
+			version: admin.row.version + 1
+		});
+		expect((await reload(owner.row.id)).role).toBe('admin');
+		expect((await reload(admin.row.id)).role).toBe('owner');
+		const [a] =
+			await sql()`select actor_id, target_id, detail from auth.audit_log where action = 'owner.transferred'`;
+		expect(a).toMatchObject({
+			actor_id: owner.row.id,
+			target_id: admin.row.id,
+			detail: { from: owner.row.id, to: admin.row.id }
+		});
+		expect(await resolveSession(owner.token)).not.toBeNull();
+		expect(await resolveSession(admin.token)).not.toBeNull();
+	});
+	it('a Player can become the Owner, and the old Owner keeps running their campaigns as an Admin', async () => {
+		const owner = await person('owner');
+		const player = await person('user');
+		const { campaign } = await newCampaign(owner);
+		await hand(owner, player);
+		expect((await reload(player.row.id)).role).toBe('owner');
+		expect(
+			await sql()`select role from campaign.members where campaign_id = ${campaign.id} and user_id = ${owner.row.id}`
+		).toEqual([{ role: 'cm' }]);
+	});
+	it('a wrong password is a field error, changes nothing and counts towards the sign-in limit', async () => {
+		const owner = await person('owner');
+		const admin = await person('admin');
+		await expect(hand(owner, admin, 'not my password')).rejects.toMatchObject({
+			code: 'invalid',
+			fields: { password: 'That is not your current password.' }
+		});
+		expect((await reload(owner.row.id)).role).toBe('owner');
+		expect((await reload(admin.row.id)).role).toBe('admin');
+		expect(await sql()`select 1 from auth.audit_log where action = 'owner.transferred'`).toEqual(
+			[]
 		);
-		expect(await usersRepo.activeOwnerCount(db())).toBe(1);
+		// Four more wrong tries reach the limit of five; then even the right password must wait.
+		for (let i = 0; i < 4; i++)
+			await expect(hand(owner, admin, 'not my password')).rejects.toMatchObject({
+				code: 'invalid'
+			});
+		await expect(hand(owner, admin)).rejects.toMatchObject({ code: 'rate_limited' });
+		signInLimiter.clear(`u:${owner.row.username}`);
+		await expect(hand(owner, admin)).resolves.toBeTruthy();
+	});
+	it('the target is another active account at the version shown; nothing changes otherwise', async () => {
+		const owner = await person('owner');
+		const off = await person('admin');
+		const gone = await person('user');
+		const fresh = await person('admin');
+		const d = await setDisabled(owner.ctx(), off.row.id, true, off.row.version);
+		const g = await setDisabled(owner.ctx(), gone.row.id, true, gone.row.version);
+		const a = await anonymise(owner.ctx(), gone.row.id, g.version);
+		await expect(hand(owner, owner)).rejects.toMatchObject({ code: 'conflict' });
+		await expect(
+			hand(owner, { row: { id: off.row.id, version: d.version } })
+		).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('disabled') });
+		await expect(
+			hand(owner, { row: { id: gone.row.id, version: a.version } })
+		).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('anonymised') });
+		await expect(
+			hand(owner, { row: { id: fresh.row.id, version: fresh.row.version + 1 } })
+		).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('meanwhile') });
+		await expect(
+			hand(owner, { row: { id: '01900000-0000-7000-8000-000000000000', version: 1 } })
+		).rejects.toMatchObject({ code: 'not_found' });
+		expect((await reload(owner.row.id)).role).toBe('owner');
+		expect(await sql()`select 1 from auth.users where role = 'owner'`).toHaveLength(1);
+	});
+	it('only the Owner hands ownership on', async () => {
+		await person('owner');
+		const admin = await person('admin');
+		const other = await person('admin');
+		await expect(hand(admin, other)).rejects.toMatchObject({ code: 'forbidden' });
+	});
+	it('two transfers at once hand ownership over once', async () => {
+		const owner = await person('owner');
+		const a = await person('admin');
+		const b = await person('admin');
+		const results = await Promise.allSettled([hand(owner, a), hand(owner, b)]);
+		expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+		expect(await sql()`select id from auth.users where role = 'owner'`).toHaveLength(1);
+		expect((await reload(owner.row.id)).role).toBe('admin');
+	});
+	it('offers active accounts other than the Owner that match, with their version', async () => {
+		const owner = await person('owner', { displayName: 'Ilse' });
+		const anselm = await person('admin', { displayName: 'Brother Anselm' });
+		const off = await person('user', { displayName: 'Anselm the Lame' });
+		await setDisabled(owner.ctx(), off.row.id, true, off.row.version);
+		expect(await ownerCandidates(owner.ctx(), 'anselm')).toEqual([
+			{
+				id: anselm.row.id,
+				displayName: 'Brother Anselm',
+				username: anselm.row.username,
+				role: 'admin',
+				version: anselm.row.version
+			}
+		]);
+		expect(await ownerCandidates(owner.ctx(), 'ilse')).toEqual([]);
+		await expect(ownerCandidates(anselm.ctx(), 'ilse')).rejects.toMatchObject({
+			code: 'forbidden'
+		});
+	});
+});
+
+describe('one Owner in the database (decision 80)', () => {
+	it('users_one_owner refuses a second Owner row', async () => {
+		await person('owner');
+		await expect(
+			sql()`insert into auth.users (username, display_name, password_hash, role) values ('second.owner', 'Second', 'x', 'owner')`
+		).rejects.toMatchObject({ constraint_name: 'users_one_owner' });
 	});
 });
 
@@ -214,12 +294,6 @@ describe('campaign rights and site roles (decision 2)', () => {
 			code: 'conflict',
 			message: expect.stringContaining('Mire of Saints')
 		});
-		// Owner -> Admin keeps the right to run campaigns, so it is allowed.
-		const ownerCm = await person('owner');
-		await newCampaign(ownerCm);
-		await expect(
-			changeRole(owner.ctx(), ownerCm.row.id, 'admin', ownerCm.row.version)
-		).resolves.toMatchObject({ role: 'admin' });
 		await moveStage(cm.ctx(), campaign.id, 'active');
 		await moveStage(cm.ctx(), campaign.id, 'ended');
 		await expect(changeRole(owner.ctx(), cm.row.id, 'user', cm.row.version)).resolves.toMatchObject(
@@ -292,6 +366,16 @@ describe('anonymise (F18)', () => {
 		await expect(anonymise(owner.ctx(), user.row.id, user.row.version)).rejects.toMatchObject({
 			code: 'conflict',
 			message: 'Disable the account first.'
+		});
+	});
+	it('never anonymises the Owner: transfer ownership first', async () => {
+		const owner = await person('owner');
+		// Only an Owner left disabled by an old copy could get this far (migration 0012 may keep one).
+		await sql()`update auth.users set disabled_at = now() where id = ${owner.row.id}`;
+		const o = await reload(owner.row.id);
+		await expect(anonymise(owner.ctx(), owner.row.id, o.version)).rejects.toMatchObject({
+			code: 'conflict',
+			message: 'Transfer ownership first.'
 		});
 	});
 	it('renames a disabled account to Former member and keeps it', async () => {

@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import { passwordProblem } from '#lib/password-strength';
+import { ASSIGNABLE_ROLES } from '#lib/roles';
 
 export const username = z
 	.string()
@@ -51,8 +52,16 @@ export const inviteInput = z.object({
 	note: z.string().trim().max(200, 'Use at most 200 characters.').optional().default('')
 });
 
+/** A role from Owner → People: Admin or User only; ownership moves by transfer (decision 80). */
 export const roleInput = z.object({
-	role: z.enum(['owner', 'admin', 'user']),
+	role: z.enum(ASSIGNABLE_ROLES),
+	version: z.coerce.number().int().min(1)
+});
+
+/** Hand ownership to another account: its id and row version, and the Owner's own password. */
+export const ownerTransferInput = z.object({
+	to: z.uuid('Pick the new Owner.'),
+	password: z.string().min(1, 'Enter your password.').max(256),
 	version: z.coerce.number().int().min(1)
 });
 
@@ -63,3 +72,4 @@ export const pageQuery = z.object({
 
 export type SignInInput = z.infer<typeof signInInput>;
 export type NewAccountInput = z.infer<typeof newAccountInput>;
+export type OwnerTransferInput = z.infer<typeof ownerTransferInput>;

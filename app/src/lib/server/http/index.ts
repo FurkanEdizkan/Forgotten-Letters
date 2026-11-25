@@ -82,6 +82,28 @@ export function setSessionCookie(event: RequestEvent, s: { token: string; maxAge
 export const clearSessionCookie = (event: RequestEvent) =>
 	event.cookies.delete(SESSION_COOKIE, { path: '/' });
 
+/**
+ * A one-time note for the page a redirect lands on (for example "You handed ownership to …" on /admin): an
+ * httpOnly cookie on that path for a minute, read once by its load. Kept out of the address, so a link cannot fake it.
+ */
+const FLASH_COOKIE = 'fl_flash';
+
+export function setFlash(event: RequestEvent, path: string, text: string) {
+	event.cookies.set(FLASH_COOKIE, text, {
+		path,
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: isHttps(event),
+		maxAge: 60
+	});
+}
+
+export function takeFlash(event: RequestEvent, path: string): string | null {
+	const text = event.cookies.get(FLASH_COOKIE) ?? null;
+	if (text !== null) event.cookies.delete(FLASH_COOKIE, { path });
+	return text;
+}
+
 /** Parse with a schema or throw `invalid` with field messages. */
 export function parse<S extends z.ZodType>(schema: S, value: unknown): z.infer<S> {
 	const r = schema.safeParse(value);

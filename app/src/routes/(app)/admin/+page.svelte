@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '#lib/messages';
 	import Invites from '#lib/ui/Invites.svelte';
+	import Message from '#lib/ui/Message.svelte';
 	import RoleBadge from '#lib/ui/RoleBadge.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Time from '#lib/ui/Time.svelte';
@@ -19,6 +20,7 @@
 <svelte:head><title>{m.admin.title} · {m.app.name}</title></svelte:head>
 
 <h1>{m.admin.title}</h1>
+{#if data.handedTo}<Message>{m.admin.handedOver(data.handedTo, m.roles.admin)}</Message>{/if}
 <p class="dim">{m.admin.intro}</p>
 
 <Invites invites={data.invites} roles={data.roles} {result} />

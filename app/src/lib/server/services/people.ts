@@ -1,9 +1,11 @@
 /**
- * Managing people. Owners see every account and change roles, disable, reset and anonymise accounts; admins see
- * the users they invited. The last active owner is never demoted or disabled. Every change is audited in the same
- * transaction, and edits carry the row's version so two owners never silently overwrite each other.
+ * Managing people. The Owner sees every account, changes roles between Admin and User, disables, resets and
+ * anonymises accounts, and hands ownership on; admins see the users they invited. A copy has exactly one Owner
+ * (decision 80): the Owner is never changed, disabled or anonymised here, and ownership moves only by
+ * `transferOwnership`. Every change is audited in the same transaction, and edits carry the row's version so a
+ * change made meanwhile is never silently overwritten.
  */
-import { can, type Role } from '#lib/roles';
+import { can, ASSIGNABLE_ROLES, type AssignableRole, type Role } from '#lib/roles';
 import { AppError } from '../errors';
 import { removeWarbands as removeWarbandFiles } from './fighter-images';
 import { removeAllOf as removeWarbandsOf } from './warbands';
@@ -11,9 +13,9 @@ import { removeAllOf as removeHomebrewOf } from './homebrew';
 import { db } from '../db';
 import * as usersRepo from '../repos/users';
 import { record, type Ctx } from './audit';
-import { endSessions, requireUser } from './auth';
+import { endSessions, requireUser, signInLimiter } from './auth';
 import { dropCoCmRights, rolesOf } from './campaigns';
-import { hashPassword, temporaryPassword } from './passwords';
+import { hashPassword, temporaryPassword, verifyPassword } from './passwords';
 
 /** What the people list shows (never the password hash). */
 export interface Person {
@@ -85,13 +87,24 @@ async function refuseWhileCm(tx: Parameters<typeof rolesOf>[0], id: string, doin
 const stale = () =>
 	new AppError('conflict', 'Someone changed this account meanwhile. Reload and try again.');
 
-export async function changeRole(ctx: Ctx, id: string, role: Role, version: number) {
+/** The one Owner is never changed, disabled or anonymised; they hand ownership on first (decision 80). */
+const transferFirst = () => new AppError('conflict', 'Transfer ownership first.');
+
+/**
+ * Change a person's role to Admin or User. The Owner's own role never changes here ("Ownership moves only by
+ * transfer."), and nobody becomes the Owner this way.
+ */
+export async function changeRole(ctx: Ctx, id: string, role: AssignableRole, version: number) {
 	requireOwner(ctx);
+	// The schemas already refuse "owner"; this keeps the rule for any other caller.
+	if (!(ASSIGNABLE_ROLES as readonly string[]).includes(role))
+		throw new AppError('invalid', 'Check the highlighted fields.', {
+			role: 'Pick Campaign Master or Player. Ownership moves only by transfer.'
+		});
 	return db().transaction(async (tx) => {
 		const u = await load(tx, id);
+		if (u.role === 'owner') throw new AppError('conflict', 'Ownership moves only by transfer.');
 		if (u.role === role) return toPerson(u);
-		if (u.role === 'owner' && !u.disabledAt && (await usersRepo.activeOwnerCount(tx)) <= 1)
-			throw new AppError('conflict', 'This is the last owner. Make someone else an owner first.');
 		// Users only play: becoming one drops co-CM rights, and is refused while CM of a campaign not ended.
 		if (role === 'user') {
 			await refuseWhileCm(tx, id, 'make them a User');
@@ -104,19 +117,14 @@ export async function changeRole(ctx: Ctx, id: string, role: Role, version: numb
 	});
 }
 
+/** Disable an account (signed out everywhere, no sign-in; history stays) or enable it again. Never the Owner. */
 export async function setDisabled(ctx: Ctx, id: string, disabled: boolean, version: number) {
 	const me = requireOwner(ctx);
-	if (disabled && id === me.id)
-		throw new AppError('conflict', 'You cannot disable your own account.');
 	return db().transaction(async (tx) => {
 		const u = await load(tx, id);
-		if (
-			disabled &&
-			u.role === 'owner' &&
-			!u.disabledAt &&
-			(await usersRepo.activeOwnerCount(tx)) <= 1
-		)
-			throw new AppError('conflict', 'This is the last owner. Make someone else an owner first.');
+		if (disabled && u.role === 'owner') throw transferFirst();
+		if (disabled && id === me.id)
+			throw new AppError('conflict', 'You cannot disable your own account.');
 		if (disabled && !u.disabledAt) await refuseWhileCm(tx, id, 'disable the account');
 		const next = await usersRepo.update(
 			tx,
@@ -161,6 +169,7 @@ export async function anonymise(ctx: Ctx, id: string, version: number) {
 	let gone: string[] = [];
 	const out = await db().transaction(async (tx) => {
 		const u = await load(tx, id);
+		if (u.role === 'owner') throw transferFirst();
 		if (!u.disabledAt) throw new AppError('conflict', 'Disable the account first.');
 		const next = await usersRepo.update(
 			tx,
@@ -176,4 +185,74 @@ export async function anonymise(ctx: Ctx, id: string, version: number) {
 	});
 	await removeWarbandFiles(gone);
 	return out;
+}
+
+/**
+ * Who could become the Owner, for the Transfer ownership panel: active accounts other than the Owner whose display
+ * name or username matches, with their row version (the transfer sends it back). The Owner only.
+ */
+export async function ownerCandidates(ctx: Ctx, q: string) {
+	const me = requireOwner(ctx);
+	return usersRepo.ownerCandidates(db(), q, me.id);
+}
+
+/**
+ * Hand ownership to another account (decision 80). The Owner confirms with their password, checked as when they
+ * change it; a wrong one is a field error and counts towards the sign-in limit (five a minute per username and per
+ * address). `to` must be another account, active (not disabled, not anonymised), at `version`. One transaction locks
+ * both rows and makes the Owner an Admin before it makes `to` the Owner, so `users_one_owner` holds at every moment.
+ * Nobody is signed out: the role is read on every request. Returns both people as they are now.
+ */
+export async function transferOwnership(
+	ctx: Ctx,
+	input: { to: string; password: string; version: number }
+): Promise<{ from: Person; to: Person }> {
+	const me = requireOwner(ctx);
+	if (input.to === me.id) throw new AppError('conflict', 'You are the Owner already.');
+	const keys = [`u:${me.username}`, `ip:${ctx.ip ?? '?'}`];
+	const wait = signInLimiter.peek(...keys);
+	if (wait)
+		throw new AppError(
+			'rate_limited',
+			`Too many tries. Wait ${wait} seconds and try again.`,
+			undefined,
+			wait
+		);
+	const mine = await usersRepo.findById(db(), me.id);
+	if (!mine || !(await verifyPassword(input.password, mine.passwordHash))) {
+		signInLimiter.take(...keys);
+		throw new AppError('invalid', 'Check the highlighted fields.', {
+			password: 'That is not your current password.'
+		});
+	}
+	return db().transaction(async (tx) => {
+		const rows = await usersRepo.lockAll(tx, [me.id, input.to]);
+		const self = rows.find((r) => r.id === me.id);
+		const target = rows.find((r) => r.id === input.to);
+		// Read again under the lock: a second transfer sent at the same moment finds the Owner already an Admin.
+		if (self?.role !== 'owner') throw new AppError('forbidden', 'Only an owner can do that.');
+		if (!target) throw new AppError('not_found', 'No such account.');
+		if (target.anonymisedAt)
+			throw new AppError('conflict', 'An anonymised account cannot become the Owner.');
+		if (target.disabledAt)
+			throw new AppError(
+				'conflict',
+				'A disabled account cannot become the Owner. Enable it first.'
+			);
+		if (target.version !== input.version) throw stale();
+		const from = await usersRepo.update(tx, me.id, { role: 'admin' });
+		const to = await usersRepo.update(tx, target.id, { role: 'owner' }, input.version);
+		if (!from || !to) throw stale();
+		await record(
+			tx,
+			ctx,
+			'owner.transferred',
+			{ type: 'user', id: target.id },
+			{
+				from: me.id,
+				to: target.id
+			}
+		);
+		return { from: toPerson(from), to: toPerson(to) };
+	});
 }

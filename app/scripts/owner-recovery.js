@@ -3,7 +3,8 @@
 //     gives that owner a temporary password (to change at the next sign-in), ends their sessions, re-enables the
 //     account and writes an audit entry. The temporary password is printed once.
 //   docker compose exec app node scripts/owner-recovery.js
-//     with no owner yet: says that setup is open in the browser (there is no link to make). Otherwise lists the owners.
+//     with no owner yet: says that setup is open in the browser (there is no link to make). Otherwise prints the
+//     Owner's username (a copy has exactly one Owner, decision 80).
 // Keep the hash format in step with src/lib/server/services/passwords.ts.
 import { randomBytes, scrypt } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -61,12 +62,11 @@ let code = 0;
 
 try {
 	if (!username) {
-		const owners =
-			await sql`select username from auth.users where role = 'owner' order by username`;
-		if (owners.length) {
-			console.log(`Owners: ${owners.map((o) => o.username).join(', ')}`);
+		const [owner] = await sql`select username from auth.users where role = 'owner'`;
+		if (owner) {
+			console.log(`Owner: ${owner.username}`);
 			console.log(
-				'Reset one with: docker compose exec app node scripts/owner-recovery.js <username>'
+				'Reset it with: docker compose exec app node scripts/owner-recovery.js <username>'
 			);
 		} else {
 			const base = (process.env.ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
@@ -89,7 +89,7 @@ try {
 				'Sign in with it; the app asks for a new password first. Every session of this account was ended.'
 			);
 		} else {
-			console.error(`No owner named "${username}". Run without a username to list the owners.`);
+			console.error(`No owner named "${username}". Run without a username to see the Owner.`);
 			code = 1;
 		}
 	}

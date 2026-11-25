@@ -1,5 +1,5 @@
 /** Accounts. The only SQL for auth.users. */
-import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Tx } from '../db';
 import { users, type Role, type User } from '../db/schema';
 
@@ -80,17 +80,34 @@ export function page(
 }
 
 /**
- * Active (not disabled) owners, counted after locking their rows (in id order, so two changes never deadlock):
- * two owners demoting or disabling each other at once are serialised, and one of them sees the other as the last.
+ * Lock these accounts for an update, in id order (so two changes on the same pair never deadlock); returns the rows
+ * found. A transfer locks the Owner and the new Owner together.
  */
-export async function activeOwnerCount(tx: Tx) {
-	const rows = await tx
-		.select({ id: users.id })
+export const lockAll = (tx: Tx, ids: string[]) =>
+	tx.select().from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for('update');
+
+/** Who could become the Owner: active accounts (not disabled, not anonymised) other than one, up to 10. */
+export function ownerCandidates(tx: Tx, q: string, notId: string) {
+	const like = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
+	return tx
+		.select({
+			id: users.id,
+			displayName: users.displayName,
+			username: users.username,
+			role: users.role,
+			version: users.version
+		})
 		.from(users)
-		.where(and(eq(users.role, 'owner'), isNull(users.disabledAt)))
-		.orderBy(asc(users.id))
-		.for('update');
-	return rows.length;
+		.where(
+			and(
+				ne(users.id, notId),
+				isNull(users.disabledAt),
+				isNull(users.anonymisedAt),
+				or(ilike(users.username, like), ilike(users.displayName, like))
+			)
+		)
+		.orderBy(asc(users.displayName))
+		.limit(10);
 }
 
 export async function anyOwner(tx: Tx) {

@@ -42,6 +42,11 @@ const id = () =>
 const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 
+/**
+ * Accounts. A copy has exactly one Owner (decision 80): `users_one_owner` refuses a second Owner row, so a transfer
+ * makes the old Owner an Admin before it makes the new one Owner. "At least one" is the services' rule (setup makes
+ * the first; nothing demotes, disables or anonymises the Owner).
+ */
 export const users = auth.table(
 	'users',
 	{
@@ -63,6 +68,9 @@ export const users = auth.table(
 	(t) => [
 		uniqueIndex('users_username_key').on(t.username),
 		index('users_role_idx').on(t.role),
+		uniqueIndex('users_one_owner')
+			.on(t.role)
+			.where(sql`${t.role} = 'owner'`),
 		index('users_invited_by_idx').on(t.invitedBy),
 		check('users_username_form', sql`${t.username} ~ '^[a-z0-9._-]{3,32}$'`),
 		check('users_display_name_length', sql`char_length(${t.displayName}) between 1 and 60`)

@@ -1,7 +1,7 @@
 /**
  * Step 1 and 1.5 flows end to end, each with its happy path and main error path: first start (the setup wizard), sign-in, invite and join,
- * managing people, sessions. The flows build on each other (the owner made in the first one invites the others),
- * so the file runs in order. Each visitor gets its own browser context and client address.
+ * managing people, transferring ownership, sessions. The flows build on each other (the owner made in the first one
+ * invites the others), so the file runs in order. Each visitor gets its own browser context and client address.
  */
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
@@ -231,7 +231,7 @@ test('people: a user is kept out of the owner area; disabling signs them out', a
 	await expect(user.getByText('Wrong username or password.')).toBeVisible();
 });
 
-test('people: a reset forces a new password; the last owner cannot be demoted', async ({
+test('people: a reset forces a new password; the Owner row has no role list, others offer two roles', async ({
 	browser
 }) => {
 	await owner.goto('/owner');
@@ -251,11 +251,84 @@ test('people: a reset forces a new password; the last owner cannot be demoted', 
 	await admin.click('main button[type=submit]');
 	await admin.waitForURL('/admin');
 
+	// One Owner (decision 80): their row has a lock tag instead of the role list, and no Disable or Anonymise.
 	await owner.goto('/owner');
 	const me = owner.locator('tr', { hasText: OWNER.username });
-	await me.locator('select').selectOption('user');
-	await me.getByRole('button', { name: 'Change role' }).click();
-	await expect(owner.getByText(/last owner/)).toBeVisible();
+	await expect(me.getByText('Owner (transfer only)')).toBeVisible();
+	await expect(me.locator('select')).toHaveCount(0);
+	await expect(me.getByRole('button', { name: /Disable|Anonymise/ })).toHaveCount(0);
+	await expect(me.getByRole('button', { name: 'Reset password' })).toBeVisible();
+	await expect(owner.locator('tr', { hasText: 'ilse' }).locator('select option')).toHaveText([
+		'Campaign Master',
+		'Player'
+	]);
+	// The API refuses the Owner role, and any change to the Owner.
+	const api = owner.context().request;
+	const people: { id: string; username: string; version: number }[] = (
+		await (await api.get('/api/v1/users')).json()
+	).items;
+	const ilse = people.find((p) => p.username === 'ilse')!;
+	const self = people.find((p) => p.username === OWNER.username)!;
+	const toOwner = await api.patch(`/api/v1/users/${ilse.id}`, {
+		data: { role: 'owner', version: ilse.version }
+	});
+	expect(toOwner.status()).toBe(400);
+	const demote = await api.patch(`/api/v1/users/${self.id}`, {
+		data: { role: 'admin', version: self.version }
+	});
+	expect(demote.status()).toBe(409);
+	expect((await demote.json()).error.message).toBe('Ownership moves only by transfer.');
+});
+
+test('transfer ownership: a wrong password is refused; the Owner hands over to an Admin, who hands it back', async ({
+	browser
+}) => {
+	await owner.goto('/owner');
+	const panel = owner.getByRole('region', { name: 'Transfer ownership' });
+	await panel.getByLabel('New Owner').fill('ilse');
+	await panel.getByRole('button', { name: 'Find' }).click();
+	await expect(panel.getByRole('radio', { name: /Sister Ilse/ })).toBeChecked();
+	const confirm = 'Sister Ilse becomes the Owner. You become a Campaign Master.';
+
+	// Error path: a wrong password changes nothing and says so under the field.
+	await panel.getByLabel('Your password').fill('not-my-password-1');
+	await panel.getByRole('button', { name: 'Transfer ownership' }).click();
+	await panel.getByRole('button', { name: confirm }).click();
+	await expect(panel.getByText('That is not your current password.')).toBeVisible();
+	await expect(owner).toHaveURL(/\/owner(\?|$)/);
+
+	// The password and a second press hand the copy over; the old Owner lands on /admin as a Campaign Master.
+	await panel.getByLabel('Your password').fill(OWNER.password);
+	await panel.getByRole('button', { name: 'Transfer ownership' }).click();
+	await panel.getByRole('button', { name: confirm }).click();
+	await owner.waitForURL('/admin');
+	await expect(
+		owner.getByText('You handed ownership to Sister Ilse. You are now a Campaign Master.')
+	).toBeVisible();
+	await owner.goto('/owner');
+	await expect(owner.getByText('This area is not open to your role.')).toBeVisible();
+
+	// The new Owner sees Owner → People, and hands the copy back through the API.
+	const ilse = await visitor(browser);
+	await signIn(ilse, 'ilse', 'carcass-front-cm-2');
+	await ilse.waitForURL('/owner');
+	await expect(ilse.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
+	await expect(
+		ilse.locator('tr', { hasText: 'ilse' }).getByText('Owner (transfer only)')
+	).toBeVisible();
+	const api = ilse.context().request;
+	const people: { id: string; username: string; role: string; version: number }[] = (
+		await (await api.get('/api/v1/users')).json()
+	).items;
+	const warden = people.find((p) => p.username === OWNER.username)!;
+	expect(warden.role).toBe('admin');
+	const back = await api.post('/api/v1/owner/transfer', {
+		data: { to: warden.id, password: 'carcass-front-cm-2', version: warden.version }
+	});
+	expect(back.status()).toBe(200);
+	expect((await back.json()).to).toMatchObject({ username: OWNER.username, role: 'owner' });
+	await owner.goto('/owner');
+	await expect(owner.getByRole('heading', { name: 'People', exact: true })).toBeVisible();
 });
 
 test('sessions: sign out other devices ends them; sign out ends this one', async ({ browser }) => {

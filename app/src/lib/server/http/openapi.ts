@@ -14,6 +14,7 @@ import {
 	displayNameInput,
 	inviteInput,
 	newAccountInput,
+	ownerTransferInput,
 	pageQuery,
 	signInInput
 } from '#lib/schemas/auth';
@@ -131,7 +132,7 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'patch',
 		path: '/users/{id}',
-		summary: 'Change role and/or disable or enable an account.',
+		summary: 'Change role (admin or user) and/or disable or enable an account; never the Owner.',
 		auth: true,
 		params: t.idParam,
 		body: t.userPatchInput,
@@ -157,6 +158,16 @@ export const ENDPOINTS: Endpoint[] = [
 		body: t.versionInput,
 		ok: { status: 200, schema: t.personOut },
 		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict']
+	},
+	{
+		method: 'post',
+		path: '/owner/transfer',
+		summary:
+			'Hand ownership to another active account (password needed); the Owner becomes an admin.',
+		auth: true,
+		body: ownerTransferInput,
+		ok: { status: 200, schema: t.ownerTransferOut },
+		errors: [...WRITE, 'unauthenticated', 'not_found', 'conflict', 'rate_limited']
 	},
 	{
 		method: 'get',
@@ -295,7 +306,7 @@ export const ENDPOINTS: Endpoint[] = [
 	{
 		method: 'delete',
 		path: '/campaigns/{id}',
-		summary: 'Delete a campaign; restorable for 30 days (CM).',
+		summary: 'Delete a campaign; restorable for 30 days (CM, the Owner).',
 		auth: true,
 		params: t.idParam,
 		ok: { status: 204 },
@@ -915,7 +926,7 @@ const MESSAGES: Record<ErrorCode, string> = {
 	forbidden: 'Signed in but not allowed, or a cross-site request.',
 	not_found: 'No such resource.',
 	conflict:
-		'Stale version, a used or expired invite, the last owner, setup not done or already done, a taken name or seat, a stage move not allowed, joining closed, a warband change the rules refuse (the reasons are in the message and `fields`), homebrew a campaign does not allow, or a homebrew set others still use.',
+		'Stale version, a used or expired invite, the Owner (ownership moves only by transfer) or a transfer target not active, setup not done or already done, a taken name or seat, a stage move not allowed, joining closed, a warband change the rules refuse (the reasons are in the message and `fields`), homebrew a campaign does not allow, or a homebrew set others still use.',
 	rate_limited: 'Too many tries; see Retry-After.',
 	internal: 'Unexpected error; quote the request id.',
 	unavailable: 'Starting or shutting down; see Retry-After.'

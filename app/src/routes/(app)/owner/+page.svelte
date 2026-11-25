@@ -1,7 +1,15 @@
+<!--
+  Owner → People: every account, with its role, status and actions. The one Owner's row has a lock tag instead of
+  the role list, and no Disable or Anonymise (decision 80); other rows offer Admin and User ("Campaign Master" and
+  "Player"). Under the table, Transfer ownership hands the copy on: search an active account, type your password,
+  then confirm in place with a sentence that names both people.
+-->
 <script lang="ts">
 	import { enhance } from '#lib/ui/enhance';
+	import Lock from '@lucide/svelte/icons/lock';
 	import { m } from '#lib/messages';
-	import { ROLES } from '#lib/roles';
+	import { ASSIGNABLE_ROLES } from '#lib/roles';
+	import { resultOf } from '#lib/ui/form-result';
 	import Button from '#lib/ui/Button.svelte';
 	import ConfirmButton from '#lib/ui/ConfirmButton.svelte';
 	import Message from '#lib/ui/Message.svelte';
@@ -9,6 +17,7 @@
 	import SecretBox from '#lib/ui/SecretBox.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Time from '#lib/ui/Time.svelte';
+	import TransferOwnership from './TransferOwnership.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -77,19 +86,26 @@
 						<td><Time at={p.lastSignInAt} fallback={m.common.never} /></td>
 						<td>
 							<div class="actions">
-								<form method="POST" action="?/role" use:enhance={keep} class="role">
-									<input type="hidden" name="id" value={p.id} />
-									<input type="hidden" name="version" value={p.version} />
-									<label class="visually-hidden" for="role-{p.id}"
-										>{m.people.roleFor(p.displayName)}</label
+								{#if p.role === 'owner'}
+									<span class="lock"
+										><Lock size={14} strokeWidth={1.5} aria-hidden={true} />{m.people
+											.ownerLock}</span
 									>
-									<select id="role-{p.id}" name="role">
-										{#each ROLES as r (r)}<option value={r} selected={r === p.role}
-												>{m.roles[r]}</option
-											>{/each}
-									</select>
-									<Button type="submit">{m.people.changeRole}</Button>
-								</form>
+								{:else}
+									<form method="POST" action="?/role" use:enhance={keep} class="role">
+										<input type="hidden" name="id" value={p.id} />
+										<input type="hidden" name="version" value={p.version} />
+										<label class="visually-hidden" for="role-{p.id}"
+											>{m.people.roleFor(p.displayName)}</label
+										>
+										<select id="role-{p.id}" name="role">
+											{#each ASSIGNABLE_ROLES as r (r)}<option value={r} selected={r === p.role}
+													>{m.roles[r]}</option
+												>{/each}
+										</select>
+										<Button type="submit">{m.people.changeRole}</Button>
+									</form>
+								{/if}
 								{#if !p.anonymised}
 									<form method="POST" action="?/reset" use:enhance={keep}>
 										<input type="hidden" name="id" value={p.id} />
@@ -97,7 +113,9 @@
 										<ConfirmButton label={m.people.reset} confirm={m.people.resetConfirm} />
 									</form>
 								{/if}
-								{#if p.disabled}
+								{#if p.role === 'owner'}
+									<!-- The Owner is never disabled or anonymised: they transfer ownership first. -->
+								{:else if p.disabled}
 									<form method="POST" action="?/enable" use:enhance={keep}>
 										<input type="hidden" name="id" value={p.id} />
 										<input type="hidden" name="version" value={p.version} />
@@ -150,6 +168,15 @@
 	{/if}
 </section>
 
+{#if data.me.role === 'owner'}
+	<TransferOwnership
+		find={data.find}
+		after={data.after}
+		candidates={data.candidates}
+		result={resultOf(form, 'transfer')}
+	/>
+{/if}
+
 <style>
 	section {
 		display: grid;
@@ -173,6 +200,21 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2);
+	}
+	/* Where the role list would be: the Owner's role is not picked, it is handed on. */
+	.lock {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--button-height);
+		padding: 0 var(--space-3);
+		border: var(--border-hairline) dashed var(--rule-strong);
+		color: var(--bone-dim);
+		font-size: var(--size-label);
+		white-space: nowrap;
+	}
+	.lock :global(svg) {
+		color: var(--role-owner);
 	}
 	form {
 		display: flex;

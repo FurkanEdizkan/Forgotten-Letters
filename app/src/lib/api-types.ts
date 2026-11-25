@@ -3,7 +3,7 @@
  * OpenAPI document is built from. Pure: no I/O. Dates travel as ISO strings.
  */
 import { z } from 'zod';
-import { ROLES } from './roles';
+import { ASSIGNABLE_ROLES, ROLES } from './roles';
 import { ACCENTS } from './schemas/settings';
 import { CAMPAIGN_ROLES } from './campaign-rights';
 import { STAGES } from './campaign-stage';
@@ -29,7 +29,8 @@ export const versionInput = z.object({ version: z.number().int().min(1) });
 
 export const userPatchInput = z
 	.object({
-		role: z.enum(ROLES).optional(),
+		// Admin or User only: the one Owner changes by POST /owner/transfer (decision 80).
+		role: z.enum(ASSIGNABLE_ROLES).optional(),
 		disabled: z.boolean().optional(),
 		version: z.number().int().min(1)
 	})
@@ -83,6 +84,7 @@ export const personPage = z.object({
 	next: z.string().uuid().nullable()
 });
 export const resetOut = z.object({ person: personOut, temporary: z.string() });
+export const ownerTransferOut = z.object({ from: personOut, to: personOut });
 
 export const inviteOut = z
 	.object({

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { formAction, ctxOf } from '#lib/server/http';
+import { formAction, ctxOf, takeFlash } from '#lib/server/http';
 import * as invites from '#lib/server/services/invites';
 import * as people from '#lib/server/services/people';
 import { inviteInput } from '#lib/schemas/auth';
@@ -19,7 +19,9 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		invites: pending.filter((i) => i.createdBy === me.id),
 		invited: invited?.items ?? null,
-		roles: invitableBy(me.role)
+		roles: invitableBy(me.role),
+		// Set by Transfer ownership on /owner: the new Owner's display name, shown once.
+		handedTo: takeFlash(event, '/admin')
 	};
 };
 

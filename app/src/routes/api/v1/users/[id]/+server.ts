@@ -3,11 +3,11 @@ import * as people from '#lib/server/services/people';
 import { idParam, userPatchInput } from '#lib/api-types';
 
 /**
- * Change an account's role and/or disable or enable it.
- * Who: owners.
- * In: path id; { role?, disabled?, version }
+ * Change an account's role (admin or user) and/or disable or enable it; never the Owner's (decision 80).
+ * Who: the Owner.
+ * In: path id; { role?: admin | user, disabled?, version }
  * Out: 200 Person
- * Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version, last owner or own account.
+ * Errors: 400 invalid (a role of owner is refused), 401 unauthenticated, 403 forbidden not the Owner or other site, 404 not_found, 409 conflict the target is the Owner, own account or stale version.
  */
 export const PATCH = api(async (event, ctx) => {
 	const { id } = parse(idParam, event.params);

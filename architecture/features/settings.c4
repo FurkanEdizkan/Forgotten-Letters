@@ -1,25 +1,25 @@
-// Feature: instance settings. Code: services/settings, repos/settings, infra/listener, app/server,
-// routes (app)/owner/settings and /api/v1/settings.
+// Feature: instance settings. Code: services/settings, repos/settings, infra/listener, routes
+// (app)/owner/settings and /api/v1/settings.
 views {
   dynamic view instance_settings {
-    title 'Instance settings: text size, accent and port'
+    title 'Instance settings: text size and accent; the address, read-only'
     description '''
-      **The Owner changes how the copy looks and where it listens, from the browser.**
+      **The Owner changes how the copy looks from the browser, and sees where it is reached.**
 
       **Decisions**
-      - One row in app.settings holds text size (90 to 130 percent), accent (five contrast-tested presets) and port.
+      - One row in app.settings holds text size (90 to 130 percent) and accent (five contrast-tested presets).
         Every page reads them through the root layout: data-accent on <html>, font-size on :root.
-      - A port change outside Docker: the custom server opens the new port first, the browser is sent to the new
-        address, and the old port closes once the browser arrives or after a short wait. If the new port is taken,
-        nothing changes and the Owner sees why.
-      - In Docker (PORT_LOCKED=1) and in development the port is read-only: Compose owns the published port, so the
-        page shows the .env line to change instead.
+      - The port is not a setting: it is picked when the app starts (PORTS, or ./start.sh with Docker). The page
+        shows the address people open (ORIGIN, otherwise the address the browser used) and its port, read-only.
+      - After a fallback outside Docker the Address card says so ("Port 3000 was in use, so the app uses 3001").
+        In Docker (APP_IN_DOCKER=1) it says the port is set by ./start.sh or APP_PORT in .env; the start script's
+        output is the notice there.
+      - PATCH /api/v1/settings refuses a port field (400). The live port move was removed (decision 79).
     '''
-    owner -> fl.app.web.areas 'opens /owner/settings, changes text size, accent or port'
+    owner -> fl.app.web.areas 'opens /owner/settings, changes text size or accent'
     fl.app.web.areas -> fl.app.services.settingsService 'save'
     fl.app.services.settingsService -> fl.app.repos 'update the settings row'
-    fl.app.services.settingsService -> fl.app.infra 'port changed: move the listener'
-    fl.app.infra -> fl.app.server 'open the new port, close the old one'
+    fl.app.services.settingsService -> fl.app.infra 'the port picked at start, the fallback note'
     fl.app.services.settingsService -> fl.app.services.auditService 'record the change'
   }
 }

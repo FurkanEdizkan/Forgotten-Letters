@@ -1,30 +1,41 @@
-// Feature: first start and the setup wizard. Code: hooks.server.ts (init, setup guard), infra/migrate,
-// infra/listener, services/backups, services/setup, services/settings, routes (public)/welcome and (public)/setup.
+// Feature: first start and the setup wizard. Code: start.sh / start.ps1 (Docker hosts), app/server (ports.js),
+// hooks.server.ts (init, setup guard), infra/migrate, services/backups, services/setup, services/settings,
+// routes (public)/welcome and (public)/setup.
 views {
   dynamic view first_start {
-    title 'First start: migrations, backup, the setup wizard'
+    title 'First start: the port, migrations, backup, the setup wizard'
     description '''
       **A group installs the app and sets it up in the browser, Jellyfin style, without editing files.**
 
       **Decisions**
+      - The port is decided at start, never in the browser. The app tries PORTS in order (default 3000 to 3005)
+        and logs each move ("Port 3000 is in use, trying 3001"). If every port is taken it says so and exits 1.
+        After a fallback an http ORIGIN with an explicit port is pointed at the opened port for that run; an
+        https ORIGIN or one without a port is never touched.
+      - With Docker the check runs on the host: ./start.sh (start.ps1 on Windows) creates .env from .env.example
+        with a generated database password when it is missing, keeps the port this app's own container already
+        publishes, otherwise writes the first free port into APP_PORT (and an http ORIGIN), then runs
+        docker compose up -d and waits for /health/ready. A saved port taken by another program moves to the next
+        free one with a warning that links changed. Inside the container PORTS=3000, which is always free there.
       - Before any pending migration runs, the app writes a pg_dump to the backups volume (forward-only migrations;
         the dump is the undo). Migrations run in one transaction under an advisory lock; a failure stops the app.
       - Setup is open while no owner exists: every page goes to /welcome and the log says "Setup is open at
         <address>". There is no token. On a shared network the first visitor becomes the owner (accepted risk).
-      - The wizard (Owner, Look, Server, Done) checks each step in the browser and posts once. One transaction
-        locks the settings row, re-checks that no owner exists, creates the owner, saves text size, accent and port,
-        marks setup done and signs the owner in. A second submit is refused.
+      - The wizard (Owner, Look, Done) checks each step in the browser and posts once. One transaction locks the
+        settings row, re-checks that no owner exists, creates the owner, saves text size and accent, marks setup
+        done and signs the owner in. A second submit is refused.
       - After setup, /welcome and /setup send people to /login; setup never shows again unless the copy is
         reinstalled.
       - /health/ready answers 503 until migrations are applied; /health/live answers as soon as the process runs.
     '''
-    fl.app.server -> fl.app.hooks 'load the built app'
+    owner -> fl.start 'runs ./start.sh (Docker)'
+    fl.start -> fl.app.server 'first free port of PORTS into .env, docker compose up -d (the container: PORTS=3000)'
+    fl.app.server -> fl.app.hooks 'listen on the first free port of PORTS (http ORIGIN fixed after a fallback), load the built app'
     fl.app.hooks -> fl.app.services.backupService 'dump before migrating'
     fl.app.hooks -> fl.app.infra 'apply migrations under a lock'
     fl.app.hooks -> fl.app.services.setupService 'no owner: log that setup is open'
-    fl.app.hooks -> fl.app.services.settingsService 'listen on the stored port'
-    visitor -> fl.app.web.publicPages 'opens any page, lands on /welcome, presses Setup, fills the four steps'
-    fl.app.web.publicPages -> fl.app.services.setupService 'finish: owner, look, port'
+    visitor -> fl.app.web.publicPages 'opens any page, lands on /welcome, presses Setup, fills the three steps'
+    fl.app.web.publicPages -> fl.app.services.setupService 'finish: owner and look'
     fl.app.services.setupService -> fl.app.repos 'lock settings, insert owner, save settings'
     fl.app.services.setupService -> fl.app.services.authService 'start a session'
     fl.app.services.setupService -> fl.app.services.auditService 'record the first owner'

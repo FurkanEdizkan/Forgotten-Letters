@@ -413,11 +413,11 @@ action:reload: Read the rules folders again and replace the cache; a folder that
     }
     route_app_owner_settings = page '/owner/settings' {
       description 'actions: save
-action:save: Change the copy-wide text size, accent and port.
+action:save: Change the copy-wide text size and accent. The port is shown read-only; it is picked when the app starts.
   Who: owner only.
-  In: form settingsPatch { textScale?, accent?, port? } (at least one; the port is left out while it is locked).
-  Out: { op: \'save\', done: true, moveTo } — moveTo is the new address after a port change, else null.
-  Errors: 400 invalid (field messages), 401 unauthenticated, 403 forbidden, 409 conflict (port locked or in use, with a message on the port field).'
+  In: form settingsPatch { textScale?, accent? } (at least one).
+  Out: { op: \'save\', done: true }
+  Errors: 400 invalid (field messages), 401 unauthenticated, 403 forbidden.'
       metadata {
         generated 'true'
         route '/owner/settings'
@@ -727,11 +727,11 @@ action:default: Sign in with username and password; one form for every role.
     }
     route_public_setup = page '/setup' {
       description 'actions: finish
-action:finish: Finish the first-run wizard: create the Owner, save the look and the port, and sign the Owner in.
+action:finish: Finish the first-run wizard: create the Owner, save the look, and sign the Owner in.
   Who: anyone, while no Owner exists (open setup, Jellyfin style).
-  In: form setupInput { username, displayName, password, textScale, accent, port } (the wizard\'s four steps).
-  Out: 303 to the new address when the port moves, else to /owner, with a remembered session cookie.
-  Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 conflict when an Owner already exists or the port cannot be opened (reason on the port field), 429 rate_limited.'
+  In: form setupInput { username, displayName, password, textScale, accent } (the wizard\'s Owner and Look steps).
+  Out: 303 to /owner, with a remembered session cookie.
+  Errors: 400 invalid with field reasons (a taken username sends the wizard back to step 1), 409 conflict when an Owner already exists, 429 rate_limited.'
       metadata {
         generated 'true'
         route '/setup'
@@ -1459,16 +1459,16 @@ POST: Take the seat a link offers: signed in with {}, or as a visitor with a new
     }
     route_api_v1_settings = endpoint '/api/v1/settings' {
       description 'GET PATCH
-GET: The copy-wide settings: text size, accent, port, whether the port is locked, and the address people open.
+GET: The copy-wide settings: text size and accent, and the address people open with its port (read-only).
   Who: any signed-in account.
   In: nothing.
-  Out: 200 { textScale, accent, port, portLocked, address }
+  Out: 200 { textScale, accent, port, address, portNote } (portNote: after a port fallback outside Docker, else null)
   Errors: 401 unauthenticated.
-PATCH: Change text size, accent or port.
+PATCH: Change the text size or the accent. The port is picked when the app starts, so a port field is refused.
   Who: owners.
-  In: { textScale?, accent?, port? } with at least one field.
-  Out: 200 { textScale, accent, port, portLocked, address }, or 202 { moveTo } when the port moved (the old port closes shortly).
-  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 409 conflict port locked (Docker: APP_PORT in .env) or in use.'
+  In: { textScale?, accent? } with at least one field; strict (a port or other unknown field gives 400).
+  Out: 200 { textScale, accent, port, address, portNote }
+  Errors: 400 invalid (a port field: the reason on `port`), 401 unauthenticated, 403 forbidden not an owner or other site.'
       metadata {
         generated 'true'
         route '/api/v1/settings'
@@ -1482,11 +1482,11 @@ GET: Whether first-run setup is open, that is, no owner exists yet.
   In: nothing.
   Out: 200 { open }
   Errors: none.
-POST: Finish first-run setup: create the owner, save text size, accent and port, and sign the owner in.
+POST: Finish first-run setup: create the owner, save text size and accent, and sign the owner in.
   Who: anyone, while no owner exists.
-  In: { username, displayName, password, textScale, accent, port }
-  Out: 201 { user, moveTo } and a session cookie; moveTo is the new address when the port moved, else null.
-  Errors: 400 invalid (field reasons: taken username, weak password, out-of-range look or port), 403 forbidden other site, 409 conflict setup already done or the port is in use, 429 rate_limited.'
+  In: { username, displayName, password, textScale, accent } (the port is picked when the app starts, not here)
+  Out: 201 { user } and a session cookie.
+  Errors: 400 invalid (field reasons: taken username, weak password, out-of-range look), 403 forbidden other site, 409 conflict setup already done, 429 rate_limited.'
       metadata {
         generated 'true'
         route '/api/v1/setup'

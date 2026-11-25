@@ -1,5 +1,6 @@
 # Forgotten Letters: the app and its database (and Caddy for HTTPS with the `https` profile).
-# Settings live in .env next to this file (copy .env.example). Start: docker compose up -d
+# Settings live in .env next to this file. Start: ./start.sh (makes .env from .env.example the first time, picks a
+# free port into APP_PORT, then runs docker compose up -d), or docker compose up -d with your own .env.
 # HTTPS: set DOMAIN (and ORIGIN=https://<DOMAIN>), then docker compose --profile https up -d
 name: forgotten-letters
 services:

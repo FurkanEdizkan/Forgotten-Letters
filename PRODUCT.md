@@ -57,7 +57,7 @@ Site roles are ordered **Owner > Admin > User**. A higher role can do everything
 
 | Role | Who | What they do |
 |---|---|---|
-| **Owner** | Whoever installs and runs the copy. The first Owner is created through a one-time setup link. | Manages the site: accounts, roles, invites, backups, rule packs, the map, the audit log. There is always at least one Owner. |
+| **Owner** | Whoever installs and runs the copy; a copy has exactly one. Setup creates it; the Owner hands ownership to another account with "Transfer ownership" and then becomes an Admin. (Revised 2026-11-25: was at least one Owner, several allowed; decision 80.) | Manages the site: accounts, roles, invites, backups, rule packs, the map, the audit log. |
 | **Admin** | A Campaign Master. Shown as "Campaign Master" in the interface where that reads better. | Runs campaigns from step 2. Invites users to the site. Can also play. |
 | **User** | A player. | Plays one or more warbands, follows the campaign, reads the map and standings. |
 | **Visitor** | Someone not signed in. | Sees the sign-in, setup and invite pages only. |
@@ -68,14 +68,16 @@ Membership is per campaign and separate from the site role.
 
 | Campaign role | Who | Notes |
 |---|---|---|
-| **Campaign Master (CM)** | The Owner or Admin who created the campaign, or the co-CM it was handed to. | Runs the campaign: seats, links, requests, stage, settings, house rules. Only the CM deletes or restores it, adds or removes co-CMs and hands the CM role to a co-CM. |
+| **Campaign Master (CM)** | The Owner or Admin who created the campaign, or the co-CM it was handed to. | Runs the campaign: seats, links, requests, stage, settings, house rules. Only the CM (and the site Owner) deletes or restores it and hands the CM role to a co-CM; only the CM adds or removes co-CMs. |
 | **Co-CM** | An Admin or Owner the CM adds. | Everything the CM does except delete, restore, managing co-CMs and handing over the CM role. |
 | **Player** | Any signed-in person with a seat. | Admins and Owners can hold seats too, including in a campaign they run. |
 
-Rights and places are kept apart: the CM and co-CMs are campaign members; a player is whoever holds a seat. An Owner
-may also restore a deleted campaign, see deleted campaigns and hand the CM role of any campaign to one of its co-CMs
-(or take it), so a campaign whose CM has left is never stuck. Demoting an Admin to User drops their co-CM roles and
-is refused while they are still CM of a campaign that has not ended.
+Rights and places are kept apart: the CM and co-CMs are campaign members; a player is whoever holds a seat. The site
+Owner may also delete any campaign, restore a deleted one, see deleted campaigns and hand the CM role of any
+campaign to one of its co-CMs (or take it), so a campaign whose CM has left is never stuck. They do it from
+Manage → Settings → Campaign ownership; on a campaign they do not run, Manage shows them the Settings tab only,
+read-only, with that section. (Revised 2026-11-25: the Owner may delete; decision 81.) Demoting an Admin to User
+drops their co-CM roles and is refused while they are still CM of a campaign that has not ended.
 
 When a CM edits their own warband, the app records it as a CM action, so it is clear the CM changed their own
 data.
@@ -87,10 +89,11 @@ data.
 | Sign in, change own display name and password | yes | yes | yes |
 | Sign out of every device | yes | yes | yes |
 | Invite users | yes | yes | no |
-| Invite admins or owners | yes | no | no |
+| Invite admins | yes | no | no |
 | See the users they invited | yes (everyone) | yes | no |
-| Change roles (promote or demote) | yes, never the last Owner | no | no |
-| Disable an account (ends its sessions) | yes | no | no |
+| Change roles between Admin and User | yes, never the Owner's own | no | no |
+| Transfer ownership (own password, confirm in place); becomes an Admin | yes | no | no |
+| Disable an account (ends its sessions); never the Owner | yes | no | no |
 | Reset a password to a temporary one | yes | no | no |
 | Anonymise a disabled account | yes | no | no |
 | View the audit log | yes | no | no |
@@ -156,8 +159,8 @@ Each step is planned, reviewed on a visual page and documented before it is buil
 |---|---|---|
 | 0 | Foundation documents: product, design system, architecture, agents guide | agreed |
 | 1 | Accounts and sign-in: containers, database, one sign-in for Owners, Admins and Users, invites, account pages, Owner area | done 2026-10-27 (merged into `main`; decisions ARCHITECTURE 32–35). F4 was replaced by step 1.5's open setup. |
-| 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | done 2026-10-27 (all checks, e2e and a Docker run on a fresh volume passed; see §10.3). Deviations: the Server step shows only the install that applies (no tabs); Brass's base darkened to #7f621a so its button labels reach 4.5:1; blood-bright on night stays the known miss (4.0:1, heading-size text only). **Port fallback 2026-11-25** (review page "Port fallback"; decision 79; S3–S5 revised): the port left the wizard and Owner → Settings; the app tries 3000–3005 (`PORTS`) at start and warns when all are taken; with Docker `./start.sh` / `start.ps1` pick the host port and write it into `.env`; the live port move is gone. |
-| 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, seat links, requests to join, stages (see §10.4) | done 2026-10-31 (all checks, 22 e2e tests and a Docker run on a fresh volume passed; decisions ARCHITECTURE 42–48). Deviations: Owners can read any campaign and take the CM role themselves; people can withdraw a request; a campaign keeps at least 2 seats; an ended campaign refuses edits and seat changes; being seated closes your open request; a taken username on the join page is a field error. |
+| 1.5 | First run and the app shell: welcome page, setup wizard (Owner, text size, accent, port), instance settings, app shell with user menu, side panel and help and legal placeholders | done 2026-10-27 (all checks, e2e and a Docker run on a fresh volume passed; see §10.3). Deviations: the Server step shows only the install that applies (no tabs); Brass's base darkened to #7f621a so its button labels reach 4.5:1; blood-bright on night stays the known miss (4.0:1, heading-size text only). **Port fallback 2026-11-25** (review page "Port fallback"; decision 79; S3–S5 revised): the port left the wizard and Owner → Settings; the app tries 3000–3005 (`PORTS`) at start and warns when all are taken; with Docker `./start.sh` / `start.ps1` pick the host port and write it into `.env`; the live port move is gone. **One Owner 2026-11-25** (review page "Owner and campaign ownership"; decision 80; §5.1, §5.3 and F8 revised): a copy has exactly one Owner (migration 0012 keeps the oldest active one and makes the others Admins, audited); Owner → People offers Admin and User only, the Owner's row is locked, and Transfer ownership (password plus confirm in place) hands the copy on. |
+| 2 | Campaigns and seats: create a campaign, CM and co-CMs, seats, seat links, requests to join, stages (see §10.4) | done 2026-10-31 (all checks, 22 e2e tests and a Docker run on a fresh volume passed; decisions ARCHITECTURE 42–48). Deviations: Owners can read any campaign and take the CM role themselves; people can withdraw a request; a campaign keeps at least 2 seats; an ended campaign refuses edits and seat changes; being seated closes your open request; a taken username on the join page is a field error. **Campaign ownership 2026-11-25** (review page "Owner and campaign ownership"; decision 81; §5.2, C9 and C11 revised): the Danger tab is gone; Transfer CM and Delete campaign sit at the bottom of Manage → Settings for the CM and the site Owner; the Owner may delete any campaign and opens Manage of one they do not run as Settings only, read-only; the Co-CMs tab and the campaign page no longer hand the CM role over. |
 | 2.5 | Maps and templates: upload the group's map, draw locations, campaign templates, the versioned campaign dataset format (the group's own data, never in the repo) | later |
 | 3 | Rules data: load the group's own rule packs (units, kit, keywords, limits) per edition and version; house rule packs | done 2026-11-01, built with step 4 (review page "Steps 3–4"). As built: one git-ignored `rules/` folder per version (core-1.0.1, core-1.0.2, expansion carcass-front-1.0) generated by `tools/packs` and mounted read-only; Owner → Rules data with Reload; a compendium laid out like Trench Companion's (seven sections, version switcher, battlekit filters, element pages with a neighbourhood graph, version diff). House rules as homebrew sets (step 3–4 Phase C) instead of house rule packs. |
 | 4 | Warbands: build and keep a warband by the rules, experience and injuries | done 2026-11-01. As built: player-owned warbands, one campaign seat at a time; builder with enforced limits (CM may allow beyond limits per campaign), fighter images, stash, fireteams, locations, Trench Companion text export and import; homebrew factions, variants and items (private until shared, CM allows per campaign). Deviation: experience and injuries are entered by hand; the post-game sequence that rolls them is step 6. | **Revision 2 done 2026-11-01** (review page "Revision 2"; decisions ARCHITECTURE 65–71): a two-column builder like Trench Companion's (summary cards, fighter lists with + per group, a detail panel), the Arsenal (move kit for free, sell at half, refund only before the first game), fighter campaign data (status, Experience with advancement marks, Battle Scars, advancements and injuries from the rules tables, promotion by the book), warband campaign data (games played, victory points, Threshold and field strength), the Court's Sins as a dedication, play mode with print, JSON import, copying fighters, kit and warbands. Deviations: no Arsenal `kind` column; skills and injuries keep old free text (no name-to-id migration); implied keywords are not derived; variant unit patches and per-variant display names not built; Trench Companion's export has no campaign round, so the import asks for games played. **Revision 3 done 2026-11-02** (review page "Revision 3"; decisions ARCHITECTURE 72–74): a card per fighter (4:5, drawn in the browser from its photo and data, Download PNG) from the fighter panel; the Owner uploads a frame per faction, variant or Sin under Owner → Card frames (PNG, exactly 800×1000, a template to draw over), else the built-in frame; armour on the card and in play mode counts bought armour and shields. Deviation: a refused frame is a 400 like other uploads (not 413/415/422). **Stat changes 2026-11-03** (decision 75): a fighter's stats show what changes them (bought armour and shields, skills and injuries), green when better and red when worse (Armour better when lower), with the printed value and the sources. **Rules versions 2026-11-03** (decisions 77–78): Trench Companion's Preview as a rules expansion; each warband shows its rules ("1.0.2 (Preview)") and its owner may switch them outside a campaign.
@@ -188,10 +191,10 @@ paper. Earlier steps are internal milestones used by the project lead's own grou
 | F5 | Owners invite admins and users; admins invite users; users cannot invite. An invite is a link that fixes the role, is valid for 7 days and works once. |
 | F6 | The inviter sees their pending invites and can revoke or re-send them. |
 | F7 | Owners see every account. Admins see the users they invited. |
-| F8 | Owners change roles. The last Owner can never be demoted or disabled. |
+| F8 | The Owner changes roles between Admin and User ("Campaign Master" and "Player"). A copy has exactly one Owner: the Owner's row has no role list, Disable or Anonymise, and changing, disabling or anonymising the Owner is refused. Ownership moves only by Transfer ownership on Owner → People (or `POST /api/v1/owner/transfer`): the Owner picks an active account, types their own password and confirms in place with a sentence naming both people; the old Owner becomes an Admin and lands on `/admin` with a note; nobody is signed out. A wrong password counts towards the sign-in limit. Upgrading a copy with several Owners keeps the oldest active one and makes the others Admins, written to the audit log. (Revised 2026-11-25: was several Owners, the last one never demoted or disabled; decision 80.) |
 | F9 | Owners disable accounts. A disabled account is signed out everywhere and cannot sign in. Its history stays. |
 | F10 | Owners reset a password to a temporary one, which must be changed at the next sign-in. This is the recovery path without email. |
-| F11 | A locked-out Owner is recovered with a documented `docker compose exec` command. |
+| F11 | A locked-out Owner is recovered with a documented `docker compose exec` command; run without a username it prints the Owner's username. |
 | F12 | Usernames are 3 to 32 characters: letters, digits, dot, dash and underscore. They are unique ignoring case and are used only to sign in. |
 | F13 | Every account has a display name: free text, changeable, shown wherever the person appears. |
 | F14 | Passwords are 10 to 128 characters, any characters allowed, no composition rules. A meter under every new-password field rates them Too common, Weak, Fair, Strong or Very strong while they are typed, and says why one is refused; only Strong or better is accepted, by the same rule on the server. Sign-in never checks strength. (Changed 2026-10-31: was length and a common-password list only.) |
@@ -221,7 +224,7 @@ Review page: https://claude.ai/artifact/T5uVRgUbKHhQFRGrMetUVi (approved 2026-10
 
 | Id | Requirement |
 |---|---|
-| C1 | `/campaigns` lists your campaigns (as CM, co-CM or player) and the listed ones you are not in, as cards with type, stage, seats taken and your role. Owners and Admins see "New campaign"; the CM and Owners see "Deleted". |
+| C1 | `/campaigns` lists your campaigns (as CM, co-CM or player) and the listed ones you are not in, as cards with type, stage, seats taken and your role. The Owner and Admins see "New campaign"; the CM and the Owner see "Deleted". |
 | C2 | Owners and Admins create a campaign in a wizard: Basics (name, type, description), Schedule (games per player, start and end, listed or private), Seats (2 to 30), House rules, Map (placeholder until step 2.5), Review. The creator becomes its CM. Names are unique among campaigns that are not deleted, ignoring case. |
 | C3 | Two types, Carcass Front and generic; the type is fixed after creation. |
 | C4 | Seats are "Seat 1" … "Seat N"; a seat still on its default name takes the player's display name. Seats can be added (up to 30), renamed, freed and, when empty, removed. A person holds at most one seat per campaign. |
@@ -229,9 +232,9 @@ Review page: https://claude.ai/artifact/T5uVRgUbKHhQFRGrMetUVi (approved 2026-10
 | C6 | The CM adds an existing account to an empty seat by name (display name and username only are shown). |
 | C7 | Anyone signed in can ask to join a listed campaign while it is mustering, with an optional note; one open request per person. The CM or a co-CM approves it into an empty seat or declines it. |
 | C8 | Stages: mustering → active → ended; active can go back to mustering; ended is read-only. Links, requests and leaving work only while mustering; adding by name works until the campaign ends. Every move is audited. |
-| C9 | The CM adds co-CMs (Admins or Owners), removes them and hands the CM role to a co-CM; an Owner may hand over the CM role of any campaign. |
+| C9 | The CM adds co-CMs (Admins or the Owner) and removes them on the Co-CMs tab. Handing the CM role to a co-CM lives at the bottom of Manage → Settings, in "Campaign ownership", which only the campaign's CM and the site Owner see (also on an ended campaign); the site Owner may also take the role ("Me"). The site Owner may open Manage of a campaign they do not run: the Settings tab only, read-only, with that section. (Revised 2026-11-25: was a per-row button on Co-CMs and an Owner-only "Hand over" section on the campaign page; decision 81.) |
 | C10 | House rules: up to 30, each with an on/off switch and a note. They come from a library of presets in our own words (drag one in, or press Add) or the CM writes their own. Two kinds: *In play* rules players apply at the table, and *Settings* that change a game value (for example trench depth 2″), each with typed values; settings are stored now and applied from step 3. A preset is added once; some presets are offered only for Carcass Front. No book text ships with the app. (Changed 2026-11-01: was the CM's own words only.) |
-| C11 | The CM deletes a campaign; the CM or an Owner restores it within 30 days, after which a daily job removes it for good. Expired and withdrawn seat links are cleaned up daily. |
+| C11 | The CM or the site Owner deletes a campaign from Manage → Settings → Campaign ownership (confirm in place; there is no Danger tab); the CM or the Owner restores it within 30 days, after which a daily job removes it for good. Expired and withdrawn seat links are cleaned up daily. (Revised 2026-11-25: was the CM only, on a Danger tab; decision 81.) |
 | C12 | Settings are saved with a version check; someone saving over a newer change gets a message to reload. |
 | C13 | Members see the campaign page (rules, seats, who runs it); players may leave their seat while mustering. Your campaigns appear in the side panel (up to 8, then "All campaigns") and on `/home`. |
 | C14 | The seat link page and the invite page use the first-run split with glass buttons; the creation wizard inside the app uses flat, square controls. |
@@ -280,8 +283,8 @@ Earth, Visions, Omens.
 A **seat** is one player's place in a campaign; a campaign has 2 to 30. A campaign is **mustering** while players
 join, **active** while games run and **ended** when it is over.
 
-Owner, Admin and User are the app's site roles. In the interface an Admin is called a Campaign Master where that
-reads better.
+Owner, Admin and User are the app's site roles; a copy has exactly one Owner. In the interface an Admin is called a
+Campaign Master where that reads better.
 
 **Interface voice.** Buttons, forms and errors use plain words: "Save", "Record result", "Wrong username or
 password". Headings, empty states and the map carry the setting's voice in small doses, such as a quiet line on
@@ -348,6 +351,7 @@ Closed: "Which step follows step 1?" Campaigns and seats (step 2), then rules da
 - The book's terms are used for game concepts; Owner, Admin and User stay as app roles.
 - The CM is the primary audience; players come second.
 - Site roles Owner > Admin > User; campaign roles CM, co-CM and player arrive in step 2.
+- Exactly one Owner per copy; ownership moves only by transfer, and the old Owner becomes an Admin (2026-11-25).
 - Any role can hold a seat; CM edits to their own warband are recorded as CM actions.
 - Visitors see only the sign-in, setup and invite pages.
 - The first Owner is created through a one-time setup link printed in the logs (valid one hour).

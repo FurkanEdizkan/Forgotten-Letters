@@ -155,7 +155,7 @@
    "id": "fl.app.web.areas.route_app_campaigns_id",
    "kind": "page",
    "title": "/campaigns/[id]",
-   "description": "actions: ask, assignWarband, clearWarband, leave, transfer, withdraw\naction:ask: Ask to join this listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { note? }.\n  Out: { op: 'ask', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:assignWarband: Put one of my warbands in my seat here; recheck moves it to this campaign's rules first.\n  Who: the seat holder, until the campaign ends.\n  In: form { warbandId, recheck? }.\n  Out: { op: 'assignWarband', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not mine, 404 not_found no seat, 409 conflict in another campaign, other rules, refused or campaign ended.\naction:clearWarband: Take my warband out of my seat here; the seat stays mine.\n  Who: the seat holder, until the campaign ends.\n  In: form { }.\n  Out: { op: 'clearWarband', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:leave: Leave my seat in this campaign; the seat stays, empty.\n  Who: the seat holder, while the campaign is mustering.\n  In: form { } (the campaign from the path).\n  Out: { op: 'leave', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.\naction:transfer: Hand this campaign's CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.\n  Who: Owners, member or not (decision 7).\n  In: form { userId } (a co-CM, or the Owner's own id).\n  Out: { op: 'transfer', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.\naction:withdraw: Withdraw my open request to join this campaign.\n  Who: the person who asked.\n  In: form { }.\n  Out: { op: 'withdraw', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no open request.",
+   "description": "actions: ask, assignWarband, clearWarband, leave, withdraw\naction:ask: Ask to join this listed campaign, with an optional note for the CM.\n  Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.\n  In: form { note? }.\n  Out: { op: 'ask', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not listed, 404 not_found, 409 conflict a request is already open, already holds a seat or not mustering.\naction:assignWarband: Put one of my warbands in my seat here; recheck moves it to this campaign's rules first.\n  Who: the seat holder, until the campaign ends.\n  In: form { warbandId, recheck? }.\n  Out: { op: 'assignWarband', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not mine, 404 not_found no seat, 409 conflict in another campaign, other rules, refused or campaign ended.\naction:clearWarband: Take my warband out of my seat here; the seat stays mine.\n  Who: the seat holder, until the campaign ends.\n  In: form { }.\n  Out: { op: 'clearWarband', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat, 409 conflict campaign ended.\naction:leave: Leave my seat in this campaign; the seat stays, empty.\n  Who: the seat holder, while the campaign is mustering.\n  In: form { } (the campaign from the path).\n  Out: { op: 'leave', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.\naction:withdraw: Withdraw my open request to join this campaign.\n  Who: the person who asked.\n  In: form { }.\n  Out: { op: 'withdraw', done: true }.\n  Errors: 401 unauthenticated, 404 not_found no open request.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/campaigns/[id]/+page.server.ts",
@@ -170,7 +170,7 @@
    "id": "fl.app.web.areas.route_app_campaigns_id_manage",
    "kind": "page",
    "title": "/campaigns/[id]/manage",
-   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.\n  Who: the CM.\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: form { }.\n  Out: { op: 'revokeAll', withdrawn }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), rulesSet, allowBeyondLimits, homebrewSets (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.\n  Who: the CM, or an Owner.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.",
+   "description": "actions: addCoCm, addSeats, approve, assign, decline, free, link, links, remove, removeCoCm, removeSeat, rename, revoke, revokeAll, settings, stage, transfer\naction:addCoCm: Add a co-CM: an active Admin or Owner.\n  Who: the CM.\n  In: form { userId }.\n  Out: { op: 'addCoCm', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not an Admin or Owner.\naction:addSeats: Add empty seats, named on after the last one.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form seatCount { count }.\n  Out: { op: 'addSeats', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict 30 seats at most.\naction:approve: Approve a request to join into an empty seat.\n  Who: the CM and co-CMs.\n  In: form { id (the request), seatId }.\n  Out: { op: 'approve', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or request already decided.\naction:assign: Fill an empty seat with an existing account, picked by name.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { userId, seatId }.\n  Out: { op: 'assign', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or already holds a seat.\naction:decline: Decline a request to join.\n  Who: the CM and co-CMs.\n  In: form { id (the request) }.\n  Out: { op: 'decline', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict request already decided.\naction:free: Free a seat: its player leaves the campaign; the seat stays, empty.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version }.\n  Out: { op: 'free', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:link: Make a lasting link for an empty seat (until someone takes it or it is withdrawn); it revokes the seat's old link.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { id }.\n  Out: { op: 'link', id, link: { seatId, seatName, url, expiresAt } }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken or joining closed.\naction:links: Make links for every empty seat at once; their old links are revoked. Each is copied later from its seat card.\n  Who: the CM and co-CMs, while the campaign is mustering.\n  In: form { }.\n  Out: { op: 'links', links: { seatId, seatName, url, expiresAt }[] }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.\naction:remove: Delete the campaign for everyone; the CM or the Owner can restore it within 30 days.\n  Who: the CM, or the site Owner (from Settings → Campaign ownership).\n  In: form { }.\n  Out: 303 to /campaigns?view=deleted.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeCoCm: Remove a co-CM; they keep their seat if they hold one.\n  Who: the CM.\n  In: form { id (the co-CM's user id) }.\n  Out: { op: 'removeCoCm', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:removeSeat: Remove an empty seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id }.\n  Out: { op: 'removeSeat', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict seat taken.\naction:rename: Rename a seat.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form { id, version, name }.\n  Out: { op: 'rename', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile.\naction:revoke: Revoke a seat's open link; it stops working.\n  Who: the CM and co-CMs.\n  In: form { id }.\n  Out: { op: 'revoke', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found.\naction:revokeAll: Withdraw every open seat link of the campaign at once; they stop working.\n  Who: the CM and co-CMs.\n  In: form { }.\n  Out: { op: 'revokeAll', withdrawn }.\n  Errors: 401 unauthenticated, 403 forbidden, 404 not_found.\naction:settings: Save the campaign's settings and house rules, with a version check.\n  Who: the CM and co-CMs, until the campaign ends.\n  In: form campaignPatch { name, description, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules (JSON), rulesSet, allowBeyondLimits, homebrewSets (JSON), version }.\n  Out: { op: 'settings', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.\naction:stage: Move the campaign to another stage: start it, end it, or take it back to mustering.\n  Who: the CM and co-CMs.\n  In: form stageMove { to }.\n  Out: { op: 'stage', done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.\naction:transfer: Hand the CM role to a co-CM (or, for the site Owner, take it); the old CM becomes a co-CM.\n  Who: the CM, or the site Owner (from Settings → Campaign ownership).\n  In: form { id (a co-CM's user id, or the site Owner's own) }.\n  Out: { op: 'transfer', id, done: true }.\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/campaigns/[id]/manage/+page.server.ts",
@@ -244,7 +244,7 @@
    "id": "fl.app.web.areas.route_app_owner",
    "kind": "page",
    "title": "/owner",
-   "description": "actions: anonymise, disable, enable, reset, role\naction:anonymise: Anonymise a disabled account: its display name becomes \"Former member\".\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'anonymise', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict not disabled or stale version.\naction:disable: Disable an account: it is signed out everywhere and cannot sign in; its history stays.\n  Who: owners (never their own account or the last owner).\n  In: form { id, version }.\n  Out: { op: 'disable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner, self or stale version.\naction:enable: Enable a disabled account again.\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'enable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:reset: Reset a password to a temporary one, shown once, to be changed at the next sign-in.\n  Who: owners.\n  In: form { id, version }.\n  Out: { op: 'reset', id, done: true, temporary }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:role: Change a person's role; the last owner can never be demoted.\n  Who: owners.\n  In: form { id, version, role }.\n  Out: { op: 'role', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner or stale version.",
+   "description": "actions: anonymise, disable, enable, reset, role, transfer\naction:anonymise: Anonymise a disabled account: its display name becomes \"Former member\".\n  Who: the Owner (never the Owner's own account).\n  In: form { id, version }.\n  Out: { op: 'anonymise', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the Owner, not disabled or stale version.\naction:disable: Disable an account: it is signed out everywhere and cannot sign in; its history stays.\n  Who: the Owner (never the Owner's own account).\n  In: form { id, version }.\n  Out: { op: 'disable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the Owner, CM of a campaign or stale version.\naction:enable: Enable a disabled account again.\n  Who: the Owner.\n  In: form { id, version }.\n  Out: { op: 'enable', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:reset: Reset a password to a temporary one, shown once, to be changed at the next sign-in.\n  Who: the Owner.\n  In: form { id, version }.\n  Out: { op: 'reset', id, done: true, temporary }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.\naction:role: Change a person's role to Admin or User; the Owner's role changes only by transfer.\n  Who: the Owner.\n  In: form { id, version, role: admin | user }.\n  Out: { op: 'role', id, done: true }.\n  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the target is the Owner or stale version.\naction:transfer: Hand ownership to another active account; you become an Admin (\"Campaign Master\").\n  Who: the Owner, with their password.\n  In: form ownerTransferInput { to, password, version (the target's row version) }.\n  Out: 303 to /admin, which names the new Owner once.\n  Errors: 400 invalid wrong password (fields.password), 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict target disabled, anonymised, yourself or stale version, 429 rate_limited.",
    "tags": [],
    "code": [
     "app/src/routes/(app)/owner/+layout.server.ts",
@@ -791,7 +791,7 @@
    "id": "fl.app.web.api.route_api_v1_campaigns_id",
    "kind": "endpoint",
    "title": "/api/v1/campaigns/[id]",
-   "description": "DELETE GET PATCH\nDELETE: Delete a campaign (soft): hidden at once, restorable for 30 days.\n  Who: the CM.\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found.\nGET: One campaign, with an ETag of its version.\n  Who: its CM, co-CMs and players; anyone signed in if it is listed; while deleted, its CM and Owners.\n  In: path id.\n  Out: 200 { campaign, myRole, seatsTaken }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found unknown or not visible.\nPATCH: Change the settings and house rules; the type cannot change.\n  Who: the CM and co-CMs.\n  In: path id; { name, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules?, version }\n  Out: 200 Campaign\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM or other site, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.",
+   "description": "DELETE GET PATCH\nDELETE: Delete a campaign (soft): hidden at once, restorable for 30 days.\n  Who: the CM, or the site Owner (decision 81).\n  In: path id.\n  Out: 204\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or the Owner, or other site, 404 not_found.\nGET: One campaign, with an ETag of its version.\n  Who: its CM, co-CMs and players; anyone signed in if it is listed; while deleted, its CM and Owners.\n  In: path id.\n  Out: 200 { campaign, myRole, seatsTaken }\n  Errors: 400 invalid, 401 unauthenticated, 404 not_found unknown or not visible.\nPATCH: Change the settings and house rules; the type cannot change.\n  Who: the CM and co-CMs.\n  In: path id; { name, description?, gamesPerPlayer?, startsOn?, endsOn?, visibility, houseRules?, version }\n  Out: 200 Campaign\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not CM or co-CM or other site, 404 not_found, 409 conflict changed meanwhile, name taken or campaign ended.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/campaigns/[id]/+server.ts"
@@ -1278,6 +1278,20 @@
    "parent": "fl.app.web.api"
   },
   {
+   "id": "fl.app.web.api.route_api_v1_owner_transfer",
+   "kind": "endpoint",
+   "title": "/api/v1/owner/transfer",
+   "description": "POST\nPOST: Hand ownership to another active account; the Owner becomes an Admin (decision 80).\n  Who: the Owner.\n  In: { to, password, version } (version: the target account's row version).\n  Out: 200 { from: Person, to: Person }\n  Errors: 400 invalid bad shape or wrong password (fields.password), 401 unauthenticated, 403 forbidden not the Owner or other site, 404 not_found unknown account, 409 conflict target disabled, anonymised, yourself or stale version, 429 rate_limited.",
+   "tags": [],
+   "code": [
+    "app/src/routes/api/v1/owner/transfer/+server.ts"
+   ],
+   "tables": [],
+   "services": [],
+   "generated": true,
+   "parent": "fl.app.web.api"
+  },
+  {
    "id": "fl.app.web.api.route_api_v1_rules_diff",
    "kind": "endpoint",
    "title": "/api/v1/rules/diff",
@@ -1421,7 +1435,7 @@
    "id": "fl.app.web.api.route_api_v1_users_id",
    "kind": "endpoint",
    "title": "/api/v1/users/[id]",
-   "description": "PATCH\nPATCH: Change an account's role and/or disable or enable it.\n  Who: owners.\n  In: path id; { role?, disabled?, version }\n  Out: 200 Person\n  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version, last owner or own account.",
+   "description": "PATCH\nPATCH: Change an account's role (admin or user) and/or disable or enable it; never the Owner's (decision 80).\n  Who: the Owner.\n  In: path id; { role?: admin | user, disabled?, version }\n  Out: 200 Person\n  Errors: 400 invalid (a role of owner is refused), 401 unauthenticated, 403 forbidden not the Owner or other site, 404 not_found, 409 conflict the target is the Owner, own account or stale version.",
    "tags": [],
    "code": [
     "app/src/routes/api/v1/users/[id]/+server.ts"
@@ -2074,7 +2088,7 @@
    "id": "owner",
    "kind": "actor",
    "title": "Owner",
-   "description": "Runs the copy for the group: invites admins and users, changes roles, disables accounts, resets passwords, keeps backups.",
+   "description": "Runs the copy for the group; there is exactly one: invites admins and users, changes roles between Admin and User, hands ownership on, disables accounts, resets passwords, keeps backups, and may delete any campaign or hand over its CM role.",
    "tags": [],
    "code": [],
    "tables": [],
@@ -2373,7 +2387,7 @@
    "id": "fl.app.services.peopleService",
    "kind": "module",
    "title": "People",
-   "description": "Lists accounts by role, changes roles (last owner kept), disables, resets and anonymises accounts, display names.",
+   "description": "Lists accounts by role, changes roles between Admin and User (never the Owner), hands ownership on (one Owner, transfer only, with the password), disables, resets and anonymises accounts, display names.",
    "tags": [
     "server-only"
    ],
@@ -2405,7 +2419,7 @@
    "id": "fl.app.services.auditService",
    "kind": "module",
    "title": "Audit log",
-   "description": "Records sign-ins, invites, role changes, disables and resets; the owner reads it.",
+   "description": "Records sign-ins, invites, role changes, ownership transfers, disables and resets; the Owner reads it.",
    "tags": [
     "server-only"
    ],
@@ -2421,7 +2435,7 @@
    "id": "fl.app.services.campaignService",
    "kind": "module",
    "title": "Campaigns",
-   "description": "Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or an Owner, who may also take it). Owners can read any campaign; seeing gives no rights.",
+   "description": "Create a campaign (campaign, CM row and seats in one transaction), list yours and the listed ones, settings with a version check (house rules from the preset catalogue or written by the CM, with typed values per preset), soft delete (the CM or the Owner) and restore within 30 days, stage moves by the state machine, co-CMs and handing over the CM role (the CM, or the Owner, who may also take it). The Owner can read any campaign and open its Manage page (Settings, read-only); seeing gives no other rights.",
    "tags": [
     "server-only"
    ],
@@ -2739,6 +2753,11 @@
   },
   {
    "source": "fl.app.web.api",
+   "target": "fl.app.services.peopleService",
+   "title": ""
+  },
+  {
+   "source": "fl.app.web.api",
    "target": "fl.app.services.rulesService",
    "title": ""
   },
@@ -2750,11 +2769,6 @@
   {
    "source": "fl.app.web.api",
    "target": "fl.app.services.setupService",
-   "title": ""
-  },
-  {
-   "source": "fl.app.web.api",
-   "target": "fl.app.services.peopleService",
    "title": ""
   },
   {
@@ -3268,6 +3282,44 @@
    ]
   },
   {
+   "id": "campaign_manage",
+   "title": "Manage a campaign: Settings and Campaign ownership",
+   "description": "**The CM, or the site Owner, hands the CM role on or deletes the campaign from the bottom of Manage → Settings.**\n\n**Decisions**\n- Manage has four tabs: Seats, Requests, Co-CMs and Settings. There is no Danger tab (decision 81).\n- Settings ends with a \"Campaign ownership\" section (Transfer CM and Delete campaign, both confirmed in place),\n  shown to this campaign's CM and the site Owner only (the manage_ownership right); co-CMs never see it. It\n  shows on ended campaigns too.\n- Transfer CM offers the co-CMs, plus \"Me\" for a site Owner who is not the CM; the old CM becomes a co-CM.\n  It posts to the existing ?/transfer action. The Co-CMs tab keeps the list, removing and adding co-CMs, but\n  no longer hands the role over, and the campaign page has no \"Hand over\" section.\n- The site Owner may delete any campaign (delete right) and open Manage of a campaign they do not run: they\n  see the Settings tab only, read-only, with the ownership section active. A site Owner who is a co-CM gets\n  the co-CM page plus the section.\n- The services stay the authority (campaigns.transfer needs transfer, campaigns.remove needs delete); the page\n  only hides what someone cannot do.",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "admin",
+     "to": "fl.app.web.areas",
+     "label": "Manage → Settings → Campaign ownership: Transfer CM or Delete campaign"
+    },
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "Manage of a campaign they do not run: Settings only, read-only, the same section"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.campaignService",
+     "label": "transfer (?/transfer) or remove (?/remove)"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.repos",
+     "label": "lock; need transfer or delete; old CM to co-CM, or deleted_at"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.campaignTables",
+     "label": "members, campaigns"
+    },
+    {
+     "from": "fl.app.services.campaignService",
+     "to": "fl.app.services.auditService",
+     "label": "record campaign.cm_transferred or campaign.deleted"
+    }
+   ]
+  },
+  {
    "id": "compendium",
    "title": "Compendium",
    "description": "**Anyone signed in reads the rules by version: sections like the Trench Companion compendium, a page per element with every link in and out, keyword pop-ups and a neighbourhood graph.**\n\n**Decisions**\n- Sections: Core Rules, Warbands, Comprehensive Rules, Battlekit (by category, search and filters), Campaigns,\n  Scenarios, Errata & FAQ (what changed between two versions, from comparing the folders).\n- The graph shows an element's neighbours to depth 2 (d3-force); clicking a node opens its page.\n- Homebrew sets appear like any other set, marked Homebrew, to those who can see them.",
@@ -3611,13 +3663,13 @@
   {
    "id": "managing_people",
    "title": "Managing people",
-   "description": "**The owner keeps the group's accounts in order without email.**\n\n**Decisions**\n- Owners see every account; admins see the users they invited.\n- Changing a role or disabling an account never removes the last owner.\n- Disabling ends every session at once; history stays.\n- A password reset sets a readable temporary password that must be changed at the next sign-in.\n- A disabled account can be anonymised: its display name becomes \"Former member\".\n- Every change is written to the audit log in the same transaction.",
+   "description": "**The Owner keeps the group's accounts in order without email.**\n\n**Decisions**\n- The Owner sees every account; admins see the users they invited.\n- A copy has exactly one Owner (decision 80): a partial unique index on auth.users refuses a second one. The\n  role list offers only Admin and User (\"Campaign Master\" and \"Player\"); the Owner's row has no role list, no\n  Disable and no Anonymise, and changing, disabling or anonymising the Owner is refused (409). Ownership moves\n  only by Transfer ownership (owner_transfer).\n- Disabling ends every session at once; history stays.\n- A password reset sets a readable temporary password that must be changed at the next sign-in.\n- A disabled account can be anonymised: its display name becomes \"Former member\".\n- Every change is written to the audit log in the same transaction.",
    "dynamic": true,
    "steps": [
     {
      "from": "owner",
      "to": "fl.app.web.areas",
-     "label": "change role, disable, reset, anonymise"
+     "label": "change role (Admin or User), disable, reset, anonymise"
     },
     {
      "from": "fl.app.web.areas",
@@ -3627,7 +3679,7 @@
     {
      "from": "fl.app.services.peopleService",
      "to": "fl.app.repos",
-     "label": "update user (version checked)"
+     "label": "update user (version checked); never the Owner"
     },
     {
      "from": "fl.app.services.peopleService",
@@ -3638,6 +3690,49 @@
      "from": "fl.app.services.peopleService",
      "to": "fl.app.services.auditService",
      "label": "record change"
+    }
+   ]
+  },
+  {
+   "id": "owner_transfer",
+   "title": "Transfer ownership",
+   "description": "**The Owner hands the copy to another person; there is only ever one Owner, and the old one becomes an Admin.**\n\n**Decisions**\n- Owner → People has a Transfer ownership panel, for the Owner only: pick an active account other than\n  yours, type your password, then confirm in place; the confirm names both people (\"<name> becomes the\n  Owner. You become a Campaign Master.\"). POST /api/v1/owner/transfer takes the same { to, password, version }.\n- The password is checked like changing your own (verifyPassword); a wrong one is a field error on password\n  and counts towards the sign-in limit (signInLimiter), which answers 429 when it is reached.\n- The target must be another account, active (not disabled, not anonymised), at the row version the form\n  showed; otherwise 409. A non-Owner gets 403, an unknown account 404.\n- One transaction locks both rows, makes the Owner an Admin first and then the target the Owner, so\n  users_one_owner holds at every moment; it records owner.transferred { from, to }.\n- Nobody is signed out: the role is read on every request. The old Owner lands on /admin with a note naming\n  the new Owner. The new Owner can hand it on; the recovery script stays the way back in.\n- Upgrading a copy with several Owners keeps the oldest active one and makes the others Admins, audited as\n  role.changed with reason single_owner (migration 0012).",
+   "dynamic": true,
+   "steps": [
+    {
+     "from": "owner",
+     "to": "fl.app.web.areas",
+     "label": "Owner → People: Transfer ownership (new Owner, password, confirm in place)"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "fl.app.services.peopleService",
+     "label": "transferOwnership { to, password, version }"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.services.authService",
+     "label": "sign-in limiter, verify the password"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.repos",
+     "label": "lock both rows; the Owner to admin, then the target to owner"
+    },
+    {
+     "from": "fl.app.repos",
+     "to": "fl.app.authTables",
+     "label": "users_one_owner: never two Owners"
+    },
+    {
+     "from": "fl.app.services.peopleService",
+     "to": "fl.app.services.auditService",
+     "label": "record owner.transferred"
+    },
+    {
+     "from": "fl.app.web.areas",
+     "to": "owner",
+     "label": "303 to /admin with the note"
     }
    ]
   },

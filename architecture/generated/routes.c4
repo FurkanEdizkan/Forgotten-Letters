@@ -100,7 +100,7 @@ action:withdraw: Withdraw my open request to join a campaign.
       }
     }
     route_app_campaigns_id = page '/campaigns/[id]' {
-      description 'actions: ask, assignWarband, clearWarband, leave, transfer, withdraw
+      description 'actions: ask, assignWarband, clearWarband, leave, withdraw
 action:ask: Ask to join this listed campaign, with an optional note for the CM.
   Who: anyone signed in, not seated in it, while it is listed and mustering; one open request per person.
   In: form { note? }.
@@ -121,11 +121,6 @@ action:leave: Leave my seat in this campaign; the seat stays, empty.
   In: form { } (the campaign from the path).
   Out: { op: \'leave\', done: true }.
   Errors: 401 unauthenticated, 404 not_found no seat of mine, 409 conflict not mustering.
-action:transfer: Hand this campaign\'s CM role to one of its co-CMs, or take it yourself; the old CM becomes a co-CM.
-  Who: Owners, member or not (decision 7).
-  In: form { userId } (a co-CM, or the Owner\'s own id).
-  Out: { op: \'transfer\', done: true }.
-  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.
 action:withdraw: Withdraw my open request to join this campaign.
   Who: the person who asked.
   In: form { }.
@@ -179,8 +174,8 @@ action:links: Make links for every empty seat at once; their old links are revok
   In: form { }.
   Out: { op: \'links\', links: { seatId, seatName, url, expiresAt }[] }.
   Errors: 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict joining closed.
-action:remove: Delete the campaign for everyone; the CM or an Owner can restore it within 30 days.
-  Who: the CM.
+action:remove: Delete the campaign for everyone; the CM or the Owner can restore it within 30 days.
+  Who: the CM, or the site Owner (from Settings → Campaign ownership).
   In: form { }.
   Out: 303 to /campaigns?view=deleted.
   Errors: 401 unauthenticated, 403 forbidden, 404 not_found.
@@ -219,11 +214,11 @@ action:stage: Move the campaign to another stage: start it, end it, or take it b
   In: form stageMove { to }.
   Out: { op: \'stage\', done: true }.
   Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict stage move not allowed.
-action:transfer: Hand the CM role to a co-CM; the old CM becomes a co-CM.
-  Who: the CM, or an Owner.
-  In: form { id (the co-CM\'s user id) }.
+action:transfer: Hand the CM role to a co-CM (or, for the site Owner, take it); the old CM becomes a co-CM.
+  Who: the CM, or the site Owner (from Settings → Campaign ownership).
+  In: form { id (a co-CM\'s user id, or the site Owner\'s own) }.
   Out: { op: \'transfer\', id, done: true }.
-  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM.'
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict not a co-CM or already the CM.'
       metadata {
         generated 'true'
         route '/campaigns/[id]/manage'
@@ -292,32 +287,37 @@ action:share: Share the set with everyone here, or make it private again.
       }
     }
     route_app_owner = page '/owner' {
-      description 'actions: anonymise, disable, enable, reset, role
+      description 'actions: anonymise, disable, enable, reset, role, transfer
 action:anonymise: Anonymise a disabled account: its display name becomes "Former member".
-  Who: owners.
+  Who: the Owner (never the Owner\'s own account).
   In: form { id, version }.
   Out: { op: \'anonymise\', id, done: true }.
-  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict not disabled or stale version.
+  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the Owner, not disabled or stale version.
 action:disable: Disable an account: it is signed out everywhere and cannot sign in; its history stays.
-  Who: owners (never their own account or the last owner).
+  Who: the Owner (never the Owner\'s own account).
   In: form { id, version }.
   Out: { op: \'disable\', id, done: true }.
-  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner, self or stale version.
+  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the Owner, CM of a campaign or stale version.
 action:enable: Enable a disabled account again.
-  Who: owners.
+  Who: the Owner.
   In: form { id, version }.
   Out: { op: \'enable\', id, done: true }.
   Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.
 action:reset: Reset a password to a temporary one, shown once, to be changed at the next sign-in.
-  Who: owners.
+  Who: the Owner.
   In: form { id, version }.
   Out: { op: \'reset\', id, done: true, temporary }.
   Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict stale version.
-action:role: Change a person\'s role; the last owner can never be demoted.
-  Who: owners.
-  In: form { id, version, role }.
+action:role: Change a person\'s role to Admin or User; the Owner\'s role changes only by transfer.
+  Who: the Owner.
+  In: form { id, version, role: admin | user }.
   Out: { op: \'role\', id, done: true }.
-  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict last owner or stale version.'
+  Errors: 400 invalid, 403 forbidden, 404 not_found, 409 conflict the target is the Owner or stale version.
+action:transfer: Hand ownership to another active account; you become an Admin ("Campaign Master").
+  Who: the Owner, with their password.
+  In: form ownerTransferInput { to, password, version (the target\'s row version) }.
+  Out: 303 to /admin, which names the new Owner once.
+  Errors: 400 invalid wrong password (fields.password), 401 unauthenticated, 403 forbidden, 404 not_found, 409 conflict target disabled, anonymised, yourself or stale version, 429 rate_limited.'
       metadata {
         generated 'true'
         route '/owner'
@@ -834,10 +834,10 @@ POST: Create a campaign with its seats; the caller becomes its CM.
     route_api_v1_campaigns_id = endpoint '/api/v1/campaigns/[id]' {
       description 'DELETE GET PATCH
 DELETE: Delete a campaign (soft): hidden at once, restorable for 30 days.
-  Who: the CM.
+  Who: the CM, or the site Owner (decision 81).
   In: path id.
   Out: 204
-  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or other site, 404 not_found.
+  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not the CM or the Owner, or other site, 404 not_found.
 GET: One campaign, with an ETag of its version.
   Who: its CM, co-CMs and players; anyone signed in if it is listed; while deleted, its CM and Owners.
   In: path id.
@@ -1366,6 +1366,19 @@ GET: The OpenAPI 3.1 document for this API.
         code ['app/src/routes/api/v1/openapi.json/+server.ts']
       }
     }
+    route_api_v1_owner_transfer = endpoint '/api/v1/owner/transfer' {
+      description 'POST
+POST: Hand ownership to another active account; the Owner becomes an Admin (decision 80).
+  Who: the Owner.
+  In: { to, password, version } (version: the target account\'s row version).
+  Out: 200 { from: Person, to: Person }
+  Errors: 400 invalid bad shape or wrong password (fields.password), 401 unauthenticated, 403 forbidden not the Owner or other site, 404 not_found unknown account, 409 conflict target disabled, anonymised, yourself or stale version, 429 rate_limited.'
+      metadata {
+        generated 'true'
+        route '/api/v1/owner/transfer'
+        code ['app/src/routes/api/v1/owner/transfer/+server.ts']
+      }
+    }
     route_api_v1_rules_diff = endpoint '/api/v1/rules/diff' {
       description 'GET
 GET: What changed between two rules versions, by element id: added, removed, and changed with each changed field.
@@ -1508,11 +1521,11 @@ GET: A page of people, oldest first.
     }
     route_api_v1_users_id = endpoint '/api/v1/users/[id]' {
       description 'PATCH
-PATCH: Change an account\'s role and/or disable or enable it.
-  Who: owners.
-  In: path id; { role?, disabled?, version }
+PATCH: Change an account\'s role (admin or user) and/or disable or enable it; never the Owner\'s (decision 80).
+  Who: the Owner.
+  In: path id; { role?: admin | user, disabled?, version }
   Out: 200 Person
-  Errors: 400 invalid, 401 unauthenticated, 403 forbidden not an owner or other site, 404 not_found, 409 conflict stale version, last owner or own account.'
+  Errors: 400 invalid (a role of owner is refused), 401 unauthenticated, 403 forbidden not the Owner or other site, 404 not_found, 409 conflict the target is the Owner, own account or stale version.'
       metadata {
         generated 'true'
         route '/api/v1/users/[id]'
@@ -2996,6 +3009,18 @@ GET: Readiness: the database answers and every migration is applied.
   }
 
   fl.app.web.api.route_api_v1_openapi_json -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_owner_transfer -[imports]-> fl.app.infra {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_owner_transfer -[imports]-> fl.app.services.peopleService {
+    metadata { generated 'true' }
+  }
+
+  fl.app.web.api.route_api_v1_owner_transfer -[imports]-> fl.app.shared {
     metadata { generated 'true' }
   }
 

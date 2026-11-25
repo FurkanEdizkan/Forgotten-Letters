@@ -9,4 +9,5 @@ An unofficial fan project, not affiliated with Factory Fortress.
 - [Port and address](port-and-address.md): which port the app listens on and the address people type.
 - [HTTPS](https.md): running on the internet behind Caddy.
 - [Settings](settings.md): every setting in `.env`.
-- [Backups and updates](backups-and-updates.md): automatic backups, restoring, updating, getting back in.
+- [Backups and updates](backups-and-updates.md): automatic backups, restoring, updating, handing the copy on,
+  getting back in.

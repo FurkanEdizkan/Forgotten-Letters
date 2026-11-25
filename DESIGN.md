@@ -365,7 +365,7 @@ button per area.
 - Errors appear as one inline message at the top of the card (see Messages). Wrong password and unknown username
   give the same sentence.
 - The same card frames the invite page. Sign-in itself now sits on the right half of the first-run split, with the
-  emblem on the left (see §5); setup is the four-step wizard on the same split.
+  emblem on the left (see §5); setup is the three-step wizard on the same split.
 
 ### Skeletons
 

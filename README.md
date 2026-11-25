@@ -8,13 +8,19 @@ Docker Compose, rebuilt step by step.
 You need Docker (Docker Desktop, or Docker Engine with the Compose plugin). Everything the app needs ships in the
 image; it works with no internet connection.
 
-1. Put `compose.yaml`, `Caddyfile` and `.env.example` in a folder and copy `.env.example` to `.env`.
-2. In `.env`, set `POSTGRES_PASSWORD` (for example `openssl rand -base64 24`) and `ORIGIN`, the address people
-   type: `http://<this machine's IP>:3000` on a LAN, `https://<DOMAIN>` with HTTPS.
-3. Start it: `docker compose up -d`.
+1. Put `compose.yaml`, `Caddyfile`, `.env.example` and `start.sh` (`start.ps1` on Windows) in a folder.
+2. Start it: `./start.sh` (Windows: `.\start.ps1`). The first time it makes `.env` from `.env.example` with a new
+   database password. It picks the first free port of 3000 to 3005, writes it into `.env` and runs
+   `docker compose up -d`. If every port is taken it says so and starts nothing; set other ports with `PORTS` in
+   `.env`.
+3. In `.env`, set `ORIGIN` to the address people type: `http://<this machine's IP>:<port>` on a LAN,
+   `https://<DOMAIN>` with HTTPS. Run `./start.sh` again after changing `.env`.
 4. Open the address in a browser. Until an owner exists every page leads to the welcome page: press **Setup** and
-   follow the four steps (owner account, look, server, done). The log also says where: `docker compose logs app |
+   follow the three steps (owner account, look, done). The log also says where: `docker compose logs app |
    grep "Setup is open"`. Whoever opens a fresh install first becomes its owner, so set it up right away.
+
+Plain `docker compose up -d` still works with a fixed `APP_PORT` in `.env` (copy `.env.example` to `.env` and set
+`POSTGRES_PASSWORD` first).
 
 **More:** the port and address, HTTPS, every setting, backups, updates and getting back in are in the guide
 (`guide/`, built with [Zensical](https://zensical.org): `cd guide && uvx zensical@0.0.74 serve`).

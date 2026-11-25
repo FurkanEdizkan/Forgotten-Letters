@@ -1,6 +1,6 @@
 # Forgotten Letters: Architecture
 
-Status: confirmed choices, ready for step 1 · Last updated: 2026-11-01
+Status: confirmed choices, ready for step 1 · Last updated: 2026-11-25
 
 This document explains how the system is built and why. The detailed, always-current picture is the **atlas
 model** in `architecture/` (LikeC4): every container, module, page, API endpoint, table, live event and workflow,
@@ -62,7 +62,7 @@ Versions are the newest stable releases on 2026-10-21. Renovate keeps them curre
 | Framework | SvelteKit | 3.0 | Pages, form actions, JSON API and SSE in one process. File routes that atlas can read. |
 | UI library | Svelte (runes) | 5.57 | Fine-grained reactivity, small bundles. `$state` classes for the warband builder and map scene. |
 | Build tool | Vite | 8.3 | Used by SvelteKit and Vitest with one config. |
-| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ADDRESS_HEADER`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). Started by our small custom server (`app/server/index.js`) around `build/handler.js`, which owns the listeners so the port can move (decision 38). |
+| Server adapter | `@sveltejs/adapter-node` | 6.0 | Plain Node server, configured at runtime (`ADDRESS_HEADER`, `BODY_SIZE_LIMIT`, `SHUTDOWN_TIMEOUT`). Started by our small custom server (`app/server/index.js`) around `build/handler.js`, which picks the first free port of `PORTS` at start (decision 79; it replaced the live port move of decision 38). |
 | Motion | anime.js | 4.5.0 | Timelines for the first-run entrance, the welcome-to-setup hand-off, wizard steps and the shell panel. About 10 KB; skipped under reduced motion (decision 41). |
 | UI primitives | Bits UI, wrapped in `src/lib/ui` | 2.19 | Accessible dialogs, menus, comboboxes and focus traps without a visual style to fight. |
 | Styling | Plain CSS, tokens as custom properties, Svelte scoped styles | | One `tokens.css`. Modern CSS (nesting, container queries, `:has`, `color-mix`). |
@@ -245,7 +245,7 @@ OAuth. Users cannot invite.
 **First owner (setup).** Jellyfin style (decision 36). While no owner exists, setup is open: every page redirects
 to `/welcome`, the API answers 409 except `/api/v1/setup`, and the log says "Setup is open at <address>". The
 wizard posts once to `/setup ?/finish` (or `POST /api/v1/setup`). One transaction locks the `app.settings` row,
-re-checks that no owner exists, creates the owner, saves text size, accent and port, sets `setup_completed_at` and
+re-checks that no owner exists, creates the owner, saves text size and accent, sets `setup_completed_at` and
 starts a session, so two people pressing Finish at once get one owner and one refusal. Once an owner exists the
 guard is off for the life of the process and `/welcome` and `/setup` send people to `/login`. There is no token:
 on a shared network the first visitor to a fresh copy becomes its owner, an accepted risk shown on the review page.
@@ -528,16 +528,23 @@ endpoint has an API test. Tests never use book content.
 
 ## 17. Packaging, deploy, updates and backups
 
-**Install.** Download `compose.yaml` and `.env.example`, copy it to `.env`, set the database password (and
-`ORIGIN` if the copy is reached through a name), run `docker compose up -d`, open the app's address and follow the
-setup wizard. Works on Docker Desktop and plain Docker Engine.
+**Install.** Download `compose.yaml`, `.env.example` and `start.sh` (`start.ps1` on Windows), run `./start.sh`
+(it makes `.env` from `.env.example` with a generated database password the first time), set `ORIGIN` if the copy
+is reached through a name, open the app's address and follow the setup wizard. Plain `docker compose up -d` with a
+fixed `APP_PORT` still works. Works on Docker Desktop and plain Docker Engine.
 
-**Port.** Stored in `app.settings.port`. The custom server (`node server`) puts a small control on `globalThis`;
-`infra/listener.ts` is the only code that touches it. At start the app asks it to listen on the stored port; a
-change from `/owner/settings` opens the new port first, sends the browser there, and closes the old port about
-10 s later. In the Docker image `PORT_LOCKED=1` is set and the app always listens on 3000 inside the container:
-Compose owns the published port (`APP_PORT` in `.env`), so the UI shows it read-only with the line to change. In
-`vite dev` there is no control and the port is locked too.
+**Port** (decision 79, 2026-11-25; replaced the live port move of decision 38). The port is decided at start, never
+in the browser, and is not stored. The custom server (`node server`) tries `PORTS` in order (default
+`3000,3001,3002,3003,3004,3005`; the legacy `PORT` alone if `PORTS` is unset), logs each move ("Port 3000 is in
+use, trying 3001") and exits 1 with one message when all are taken (`app/server/ports.js`). After a fallback a plain
+http `ORIGIN` on a listed port is pointed at the opened port before the app loads. It leaves `{ port, wanted,
+tried }` read-only on `globalThis`; `infra/listener.ts` is the only code that reads it (`currentPort()`,
+`portNote()`). In the Docker image `PORTS=3000` (always free inside the container) and `APP_IN_DOCKER=1`; the host
+script `start.sh` / `start.ps1` checks the ports on the host (`ss`, `lsof`, `nc`; `Get-NetTCPConnection`), keeps
+the port this project's own container already publishes (`docker compose port app 3000`), otherwise writes the
+first free one into `APP_PORT` (keeping a bind address) and an http `ORIGIN` on the old port, then runs
+`docker compose up -d` and waits for `/health/ready`. Owner → Settings shows the address (`ORIGIN`, otherwise the
+Host header) and its port read-only, with a note after a fallback outside Docker.
 
 **HTTPS.** `docker compose --profile https up -d` with `DOMAIN` set. Caddy gets a Let's Encrypt certificate, or uses
 internal certificates for LAN names.
@@ -714,8 +721,8 @@ compose.dev.yaml           db only, for development
 | 34 | E2e runs the production build on a throwaway Testcontainers Postgres (`app/e2e/server.js`); each test acts from its own `X-Forwarded-For` address | Never touches development data; per-address rate limits stay per test | 2026-10-21 |
 | 35 | Atlas leaves tests and test helpers out of the import graph (`!` patterns in `atlas.config.json`) | Test-only imports are not architecture | 2026-10-21 |
 | 36 | Setup is open in the browser while no owner exists (Jellyfin style); no token. Options weighed: the log link (decision 8), a code printed in the log and typed into the wizard, open setup. | Non-technical groups and future installer and desktop installs cannot be asked to read server logs. Risk: on a shared network the first visitor owns a fresh copy; the setup transaction still makes exactly one owner | 2026-10-27 |
-| 37 | Copy-wide settings in one row of `app.settings` (text size 90–130 % in steps of 5, accent, port, `setup_completed_at`), checked by database constraints; `auth.setup_tokens` dropped (irreversible, held only short-lived tokens) | One place every page reads; constraints keep bad values out whatever writes them | 2026-10-27 |
-| 38 | A small custom server around adapter-node's `build/handler.js` owns the listeners, so the port can change from the UI; locked (`PORT_LOCKED=1`) in Docker. Options weighed: env only, restart on change, host networking in Docker. | Groups without Docker (installer, direct app) still need to change the port without a terminal. In Docker, Compose sets the published port, so the UI shows the `.env` change instead | 2026-10-27 |
+| 37 | Copy-wide settings in one row of `app.settings` (text size 90–130 % in steps of 5, accent, ~~port~~, `setup_completed_at`), checked by database constraints; `auth.setup_tokens` dropped (irreversible, held only short-lived tokens). **Amended by 79 (2026-11-25):** the port column and its check are dropped (migration 0011) | One place every page reads; constraints keep bad values out whatever writes them | 2026-10-27 |
+| 38 | **Superseded by 79 (2026-11-25).** ~~A small custom server around adapter-node's `build/handler.js` owns the listeners, so the port can change from the UI; locked (`PORT_LOCKED=1`) in Docker. Options weighed: env only, restart on change, host networking in Docker.~~ | Groups without Docker (installer, direct app) still need to change the port without a terminal. In Docker, Compose sets the published port, so the UI shows the `.env` change instead | 2026-10-27 |
 | 39 | Accent presets (blood, brass, verdigris, bruise, ash) replace the One Red Rule with "one accent, chosen at setup"; each preset is contrast-tested in a unit test | The group chooses its look without breaking contrast; status and resource colours stay fixed | 2026-10-27 |
 | 40 | Glass buttons and rounded wizard controls on the first-run pages, the top bar and the user menu only (DESIGN §6 exceptions) | The pages people see first get the polish; work surfaces keep flat square controls that read well over tables and the map and cost no blur | 2026-10-27 |
 | 41 | anime.js 4.5.0 for the first-run motion and the shell panel; content visible without it; off under reduced motion. The emblem is a flat SVG (its ring turns with CSS); three.js and 3D were tried on the review page and dropped | A small timeline tool for a few sequenced moves; SVG is light on weak laptops | 2026-10-27 |
@@ -757,5 +764,6 @@ compose.dev.yaml           db only, for development
 | 76 | Rules cards over the builder and play mode (2026-11-03, asked in chat): links to items, units, factions and keywords open a card (`lib/ui/rules/RulesPeek.svelte`, `use:peek` from `peek.svelte.ts`) instead of the docs page: resting 0.5 s shows it, a click keeps it until Esc, × or a click elsewhere; ctrl/middle-click still follows the link. Data from `GET /api/v1/rules/node` (depth 1), cached per element; keywords from the page's rules view. A top-layer popover, moved inside an open modal dialog (which makes everything outside it inert). "Read in the docs" opens a new tab. The compendium mounts no host, so its links still navigate | Click only (calmer, one more click each time); docs in the same tab. A keyword's "from" note (dashed chips) is not on the card | 2026-11-03 |
 | 77 | Trench Companion Preview rules (2026-11-03, asked in chat): TC's Preview is newer than the 1.0.2 books, so it becomes a git-ignored expansion `rules/tc-preview` (on carcass-front-1.0) built by `app/scripts/tc-preview.ts` from TC's own Official → Preview changes laid over our books' data (TC's naming and modelling cancel out). Inputs `docs/tc/*.json` are saved from the user's TC tab with their approval. Elements replace base ones by id, as `src/lib/rules/merge.ts` allows; `scripts/rules-check.ts --allow-replace` checks such a folder. Not imported: skills, Patrons, faction rule text of existing factions, TC's buying restrictions (listed in `rules/_build-log-tc-preview.txt`) | A full core copy of 1.0.2 with Preview applied (would become the default core); numbers only, without text | 2026-11-03 |
 | 78 | A warband's rules version (2026-11-03, asked in chat): every warband and campaign carries `rules: { text, preview }` ("1.0.1", "1.0.2 (Carcass Front)", "1.0.2 (Preview)", `lib/rules/label.ts`), shown as a `RulesTag` chip on list cards, the builder and campaign rosters; a manifest may set `preview: true` (stored in `rules.sets.preview`, migration 0010) for a set that is not an official release. Creation offers every expansion whose chain reaches a core. The owner may switch a warband's rules outside a campaign (`PUT /api/v1/warbands/{id}/rules`, form action `rules`, audit `warband.rules`): fighters and kit stay, what the new rules lack shows as problems | Switching only before the first game; only at creation | 2026-11-03 |
+| 79 | Port fallback (revision of step 1.5, review page "Port fallback", approved 2026-11-25; supersedes 38). The port is decided at start, never in the browser: the custom server tries `PORTS` in order (default 3000–3005; the list is a setting), logs each move and exits 1 with one message when all are taken; after a fallback an http `ORIGIN` with an explicit listed port follows the opened port (https or portless `ORIGIN` untouched). With Docker the host script `./start.sh` (POSIX sh) / `start.ps1` does the check on the host, writes `APP_PORT` and an http `ORIGIN` into `.env` (only those lines change; nothing from `.env` is printed) and runs `docker compose up -d`; inside the image `PORTS=3000` and `APP_IN_DOCKER=1` (replaces `PORT_LOCKED`). d1: `app.settings.port` and `settings_port_range` dropped (migration 0011, irreversible, the value meant nothing after this change). d2: with no `.env` the script makes one from `.env.example` with a generated `POSTGRES_PASSWORD` (openssl, else `/dev/urandom`; PowerShell `RandomNumberGenerator`), never printed. d3: a saved `APP_PORT` taken by another program on a later start moves to the next free port with a warning that links changed; the port this project's own running container publishes is kept. The setup wizard is Owner → Look → Done; Owner → Settings shows the address and its port read-only, with "Port 3000 was in use, so the app uses 3001" after a fallback outside Docker. Breaking API change: `GET /api/v1/settings` gives `{ textScale, accent, port, address, portNote }` (no `portLocked`; `port` is the shown address's port), `PATCH` is strict and refuses `port` (400), the 202 `moveTo` and setup's `moveTo` are gone. Options weighed: keep the live move with a fallback on top; stop with a warning instead of moving (d3); keep the column unused (d1) | When the host port is taken, `docker compose up` fails before the app starts, so no setting inside the app can help; the check has to happen before Compose binds the port. A start-time pick is simpler than moving listeners while running, and a group still gets one command | 2026-11-25 |
 
 New decisions are added here with their date; a reversed decision is struck through, not deleted.
